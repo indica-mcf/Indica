@@ -114,6 +114,7 @@ class ThomsonScattering(DiagnosticModel):
 
         return self.bckc
 
+
 def ts_transform_example(nchannels):
     x_positions = np.linspace(0.2, 0.8, nchannels)
     y_positions = np.linspace(0.0, 0.0, nchannels)
@@ -126,6 +127,7 @@ def ts_transform_example(nchannels):
         machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
     )
     return transform
+
 
 def example_run(
     pulse: int = None,

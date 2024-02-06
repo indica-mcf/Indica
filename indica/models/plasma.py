@@ -441,7 +441,6 @@ class Plasma:
             ],
         )
 
-
         self.Lz_tot = CachedCalculation(
             self.calc_lz_tot,
             [
@@ -547,7 +546,9 @@ class Plasma:
         profile_names = set(parameter_prefixes) & set(profile_prefixes)
 
         if "Te_prof" in profile_names:
-            self.electron_temperature.loc[dict(t=self.time_to_calculate)] = self.Te_prof()
+            self.electron_temperature.loc[
+                dict(t=self.time_to_calculate)
+            ] = self.Te_prof()
         if "Ti_prof" in profile_names:
             self.ion_temperature.loc[dict(t=self.time_to_calculate)] = self.Ti_prof()
         if "Ne_prof" in profile_names:
@@ -555,16 +556,26 @@ class Plasma:
         if "Nh_prof" in profile_names:
             self.neutral_density.loc[dict(t=self.time_to_calculate)] = self.Nh_prof()
         if "Vrot_prof" in profile_names:
-            self.electron_temperature.loc[dict(t=self.time_to_calculate)] = self.Ne_prof()
+            self.electron_temperature.loc[
+                dict(t=self.time_to_calculate)
+            ] = self.Ne_prof()
         if "Niz1_prof" in profile_names:
-            self.impurity_density.loc[dict(t=self.time_to_calculate, element=self.impurities[0])] = self.Niz1_prof()
+            self.impurity_density.loc[
+                dict(t=self.time_to_calculate, element=self.impurities[0])
+            ] = self.Niz1_prof()
         else:
-            self.impurity_density.loc[dict(t=self.time_to_calculate, element=self.impurities[0])] = self.Ne_prof() * self.impurity_concentration[0]
+            self.impurity_density.loc[
+                dict(t=self.time_to_calculate, element=self.impurities[0])
+            ] = (self.Ne_prof() * self.impurity_concentration[0])
 
         if "Niz2_prof" in profile_names:
-            self.impurity_density.loc[dict(t=self.time_to_calculate, element=self.impurities[1])] = self.Niz2_prof()
+            self.impurity_density.loc[
+                dict(t=self.time_to_calculate, element=self.impurities[1])
+            ] = self.Niz2_prof()
         else:
-            self.impurity_density.loc[dict(t=self.time_to_calculate, element=self.impurities[1])] = self.Ne_prof() * self.impurity_concentration[1]
+            self.impurity_density.loc[
+                dict(t=self.time_to_calculate, element=self.impurities[1])
+            ] = (self.Ne_prof() * self.impurity_concentration[1])
 
     @property
     def time_to_calculate(self):
@@ -586,7 +597,10 @@ class Plasma:
 
     @property
     def pressure_th(self):
-        self._pressure_th = ph.calc_pressure(self.ion_density, self.ion_temperature).sum("element") + self.pressure_el
+        self._pressure_th = (
+            ph.calc_pressure(self.ion_density, self.ion_temperature).sum("element")
+            + self.pressure_el
+        )
         return self._pressure_th
 
     @property
@@ -668,7 +682,7 @@ class Plasma:
         # return self.calc_zeff()
 
     def calc_zeff(self):
-        self._zeff = self.ion_density * self.meanz ** 2 / self.electron_density
+        self._zeff = self.ion_density * self.meanz**2 / self.electron_density
         return self._zeff
 
     @property
@@ -683,10 +697,13 @@ class Plasma:
                 element=elem
             ).values
 
-        main_ion_density = self.electron_density - self.fast_density * meanz.sel(element=self.main_ion) \
-                           - (self.impurity_density * meanz).sum("element")
+        main_ion_density = (
+            self.electron_density
+            - self.fast_density * meanz.sel(element=self.main_ion)
+            - (self.impurity_density * meanz).sum("element")
+        )
 
-        self._ion_density.loc[dict(element=self.main_ion)] =  main_ion_density
+        self._ion_density.loc[dict(element=self.main_ion)] = main_ion_density
         return self._ion_density
 
     @property

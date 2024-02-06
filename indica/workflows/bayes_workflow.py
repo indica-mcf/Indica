@@ -1,21 +1,27 @@
-from typing import Any, List, Tuple, Callable
-from typing import Dict
 from abc import ABC
 from abc import abstractmethod
-from dataclasses import dataclass, field
-from functools import partial
 from copy import deepcopy
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Tuple
 
 import emcee
 import flatdict
 import numpy as np
-from scipy.stats import loguniform, describe
-import xarray as xr
 import pandas as pd
+from scipy.stats import describe
+from scipy.stats import loguniform
 from sklearn.gaussian_process import kernels
+import xarray as xr
 
-from indica.bayesblackbox import BayesBlackBox, ln_prior
+from indica.bayesblackbox import BayesBlackBox
 from indica.bayesblackbox import get_uniform
+from indica.bayesblackbox import ln_prior
+from indica.equilibrium import Equilibrium
+from indica.equilibrium import fake_equilibrium
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.charge_exchange import pi_transform_example
 from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
@@ -23,17 +29,17 @@ from indica.models.helike_spectroscopy import helike_transform_example
 from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
 from indica.models.interferometry import smmh1_transform_example
+from indica.models.plasma import Plasma
 from indica.models.thomson_scattering import ThomsonScattering
 from indica.models.thomson_scattering import ts_transform_example
-from indica.models.plasma import Plasma
-from indica.operators.gpr_fit import post_process_ts, gpr_fit_ts
+from indica.operators.gpr_fit import gpr_fit_ts
+from indica.operators.gpr_fit import post_process_ts
+from indica.readers.read_st40 import ReadST40
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
-from indica.writers.bda_tree import create_nodes, does_tree_exist
+from indica.writers.bda_tree import create_nodes
+from indica.writers.bda_tree import does_tree_exist
 from indica.writers.bda_tree import write_nodes
-from indica.equilibrium import Equilibrium
-from indica.equilibrium import fake_equilibrium
-from indica.readers.read_st40 import ReadST40
 
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
@@ -43,21 +49,18 @@ DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.wped": 3,
     "Ne_prof.wcenter": 0.3,
     "Ne_prof.peaking": 1.2,
-
     # "Niz1_prof.y0": 1e17,
     # "Niz1_prof.y1": 1e15,
     # "Niz1_prof.yend": 1e15,
     # "Niz1_prof.wcenter": 0.3,
     # "Niz1_prof.wped": 3,
     # "Niz1_prof.peaking": 2,
-
     "Te_prof.y0": 3000,
     "Te_prof.y1": 50,
     "Te_prof.yend": 10,
     "Te_prof.wcenter": 0.2,
     "Te_prof.wped": 3,
     "Te_prof.peaking": 1.5,
-
     "Ti_prof.y0": 6000,
     "Ti_prof.y1": 50,
     "Ti_prof.yend": 10,
@@ -85,7 +88,6 @@ DEFAULT_PRIORS = {
     "Niz1_prof.peaking/Ne_prof.peaking": lambda x1, x2: np.where(
         (x1 > x2), 1, 0
     ),  # impurity always more peaked
-
     "Te_prof.y0": get_uniform(1000, 5000),
     "Te_prof.wped": get_uniform(1, 6),
     "Te_prof.wcenter": get_uniform(0.2, 0.4),
@@ -173,17 +175,25 @@ FAST_OPT_PARAMS = [
 ]
 
 
-def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample=10, stopping_factor=0.01, debug=False):
+def sample_with_moments(
+    sampler,
+    start_points,
+    iterations,
+    n_params,
+    auto_sample=10,
+    stopping_factor=0.01,
+    debug=False,
+):
     # TODO: Compare old_chain to new_chain: if moments are different then keep going / convergence diagnostics here
 
     autocorr = np.ones(shape=(iterations, n_params)) * np.nan
     old_mean = np.inf
     success_flag = False  # requires succeeding check twice in a row
     for sample in sampler.sample(
-            start_points,
-            iterations=iterations,
-            progress=True,
-            skip_initial_state_check=False,
+        start_points,
+        iterations=iterations,
+        progress=True,
+        skip_initial_state_check=False,
     ):
         if sampler.iteration % auto_sample:
             continue
@@ -210,19 +220,25 @@ def sample_with_moments(sampler, start_points, iterations, n_params, auto_sample
         old_mean = new_mean
 
     autocorr = autocorr[
-               : sampler.iteration,
-               ]
+        : sampler.iteration,
+    ]
     return autocorr
 
 
-def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sample=5, ):
+def sample_with_autocorr(
+    sampler,
+    start_points,
+    iterations,
+    n_params,
+    auto_sample=5,
+):
     autocorr = np.ones(shape=(iterations, n_params)) * np.nan
     old_tau = np.inf
     for sample in sampler.sample(
-            start_points,
-            iterations=iterations,
-            progress=True,
-            skip_initial_state_check=False,
+        start_points,
+        iterations=iterations,
+        progress=True,
+        skip_initial_state_check=False,
     ):
         if sampler.iteration % auto_sample:
             continue
@@ -236,8 +252,8 @@ def sample_with_autocorr(sampler, start_points, iterations, n_params, auto_sampl
             break
         old_tau = new_tau
     autocorr = autocorr[
-               : sampler.iteration,
-               ]
+        : sampler.iteration,
+    ]
     return autocorr
 
 
@@ -279,15 +295,11 @@ def sample_from_priors(param_names: list, priors: dict, size=10):
     while samples.size < param_names.__len__() * size:
         # Some mangling of dictionaries so _ln_prior works
         # Increase size * n if too slow / looping too much
-        new_sample = {
-            name: priors[name].rvs(size=size * 2) for name in param_names
-        }
+        new_sample = {name: priors[name].rvs(size=size * 2) for name in param_names}
         _ln_prior = ln_prior(priors, new_sample)
         # Convert from dictionary of arrays -> array,
         # then filtering out where ln_prior is -infinity
-        accepted_samples = np.array(list(new_sample.values()))[
-                           :, _ln_prior != -np.inf
-                           ]
+        accepted_samples = np.array(list(new_sample.values()))[:, _ln_prior != -np.inf]
         samples = np.append(samples, accepted_samples, axis=1)
     samples = samples[:, 0:size]
     return samples.transpose()
@@ -311,11 +323,11 @@ class PlasmaContext:
     """
 
     def init_plasma(
-            self,
-            equilibrium: Equilibrium,
-            tstart=None,
-            tend=None,
-            dt=None,
+        self,
+        equilibrium: Equilibrium,
+        tstart=None,
+        tend=None,
+        dt=None,
     ):
 
         self.plasma = Plasma(
@@ -382,8 +394,8 @@ class PlasmaContext:
         if phantoms:
             phantom_profiles = {
                 profile_key: getattr(self.plasma, profile_key)
-                    .sel(t=self.plasma.time_to_calculate)
-                    .copy()
+                .sel(t=self.plasma.time_to_calculate)
+                .copy()
                 for profile_key in kinetic_profiles
             }
         else:
@@ -391,20 +403,31 @@ class PlasmaContext:
                 profile_key: getattr(self.plasma, profile_key).sel(
                     t=self.plasma.time_to_calculate
                 )
-                             * 0
+                * 0
                 for profile_key in kinetic_profiles
             }
         self.phantom_profiles = phantom_profiles
 
     def fit_ts_profile(self, data_context, split="LFS", quant="ne"):
-        kernel = 1.0 * kernels.RationalQuadratic(alpha_bounds=(0.5, 1.0),
-                                                 length_scale_bounds=(0.4, 0.7)) + kernels.WhiteKernel(
-            noise_level_bounds=(0.01, 10))
+        kernel = 1.0 * kernels.RationalQuadratic(
+            alpha_bounds=(0.5, 1.0), length_scale_bounds=(0.4, 0.7)
+        ) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
 
-        processed_data = post_process_ts(deepcopy(data_context.binned_data), data_context.equilibrium, quant,
-                                         data_context.pulse, split=split, )
-        fit, _ = gpr_fit_ts(data=processed_data, xdim="rho", virtual_obs=True, virtual_symmetry=True,
-                            kernel=kernel, save_fig=True)
+        processed_data = post_process_ts(
+            deepcopy(data_context.binned_data),
+            data_context.equilibrium,
+            quant,
+            data_context.pulse,
+            split=split,
+        )
+        fit, _ = gpr_fit_ts(
+            data=processed_data,
+            xdim="rho",
+            virtual_obs=True,
+            virtual_symmetry=True,
+            kernel=kernel,
+            save_fig=True,
+        )
         fit = xr.where(fit < 0, 1e-10, fit)
         return fit
 
@@ -414,7 +437,9 @@ class PlasmaContext:
         te_fit = self.fit_ts_profile(data_context, quant="te", split=split) * 1e3
 
         self.plasma.electron_density.loc[dict()] = ne_fit.interp(rho=self.plasma.rho)
-        self.plasma.electron_temperature.loc[dict()] = te_fit.interp(rho=self.plasma.rho)
+        self.plasma.electron_temperature.loc[dict()] = te_fit.interp(
+            rho=self.plasma.rho
+        )
 
     def map_profiles_to_midplane(self, blobs):
         kinetic_profiles = [
@@ -425,39 +450,41 @@ class PlasmaContext:
             "ion_density",
             "fast_density",
             "neutral_density",
-            "zeff"
+            "zeff",
         ]
         nchan = len(self.plasma.R_midplane)
         chan = np.arange(nchan)
         R = xr.DataArray(self.plasma.R_midplane, coords=[("channel", chan)])
         z = xr.DataArray(self.plasma.z_midplane, coords=[("channel", chan)])
 
-        rho = (
-            self.plasma.equilibrium.rho
-                .interp(t=self.plasma.t, R=R, z=z)
-                .drop_vars(["R", "z"])
+        rho = self.plasma.equilibrium.rho.interp(t=self.plasma.t, R=R, z=z).drop_vars(
+            ["R", "z"]
         )
         midplane_profiles = {}
         for profile in kinetic_profiles:
-            midplane_profiles[profile] = blobs[profile].interp(rho_poloidal=rho).drop_vars("rho_poloidal")
+            midplane_profiles[profile] = (
+                blobs[profile].interp(rho_poloidal=rho).drop_vars("rho_poloidal")
+            )
             midplane_profiles[profile]["R"] = R
             midplane_profiles[profile]["z"] = z
-            midplane_profiles[profile] = midplane_profiles[profile].swap_dims({"channel": "R"})
+            midplane_profiles[profile] = midplane_profiles[profile].swap_dims(
+                {"channel": "R"}
+            )
         return midplane_profiles
 
 
 @dataclass
 class ModelSettings:
-    init_kwargs: dict = field(default_factory=lambda: {
-        "cxff_pi": {"element": "ar"},
-        "cxff_tws_c": {"element": "c"},
-        "xrcs": {
-            "window_masks": [slice(0.394, 0.396)],
-        },
-    })
-    call_kwargs: dict = field(default_factory=lambda: {
-        "xrcs": {"pixel_offset": -4.0}
-    })
+    init_kwargs: dict = field(
+        default_factory=lambda: {
+            "cxff_pi": {"element": "ar"},
+            "cxff_tws_c": {"element": "c"},
+            "xrcs": {
+                "window_masks": [slice(0.394, 0.396)],
+            },
+        }
+    )
+    call_kwargs: dict = field(default_factory=lambda: {"xrcs": {"pixel_offset": -4.0}})
 
 
 @dataclass
@@ -484,7 +511,9 @@ class ModelContext:
 
     def update_model_kwargs(self, data: dict):
         if "xrcs" in data.keys():
-            self.model_settings.init_kwargs["xrcs"]["window"] = data["xrcs"]["spectra"].wavelength.values
+            self.model_settings.init_kwargs["xrcs"]["window"] = data["xrcs"][
+                "spectra"
+            ].wavelength.values
 
             # TODO: handling model calls dependent on exp data
             background = data["xrcs"]["spectra"].where(
@@ -492,9 +521,13 @@ class ModelContext:
                 & (data["xrcs"]["spectra"].wavelength > 0.388),
                 drop=True,
             )
-            self.model_settings.init_kwargs["xrcs"]["background"] = background.mean(dim="wavelength")
+            self.model_settings.init_kwargs["xrcs"]["background"] = background.mean(
+                dim="wavelength"
+            )
 
-    def init_models(self, ):
+    def init_models(
+        self,
+    ):
         if not hasattr(self, "plasma_context"):
             raise ValueError("needs plasma_context to setup_models")
         if not hasattr(self.plasma_context, "plasma"):
@@ -504,30 +537,42 @@ class ModelContext:
         for diag in self.diagnostics:
             if diag == "smmh1":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
-                self.models[diag] = Interferometry(name=diag, **self.model_settings.init_kwargs[diag])
+                self.models[diag] = Interferometry(
+                    name=diag, **self.model_settings.init_kwargs[diag]
+                )
                 self.models[diag].set_los_transform(self.transforms[diag])
 
             elif diag == "efit":
-                self.models[diag] = EquilibriumReconstruction(name=diag, **self.model_settings.init_kwargs[diag])
+                self.models[diag] = EquilibriumReconstruction(
+                    name=diag, **self.model_settings.init_kwargs[diag]
+                )
 
             elif diag == "cxff_pi":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
-                self.models[diag] = ChargeExchange(name=diag, **self.model_settings.init_kwargs[diag])
+                self.models[diag] = ChargeExchange(
+                    name=diag, **self.model_settings.init_kwargs[diag]
+                )
                 self.models[diag].set_transect_transform(self.transforms[diag])
 
             elif diag == "cxff_tws_c":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
-                self.models[diag] = ChargeExchange(name=diag, **self.model_settings.init_kwargs[diag])
+                self.models[diag] = ChargeExchange(
+                    name=diag, **self.model_settings.init_kwargs[diag]
+                )
                 self.models[diag].set_transect_transform(self.transforms[diag])
 
             elif diag == "ts":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
-                self.models[diag] = ThomsonScattering(name=diag, **self.model_settings.init_kwargs[diag])
+                self.models[diag] = ThomsonScattering(
+                    name=diag, **self.model_settings.init_kwargs[diag]
+                )
                 self.models[diag].set_transect_transform(self.transforms[diag])
 
             elif diag == "xrcs":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
-                self.models[diag] = HelikeSpectrometer(name="xrcs", **self.model_settings.init_kwargs[diag])
+                self.models[diag] = HelikeSpectrometer(
+                    name="xrcs", **self.model_settings.init_kwargs[diag]
+                )
                 self.models[diag].set_los_transform(self.transforms[diag])
             else:
                 raise ValueError(f"{diag} not implemented in ModelHandler.setup_models")
@@ -537,7 +582,10 @@ class ModelContext:
 
         return self.models
 
-    def _build_bckc(self, params: dict = None, ):
+    def _build_bckc(
+        self,
+        params: dict = None,
+    ):
         """
         Parameters
         ----------
@@ -562,7 +610,9 @@ class ModelContext:
             # call_kwargs defined in model_settings
             _call_kwargs = {
                 kwarg_name: kwarg_value
-                for kwarg_name, kwarg_value in self.model_settings.call_kwargs[model_name].items()
+                for kwarg_name, kwarg_value in self.model_settings.call_kwargs[
+                    model_name
+                ].items()
             }
             _model_kwargs = {
                 **_call_kwargs,
@@ -570,7 +620,9 @@ class ModelContext:
             }  # combine dictionaries
 
             _bckc = model(**_model_kwargs)
-            _model_bckc = {model.name: {value_name: value for value_name, value in _bckc.items()}}
+            _model_bckc = {
+                model.name: {value_name: value for value_name, value in _bckc.items()}
+            }
             # prepend model name to bckc
             self.bckc = dict(self.bckc, **_model_bckc)
         return self.bckc
@@ -595,7 +647,9 @@ class DataContext(ABC):
     phantoms = False
 
     @abstractmethod
-    def read_data(self, ):
+    def read_data(
+        self,
+    ):
         self.equilbrium = None
         self.transforms = None
         self.raw_data = None
@@ -626,12 +680,23 @@ class ExpData(DataContext):
 
     """
     Considering: either rewriting this class to take over from ReadST40 or vice versa
-    
+
     """
 
-    def read_data(self, ):
-        self.reader = ReadST40(self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt, )
-        self.reader(self.diagnostics, revisions=self.reader_settings.revisions, filters=self.reader_settings.filters)
+    def read_data(
+        self,
+    ):
+        self.reader = ReadST40(
+            self.pulse,
+            tstart=self.tstart,
+            tend=self.tend,
+            dt=self.dt,
+        )
+        self.reader(
+            self.diagnostics,
+            revisions=self.reader_settings.revisions,
+            filters=self.reader_settings.filters,
+        )
         missing_keys = set(self.diagnostics) - set(self.reader.binned_data.keys())
         if len(missing_keys) > 0:
             raise ValueError(f"missing data: {missing_keys}")
@@ -666,7 +731,9 @@ class ExpData(DataContext):
             # opt_data["ts.te"] = opt_data["ts.te"].where(opt_data["ts.te"].channel < 21)
 
         if "cxff_tws_c.ti" in opt_data.keys():
-            opt_data["cxff_tws_c.ti"] = opt_data["cxff_tws_c.ti"].where(opt_data["cxff_tws_c.ti"].channel == 0)
+            opt_data["cxff_tws_c.ti"] = opt_data["cxff_tws_c.ti"].where(
+                opt_data["cxff_tws_c.ti"].channel == 0
+            )
 
         self.opt_data = opt_data
 
@@ -675,9 +742,20 @@ class ExpData(DataContext):
 class PhantomData(DataContext):
     phantoms = True
 
-    def read_data(self, ):
-        self.reader = ReadST40(self.pulse, tstart=self.tstart, tend=self.tend, dt=self.dt, )
-        self.reader(self.diagnostics, revisions=self.reader_settings.revisions, filters=self.reader_settings.filters)
+    def read_data(
+        self,
+    ):
+        self.reader = ReadST40(
+            self.pulse,
+            tstart=self.tstart,
+            tend=self.tend,
+            dt=self.dt,
+        )
+        self.reader(
+            self.diagnostics,
+            revisions=self.reader_settings.revisions,
+            filters=self.reader_settings.filters,
+        )
         missing_keys = set(self.diagnostics) - set(self.reader.binned_data.keys())
         if len(missing_keys) > 0:
             raise ValueError(f"missing data: {missing_keys}")
@@ -697,14 +775,17 @@ class PhantomData(DataContext):
 
 @dataclass
 class MockData(PhantomData):
-    diagnostic_transforms: dict = field(default_factory=lambda: {"xrcs": helike_transform_example(1),
-                                                                 "smmh1": smmh1_transform_example(1),
-                                                                 "cxff_pi": pi_transform_example(5),
-                                                                 "cxff_tws_c": pi_transform_example(3),
-                                                                 "ts": ts_transform_example(11),
-                                                                 "efit": lambda: None,
-                                                                 # placeholder to stop missing_transforms error
-                                                                 })
+    diagnostic_transforms: dict = field(
+        default_factory=lambda: {
+            "xrcs": helike_transform_example(1),
+            "smmh1": smmh1_transform_example(1),
+            "cxff_pi": pi_transform_example(5),
+            "cxff_tws_c": pi_transform_example(3),
+            "ts": ts_transform_example(11),
+            "efit": lambda: None,
+            # placeholder to stop missing_transforms error
+        }
+    )
 
     def read_data(self):
         print("Reading mock equilibrium / transforms")
@@ -713,7 +794,9 @@ class MockData(PhantomData):
             self.tend,
             self.dt,
         )
-        missing_transforms = list(set(self.diagnostics).difference(self.diagnostic_transforms.keys()))
+        missing_transforms = list(
+            set(self.diagnostics).difference(self.diagnostic_transforms.keys())
+        )
         if missing_transforms:
             raise ValueError(f"Missing transforms: {missing_transforms}")
 
@@ -761,10 +844,13 @@ class OptimiserContext(ABC):
 
 @dataclass
 class EmceeOptimiser(OptimiserContext):
-
     def init_optimiser(self, blackbox_func: Callable):
         ndim = len(self.optimiser_settings.param_names)
-        self.move = [(emcee.moves.StretchMove(), 0.0), (emcee.moves.DEMove(), 1.0), (emcee.moves.DESnookerMove(), 0.0)]
+        self.move = [
+            (emcee.moves.StretchMove(), 0.0),
+            (emcee.moves.DEMove(), 1.0),
+            (emcee.moves.DESnookerMove(), 0.0),
+        ]
         self.optimiser = emcee.EnsembleSampler(
             self.optimiser_settings.nwalkers,
             ndim,
@@ -773,7 +859,9 @@ class EmceeOptimiser(OptimiserContext):
             moves=self.move,
         )
 
-    def sample_start_points(self, ):
+    def sample_start_points(
+        self,
+    ):
 
         if self.optimiser_settings.sample_method == "high_density":
 
@@ -782,21 +870,23 @@ class EmceeOptimiser(OptimiserContext):
                 priors=self.optimiser_settings.priors,
                 optimiser=self.optimiser,
                 nwalkers=self.optimiser_settings.nwalkers,
-                nsamples=self.optimiser_settings.starting_samples
+                nsamples=self.optimiser_settings.starting_samples,
             )
 
         elif self.optimiser_settings.sample_method == "random":
             self.start_points = sample_from_priors(
                 param_names=self.optimiser_settings.param_names,
                 priors=self.optimiser_settings.priors,
-                size=self.optimiser_settings.nwalkers
+                size=self.optimiser_settings.nwalkers,
             )
         else:
-            raise ValueError(f"Sample method: {self.optimiser_settings.sample_method} "
-                             f"not recognised, Defaulting to random sampling")
+            raise ValueError(
+                f"Sample method: {self.optimiser_settings.sample_method} "
+                f"not recognised, Defaulting to random sampling"
+            )
 
     def sample_from_high_density_region(
-            self, param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
+        self, param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
     ):
 
         # TODO: remove repeated code
@@ -817,7 +907,10 @@ class EmceeOptimiser(OptimiserContext):
                 size=(nwalkers * 5, len(param_names)),
             )
             start = {name: sample[:, idx] for idx, name in enumerate(param_names)}
-            _ln_prior = ln_prior(priors, start, )
+            _ln_prior = ln_prior(
+                priors,
+                start,
+            )
             # Convert from dictionary of arrays -> array,
             # then filtering out where ln_prior is -infinity
             accepted_samples = np.array(list(start.values()))[:, _ln_prior != -np.inf]
@@ -825,7 +918,9 @@ class EmceeOptimiser(OptimiserContext):
         start_points = samples[:, 0:nwalkers].transpose()
         return start_points
 
-    def run(self, ):
+    def run(
+        self,
+    ):
 
         if self.optimiser_settings.stopping_criteria == "mode":
             self.autocorr = sample_with_moments(
@@ -835,18 +930,22 @@ class EmceeOptimiser(OptimiserContext):
                 self.optimiser_settings.param_names.__len__(),
                 auto_sample=self.optimiser_settings.stopping_criteria_sample,
                 stopping_factor=self.optimiser_settings.stopping_criteria_factor,
-                debug=self.optimiser_settings.stopping_criteria_debug
+                debug=self.optimiser_settings.stopping_criteria_debug,
             )
         else:
-            raise ValueError(f"Stopping criteria: {self.optimiser_settings.stopping_criteria} not recognised")
+            raise ValueError(
+                f"Stopping criteria: {self.optimiser_settings.stopping_criteria} not recognised"
+            )
 
         optimiser_results = self.format_results()
         return optimiser_results
 
     def format_results(self):
         results = {}
-        _blobs = self.optimiser.get_blobs(discard=int(self.optimiser.iteration * self.optimiser_settings.burn_frac),
-                                          flat=True)
+        _blobs = self.optimiser.get_blobs(
+            discard=int(self.optimiser.iteration * self.optimiser_settings.burn_frac),
+            flat=True,
+        )
         blobs = [blob for blob in _blobs if blob]  # remove empty blobs
 
         blob_names = blobs[0].keys()
@@ -861,14 +960,27 @@ class EmceeOptimiser(OptimiserContext):
         }
         results["accept_frac"] = self.optimiser.acceptance_fraction.sum()
         results["prior_sample"] = sample_from_priors(
-            self.optimiser_settings.param_names, self.optimiser_settings.priors, size=int(1e4)
+            self.optimiser_settings.param_names,
+            self.optimiser_settings.priors,
+            size=int(1e4),
         )
 
         post_sample = self.optimiser.get_chain(
-            discard=int(self.optimiser.iteration * self.optimiser_settings.burn_frac), flat=True)
+            discard=int(self.optimiser.iteration * self.optimiser_settings.burn_frac),
+            flat=True,
+        )
         # pad index dim with maximum number of iterations
         max_iter = self.optimiser_settings.iterations * self.optimiser_settings.nwalkers
-        npad = ((0, int(max_iter * (1 - self.optimiser_settings.burn_frac) - post_sample.shape[0])), (0, 0))
+        npad = (
+            (
+                0,
+                int(
+                    max_iter * (1 - self.optimiser_settings.burn_frac)
+                    - post_sample.shape[0]
+                ),
+            ),
+            (0, 0),
+        )
         results["post_sample"] = np.pad(post_sample, npad, constant_values=np.nan)
 
         results["auto_corr"] = self.autocorr
@@ -889,7 +1001,11 @@ class BayesBBSettings:
     """
 
     def __post_init__(self):
-        missing_quantities = [quant for quant in self.opt_quantity if quant.split(".")[0] not in self.diagnostics]
+        missing_quantities = [
+            quant
+            for quant in self.opt_quantity
+            if quant.split(".")[0] not in self.diagnostics
+        ]
         if missing_quantities:
             raise ValueError(f"{missing_quantities} missing the relevant diagnostic")
 
@@ -906,17 +1022,15 @@ class BayesBBSettings:
 
 class BayesWorkflow(AbstractBayesWorkflow):
     def __init__(
-            self,
-            blackbox_settings: BayesBBSettings,
-            data_context: DataContext,
-            plasma_context: PlasmaContext,
-            model_context: ModelContext,
-            optimiser_context: EmceeOptimiser,
-
-            tstart: float = 0.02,
-            tend: float = 0.10,
-            dt: float = 0.01,
-
+        self,
+        blackbox_settings: BayesBBSettings,
+        data_context: DataContext,
+        plasma_context: PlasmaContext,
+        model_context: ModelContext,
+        optimiser_context: EmceeOptimiser,
+        tstart: float = 0.02,
+        tend: float = 0.10,
+        dt: float = 0.01,
     ):
         self.blackbox_settings = blackbox_settings
         self.data_context = data_context
@@ -928,23 +1042,27 @@ class BayesWorkflow(AbstractBayesWorkflow):
         self.tend = tend
         self.dt = dt
 
-        self.blackbox = BayesBlackBox(data=self.data_context.opt_data,
-                                      plasma_context=self.plasma_context,
-                                      model_context=self.model_context,
-                                      quant_to_optimise=self.blackbox_settings.opt_quantity,
-                                      priors=self.blackbox_settings.priors,
-                                      percent_error=self.blackbox_settings.percent_error)
+        self.blackbox = BayesBlackBox(
+            data=self.data_context.opt_data,
+            plasma_context=self.plasma_context,
+            model_context=self.model_context,
+            quant_to_optimise=self.blackbox_settings.opt_quantity,
+            priors=self.blackbox_settings.priors,
+            percent_error=self.blackbox_settings.percent_error,
+        )
 
-        self.optimiser_context.init_optimiser(self.blackbox.ln_posterior, )
+        self.optimiser_context.init_optimiser(
+            self.blackbox.ln_posterior,
+        )
 
     def __call__(
-            self,
-            filepath="./results/test/",
-            run="RUN01",
-            mds_write=False,
-            pulse_to_write=None,
-            plot=False,
-            **kwargs,
+        self,
+        filepath="./results/test/",
+        run="RUN01",
+        mds_write=False,
+        pulse_to_write=None,
+        plot=False,
+        **kwargs,
     ):
 
         self.result = self._build_inputs_dict()
@@ -978,7 +1096,10 @@ class BayesWorkflow(AbstractBayesWorkflow):
         self.result = dict(self.result, **result)
 
         if mds_write or plot:
-            self.save_pickle(self.result, filepath=filepath, )
+            self.save_pickle(
+                self.result,
+                filepath=filepath,
+            )
 
         if plot:  # currently requires result with DataArrays
             plot_bayes_result(self.result, filepath)
@@ -1044,35 +1165,57 @@ if __name__ == "__main__":
     ]
 
     # BlackBoxSettings
-    bayes_settings = BayesBBSettings(diagnostics=diagnostics, param_names=opt_params,
-                                     opt_quantity=opt_quant, priors=DEFAULT_PRIORS, )
+    bayes_settings = BayesBBSettings(
+        diagnostics=diagnostics,
+        param_names=opt_params,
+        opt_quantity=opt_quant,
+        priors=DEFAULT_PRIORS,
+    )
 
-    data_settings = ReaderSettings(filters={},
-                                   revisions={})  # Add general methods for filtering data co-ords to ReadST40
-    data_context = MockData(pulse=pulse, diagnostics=diagnostics,
-                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
+    data_settings = ReaderSettings(
+        filters={}, revisions={}
+    )  # Add general methods for filtering data co-ords to ReadST40
+    data_context = MockData(
+        pulse=pulse,
+        diagnostics=diagnostics,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        reader_settings=data_settings,
+    )
     # data_context = PhantomData(pulse=pulse, diagnostics=diagnostics,
     #                            tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     # data_context = ExpData(pulse=pulse, diagnostics=diagnostics,
     #                        tstart=tstart, tend=tend, dt=dt, reader_settings=data_settings, )
     data_context.read_data()
 
-    plasma_settings = PlasmaSettings(main_ion="h", impurities=("ar", "c"), impurity_concentration=(0.001, 0.04),
-                                     n_rad=20)
-    plasma_context = PlasmaContext(plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS)
+    plasma_settings = PlasmaSettings(
+        main_ion="h",
+        impurities=("ar", "c"),
+        impurity_concentration=(0.001, 0.04),
+        n_rad=20,
+    )
+    plasma_context = PlasmaContext(
+        plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS
+    )
 
     model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}})
 
-    model_context = ModelContext(diagnostics=diagnostics,
-                                 plasma_context=plasma_context,
-                                 equilibrium=data_context.equilibrium,
-                                 transforms=data_context.transforms,
-                                 model_settings=model_settings,
-                                 )
+    model_context = ModelContext(
+        diagnostics=diagnostics,
+        plasma_context=plasma_context,
+        equilibrium=data_context.equilibrium,
+        transforms=data_context.transforms,
+        model_settings=model_settings,
+    )
 
     # Initialise context objects
-    plasma_context.init_plasma(equilibrium=data_context.equilibrium, tstart=tstart, tend=tend,
-                               dt=dt, )
+    plasma_context.init_plasma(
+        equilibrium=data_context.equilibrium,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+    )
 
     # plasma_context.set_ts_profiles(data_context, split="LFS")
 
@@ -1081,18 +1224,39 @@ if __name__ == "__main__":
     model_context.update_model_kwargs(data_context.binned_data)
     model_context.init_models()
 
-    data_context.process_data(model_context._build_bckc, )
+    data_context.process_data(
+        model_context._build_bckc,
+    )
 
-    optimiser_settings = OptimiserEmceeSettings(param_names=bayes_settings.param_names, nwalkers=20, iterations=1000,
-                                                sample_method="high_density", starting_samples=50, burn_frac=0.20,
-                                                stopping_criteria="mode", stopping_criteria_factor=0.005,
-                                                stopping_criteria_debug=True,
-                                                priors=bayes_settings.priors)
+    optimiser_settings = OptimiserEmceeSettings(
+        param_names=bayes_settings.param_names,
+        nwalkers=20,
+        iterations=1000,
+        sample_method="high_density",
+        starting_samples=50,
+        burn_frac=0.20,
+        stopping_criteria="mode",
+        stopping_criteria_factor=0.005,
+        stopping_criteria_debug=True,
+        priors=bayes_settings.priors,
+    )
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
-    workflow = BayesWorkflow(tstart=tstart, tend=tend, dt=dt,
-                             blackbox_settings=bayes_settings, data_context=data_context,
-                             optimiser_context=optimiser_context,
-                             plasma_context=plasma_context, model_context=model_context)
+    workflow = BayesWorkflow(
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        blackbox_settings=bayes_settings,
+        data_context=data_context,
+        optimiser_context=optimiser_context,
+        plasma_context=plasma_context,
+        model_context=model_context,
+    )
 
-    workflow(pulse_to_write=43000000, run="RUN01", mds_write=True, plot=True, filepath=f"./results/test/")
+    workflow(
+        pulse_to_write=43000000,
+        run="RUN01",
+        mds_write=True,
+        plot=True,
+        filepath=f"./results/test/",
+    )

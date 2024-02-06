@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pickle
 
 import corner
@@ -9,7 +10,7 @@ import xarray as xr
 
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
-from pathlib import Path
+
 
 def plot_profile(
     profile: xr.DataArray,
@@ -84,7 +85,7 @@ def _plot_1d(
     diag_data: xr.DataArray,
     filename: str,
     figheader="./results/test/",
-    label = "",
+    label="",
     ylabel="a.u.",
     xlabel="[]",
     xlim=None,
@@ -161,9 +162,7 @@ def violinplot(
         1,
         1,
     )
-    _data = data[
-        ((data > np.quantile(data, 0.16)) & (data < np.quantile(data, 0.84)))
-    ]
+    _data = data[((data > np.quantile(data, 0.16)) & (data < np.quantile(data, 0.84)))]
 
     violin = axs.violinplot(
         _data,
@@ -172,7 +171,13 @@ def violinplot(
         # showmedians=True,
     )
     axs.errorbar(
-        1, y=diag_data, yerr=diag_data_err, fmt="D", ecolor="black", capsize=10, color="black"
+        1,
+        y=diag_data,
+        yerr=diag_data_err,
+        fmt="D",
+        ecolor="black",
+        capsize=10,
+        color="black",
     )
     violin["bodies"][0].set_edgecolor("black")
     axs.set_xlabel(xlabel)
@@ -241,7 +246,7 @@ def plot_bayes_result(
     # delete all but pickle in directory and remove empty directories
     for root, dirs, files in os.walk(filepath):
         for dir in dirs:
-            if not os.listdir(root+dir):
+            if not os.listdir(root + dir):
                 print(f"Deleting {os.path.join(root, dir)}")
                 os.rmdir(os.path.join(root, dir))
         for f in files:
@@ -254,8 +259,7 @@ def plot_bayes_result(
     # Create time directories
     time = results["TIME"]
     for t in time.values:
-        Path(filepath+f"/t:{t:.2f}").mkdir(parents=True, exist_ok=True)
-
+        Path(filepath + f"/t:{t:.2f}").mkdir(parents=True, exist_ok=True)
 
     diag_data = flatdict.FlatDict(results["DIAG_DATA"], ".")
     model_data = flatdict.FlatDict(results["MODEL_DATA"], ".")
@@ -280,9 +284,16 @@ def plot_bayes_result(
 
     # select time index for plotting
     for t_idx, t in enumerate(time):
-        figheader = filepath+f"t:{t.values:.2f}/"
+        figheader = filepath + f"t:{t.values:.2f}/"
 
-        plot_autocorr(auto_corr[t_idx,], param_names, figheader, filetype=filetype)
+        plot_autocorr(
+            auto_corr[
+                t_idx,
+            ],
+            param_names,
+            figheader,
+            filetype=filetype,
+        )
         # set_plot_rcparams("multi")
 
         # check if model key exists
@@ -328,7 +339,7 @@ def plot_bayes_result(
                 diag_data_err[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 figheader=figheader,
-                xlabel = key,
+                xlabel=key,
                 ylabel="Temperature [eV]",
             )
 
@@ -368,7 +379,6 @@ def plot_bayes_result(
                 ylabel="Temperature [eV]",
                 xlabel="Channel",
                 hide_legend=True,
-
             )
 
         key = "TS.TE"
@@ -407,8 +417,12 @@ def plot_bayes_result(
         )
         key = "TI"
         plot_profile(
-            profiles[key].sel(t=t, ),
-            phantom_profiles[key].sel(t=t, ),
+            profiles[key].sel(
+                t=t,
+            ),
+            phantom_profiles[key].sel(
+                t=t,
+            ),
             key,
             figheader=figheader,
             filename="temperature",
@@ -481,11 +495,22 @@ def plot_bayes_result(
             logscale=True,
         )
 
-        post_sample_filtered = post_sample[t_idx,][~np.isnan(post_sample[t_idx,]).any(axis=1)]
+        post_sample_filtered = post_sample[t_idx,][
+            ~np.isnan(
+                post_sample[
+                    t_idx,
+                ]
+            ).any(axis=1)
+        ]
         corner.corner(post_sample_filtered, labels=param_names)
         plt.savefig(figheader + "posterior" + filetype)
 
-        corner.corner(prior_sample[t_idx,], labels=param_names)
+        corner.corner(
+            prior_sample[
+                t_idx,
+            ],
+            labels=param_names,
+        )
         plt.savefig(figheader + "prior" + filetype)
         plt.close("all")
 

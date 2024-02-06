@@ -15,6 +15,7 @@ from indica.utilities import set_plot_rcparams
 
 CMAP, COLORS = set_plot_colors()
 
+
 def gpr_fit(
     x: np.array,
     y: np.array,
@@ -55,8 +56,14 @@ def gpr_fit(
     _y_err = _y_err[idx]
     _y = _y[idx].reshape(-1, 1)
 
-    gpr = GaussianProcessRegressor(kernel=kernel, alpha=_y_err**2,)  # alpha is sigma^2
-    gpr.fit(_x, _y, )
+    gpr = GaussianProcessRegressor(
+        kernel=kernel,
+        alpha=_y_err**2,
+    )  # alpha is sigma^2
+    gpr.fit(
+        _x,
+        _y,
+    )
 
     _x_fit = x_fit.reshape(-1, 1)
     y_fit, y_fit_err = gpr.predict(_x_fit, return_std=True)
@@ -103,7 +110,9 @@ def plot_gpr_fit(
         plt.legend()
 
     if save_fig:
-        plt.savefig(FIG_PATH + f"{fig_name}_GPR_t:{data.t.values:.3f}.png", bbox_inches="tight")
+        plt.savefig(
+            FIG_PATH + f"{fig_name}_GPR_t:{data.t.values:.3f}.png", bbox_inches="tight"
+        )
 
 
 def post_process_ts(binned_data, equilibrium, quant, pulse, split=""):
@@ -138,17 +147,17 @@ def post_process_ts(binned_data, equilibrium, quant, pulse, split=""):
 
     return data
 
+
 def gpr_fit_ts(
     data: xr.DataArray,
     kernel: kernels.Kernel,
     xdim: str = "rho",
-
     virtual_obs=True,
     virtual_symmetry=True,
     x_bounds=None,
     virtual_points=None,
-    plot = False,
-    save_fig = False,
+    plot=False,
+    save_fig=False,
 ):
     if x_bounds is None:
         if xdim is "rho":
@@ -158,7 +167,9 @@ def gpr_fit_ts(
 
     if virtual_points is None:
         if xdim is "rho":
-            virtual_points = [(1.5, lambda y: 0), ]
+            virtual_points = [
+                (1.5, lambda y: 0),
+            ]
         elif xdim is "R":
             virtual_points = [(0, lambda y: 0), (0.9, lambda y: 0)]
 
@@ -177,15 +188,24 @@ def gpr_fit_ts(
 
         if virtual_obs:
             num_vo = len(virtual_points)
-            x = np.insert(x, [i for i in range(num_vo)], [virtual_point[0] for virtual_point in virtual_points])
-            y = np.insert(y, [i for i in range(num_vo)], [virtual_point[1](y) for virtual_point in virtual_points])
-            y_err = np.insert(y_err, [i for i in range(num_vo)], [0.01 for i in range(num_vo)])
+            x = np.insert(
+                x,
+                [i for i in range(num_vo)],
+                [virtual_point[0] for virtual_point in virtual_points],
+            )
+            y = np.insert(
+                y,
+                [i for i in range(num_vo)],
+                [virtual_point[1](y) for virtual_point in virtual_points],
+            )
+            y_err = np.insert(
+                y_err, [i for i in range(num_vo)], [0.01 for i in range(num_vo)]
+            )
 
             if virtual_symmetry:
                 x = np.concatenate((x, -x))
                 y = np.concatenate((y, y))
                 y_err = np.concatenate((y_err, y_err))
-
 
         _y_fit, _y_fit_err, _gpr = gpr_fit(
             x,
@@ -205,7 +225,7 @@ def gpr_fit_ts(
         Path(FIG_PATH).mkdir(parents=True, exist_ok=True)
         for idx, tplot in enumerate(data.t.values):
             plot_gpr_fit(
-                data.sel(t=tplot).swap_dims({"channel":xdim}),
+                data.sel(t=tplot).swap_dims({"channel": xdim}),
                 fit.sel(t=tplot),
                 fit_err.sel(t=tplot),
                 ylabel=f"{data.quantity.values} ({data.unit.values})",
@@ -230,14 +250,41 @@ if __name__ == "__main__":
     st40 = ReadST40(pulse, tstart, tend, dt)
     st40(instruments=["ts", "efit"])
 
-    ne_data = post_process_ts(st40.binned_data, st40.equilibrium, "ne", pulse, split = "LFS",)
-    ne_kernel = 1.0 * kernels.RationalQuadratic(alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.4, 0.7)) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
+    ne_data = post_process_ts(
+        st40.binned_data,
+        st40.equilibrium,
+        "ne",
+        pulse,
+        split="LFS",
+    )
+    ne_kernel = 1.0 * kernels.RationalQuadratic(
+        alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.4, 0.7)
+    ) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
 
-    te_data = post_process_ts(st40.binned_data, st40.equilibrium, "te", pulse, split="LFS", )
-    te_kernel = 1.0 * kernels.RationalQuadratic(alpha_bounds=(0.1, 1.0),
-                                                length_scale_bounds=(0.4, 0.7)) + kernels.WhiteKernel(
-                                                 noise_level_bounds=(0.01, 10))
+    te_data = post_process_ts(
+        st40.binned_data,
+        st40.equilibrium,
+        "te",
+        pulse,
+        split="LFS",
+    )
+    te_kernel = 1.0 * kernels.RationalQuadratic(
+        alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.4, 0.7)
+    ) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
 
-    gpr_fit_ts(data=ne_data, xdim="rho", virtual_obs=True, virtual_symmetry=True, kernel=ne_kernel, save_fig=True)
-    gpr_fit_ts(data=te_data, xdim="rho", virtual_obs=True, virtual_symmetry=True, kernel=te_kernel, save_fig=True)
-
+    gpr_fit_ts(
+        data=ne_data,
+        xdim="rho",
+        virtual_obs=True,
+        virtual_symmetry=True,
+        kernel=ne_kernel,
+        save_fig=True,
+    )
+    gpr_fit_ts(
+        data=te_data,
+        xdim="rho",
+        virtual_obs=True,
+        virtual_symmetry=True,
+        kernel=te_kernel,
+        save_fig=True,
+    )

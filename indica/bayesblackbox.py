@@ -1,10 +1,13 @@
 from copy import deepcopy
 import warnings
+
 from flatdict import FlatDict
 import numpy as np
 from scipy.stats import uniform
+
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
+
 
 def gaussian(x, mean, sigma):
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-1 / 2 * ((x - mean) / sigma) ** 2)
@@ -44,6 +47,7 @@ def ln_prior(priors: dict, parameters: dict):
                 ln_prior += np.log(prior_func(*sorted_param_values))
     return ln_prior
 
+
 class BayesBlackBox:
     """
     Bayesian black box model that creates _ln_posterior function from plasma and diagnostic model objects
@@ -68,10 +72,8 @@ class BayesBlackBox:
         data: dict,
         quant_to_optimise: list,
         priors: dict,
-
-        plasma_context = None,
-        model_context = None,
-
+        plasma_context=None,
+        model_context=None,
         percent_error: float = 0.10,
     ):
         self.data = data
@@ -107,7 +109,6 @@ class BayesBlackBox:
             ln_likelihood += _ln_likelihood.mean(skipna=True).values
         return ln_likelihood
 
-
     def ln_posterior(self, parameters: dict, **kwargs):
         """
         Posterior probability given to optimisers
@@ -134,7 +135,9 @@ class BayesBlackBox:
         self.plasma_context.update_profiles(parameters)
         plasma_attributes = self.plasma_context.return_plasma_attrs()
 
-        self.bckc = FlatDict(self.model_context._build_bckc(parameters, **kwargs), ".")  # model calls
+        self.bckc = FlatDict(
+            self.model_context._build_bckc(parameters, **kwargs), "."
+        )  # model calls
 
         _ln_likelihood = self.ln_likelihood()  # compare results to data
         ln_posterior = _ln_likelihood + _ln_prior

@@ -55,7 +55,14 @@ class Profiles:
 
         if parameters is None:
             parameters = get_defaults(datatype)
-        elif {"y0", "y1", "yend", "wcenter", "wped", "peaking",} >= set(parameters):
+        elif {
+            "y0",
+            "y1",
+            "yend",
+            "wcenter",
+            "wped",
+            "peaking",
+        } >= set(parameters):
             _parameters = get_defaults(datatype)
             parameters = dict(_parameters, **parameters)
 

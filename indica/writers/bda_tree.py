@@ -68,8 +68,7 @@ BDA_NODES = {
             "ZIM2_ERR": ("SIGNAL", "Average charge of impurity IMP2 error, "),
             "ZIM3_ERR": ("SIGNAL", "Averagnodese charge of impurity IMP3 error, "),
             "ZEFF_ERR": ("SIGNAL", "Effective charge error, "),
-            },
-
+        },
         "R_MIDPLANE": {
             "RPOS": ("NUMERIC", "Major radius position of measurement, m"),
             "ZPOS": ("NUMERIC", "Z position of measurement, m"),
@@ -111,7 +110,6 @@ BDA_NODES = {
             "ZEFF_ERR": ("SIGNAL", "Effective charge error, "),
         },
     },
-
     "PROFILE_STAT": {
         "SAMPLE_IDX": ("NUMERIC", "Index of the optimisation samples"),
         "RHOP": ("NUMERIC", "Radial vector, Sqrt of normalised poloidal flux"),
@@ -303,7 +301,10 @@ def check_to_overwrite_run(
         overwrite_flag = query_yes_no(question)
     return overwrite_flag
 
-def does_tree_exist(pulse, ):
+
+def does_tree_exist(
+    pulse,
+):
     IP_address_smaug = "smaug"
     conn = Connection(IP_address_smaug)
 
