@@ -30,13 +30,13 @@ def calculate_zeff(
 ):
     print("Reading data")
     st40 = ReadST40(pulse, tstart, tend, dt)
-    st40(["pi", "tws_c", "ts", "efit"], revisions=revisions)
+    st40(["pi", "tws_c", "ts", "efit"], revisions=revisions, set_equilibrium=True)
 
     print("Fitting TS data")
-    te_data = st40.raw_data_trange["ts"]["te"]
-    te_err = st40.raw_data_trange["ts"]["te"].error
-    ne_data = st40.raw_data_trange["ts"]["ne"]
-    ne_err = st40.raw_data_trange["ts"]["ne"].error
+    te_data = st40.raw_data["ts"]["te"]
+    te_err = st40.raw_data["ts"]["te"].error
+    ne_data = st40.raw_data["ts"]["ne"]
+    ne_err = st40.raw_data["ts"]["ne"].error
     time = te_data.t
     te_fit, ne_fit = fit_ts(
         te_data, te_err, ne_data, ne_err, fit_Rshift=fit_Rshift, verbose=verbose
