@@ -38,13 +38,14 @@ class HelikeSpectrometer(DiagnosticModel):
         name: str,
         instrument_method="get_helike_spectroscopy",
         etendue: float = 1.0,
-        calibration: float = 8.0e-20,
+        calibration: float = 1.0e-18,
         element: str = "ar",
         window_len: int = 1030,
         window_lim=None,
         window: np.array = None,
         window_masks=None,
         line_labels=None,
+        background=None,
     ):
         """
         Read all atomic data and initialise objects
@@ -73,6 +74,7 @@ class HelikeSpectrometer(DiagnosticModel):
         self.window_masks = window_masks
         self.line_ranges = LINE_RANGES
         self.line_labels = line_labels
+        self.background = background
 
         if window is None:
             window = np.linspace(window_lim[0], window_lim[1], window_len)
@@ -206,8 +208,6 @@ class HelikeSpectrometer(DiagnosticModel):
                 ),
             )
         spectra = xr.concat([_spectra, empty], "wavelength")
-        spectra = spectra.sortby("wavelength")
-
         self.spectra = spectra
 
         measured_spectra = self.los_transform.integrate_on_los(
@@ -215,9 +215,11 @@ class HelikeSpectrometer(DiagnosticModel):
             t=self.spectra.t,
             calc_rho=calc_rho,
         )
-        self.measured_spectra = measured_spectra.assign_coords(
-            {"wavelength": self.window.wavelength}
+        measured_spectra = measured_spectra.assign_coords(
+            {"wavelength": self.spectra.wavelength}
         )
+        measured_spectra = xr.where(measured_spectra == 0, np.nan, measured_spectra)
+        self.measured_spectra = measured_spectra.sortby("wavelength")
         self.spectra_los = self.los_transform.along_los
 
     def _moment_analysis(self):
@@ -390,6 +392,7 @@ class HelikeSpectrometer(DiagnosticModel):
         calc_rho: bool = False,
         moment_analysis: bool = False,
         background: int = None,
+        pixel_offset: int = None,
         **kwargs,
     ):
         """
@@ -420,22 +423,22 @@ class HelikeSpectrometer(DiagnosticModel):
         if hasattr(self, "plasma"):
             if t is None:
                 t = self.plasma.time_to_calculate
-            Te = self.plasma.electron_temperature.interp(
+            Te = self.plasma.electron_temperature.sel(
                 t=t,
             )
-            Ne = self.plasma.electron_density.interp(
+            Ne = self.plasma.electron_density.sel(
                 t=t,
             )
-            Nh = self.plasma.neutral_density.interp(
+            Nh = self.plasma.neutral_density.sel(
                 t=t,
             )
             Fz = {}
             _Fz = self.plasma.fz
             for elem in _Fz.keys():
-                Fz[elem] = _Fz[elem].interp(t=t)
+                Fz[elem] = _Fz[elem].sel(t=t)
 
-            Ti = self.plasma.ion_temperature.interp(t=t)
-            Nimp = self.plasma.impurity_density.interp(t=t)
+            Ti = self.plasma.ion_temperature.sel(t=t)
+            Nimp = self.plasma.impurity_density.sel(t=t)
         else:
             if (
                 Ne is None
@@ -446,6 +449,10 @@ class HelikeSpectrometer(DiagnosticModel):
                 or Nimp is None
             ):
                 raise ValueError("Give inputs or assign plasma class!")
+
+        if background is None:
+            if self.background is not None:
+                background = self.background.sel(t=t)
 
         self.t = t
         self.Te = Te
@@ -465,6 +472,11 @@ class HelikeSpectrometer(DiagnosticModel):
 
         if background is not None:
             self.measured_spectra = self.measured_spectra + background
+
+        if pixel_offset is not None:
+            self.measured_spectra = self.measured_spectra.shift(
+                wavelength=round(pixel_offset), fill_value=np.nan
+            )
 
         self._build_bckc_dictionary()
         return self.bckc
