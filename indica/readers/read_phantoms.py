@@ -4,21 +4,22 @@
 from typing import Any
 from typing import Dict
 from typing import Set
+
 from xarray import DataArray
 
-from indica.numpy_typing import RevisionLike
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
-from indica.models.plasma import example_run as phantom_plasma
-from indica.readers.read_st40 import default_geometries
-from indica.models.interferometry import Interferometry
-from indica.models.helike_spectroscopy import HelikeSpectrometer
-from indica.models.thomson_scattering import ThomsonScattering
-from indica.models.charge_exchange import ChargeExchange
-from indica.models.sxr_camera import SXRcamera
 from indica.models.bolometer_camera import Bolometer
+from indica.models.charge_exchange import ChargeExchange
 from indica.models.diode_filters import BremsstrahlungDiode
+from indica.models.helike_spectroscopy import HelikeSpectrometer
+from indica.models.interferometry import Interferometry
+from indica.models.plasma import example_run as phantom_plasma
 from indica.models.plasma import Plasma
+from indica.models.sxr_camera import SXRcamera
+from indica.models.thomson_scattering import ThomsonScattering
+from indica.numpy_typing import RevisionLike
+from indica.readers.read_st40 import default_geometries
 
 # TODO: hardcoded for ST40!!! to be moved somewhere else!!!
 MACHINE_DIMENSIONS = ((0.15, 0.95), (-0.7, 0.7))
@@ -37,9 +38,9 @@ INSTRUMENT_MODELS = {
 
 # TODO: First stab, but need to check Michael Gemmell implementation
 
+
 class PhantomReader:
-    """Reader of phantom plasma and diagnostic forward model data
-    """
+    """Reader of phantom plasma and diagnostic forward model data"""
 
     def __init__(
         self,
@@ -86,7 +87,11 @@ class PhantomReader:
 
             if "origin_x" in geom.keys():
                 geom["dl"] = dl
-                _model.set_los_transform(LineOfSightTransform(**geom,))
+                _model.set_los_transform(
+                    LineOfSightTransform(
+                        **geom,
+                    )
+                )
             else:
                 _model.set_transect_transform(TransectCoordinates(**geom))
 
@@ -107,11 +112,13 @@ class PhantomReader:
             self.instr_models[instr].set_plasma(plasma)
             if hasattr(self.instr_models[instr], "los_transform"):
                 self.instr_models[instr].los_transform.set_equilibrium(
-                    plasma.equilibrium, force=True,
+                    plasma.equilibrium,
+                    force=True,
                 )
             else:
                 self.instr_models[instr].transect_transform.set_equilibrium(
-                    plasma.equilibrium, force=True,
+                    plasma.equilibrium,
+                    force=True,
                 )
 
         self.plasma = plasma
