@@ -317,7 +317,7 @@ class ReadST40:
         tend: float = None,
         dt: float = None,
         R_shift: float = 0.0,
-        chi2_limit: float = 3.0,
+        chi2_limit: float = 100.0,
         map_diagnostics: bool = False,
         raw_only: bool = False,
         debug: bool = False,
@@ -385,21 +385,42 @@ def filter_general(data: DataArray, quantities: list, limits: dict):
             data[quantity] = filtered
 
 
-def astra_equilibrium(pulse: int, revision: RevisionLike):
-    """Assign ASTRA to equilibrium class"""
+def default_geometries(machine: str, pulse: int = None):
+    import pickle
+    from pathlib import Path
 
+    project_path = Path(__file__).parent.parent
+    geometries_file = f"{project_path}/data/{machine}_default_geometries.pkl"
 
-def sxr_spd():
-    import indica.readers.read_st40 as read_st40
-    from indica.utilities import set_axis_sci
+    if pulse is None:
+        return pickle.load(open(geometries_file, "rb"))
 
-    st40 = read_st40.ReadST40(11215)
-    st40(["sxr_spd"])
+    st40 = ReadST40(pulse)
+    st40()
+    raw_data = st40.raw_data
+    geometry: dict = {}
+    for instr, instr_data in raw_data.items():
+        quant = list(instr_data)[0]
+        quant_data = instr_data[quant]
+        if not hasattr(quant_data, "transform"):
+            continue
 
-    st40.raw_data["sxr_spd"]["brightness"].transform.plot()
+        if "Transect" in str(quant_data.transform):
+            geometry[instr] = {
+                "x_positions": quant_data.transform.x.values,
+                "y_positions": quant_data.transform.y.values,
+                "z_positions": quant_data.transform.z.values,
+            }
+        else:
+            geometry[instr] = {
+                "origin_x": quant_data.transform.origin_x,
+                "origin_y": quant_data.transform.origin_y,
+                "origin_z": quant_data.transform.origin_z,
+                "direction_x": quant_data.transform.direction_x,
+                "direction_y": quant_data.transform.direction_y,
+                "direction_z": quant_data.transform.direction_z,
+            }
 
-    plt.figure()
-    st40.raw_data["sxr_spd"]["brightness"].sel(channel=0).plot()
-    set_axis_sci()
+    pickle.dump(geometry, open(geometries_file, "wb"))
 
-    return st40.raw_data["sxr_spd"]["brightness"]
+    return geometry
