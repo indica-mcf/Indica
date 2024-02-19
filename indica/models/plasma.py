@@ -19,6 +19,7 @@ from indica.operators.atomic_data import PowerLoss
 import indica.physics as ph
 from indica.profiles_gauss import Profiles
 from indica.readers import ADASReader
+from indica.readers.adas import ADF11
 from indica.utilities import assign_data
 from indica.utilities import assign_datatype
 from indica.utilities import print_like
@@ -26,77 +27,6 @@ from indica.utilities import print_like
 plt.ion()
 
 # TODO: add elongation and triangularity in all equations
-
-ADF11: dict = {
-    "h": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
-        "pls": "15",
-        "prs": "15",
-    },
-    "he": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
-        "pls": "15",
-        "prs": "15",
-    },
-    "c": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
-        "pls": "15",
-        "prs": "15",
-    },
-    "ar": {
-        "scd": "89",
-        "acd": "89",
-        "ccd": "89",
-        "plt": "89",
-        "prb": "89",
-        "prc": "89",
-        "pls": "15",
-        "prs": "15",
-    },
-    "ne": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
-        "pls": "15",
-        "prs": "15",
-    },
-    "mo": {
-        "scd": "89",
-        "acd": "89",
-        "ccd": "89",
-        "plt": "89",
-        "prb": "89",
-        "prc": "89",
-    },
-    "w": {
-        "scd": "89",
-        "acd": "89",
-        "ccd": "89",
-        "plt": "89",
-        "prb": "89",
-        "prc": "89",
-        "pls": "15",
-        "prs": "15",
-    },
-}
 
 
 class Plasma:
