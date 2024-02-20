@@ -488,7 +488,7 @@ class ModelSettings:
             },
         }
     )
-    call_kwargs: dict = field(default_factory=lambda: {"xrcs": {"pixel_offset": -4.0}})
+    call_kwargs: dict = field(default_factory=lambda: {"xrcs": {"pixel_offset": 0.0}})
 
 
 @dataclass
@@ -739,6 +739,11 @@ class ExpData(DataContext):
         if "cxff_tws_c.ti" in opt_data.keys():
             opt_data["cxff_tws_c.ti"] = opt_data["cxff_tws_c.ti"].where(
                 opt_data["cxff_tws_c.ti"].channel == 0
+            )
+
+        if "cxff_pi.ti" in opt_data.keys():
+            opt_data["cxff_pi.ti"] = opt_data["cxff_pi.ti"].where(
+                (opt_data["cxff_pi.ti"].channel > 2) & (opt_data["cxff_pi.ti"].channel < 5)
             )
 
         self.opt_data = opt_data
