@@ -153,7 +153,7 @@ def bda_run(
     plasma_settings = PlasmaSettings(
         main_ion="h",
         impurities=("ar", "c"),
-        impurity_concentration=(0.001, 0.04),
+        impurity_concentration=(0.001, 0.005),
         n_rad=20,
     )
     plasma_context = PlasmaContext(
@@ -437,7 +437,7 @@ if __name__ == "__main__":
                 mds_write=True,
                 plot=True,
                 revisions={},
-                run="RUN01",
+                run="RUN02",
                 # dirname="test",
                 set_ts=True,
                 ts_split="",
