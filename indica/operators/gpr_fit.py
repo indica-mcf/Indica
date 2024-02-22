@@ -252,7 +252,7 @@ if __name__ == "__main__":
     split = ""
 
     st40 = ReadST40(pulse, tstart, tend, dt)
-    st40(instruments=["ts", "efit"])
+    st40(instruments=["ts", "efit"], set_equilibrium=True)
 
     ne_data = post_process_ts(
         st40.binned_data,

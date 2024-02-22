@@ -1,6 +1,5 @@
 from copy import deepcopy
 
-import matplotlib.pylab as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy.optimize import least_squares
@@ -9,7 +8,6 @@ from xarray import DataArray
 
 from indica.equilibrium import Equilibrium
 from indica.numpy_typing import ArrayLike
-from indica.readers.read_st40 import ReadST40
 
 
 def fit_profile_and_R_shift(
@@ -135,63 +133,3 @@ def fit_profile_and_R_shift(
         R_shift_fit = R_shift
 
     return yspl, R_shift_fit, rho_data
-
-
-def example_run(
-    pulse: int = 11314,
-    tstart: float = 0.03,
-    tend: float = 0.13,
-    dt: float = 0.01,
-    quantity: str = "te",
-    xknots: list = None,
-    verbose: bool = False,
-):
-    st40 = ReadST40(pulse, tstart=tstart, tend=tend, dt=dt)
-    st40(["ts"])
-
-    if xknots is None:
-        if quantity == "te":
-            xknots = [0, 0.4, 0.6, 0.8, 1.1]
-        elif quantity == "ne":
-            xknots = [0, 0.4, 0.8, 0.95, 1.1]
-        else:
-            raise ValueError
-
-    data = st40.raw_data["ts"][quantity]
-    err = data.error
-    transform = data.transform
-    equilibrium = transform.equilibrium
-    R = transform.R
-    z = transform.z
-
-    fit, R_shift, rho_data = fit_profile_and_R_shift(
-        R, z, data, err, equilibrium, xknots=xknots, verbose=verbose
-    )
-
-    for t in data.t:
-        _R_shift = R_shift.sel(t=t).values
-        rho = rho_data.sel(t=t)
-
-        plt.ioff()
-        plt.errorbar(
-            rho,
-            data.sel(t=t),
-            err.sel(t=t),
-            marker="o",
-            label="data",
-            color="blue",
-        )
-        fit.sel(t=t).plot(linewidth=5, alpha=0.5, color="black", label="spline fit all")
-        plt.title(
-            f"pulse={pulse}, t={int(t*1000.)} ms, R_shift={(_R_shift*100.):.1f} cm"
-        )
-        plt.legend()
-        plt.show()
-
-    return data, fit
-
-
-if __name__ == "__main__":
-    plt.ioff()
-    example_run(11089, quantity="ne")
-    plt.show()
