@@ -240,9 +240,9 @@ def create_nodes(
     bda_nodes["DIAG_DATA"] = diag_nodes
     bda_nodes["INPUT"]["WORKFLOW"] = workflow_nodes
 
-    tree = "ST40"
-    script_name = "BDA"
-    script_info = "Bayesian Diagnostic Analysis"
+    tree = "BDA"
+    script_name = ""
+    script_info = ""
 
     node_info = util.GetNodeInformation(
         script=None,
