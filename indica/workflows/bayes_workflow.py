@@ -441,10 +441,15 @@ class PlasmaContext:
         fit = xr.where(fit < 0, 1e-10, fit)
         return fit
 
-    def set_ts_profiles(self, data_context, split="LFS"):
+    def set_ts_profiles(self, data_context, split="LFS", extrapolate=None):
 
         ne_fit = self.fit_ts_profile(data_context, quant="ne", split=split) * 1e19
         te_fit = self.fit_ts_profile(data_context, quant="te", split=split) * 1e3
+
+        if extrapolate:
+            last_time_point = ne_fit[ne_fit.t <= extrapolate].t.max()
+            ne_fit[ne_fit.t >= extrapolate] = ne_fit.sel(t=last_time_point, method="nearest")
+            te_fit[te_fit.t >= extrapolate] = te_fit.sel(t=last_time_point, method="nearest")
 
         self.plasma.electron_density.loc[dict()] = ne_fit.interp(rho=self.plasma.rho)
         self.plasma.electron_temperature.loc[dict()] = te_fit.interp(
