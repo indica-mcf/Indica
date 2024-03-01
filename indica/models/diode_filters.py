@@ -108,25 +108,33 @@ class BremsstrahlungDiode(DiagnosticModel):
             np.min(transmission.wavelength), np.max(transmission.wavelength)
         )
 
-        # Take away neutron spikes in pixel intensity
         _spectra = spectra.sortby("wavelength").sel(wavelength=wavelength_slice)
-        _spectra = _spectra.where(
-            xr.ufuncs.fabs(_spectra.diff("wavelength", n=2)) < 0.4e-3
-        )
+        if hasattr(_spectra, "error"):
+            _spectra_err = spectra.error.sortby("wavelength").sel(
+                wavelength=wavelength_slice
+            )
+        else:
+            _spectra_err = xr.full_like(_spectra, 0.0)
 
         # Fit spectra to calculate background emission, filter and integrate
         if fit_background:
             fit = _spectra.polyfit("wavelength", 0)
-            _spectra_to_integrate = fit.polyfit_coefficients.sel(degree=0)
-            spectra_to_integrate = _spectra_to_integrate.expand_dims(
+            _spectra_fit = fit.polyfit_coefficients.sel(degree=0)
+            spectra_to_integrate = _spectra_fit.expand_dims(
                 dim={"wavelength": _spectra.wavelength}
             )
+            spectra_to_integrate_err = xr.full_like(spectra_to_integrate, 0.0)
         else:
             spectra_to_integrate = _spectra
-        integral = (spectra_to_integrate * transmission).sum("wavelength")
+            spectra_to_integrate_err = _spectra_err
 
-        integral.attrs["error"] = integral * 0.0
-        spectra_to_integrate.attrs["error"] = spectra_to_integrate * 0.0
+        spectra_to_integrate.attrs["error"] = spectra_to_integrate_err
+
+        integral = (spectra_to_integrate * transmission).sum("wavelength")
+        integral_err = (np.sqrt((spectra_to_integrate_err * transmission) ** 2)).sum(
+            "wavelength"
+        )
+        integral.attrs["error"] = integral_err
 
         return spectra_to_integrate, integral
 

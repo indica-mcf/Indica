@@ -118,7 +118,7 @@ class Bolometer(DiagnosticModel):
 
         return self.bckc
 
-    def plot(self, tplot: float = None):
+    def plot(self, tplot: float = None, nplot: int = 1):
         if len(self.bckc) == 0:
             print("No model results to plot")
             return
@@ -135,6 +135,9 @@ class Bolometer(DiagnosticModel):
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
         plt.figure()
         for i, t in enumerate(self.t.values):
+            if i % nplot:
+                continue
+
             _brightness = self.bckc["brightness"].sel(t=t, method="nearest")
             if "beamlet" in _brightness.dims:
                 plt.fill_between(
@@ -157,6 +160,8 @@ class Bolometer(DiagnosticModel):
         # Local emissivity profiles
         plt.figure()
         for i, t in enumerate(self.t.values):
+            if i % nplot:
+                continue
             plt.plot(
                 self.emissivity.rho_poloidal,
                 self.emissivity.sel(t=t),

@@ -24,6 +24,77 @@ from ..datatypes import ELEMENTS
 DEFAULT_PATH = Path("")
 CACHE_DIR = ".indica"
 
+ADF11: dict = {
+    "h": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+        "pls": "15",
+        "prs": "15",
+    },
+    "he": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+        "pls": "15",
+        "prs": "15",
+    },
+    "c": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+        "pls": "15",
+        "prs": "15",
+    },
+    "ar": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+    "ne": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+        "pls": "15",
+        "prs": "15",
+    },
+    "mo": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+    },
+    "w": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+}
+
 
 class ADASReader(BaseIO):
     """Class for reading atomic data from ADAS files.

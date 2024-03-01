@@ -1167,7 +1167,9 @@ def sawtooth_crash(xspl, yspl, volume, x_inv):
         if vol_int_post >= vol_int_pre:
             break
 
-    x = np.linspace(0, 1, 15) ** 0.7
+    yspl[xind : xind + 5] = np.linspace(yspl[xind], yspl[xind + 5], 5)
+    x = np.linspace(0, 1, int(np.size(xspl) / 1.2))
+
     y = np.interp(x, xspl, yspl)
     cubicspline = CubicSpline(
         x,

@@ -252,7 +252,7 @@ def prepare_inputs(
     if pulse is not None:
         print("Reading experimental data")
         st40 = ReadST40(pulse, tstart, tend, dt)
-        st40(["pi", "tws_c", "ts", "efit"])
+        st40(["pi", "tws_c", "ts", "efit"], set_equilibrium=True)
         plasma.set_equilibrium(Equilibrium(st40.raw_data["efit"]))
 
         if not phantom_data and "ts" in st40.binned_data.keys():

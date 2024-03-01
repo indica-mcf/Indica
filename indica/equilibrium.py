@@ -40,6 +40,7 @@ class Equilibrium:
     R_shift : float
         How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
         on the major radius.
+        TODO: this and z_shift should be time-dependent...
     z_shift : float
         How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
         in the vertical coordinate.
@@ -1060,6 +1061,8 @@ def fake_equilibrium_data(
         f_raw, coords=[("t", times), ("rho_poloidal", rho1d)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
+
+    # TODO: RMJO and RMJI not calculated correctly...
     result["rmjo"] = (result["rmag"] + a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )

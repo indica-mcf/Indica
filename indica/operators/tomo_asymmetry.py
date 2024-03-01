@@ -141,9 +141,9 @@ class InvertPoloidalAsymmetry:
             return (_data - _bckc) / _error
 
         if t is None:
-            t = los_integral.t
+            t = los_integral.t.values
         else:
-            t = los_integral.t.sel(t=t, method="nearest")
+            t = los_integral.t.interp(t=t).values
 
         if hasattr(los_integral, "error"):
             error = los_integral.error

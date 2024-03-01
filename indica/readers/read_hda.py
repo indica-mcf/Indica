@@ -3,13 +3,14 @@ from copy import deepcopy
 import numpy as np
 from xarray import DataArray
 
+from indica.numpy_typing import RevisionLike
 from indica.readers import ST40Reader
 import indica.writers.mds_tree_structures as trees
 
 
 def read_hda_data(
     pulse: int,
-    revision: int,
+    revision: RevisionLike,
     uid: str = "",
     instrument: str = "HDA",
     tstart: float = 0.0,

@@ -108,7 +108,7 @@ def example_run(
     plot: bool = True,
 ):
     st40 = ReadST40(pulse, tstart=tstart, tend=tend, dt=dt)
-    st40(["ts"], R_shift=R_shift)
+    st40(["ts"], set_equilibrium=True, R_shift=R_shift)
 
     if quantity == "te" and knots is None:
         knots = [0, 0.3, 0.6, 0.8, 1.1]

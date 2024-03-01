@@ -13,6 +13,8 @@ class DiagnosticModel(ABC):
     los_transform: LineOfSightTransform
     transect_transform: TransectCoordinates
 
+    plasma = None
+
     def set_los_transform(self, los_transform: LineOfSightTransform):
         """
         Line-of-sight coordinate transform
