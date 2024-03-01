@@ -691,24 +691,18 @@ class LineOfSightTransform(CoordinateTransform):
         z = []
         R = []
         for ch in self.x1:
-            distance = np.sqrt(
-                self.x.sel(channel=ch) ** 2
-                + self.y.sel(channel=ch) ** 2
-                + self.z.sel(channel=ch) ** 2
-            )
+            x_mean = self.x.sel(channel=ch).mean("beamlet")
+            y_mean = self.y.sel(channel=ch).mean("beamlet")
+            z_mean = self.z.sel(channel=ch).mean("beamlet")
+            distance = np.sqrt(x_mean**2 + y_mean**2 + z_mean**2)
             _index = np.unravel_index(distance.argmin(), distance.shape)
             _index_temp = distance.argmin()
             index.append(_index_temp)
             impact.append(distance[_index])
-            x.append(self.x.sel(channel=ch)[_index])
-            y.append(self.y.sel(channel=ch)[_index])
-            z.append(self.z.sel(channel=ch)[_index])
-            R.append(
-                np.sqrt(
-                    self.x.sel(channel=ch)[_index] ** 2
-                    + self.y.sel(channel=ch)[_index] ** 2
-                )
-            )
+            x.append(x_mean[_index])
+            y.append(y_mean[_index])
+            z.append(z_mean[_index])
+            R.append(np.sqrt(x_mean[_index] ** 2 + y_mean[_index] ** 2))
 
         impact = Dataset(
             {
