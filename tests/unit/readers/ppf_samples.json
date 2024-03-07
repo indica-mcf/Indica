@@ -3623,5 +3623,37 @@
         "min": 0,
         "max": 0.5,
         "dtype": "float64"
+    },
+    "cwuv/n_w": {
+        "shape": [
+            33
+        ],
+        "min": 0,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cwuv/c_w": {
+        "shape": [
+            33
+        ],
+        "min": 0,
+        "max": 1,
+        "dtype": "float64"
+    },
+    "cwup/n_w": {
+        "shape": [
+            33
+        ],
+        "min": 0,
+        "max": 1000,
+        "dtype": "float64"
+    },
+    "cwup/c_w": {
+        "shape": [
+            33
+        ],
+        "min": 0,
+        "max": 1,
+        "dtype": "float64"
     }
 }

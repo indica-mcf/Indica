@@ -1215,6 +1215,135 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
+    def get_vuv_w_analyser(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, DataArray]:
+        """
+        Gets estimated Tungsten density data output from VUV analysis.
+
+        Parameters
+        ----------
+        uid
+            User ID (i.e., which user created this data)
+        instrument
+            Name of the instrument which measured this data
+        revision
+            An object (of implementation-dependent type) specifying what
+            version of data to get. Default is the most recent.
+        quantities
+            Which physical quantitie(s) to read from the database.
+
+        Returns
+        -------
+        A dictionary containing the following items:
+
+        times : ndarray
+            The times at which measurements were taken
+        machine_dims
+            A tuple describing the size of the Tokamak domain. It should have
+            the form ``((Rmin, Rmax), (zmin, zmax))``.
+
+        For each requested quantity, the following items will also be present:
+
+        <quantity> : ndarray
+            The data itself (first axis is time)
+        <quantity>_records : List[str]
+            Representations (e.g., paths) for the records in the database used
+            to access data needed for this data.
+        <quantity>_xstart : ndarray
+            x value of start positions for lines of sight for this data.
+        <quantity>_xstop : ndarray
+            x value of stop positions for lines of sight for this data.
+        <quantity>_ystart : ndarray
+            y value of start positions for lines of sight for this data.
+        <quantity>_ystop : ndarray
+            y value of stop positions for lines of sight for this data.
+        <quantity>_zstart : ndarray
+            Vertical location of start positions for lines of sight for this data.
+        <quantity>_zstop : ndarray
+            Vertical location of stop positions for lines of sight for this data.
+        """
+        available_quantities = self.available_quantities(instrument)
+        database_results = self._get_vuv_w_analyser(
+            uid, instrument, revision, quantities
+        )
+        if len(database_results) == 0:
+            print(f"No data from {uid}.{instrument}:{revision}")
+            return database_results
+        _revision = database_results["revision"]
+
+        times = database_results["times"]
+        data: Dict[str, DataArray] = {}
+        for quantity in quantities:
+            if quantity not in available_quantities:
+                raise ValueError(
+                    "{} can not read VUV W analyser data for quantity {}".format(
+                        self.__class__.__name__, quantity
+                    )
+                )
+            downsample_ratio = int(
+                np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+            )
+            transform = LinesOfSightTransform(
+                x_start=database_results[quantity + "_xstart"],
+                z_start=database_results[quantity + "_zstart"],
+                y_start=database_results[quantity + "_ystart"],
+                x_end=database_results[quantity + "_xstop"],
+                z_end=database_results[quantity + "_zstop"],
+                y_end=database_results[quantity + "_ystop"],
+                name=f"{instrument}_{quantity}",
+                machine_dimensions=database_results["machine_dims"],
+            )
+            coords: Dict[Hashable, Any] = {"t": times}
+            dims = ["t"]
+            coords[transform.x1_name] = 0
+            meta = {
+                "datatype": available_quantities[quantity],
+                "transform": transform,
+            }
+            quant_data = DataArray(
+                database_results[quantity],
+                coords,
+                dims,
+                attrs=meta,
+            ).indica.inclusive_timeslice(self._tstart, self._tend)
+            if downsample_ratio > 1:
+                quant_data = quant_data.coarsen(
+                    t=downsample_ratio, boundary="trim"
+                ).mean()
+
+            quant_data.name = instrument + "_" + quantity
+            quant_data.attrs["partial_provenance"] = self.create_provenance(
+                "vuv_w_analyser",
+                uid,
+                instrument,
+                _revision,
+                quantity,
+                database_results[quantity + "_records"],
+                [],
+            )
+            quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
+            data[quantity] = quant_data
+
+        self._warn_less_than_zero(instrument, data)
+        return data
+
+    def _get_vuv_w_analyser(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        raise NotImplementedError(
+            "{} does not implement a '_get_vuv_w_analyser' "
+            "method.".format(self.__class__.__name__)
+        )
+
     def get_helike_spectroscopy(
         self,
         uid: str,

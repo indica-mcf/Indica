@@ -34,7 +34,6 @@ from ..datatypes import ELEMENTS
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
-
 SURF_PATH = Path(surf_los.__file__).parent / "surf_los.dat"
 
 
@@ -95,6 +94,8 @@ class PPFReader(DataReader):
         "eftp": "get_equilibrium",
         "kk3": "get_cyclotron_emissions",
         "ks3": "get_bremsstrahlung_spectroscopy",
+        "cwuv": "get_vuv_w_analyser",
+        "cwup": "get_vuv_w_analyser",
         "sxr": "get_radiation",
         "bolo": "get_radiation",
         "kg10": "get_thomson_scattering",
@@ -210,11 +211,7 @@ class PPFReader(DataReader):
             quantity,
             info.revision_current,
         )
-        cache_path = self._sal_path_to_file(path)
-        data = self._read_cached_ppf(cache_path)
-        if data is None:
-            data = self._client.get(path)
-            self._write_cached_ppf(cache_path, data)
+        data = self._get_data_with_cache(path)
         return data, path
 
     def _get_revision(
@@ -228,6 +225,18 @@ class PPFReader(DataReader):
             f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
         )
         return info.revision_current
+
+    def _get_data_with_cache(self, path: str) -> Signal:
+        """
+        Check cache for data.
+        If not in cache then get it using sal and write to cache.
+        """
+        cache_path = self._sal_path_to_file(path)
+        data = self._read_cached_ppf(cache_path)
+        if data is None:
+            data = self._client.get(path)
+            self._write_cached_ppf(cache_path, data)
+        return data
 
     def _read_cached_ppf(self, path: Path) -> Optional[Signal]:
         """Check if the PPF data specified by `sal_path` has been cached and,
@@ -561,6 +570,34 @@ class PPFReader(DataReader):
             results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
             results[q + "_records"] = [q_path, l_path]
 
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        return results
+
+    def _get_vuv_w_analyser(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        results: Dict[str, Any] = {
+            "machine_dims": self.MACHINE_DIMS,
+        }
+        for q in quantities:
+            qval, q_path = self._get_signal(uid, instrument, q, revision)
+            if "times" not in results:
+                results["times"] = qval.dimensions[0].data
+            results[q] = qval.data
+            xstart, xend, zstart, zend, ystart, yend = surf_los.read_surf_los(
+                SURF_PATH, self.pulse, instrument.lower() + "/" + q.lower()
+            )
+            results[q + "_records"] = q_path
+            results[q + "_xstart"] = xstart
+            results[q + "_xstop"] = xend
+            results[q + "_zstart"] = zstart
+            results[q + "_zstop"] = zend
+            results[q + "_ystart"] = ystart
+            results[q + "_ystop"] = yend
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 

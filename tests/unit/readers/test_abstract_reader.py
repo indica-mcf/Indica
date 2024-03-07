@@ -28,6 +28,7 @@ _INSTRUMENT_METHODS = {
     "cyclotron_emissions": "get_cyclotron_emissions",
     "charge_exchange": "get_charge_exchange",
     "bremsstrahlung_spectroscopy": "get_bremsstrahlung_spectroscopy",
+    "vuv_w_analyser": "get_vuv_w_analyser",
     "radiation": "get_radiation",
     "helike_spectroscopy": "get_helike_spectroscopy",
     "interferometry": "get_interferometry",
@@ -365,6 +366,32 @@ class TestReader(DataReader):
                 f"{quantity}_los_records",
             ]
 
+        return results
+
+    def _get_vuv_w_analyser(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        results: Dict[str, Any] = {
+            "machine_dims": self.MACHINE_DIMS,
+        }
+        if self.empty:
+            return {}
+
+        results["times"] = self.times
+        for q in quantities:
+            results[q] = gen_array(0, 1.0e6, (self.nt,))
+            results[q + "_records"] = q + "_path"
+            results[q + "_xstart"] = gen_array(self.Rmin, self.Rmax, (1,))
+            results[q + "_xstop"] = gen_array(self.Rmin, self.Rmax, (1,))
+            results[q + "_zstart"] = gen_array(self.Rmin, self.Rmax, (1,))
+            results[q + "_zstop"] = gen_array(self.Rmin, self.Rmax, (1,))
+            results[q + "_ystart"] = gen_array(self.Rmin, self.Rmax, (1,))
+            results[q + "_ystop"] = gen_array(self.Rmin, self.Rmax, (1,))
+        results["revision"] = revision
         return results
 
     def _get_helike_spectroscopy(
@@ -730,6 +757,12 @@ def test_charge_exchange():
 
 def test_bremsstrahlung_spectroscopy():
     instrument = "bremsstrahlung_spectroscopy"
+    _test_get_methods(instrument)
+    _test_catch_unimplemented_reader(instrument)
+
+
+def test_vuv_w_analyser():
+    instrument = "vuv_w_analyser"
     _test_get_methods(instrument)
     _test_catch_unimplemented_reader(instrument)
 

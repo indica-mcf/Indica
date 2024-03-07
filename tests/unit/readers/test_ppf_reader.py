@@ -647,6 +647,79 @@ def test_get_bremsstrahlung_spectroscopy(
 
 
 @given(
+    integers(28792, 99999),
+    times,
+    errors,
+    max_freqs,
+    just("jetppf"),
+    sampled_from(["cwup", "cwuv"]),
+    revisions,
+    edited_revisions,
+    lists(
+        sampled_from(list(PPFReader.available_quantities("cwup").keys())),
+        min_size=1,
+        unique=True,
+    ).map(set),
+)
+def test_get_vuv_w_analyser(
+    pulse,
+    time_range,
+    error,
+    freq,
+    uid,
+    instrument,
+    revision,
+    available_revisions,
+    quantities,
+):
+    """
+    Test data returned by _get_vuv_w_analyser is correct.
+    """
+    reader = patched_ppf_reader(
+        pulse,
+        *time_range,
+        default_error=error,
+        max_freq=freq,
+        selector=MagicMock(),
+        session=MagicMock(),
+    )
+    mock_surf = MagicMock(
+        return_value=(
+            np.array([0]),
+            np.array([0]),
+            np.array([1]),
+            np.array([1]),
+            np.array([0]),
+            np.array([0]),
+        )
+    )
+    reader._client._revisions = available_revisions
+    bad_rev = revision != 0 and revision < available_revisions[0]
+
+    with patch("indica.readers.surf_los.read_surf_los", mock_surf), pytest.raises(
+        sal.core.exception.NodeNotFound
+    ) if bad_rev else nullcontext():
+        results = reader._get_vuv_w_analyser(uid, instrument, revision, quantities)
+    if bad_rev:
+        return
+
+    assert results["machine_dims"] == ((1.83, 3.9), (-1.75, 2.0))
+    for q in quantities:
+        signal = reader._client.construct_signal(f"{instrument}/{q}")
+        assert np.all(results[q] == signal.data)
+        assert np.all(results["times"] == signal.dimensions[0].data)
+        assert results[q + "_xstart"].shape == (1,)
+        assert results[q + "_xstop"].shape == (1,)
+        assert results[q + "_zstart"].shape == (1,)
+        assert results[q + "_zstop"].shape == (1,)
+        assert results[q + "_ystart"].shape == (1,)
+        assert results[q + "_ystop"].shape == (1,)
+        assert results[q + "_records"] == get_record(
+            reader, pulse, uid, instrument, q, revision
+        )
+
+
+@given(
     pulses,
     times,
     errors,
@@ -654,7 +727,7 @@ def test_get_bremsstrahlung_spectroscopy(
     text(min_size=1),
     sampled_from(sorted(PPFReader.INSTRUMENT_METHODS.keys())),
     revisions,
-    lists(text(), min_size=1, unique=True).map(set),
+    lists(text(min_size=1), min_size=1, unique=True).map(set),
 )
 def test_general_get(
     pulse, time_range, error, freq, uid, instrument, revision, quantities
@@ -668,6 +741,7 @@ def test_general_get(
         get_cyclotron_emissions=DEFAULT,
         get_radiation=DEFAULT,
         get_bremsstrahlung_spectroscopy=DEFAULT,
+        get_vuv_w_analyser=DEFAULT,
     ), patch("indica.readers.ppfreader.SALClient", JETFakeSALClient):
         reader = PPFReader(
             pulse,

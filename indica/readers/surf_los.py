@@ -25,6 +25,10 @@ INSTRUMENT_MAP: DefaultDict[str, Tuple[Optional[str], re.Pattern]] = defaultdict
         "kk3": ("ECE/KK3", re.compile(".*")),
         "bolo/kb5h": ("Bolometry/KB5", re.compile(r"KB5H \d+")),
         "bolo/kb5v": ("Bolometry/KB5", re.compile(r"KB5V \d+")),
+        "cwup/c_w": ("XUV-VUV spect/KT7D", re.compile(".*")),
+        "cwup/n_w": ("XUV-VUV spect/KT7D", re.compile(".*")),
+        "cwuv/c_w": ("XUV-VUV spect/KT7D", re.compile(".*")),
+        "cwuv/n_w": ("XUV-VUV spect/KT7D", re.compile(".*")),
     },
 )
 
@@ -57,7 +61,7 @@ def _parse_lines(
         channel. The channel will only be included in result if the regular
         expression matches the channel name.
 
-    Retruns
+    Returns
     -------
     Rstart
         Major radius for the start of the line of sight for each channel.
@@ -111,7 +115,7 @@ def _parse_line3d(
         channel. The channel will only be included in result if the regular
         expression matches the channel name.
 
-    Retruns
+    Returns
     -------
     Rstart
         Major radius for the start of the line of sight for each channel.
@@ -169,7 +173,7 @@ def _parse_kj34(
         channel. The channel will only be included in result if the regular
         expression matches the channel name.
 
-    Retruns
+    Returns
     -------
     Rstart
         Major radius for the start of the line of sight for each channel.
@@ -225,10 +229,72 @@ def _parse_kj34(
     return rstart, rend, zstart, zend, Tstart, Tend  # type: ignore
 
 
+def _parse_kt7d(
+    data: Iterable[str], criterion: re.Pattern
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Parse the provided lines of data to get the start and end
+    coordinates of the lines of sight.
+    This works when the data is in the "kt7d" format.
+
+    Parameters
+    ----------
+    data
+        An iterable returning lines from the SURF file which should be parsed
+        to get line-of-sight data.
+    criterion
+        A regular expression against which to evaluate the name of each
+        channel. The channel will only be included in result if the regular
+        expression matches the channel name.
+
+    Returns
+    -------
+    Rstart
+        Major radius for the start of the line of sight.
+    Rend
+        Major radius for the end of the line of sight.
+    Zstart
+        Vertical position for the start of the line of sight.
+    Zend
+        Vertical position for the end of the line of sight.
+    Tstart
+        Toroidal offset of start of the line of sight.
+    Tend
+        Toroidal offset of the end of the line of sight.
+
+    """
+    data = list(data)
+
+    if len(data) > 1:
+        raise SURFException("Only one line expected for KT7D data.")
+
+    # expect theta to be angle (radians) of
+    # line of sight from horizontal (vector along major radius)
+    numbers = _DIVIDER.split(data[0].strip())[1:]
+    (R_pinhole, Z_pinhole, theta_start, theta_end) = (float(x) for x in numbers)
+
+    # for now get middle of line of sight, should account for spread instead
+    theta = (theta_start + theta_end) / 2
+
+    R_end = R_pinhole + np.cos(theta)
+    Z_end = Z_pinhole + np.sin(theta)
+
+    # assume no toroidal skew
+    return (
+        np.array([R_pinhole]),
+        np.array([R_end]),
+        np.array([Z_pinhole]),
+        np.array([Z_end]),
+        np.zeros(1),
+        np.zeros(1),
+    )
+
+
 SURF_PARSERS = {
     "lines": _parse_lines,
     "line3d": _parse_line3d,
     "kj34": _parse_kj34,
+    "kt7d": _parse_kt7d,
 }
 
 
@@ -250,7 +316,7 @@ def read_surf_los(
         other instrument, try a string which is present within its heading in
         the SURF file.
 
-    Retruns
+    Returns
     -------
     Rstart
         Major radius for the start of the line of sight for each channel.

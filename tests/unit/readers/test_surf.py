@@ -165,6 +165,29 @@ def test_read_kk3_los_2(pulse, upper_case):
     assert np.all(Tend == pytest.approx(0.0))
 
 
+@given(integers(79854, 91276), lists(booleans(), min_size=1))
+def test_read_kt3d_los(pulse, upper_case):
+    """Test reading the lines of sight for KK3."""
+    rstart, rend, zstart, zend, ystart, yend = surf_los.read_surf_los(
+        filepath, pulse, "cwup/c_w"
+    )
+    assert (
+        len(rstart)
+        == len(rend)
+        == len(zstart)
+        == len(zend)
+        == len(ystart)
+        == len(yend)
+        == 1
+    )
+    assert rstart[0] == pytest.approx(2.87261)
+    assert rend[0] == pytest.approx(2.898033)
+    assert zstart[0] == pytest.approx(4.81563)
+    assert zend[0] == pytest.approx(3.815953)
+    assert np.all(ystart == pytest.approx(0.0))
+    assert np.all(yend == pytest.approx(0.0))
+
+
 @given(integers(82264, 10000000), lists(booleans(), min_size=1))
 def test_read_bolo_h_los_1(pulse, upper_case):
     """Test reading lines of sight for bolometric camera H."""
