@@ -331,4 +331,4 @@ if __name__ == "__main__":
         mode = "EDIT"
     else:
         mode = "NEW"
-    create_nodes(pulse_to_write=pulse, mode=mode, run=run)
+    create_nodes(pulse_to_write=pulse, mode=mode, run=run, best=True)
