@@ -243,22 +243,22 @@ def gpr_fit_ts(
 
 
 if __name__ == "__main__":
-    pulse = 11089
+    pulse = 11418
     tstart = 0.03
-    tend = 0.12
+    tend = 0.15
     dt = 0.01
     st40 = ReadST40(pulse, tstart, tend, dt)
-    st40(instruments=["ts", "efit"])
+    st40(instruments=["ts", "efit"], R_shift=0.00)
 
     ne_data = post_process_ts(
         st40.binned_data,
         st40.equilibrium,
         "ne",
         pulse,
-        split="LFS",
+        split="",
     )
     ne_kernel = 1.0 * kernels.RationalQuadratic(
-        alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.4, 0.7)
+        alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.3, 0.7)
     ) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
 
     te_data = post_process_ts(
@@ -266,7 +266,7 @@ if __name__ == "__main__":
         st40.equilibrium,
         "te",
         pulse,
-        split="LFS",
+        split="",
     )
     te_kernel = 1.0 * kernels.RationalQuadratic(
         alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.4, 0.7)
