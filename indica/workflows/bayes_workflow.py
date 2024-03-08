@@ -41,7 +41,7 @@ from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import does_tree_exist
-from indica.writers.bda_tree import write_nodes
+import standard_utility as util
 
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
@@ -1134,12 +1134,12 @@ class BayesWorkflow(AbstractBayesWorkflow):
         self.result = dict_of_dataarray_to_numpy(self.result)
 
         if mds_write:
+            print("Writing to MDS+")
             tree_exists = does_tree_exist(pulse_to_write)
             if tree_exists:
                 mode = "EDIT"
             else:
                 mode = "NEW"
-
             self.node_structure = create_nodes(
                 pulse_to_write=pulse_to_write,
                 best=best,
@@ -1147,7 +1147,14 @@ class BayesWorkflow(AbstractBayesWorkflow):
                 diagnostic_quantities=self.blackbox_settings.opt_quantity,
                 mode=mode,
             )
-            write_nodes(pulse_to_write, self.node_structure, self.result)
+
+            util.StandardNodeWriting(
+                pulse_number=pulse_to_write,  # pulse number for which data should be written
+                dict_node_info=self.node_structure,  # node information file
+                nodes_to_write=[],  # selective nodes to be written
+                data_to_write=self.result,
+                debug=False,
+            )
         return
 
 
