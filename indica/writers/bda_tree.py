@@ -268,16 +268,6 @@ def create_nodes(
     return node_info
 
 
-def write_nodes(pulse, node_info, data):
-    util.StandardNodeWriting(
-        pulse_number=pulse,  # pulse number for which data should be written
-        dict_node_info=node_info,  # node information file
-        nodes_to_write=[],  # selective nodes to be written
-        data_to_write=data,
-        debug=False,
-    )
-
-
 def check_to_overwrite_run(
     pulseNo,
     which_run,
