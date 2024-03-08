@@ -418,16 +418,22 @@ class PlasmaContext:
             }
         self.phantom_profiles = phantom_profiles
 
-    def fit_ts_profile(self, data_context, split="LFS", quant="ne"):
+    def fit_ts_profile(self, pulse, tstart, tend, dt, split="LFS", quant="ne", R_shift=0.0):
+
+        # Temp hack for setting TS data
+
+        reader = ReadST40(pulse=pulse, tstart=tstart, tend= tend, dt=dt)
+        reader(["ts", "efit"], R_shift=R_shift)
+
         kernel = 1.0 * kernels.RationalQuadratic(
-            alpha_bounds=(0.5, 1.0), length_scale_bounds=(0.4, 0.7)
+            alpha_bounds=(0.5, 1.0), length_scale_bounds=(0.3, 0.7)
         ) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
 
         processed_data = post_process_ts(
-            deepcopy(data_context.binned_data),
-            data_context.equilibrium,
+            deepcopy(reader.binned_data),
+            reader.equilibrium,
             quant,
-            data_context.pulse,
+            pulse,
             split=split,
         )
         fit, _ = gpr_fit_ts(
@@ -439,17 +445,14 @@ class PlasmaContext:
             save_fig=True,
         )
         fit = xr.where(fit < 0, 1e-10, fit)
-        return fit
+        return fit, processed_data
 
-    def set_ts_profiles(self, data_context, split="LFS", extrapolate=None):
+    def set_ts_profiles(self, data_context, split="LFS", R_shift=0.0):
 
-        ne_fit = self.fit_ts_profile(data_context, quant="ne", split=split) * 1e19
-        te_fit = self.fit_ts_profile(data_context, quant="te", split=split) * 1e3
-
-        if extrapolate:
-            last_time_point = ne_fit[ne_fit.t <= extrapolate].t.max()
-            ne_fit[ne_fit.t >= extrapolate] = ne_fit.sel(t=last_time_point, method="nearest")
-            te_fit[te_fit.t >= extrapolate] = te_fit.sel(t=last_time_point, method="nearest")
+        ne_fit, ne_data = self.fit_ts_profile(data_context.pulse, data_context.tstart, data_context.tend, data_context.dt, quant="ne", split=split, R_shift=R_shift)
+        te_fit, te_data = self.fit_ts_profile(data_context.pulse, data_context.tstart, data_context.tend, data_context.dt, quant="te", split=split, R_shift=R_shift)
+        ne_fit *= 1e19
+        te_fit *= 1e3
 
         self.plasma.electron_density.loc[dict()] = ne_fit.interp(rho=self.plasma.rho)
         self.plasma.electron_temperature.loc[dict()] = te_fit.interp(
@@ -1083,6 +1086,7 @@ class BayesWorkflow(AbstractBayesWorkflow):
         filepath="./results/test/",
         run="RUN01",
         mds_write=False,
+        best=True,
         pulse_to_write=None,
         plot=False,
         **kwargs,
@@ -1138,6 +1142,7 @@ class BayesWorkflow(AbstractBayesWorkflow):
 
             self.node_structure = create_nodes(
                 pulse_to_write=pulse_to_write,
+                best=best,
                 run=run,
                 diagnostic_quantities=self.blackbox_settings.opt_quantity,
                 mode=mode,
