@@ -1,5 +1,4 @@
-"""Trivial class for transforming to and from R-z coordinate systems.
-"""
+"""Trivial class for transforming to and from R-z coordinate systems."""
 
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
@@ -7,7 +6,8 @@ from ..numpy_typing import LabeledArray
 
 
 class TrivialTransform(CoordinateTransform):
-    """Class to use for transforms to/from an R-z coordinate systems. This
+    """
+    Class to use for transforms to/from an R-z coordinate systems. This
     is trivial, as R-z coordinates are the go-between for conversion
     to all other coordinate systems.
 
@@ -19,7 +19,8 @@ class TrivialTransform(CoordinateTransform):
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from this coordinate to the R-z coordinate system.
+        """
+        Convert from this coordinate to the R-z coordinate system.
 
         Parameters
         ----------
@@ -43,7 +44,8 @@ class TrivialTransform(CoordinateTransform):
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from the master coordinate system to this coordinate.
+        """
+        Convert from the master coordinate system to this coordinate.
 
         Parameters
         ----------
@@ -65,6 +67,20 @@ class TrivialTransform(CoordinateTransform):
         return R, z
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check that two transforms are describing the same coordinate system.
+
+        Parameters
+        ----------
+        other
+            CoordinateTransform object to compare equality against.
+
+        Returns
+        -------
+        bool
+            Whether objects are the same.
+
+        """
         if not isinstance(other, self.__class__):
             return False
         return self._abstract_equals(other)

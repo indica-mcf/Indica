@@ -1,5 +1,7 @@
-"""Routines for averaging or interpolate along the time axis given start and end times
-and a desired time resolution"""
+"""
+Routines for averaging or interpolating along the time axis.
+Takes start and end times and a desired time resolution.
+"""
 
 import numpy as np
 from xarray import DataArray
@@ -9,6 +11,12 @@ from xarray.core.types import InterpOptions
 def strip_provenance(arr: DataArray):
     """
     Remove provenance information from a DataArray if present.
+
+    Parameters
+    ----------
+    arr
+        DataArray to strip provenance from.
+
     """
     if "provenance" in arr.attrs:
         del arr.attrs["partial_provenance"]
@@ -22,7 +30,8 @@ def convert_in_time(
     data: DataArray,
     method: InterpOptions = "linear",
 ) -> DataArray:
-    """Interpolate or bin (as appropriate) the given data along the time
+    """
+    Interpolate or bin (as appropriate) the given data along the time
     axis, discarding data before or after the limits.
 
     Parameters
@@ -74,6 +83,8 @@ def convert_in_time_dt(
         Time resolution of new time axis.
     data
         Data to be interpolated/binned.
+    method
+        Interpolation method to use. Default "linear".
 
     Returns
     -------
@@ -81,7 +92,6 @@ def convert_in_time_dt(
         Array like the input, but interpolated/binned along the time axis.
 
     """
-
     tcoords = data.coords["t"]
     data_dt = tcoords[1] - tcoords[0]
     if data_dt <= dt / 2:
@@ -102,6 +112,8 @@ def interpolate_to_time_labels(
         The times at which the data should be interpolated.
     data
         Data to be interpolated.
+    method
+        Interpolation method to use. Default "linear".
 
     Returns
     -------
@@ -135,7 +147,8 @@ def interpolate_to_time_labels(
 
 
 def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
-    """Bin data to sit on the specified time labels.
+    """
+    Bin data to sit on the specified time labels.
 
     Parameters
     ----------
@@ -210,7 +223,8 @@ def interpolate_in_time(
     data: DataArray,
     method: InterpOptions = "linear",
 ) -> DataArray:
-    """Interpolate the given data along the time axis, discarding data
+    """
+    Interpolate the given data along the time axis, discarding data
     before or after the limits.
 
     Parameters
@@ -247,7 +261,8 @@ def interpolate_in_time_dt(
     data: DataArray,
     method: InterpOptions = "linear",
 ) -> DataArray:
-    """Interpolate the given data along the time axis, discarding data
+    """
+    Interpolate the given data along the time axis, discarding data
     before or after the limits.
 
     Parameters
@@ -270,7 +285,6 @@ def interpolate_in_time_dt(
         Array like the input, but interpolated along the time axis.
 
     """
-
     check_bounds_interp(tstart, tend, data)
     tlabels = get_tlabels_dt(tstart, tend, dt)
 
@@ -280,7 +294,8 @@ def interpolate_in_time_dt(
 def bin_in_time(
     tstart: float, tend: float, frequency: float, data: DataArray
 ) -> DataArray:
-    """Bin given data along the time axis, discarding data before or after
+    """
+    Bin given data along the time axis, discarding data before or after
     the limits.
 
     Parameters
@@ -307,7 +322,8 @@ def bin_in_time(
 
 
 def bin_in_time_dt(tstart: float, tend: float, dt: float, data: DataArray) -> DataArray:
-    """Bin given data along the time axis, discarding data before or after
+    """
+    Bin given data along the time axis, discarding data before or after
     the limits.
 
     Parameters
@@ -334,7 +350,7 @@ def bin_in_time_dt(tstart: float, tend: float, dt: float, data: DataArray) -> Da
 
 def get_tlabels(tstart: float, tend: float, frequency: float):
     """
-    Build time array given start, end and frequency
+    Build time array given start, end and frequency.
 
     Parameters
     ----------
@@ -357,7 +373,7 @@ def get_tlabels(tstart: float, tend: float, frequency: float):
 
 def get_tlabels_dt(tstart: float, tend: float, dt: float):
     """
-    Build time array given start, end and frequency
+    Build time array given start, end and frequency.
 
     Parameters
     ----------
@@ -380,7 +396,7 @@ def get_tlabels_dt(tstart: float, tend: float, dt: float):
 
 def check_bounds_bin(tstart: float, tend: float, dt: float, data: DataArray):
     """
-    Check necessary bounds for binning data in time
+    Check necessary bounds for binning data in time.
 
     Parameters
     ----------
@@ -392,6 +408,12 @@ def check_bounds_bin(tstart: float, tend: float, dt: float, data: DataArray):
         Time resolution of new time axis.
     data
         Data to be binned.
+
+    Raises
+    ------
+    ValueError
+        If not data falls within either the first or last bin.
+
     """
     tcoords = data.coords["t"]
     half_interval = dt / 2
@@ -411,7 +433,7 @@ def check_bounds_bin(tstart: float, tend: float, dt: float, data: DataArray):
 
 def check_bounds_interp(tstart: float, tend: float, data: DataArray):
     """
-    Check necessary bounds for interpolating in time
+    Check necessary bounds for interpolating in time.
 
     Parameters
     ----------
@@ -419,10 +441,14 @@ def check_bounds_interp(tstart: float, tend: float, data: DataArray):
         The lower limit in time for determining which data to retain.
     tend
         The upper limit in time for determining which data to retain.
-    dt
-        Time resolution of new time axis.
     data
         Data to be interpolated.
+
+    Raises
+    ------
+    ValueError
+        If either ``tstart`` or ``tend`` is not in range of provided data.
+
     """
     tcoords = data.coords["t"]
     start = np.argmax((tcoords > tstart).data) - 1
@@ -431,8 +457,6 @@ def check_bounds_interp(tstart: float, tend: float, data: DataArray):
     end = np.argmax((tcoords >= tend).data)
     if end < 1:
         raise ValueError("End time {} not in range of provided data.".format(tend))
-
-    return
 
 
 #

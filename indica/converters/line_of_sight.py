@@ -1,4 +1,5 @@
-"""Coordinate system representing a collection of lines of sight.
+"""
+Coordinate system representing a collection of lines of sight.
 """
 
 from typing import cast
@@ -17,7 +18,8 @@ from ..numpy_typing import LabeledArray
 
 
 class LinesOfSightTransform(CoordinateTransform):
-    """Coordinate system for data collected along a number of lines-of-sight.
+    """
+    Coordinate system for data collected along a number of lines-of-sight.
 
     The first coordinate in this system is an index indicating which
     line-of-site a location is on. The second coordinate ranges from 0
@@ -198,7 +200,8 @@ class LinesOfSightTransform(CoordinateTransform):
         x2: LabeledArray,
         t: LabeledArray,
     ) -> np.ndarray:
-        """Implementation of calculation of physical distances between points
+        """
+        Implementation of calculation of physical distances between points
         in this coordinate system. This accounts for potential toroidal skew of
         lines.
 
@@ -250,7 +253,8 @@ def _find_wall_intersections(
         (-1.75, 2.0),
     ),
 ):
-    """Function for calculating "start" and "end" positions of the line-of-sight
+    """
+    Function for calculating "start" and "end" positions of the line-of-sight
     given the machine dimensions.
 
     The end coordinate is calculated by finding the intersections with the
@@ -276,7 +280,6 @@ def _find_wall_intersections(
     end_coordinates
         A Tuple (1x3) giving the X, Y and Z end positions of the line-of-sight
     """
-
     # x_start, y_start, z_start
     x_start = origin[0]
     y_start = origin[1]

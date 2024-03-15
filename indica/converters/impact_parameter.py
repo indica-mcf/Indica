@@ -18,7 +18,8 @@ from ..utilities import coord_array
 
 
 class ImpactParameterCoordinates(CoordinateTransform):
-    """Class for coordinate systems based on lines-of-sight, but using the
+    """
+    Class for coordinate systems based on lines-of-sight, but using the
     impact parameter (smallest flux value along a line-of-sight) as the
     label for the first coordinate.
 
@@ -99,7 +100,8 @@ class ImpactParameterCoordinates(CoordinateTransform):
     def get_converter(
         self, other: "CoordinateTransform", reverse=False
     ) -> Optional[Callable[[LabeledArray, LabeledArray, LabeledArray], Coordinates]]:
-        """Checks if there is a shortcut to convert between these coordiantes,
+        """
+        Check if there is a shortcut to convert between these coordiantes,
         returning it if so. This can sometimes save the step of
         converting to (R, z) coordinates first.
 
@@ -136,7 +138,8 @@ class ImpactParameterCoordinates(CoordinateTransform):
     def _convert_to_los(
         self, min_rho: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from this coordinate system to a line-of-sight coordinate system.
+        """
+        Convert from this coordinate system to a line-of-sight coordinate system.
 
         Parameters
         ----------
@@ -168,7 +171,8 @@ class ImpactParameterCoordinates(CoordinateTransform):
     def _convert_from_los(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Converts from line of sight coordinates to this coordinate system.
+        """
+        Convert from line of sight coordinates to this coordinate system.
 
         Parameters
         ----------
@@ -199,7 +203,8 @@ class ImpactParameterCoordinates(CoordinateTransform):
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from this coordinate to the R-z coordinate system.
+        """
+        Convert from this coordinate to the R-z coordinate system.
 
         Parameters
         ----------
@@ -224,7 +229,8 @@ class ImpactParameterCoordinates(CoordinateTransform):
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-        """Convert from the master coordinate system to this coordinate.
+        """
+        Convert from the master coordinate system to this coordinate.
 
         Parameters
         ----------
@@ -253,9 +259,25 @@ class ImpactParameterCoordinates(CoordinateTransform):
         x2: LabeledArray,
         t: LabeledArray,
     ) -> LabeledArray:
-        """Implementation of calculation of physical distances between points
-        in this coordinate system. This accounts for potential toroidal skew of
-        lines.
+        """
+        Calculate physical distances between points in this coordinate system.
+        This accounts for potential toroidal skew of lines.
+
+        Parameters
+        ----------
+        direction : str
+            Which dimension to give the distance along.
+        x1
+            The first spatial coordinate in this system.
+        x2
+            The second spatial coordinate in this system.
+        t
+            The time coordinate
+
+        Returns
+        -------
+        :
+           Distance from the origin in the specified direction.
 
         """
         return self.lines_of_sight.distance(
@@ -263,8 +285,15 @@ class ImpactParameterCoordinates(CoordinateTransform):
         )
 
     def drho(self) -> float:
-        """Calculates the average difference in impact parameters between
-        adjacent lines of sight."""
+        """
+        Calculate the average difference in impact parameters between
+        adjacent lines of sight.
+
+        Returns
+        -------
+        :
+            Mean difference in impact parameter between adjacent lines of sight.
+        """
         drhos = np.abs(
             self.rho_min.isel({self.x1_name: slice(1, None)}).data
             - self.rho_min.isel({self.x1_name: slice(None, -1)}).data
@@ -272,13 +301,32 @@ class ImpactParameterCoordinates(CoordinateTransform):
         return np.mean(drhos)
 
     def rhomax(self) -> float:
-        """Returns the time-averaged maximum impact parameter on the low flux
+        """
+        Find the time-averaged maximum impact parameter on the low flux
         surface.
 
+        Returns
+        -------
+        :
+            Time-averaged maximum impact parameter on the low flux surface.
         """
         return self.rho_min.mean("t").max()
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check that two transforms are describing the same coordinate system.
+
+        Parameters
+        ----------
+        other
+            CoordinateTransform object to compare equality against.
+
+        Returns
+        -------
+        bool
+            Whether objects are the same.
+
+        """
         if not isinstance(other, self.__class__):
             return False
         result = self._abstract_equals(other)

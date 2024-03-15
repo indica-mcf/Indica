@@ -82,3 +82,11 @@ module = [
     "scipy.*",
 ]
 ignore_missing_imports = true
+
+[tool.ruff.lint]
+select = ["D"]
+extend-select = ["D213"]
+ignore = ["D205", "D301"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
