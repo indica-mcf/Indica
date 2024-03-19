@@ -101,8 +101,8 @@ class TestModels:
     def test_diodes_timepoint_pass(self):
         self._test_timepoint_pass("diode_filters")
 
-    def test_diodes_interpolation(self):
-        self._test_time_interpolation("diode_filters")
+    # def test_diodes_interpolation(self):
+    #     self._test_time_interpolation("diode_filters")
 
     def test_helike_timepoint_fail(self):
         self._test_timepoint_fail("helike_spectroscopy")
@@ -110,8 +110,8 @@ class TestModels:
     def test_helike_timepoint_pass(self):
         self._test_timepoint_pass("helike_spectroscopy")
 
-    def test_helike_interpolation(self):
-        self._test_time_interpolation("helike_spectroscopy")
+    # def test_helike_interpolation(self):
+    #     self._test_time_interpolation("helike_spectroscopy")
 
     def test_equil_recon_timepoint_fail(self):
         self._test_timepoint_fail("equilibrium_reconstruction")

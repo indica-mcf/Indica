@@ -24,7 +24,6 @@ class Interferometry(DiagnosticModel):
         name: str,
         instrument_method="get_interferometry",
     ):
-
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -87,8 +86,28 @@ class Interferometry(DiagnosticModel):
         self.los_integral_ne = los_integral_ne
 
         self._build_bckc_dictionary()
-
         return self.bckc
+
+
+def smmh1_transform_example(nchannels):
+    los_start = np.array([[0.8, 0, 0]]) * np.ones((nchannels, 3))
+    los_start[:, 2] = np.linspace(0, -0.2, nchannels)
+    los_end = np.array([[0.17, 0, 0]]) * np.ones((nchannels, 3))
+    los_end[:, 2] = np.linspace(0, -0.2, nchannels)
+    origin = los_start
+    direction = los_end - los_start
+    los_transform = LineOfSightTransform(
+        origin[:, 0],
+        origin[:, 1],
+        origin[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        name="smmh1",
+        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
+        passes=2,
+    )
+    return los_transform
 
 
 def example_run(pulse: int = None, plasma=None, plot=False):
@@ -97,24 +116,10 @@ def example_run(pulse: int = None, plasma=None, plot=False):
 
     # Create new interferometers diagnostics
     diagnostic_name = "smmh1"
-    los_start = np.array([[0.8, 0, 0], [0.8, 0, -0.1], [0.8, 0, -0.2]])
-    los_end = np.array([[0.17, 0, 0], [0.17, 0, -0.25], [0.17, 0, -0.2]])
-    origin = los_start
-    direction = los_end - los_start
     model = Interferometry(
         diagnostic_name,
     )
-    los_transform = LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        name=diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
-        passes=2,
-    )
+    los_transform = smmh1_transform_example(3)
     los_transform.set_equilibrium(plasma.equilibrium)
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
@@ -123,9 +128,9 @@ def example_run(pulse: int = None, plasma=None, plot=False):
 
     if plot:
         it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it]
+        tplot = plasma.t[it].values
 
-        model.los_transform.plot_los(tplot)
+        model.los_transform.plot(tplot)
 
         # Plot back-calculated values
         plt.figure()

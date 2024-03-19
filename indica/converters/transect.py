@@ -1,9 +1,6 @@
 """Coordinate system for data collected on a 1-D along through the Tokamak"""
-
 from typing import Tuple
 
-from matplotlib import cm
-import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
@@ -60,6 +57,7 @@ class TransectCoordinates(CoordinateTransform):
 
         self.x1_name: str = "channel"
         self.x2_name: str = ""
+        self.instrument_name = name
         self.name: str = f"{name}_transect_transform"
 
         x1 = np.arange(len(x_positions))
@@ -155,27 +153,6 @@ class TransectCoordinates(CoordinateTransform):
         x2 = DataArray(None)
 
         return x1, x2
-
-    def convert_to_rho_theta(self, t: LabeledArray = None) -> Coordinates:
-        """
-        Convert R, z to rho given the equilibrium object
-        """
-        if not hasattr(self, "equilibrium"):
-            raise Exception("Set equilibrium object to convert (R,z) to rho")
-
-        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
-        drop_vars = ["R", "z"]
-        for var in drop_vars:
-            if var in rho.coords:
-                rho = rho.drop_vars(var)
-            if var in theta.coords:
-                theta = theta.drop_vars(var)
-
-        self.t = t
-        self.rho = rho
-        self.theta = theta
-
-        return rho, theta
 
     def map_profile_to_rho(
         self,
@@ -290,84 +267,3 @@ class TransectCoordinates(CoordinateTransform):
         if not isinstance(other, self.__class__):
             return False
         return self._abstract_equals(other)
-
-    def plot_los(self, tplot: float, orientation: str = "xy", plot_all=False):
-        channels = np.array(self.x1)
-        x = np.array(self.x)
-        y = np.array(self.y)
-        z = np.array(self.z)
-        R = np.array(self.R)
-        cols = cm.gnuplot2(np.linspace(0.75, 0.1, np.size(channels), dtype=float))
-
-        wall_bounds, angles = self.get_machine_boundaries(
-            machine_dimensions=self._machine_dims
-        )
-        if hasattr(self, "equilibrium"):
-            equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(tplot)
-            x_ax = self.equilibrium.rmag.sel(t=tplot, method="nearest").values * np.cos(
-                angles
-            )
-            y_ax = self.equilibrium.rmag.sel(t=tplot, method="nearest").values * np.sin(
-                angles
-            )
-
-        if orientation == "xy" or plot_all:
-            plt.figure()
-            plt.plot(wall_bounds["x_in"], wall_bounds["y_in"], color="k")
-            plt.plot(wall_bounds["x_out"], wall_bounds["y_out"], color="k")
-            if hasattr(self, "equilibrium"):
-                plt.plot(equil_bounds["x_in"], equil_bounds["y_in"], color="red")
-                plt.plot(equil_bounds["x_out"], equil_bounds["y_out"], color="red")
-                plt.plot(x_ax, y_ax, color="red", linestyle="dashed")
-            for ch in channels:
-                plt.scatter(x[ch], y[ch], color=cols[ch], marker="o")
-            plt.xlabel("x")
-            plt.ylabel("y")
-            plt.axis("scaled")
-
-        if orientation == "Rz" or plot_all:
-            plt.figure()
-            plt.plot(
-                [wall_bounds["x_out"].max()] * 2,
-                [wall_bounds["z_low"], wall_bounds["z_up"]],
-                color="k",
-            )
-            plt.plot(
-                [wall_bounds["x_in"].max()] * 2,
-                [wall_bounds["z_low"], wall_bounds["z_up"]],
-                color="k",
-            )
-            plt.plot(
-                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
-                [wall_bounds["z_low"]] * 2,
-                color="k",
-            )
-            plt.plot(
-                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
-                [wall_bounds["z_up"]] * 2,
-                color="k",
-            )
-            if hasattr(self, "equilibrium"):
-                rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
-            for ch in channels:
-                plt.scatter(R[ch], z[ch], color=cols[ch], marker="o")
-            plt.xlabel("R")
-            plt.ylabel("z")
-            plt.axis("scaled")
-
-        if hasattr(self, "equilibrium") and plot_all:
-            plt.figure()
-            plt.plot(
-                self.rho.channel,
-                self.rho.sel(t=tplot, method="nearest"),
-                color="k",
-            )
-            for ch in channels:
-                plt.plot(
-                    self.rho.channel[ch],
-                    self.rho.sel(channel=ch, t=tplot, method="nearest"),
-                    color=cols[ch],
-                    marker="o",
-                )
-            plt.xlabel("Channel")
-            plt.ylabel("Rho")

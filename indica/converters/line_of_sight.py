@@ -1,11 +1,9 @@
 """Coordinate system representing a collection of lines of sight.
 """
 
-import getpass
 from typing import cast
 from typing import Tuple
 
-from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
@@ -13,52 +11,42 @@ from xarray import DataArray
 from xarray import Dataset
 from xarray import zeros_like
 
-from indica.utilities import save_figure
-from indica.utilities import set_plot_rcparams
 from .abstractconverter import Coordinates
 from .abstractconverter import CoordinateTransform
 from .abstractconverter import find_wall_intersections
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
 
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/los_transform/"
-
 
 class LineOfSightTransform(CoordinateTransform):
     """Coordinate system for data collected along a number of lines-of-sight.
 
-    The first coordinate in this system is an index indicating which
-    line-of-sight a location is on. The second coordinate ranges from 0
-    to 1 (inclusive) and indicates the position of a location along
-    the line-of-sight. Note that the diagnostic using this coordinate
-    system will usually only be indexed in the first coordinate, as
-    the measurements were integrated along the line-of-sight.
+    The first coordinate x1 is the channel number, the second x2 is the
+    position along the line-of-sight and ranges from [0, 1].
 
     Parameters
     ----------
     origin_x
-        An array giving x positions for the origin of the lines-of-sight.
+        x positions for the LOS origin in (m).
     origin_y
-        An array giving y positions for the origin of the lines-of-sight.
+        y positions for the LOS origin in (m).
     origin_z
-        An array giving z positions for the origin of the lines-of-sight.
+        z positions for the LOS origin in (m).
     direction_x
-        An array giving x positions for the direction of the lines-of-sight.
+        delta x for the LOS direction in (m).
     direction_y
-        An array giving y positions for the direction of the lines-of-sight.
+        delta y for the LOS direction in (m).
     direction_z
-        An array giving z positions for the direction of the lines-of-sight.
+        delta z for the LOS direction in (m).
     name
-        The name to refer to this coordinate system by, typically taken
-        from the instrument it describes.
+        A string identifier (e.g. the name of the instrument).
     machine_dimensions
-        A tuple giving the boundaries of the Tokamak in x-z space:
-        ``((xmin, xmax), (zmin, zmax)``. Defaults to values for JET.
+        The boundaries of the Tokamak in R-z space in (m):
+        ``((Rmin, Rmax), (zmin, zmax)``.
     dl
-        A float giving the distance between coordinates along the
-        line-of-sight. Default to 0.01 metres.
+        The spatial precision along the LOS in (m).
     passes
-        Number of passes across the plasma (e.g. typical interferometer
+        Number of passes across the plasma (e.g. interferometer
         with corner cube has passes=2)
 
     """
@@ -78,6 +66,12 @@ class LineOfSightTransform(CoordinateTransform):
         ),
         dl: float = 0.01,
         passes: int = 1,
+        beamlets: int = 1,
+        spot_width: float = 0.0,
+        spot_shape: str = "round",
+        div_width: float = 0.0,
+        # div_h: float = 0.0,
+        # spot_height: float = 0.0,
     ):
 
         self.instrument_name: str = name
@@ -87,34 +81,43 @@ class LineOfSightTransform(CoordinateTransform):
         self._machine_dims = machine_dimensions
         self.passes = passes
 
-        self.dl: float
-        self.x: DataArray
-        self.y: DataArray
-        self.z: DataArray
-        self.R: DataArray
-        self.phi: DataArray
-        self.rho: DataArray
-        self.theta: DataArray
-        self.profile_to_map: DataArray
-        self.along_los: DataArray
-        self.los_integral: DataArray
-        self.t: LabeledArray
-        self.x2: LabeledArray
-
         self.origin_x = origin_x
         self.origin_y = origin_y
         self.origin_z = origin_z
         self.direction_x = direction_x
         self.direction_y = direction_y
         self.direction_z = direction_z
-        self.origin = np.array([origin_x, origin_y, origin_z]).transpose()
-        self.direction = np.array([direction_x, direction_y, direction_z]).transpose()
 
-        # Number of lines of sight
+        # Spot info
+        self.spot_width = spot_width
+        self.spot_height = spot_width
+        self.spot_shape = spot_shape
+        self.beamlets = beamlets
+        self.div_width = div_width
+        self.distribute_beamlets()
+
+        # self.div_height = div_h
+        # self.spot_height = spot_height
+
+        # Channel number
         self.x1: list = list(np.arange(0, len(origin_x)))
 
         # Calculate LOS coordinates
         self.set_dl(dl)
+
+    @property
+    def origin(self):
+        self._origin = np.array(
+            [self.origin_x, self.origin_y, self.origin_z]
+        ).transpose()
+        return self._origin
+
+    @property
+    def direction(self):
+        self._direction = np.array(
+            [self.direction_x, self.direction_y, self.direction_z]
+        ).transpose()
+        return self._direction
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):
@@ -150,6 +153,9 @@ class LineOfSightTransform(CoordinateTransform):
     def convert_to_Rz(
         self, x1: LabeledArray, x2: LabeledArray, t: LabeledArray
     ) -> Coordinates:
+        """
+        Convert to (R,z) the position along the LOS x2 for channel(s) x1.
+        """
         c = np.ceil(x1).astype(int)
         f = np.floor(x1).astype(int)
         x_s = (self.x_start[c] - self.x_start[f]) * (x1 - f) + self.x_start[f]
@@ -173,27 +179,6 @@ class LineOfSightTransform(CoordinateTransform):
             "method."
         )
 
-    def convert_to_rho_theta(self, t: LabeledArray = None) -> Coordinates:
-        """
-        Convert R, z to rho, theta given the flux surface transform
-        """
-        if not hasattr(self, "equilibrium"):
-            raise Exception("Set equilibrium object to convert (R,z) to rho")
-
-        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
-        drop_vars = ["R", "z"]
-        for var in drop_vars:
-            if var in rho.coords:
-                rho = rho.drop_vars(var)
-            if var in theta.coords:
-                theta = theta.drop_vars(var)
-
-        self.t = t
-        self.rho = rho
-        self.theta = theta
-
-        return rho, theta
-
     def distance(
         self,
         direction: str,
@@ -201,10 +186,8 @@ class LineOfSightTransform(CoordinateTransform):
         x2: LabeledArray,
         t: LabeledArray,
     ) -> np.ndarray:
-        """Implementation of calculation of physical distances between points
-        in this coordinate system. This accounts for potential toroidal skew of
-        lines.
-
+        """
+        Calculate the physical distances between points along x2.
         """
         x = self.x_start[x1] + (self.x_end[x1] - self.x_start[x1]) * x2
         y = self.y_start[x1] + (self.y_end[x1] - self.y_start[x1]) * x2
@@ -214,7 +197,169 @@ class LineOfSightTransform(CoordinateTransform):
         )
         result = zeros_like(x)
         result[{direction: slice(1, None)}] = spacings.cumsum(direction)
-        return result.values
+        return result
+
+    def distribute_beamlets(self, debug=False):
+        """
+        Distribute beamlets using information on spot size and divergence.
+        TODO: currently working only with spot_width and for circular/round spots
+        TODO: expand to include spot_height and other shapes, e.g. rectangular
+        """
+        # Grid
+        n_w = int(np.sqrt(self.beamlets))
+        n_v = int(np.sqrt(self.beamlets))
+        grid_w = np.linspace(
+            -self.spot_width / 2, self.spot_width / 2, n_w * 2 + 1, dtype=float
+        )
+        grid_w = grid_w[1::2]
+        grid_v = np.linspace(
+            -self.spot_height / 2, self.spot_height / 2, n_v * 2 + 1, dtype=float
+        )
+        grid_v = grid_v[1::2]
+        W, V = np.meshgrid(grid_w, grid_v)
+        self.weightings = np.ones_like(W)
+
+        # Draw spot
+        if self.spot_shape == "round":
+
+            th = np.linspace(0.0, 2 * np.pi, 1000)
+            spot_w = 0.5 * self.spot_width * np.cos(th)
+            spot_y = 0.5 * self.spot_width * np.sin(th)
+
+            if debug:
+                plt.figure()
+                plt.plot(spot_w, spot_y, "k")
+                plt.scatter(W.flatten(), V.flatten(), c="r")
+                plt.show()
+
+        else:
+            raise ValueError("Spot shape not available")
+
+        # Find distance to virtual focus position
+        if self.div_width > 0.0:
+            distance = self.spot_width / 2 / np.tan(self.div_width)
+        else:
+            distance = np.nan
+
+        # Build beamlets
+        beamlet_origin_x = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_origin_y = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_origin_z = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_direction_x = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_direction_y = np.zeros((len(self.direction_x), self.beamlets))
+        beamlet_direction_z = np.zeros((len(self.direction_x), self.beamlets))
+        for i_los in range(len(self.direction_x)):
+
+            dir_x = self.direction_x[i_los]
+            dir_y = self.direction_y[i_los]
+            dir_z = self.direction_z[i_los]
+
+            orig_x = self.origin_x[i_los]
+            orig_y = self.origin_y[i_los]
+            orig_z = self.origin_z[i_los]
+
+            normal = np.array([-dir_y, dir_x])
+            ang_norm = np.arctan2(normal[1], normal[0])
+            # ang_xy = np.arctan2(dir_y, dir_x)
+
+            # Calculate virtual system reference coordinate
+            system_x = orig_x - dir_x * distance
+            system_y = orig_y - dir_y * distance
+            system_z = orig_z - dir_z * distance
+
+            count = 0
+            for i_w in range(n_w):
+                for i_v in range(n_v):
+                    # Move origin along plane normal to the direction
+                    beamlet_origin_x[i_los, count] = orig_x + grid_w[i_w] * np.cos(
+                        ang_norm
+                    )
+                    beamlet_origin_y[i_los, count] = orig_y + grid_w[i_w] * np.sin(
+                        ang_norm
+                    )
+                    beamlet_origin_z[i_los, count] = orig_z + grid_v[i_v]
+
+                    # Direction
+                    if self.div_width > 0.0:
+                        dir_vec = np.array(
+                            [
+                                beamlet_origin_x[i_los, count] - system_x,
+                                beamlet_origin_y[i_los, count] - system_y,
+                                beamlet_origin_z[i_los, count] - system_z,
+                            ]
+                        )
+                        dir_vec_norm = dir_vec / np.linalg.norm(dir_vec)
+                        beamlet_direction_x[i_los, count] = dir_vec_norm[0]
+                        beamlet_direction_y[i_los, count] = dir_vec_norm[1]
+                        beamlet_direction_z[i_los, count] = dir_vec_norm[2]
+                    else:
+                        beamlet_direction_x[i_los, count] = dir_x
+                        beamlet_direction_y[i_los, count] = dir_y
+                        beamlet_direction_z[i_los, count] = dir_z
+
+                    # TODO: implement divergence, in vertical and horizontal dimensions
+                    # Rotate direction
+                    # d_direction_x[i_los, count] = (
+                    #     grid_w[i_w] * np.sin(self.div_width) / (0.5 * self.spot_width)
+                    # )
+                    # d_direction_x[i_los, count] = (
+                    #     grid_w[i_w] * np.cos(self.div_width) / (0.5 * self.spot_width)
+                    # )
+                    # ang_xy_new = ang_xy + self.div_width * grid_w[i_w] / (
+                    #     0.5 * self.spot_width
+                    # )
+                    # ang_Rz_new = self.div_width * grid_v[i_v] / \
+                    #              (0.5 * self.spot_width)
+                    # dir_x_new = np.cos(ang_xy_new)
+                    # dir_y_new = np.sin(ang_xy_new)
+                    # d_direction_x[i_los, count] = dir_x_new - dir_x
+                    # d_direction_y[i_los, count] = dir_y_new - dir_y
+
+                    count += 1
+
+            if debug:
+                plt.figure()
+                plt.plot(orig_x, orig_y, "kx")
+                for i_beamlet in range(self.beamlets):
+                    x_ = np.array(
+                        [
+                            beamlet_origin_x[i_los, i_beamlet],
+                            beamlet_origin_x[i_los, i_beamlet]
+                            + 1.0 * beamlet_direction_x[i_los, i_beamlet],
+                        ]
+                    )
+                    y_ = np.array(
+                        [
+                            beamlet_origin_y[i_los, i_beamlet],
+                            beamlet_origin_y[i_los, i_beamlet]
+                            + 1.0 * beamlet_direction_y[i_los, i_beamlet],
+                        ]
+                    )
+                    plt.plot(x_, y_)
+                plt.show()
+
+        self.beamlet_origin_x = beamlet_origin_x
+        self.beamlet_origin_y = beamlet_origin_y
+        self.beamlet_origin_z = beamlet_origin_z
+        self.beamlet_direction_x = beamlet_direction_x
+        self.beamlet_direction_y = beamlet_direction_y
+        self.beamlet_direction_z = beamlet_direction_z
+
+    # def set_weightings(
+    #     self, weightings: LabeledArray,
+    # ):
+    #     """
+    #
+    #     Parameters
+    #     ----------
+    #     weightings
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #
+    #     self.weightings = weightings
 
     def set_dl(
         self,
@@ -231,35 +376,78 @@ class LineOfSightTransform(CoordinateTransform):
         """
 
         # Calculate start and end coordinates, R, z and phi for all LOS
-        x_start, y_start, z_start = [], [], []
-        x_end, y_end, z_end = [], [], []
+        x_start: list = []
+        y_start: list = []
+        z_start: list = []
+        x_end: list = []
+        y_end: list = []
+        z_end: list = []
         for channel in self.x1:
-            origin = (
-                self.origin_x[channel],
-                self.origin_y[channel],
-                self.origin_z[channel],
-            )
-            direction = (
-                self.direction_x[channel],
-                self.direction_y[channel],
-                self.direction_z[channel],
-            )
-            _start, _end = find_wall_intersections(
-                origin, direction, machine_dimensions=self._machine_dims
-            )
-            x_start.append(_start[0])
-            y_start.append(_start[1])
-            z_start.append(_start[2])
-            x_end.append(_end[0])
-            y_end.append(_end[1])
-            z_end.append(_end[2])
+            x_start.append([])
+            y_start.append([])
+            z_start.append([])
+            x_end.append([])
+            y_end.append([])
+            z_end.append([])
+            for beamlet in range(self.beamlets):
+                # origin = (
+                #     self.origin_x[channel] + self.delta_origin_x[channel, beamlet],
+                #     self.origin_y[channel] + self.delta_origin_y[channel, beamlet],
+                #     self.origin_z[channel] + self.delta_origin_z[channel, beamlet],
+                # )
+                # direction = (
+                #     self.direction_x[channel]
+                #     + self.delta_direction_x[channel, beamlet],
+                #     self.direction_y[channel]
+                #     + self.delta_direction_y[channel, beamlet],
+                #     self.direction_z[channel]
+                #     + self.delta_direction_z[channel, beamlet],
+                # )
+                origin = (
+                    self.beamlet_origin_x[channel, beamlet],
+                    self.beamlet_origin_y[channel, beamlet],
+                    self.beamlet_origin_z[channel, beamlet],
+                )
+                direction = (
+                    self.beamlet_direction_x[channel, beamlet],
+                    self.beamlet_direction_y[channel, beamlet],
+                    self.beamlet_direction_z[channel, beamlet],
+                )
+                _start, _end = find_wall_intersections(
+                    origin, direction, machine_dimensions=self._machine_dims
+                )
+                x_start[channel].append(_start[0])
+                y_start[channel].append(_start[1])
+                z_start[channel].append(_start[2])
+                x_end[channel].append(_end[0])
+                y_end[channel].append(_end[1])
+                z_end[channel].append(_end[2])
 
-        self.x_start = DataArray(x_start, coords=[(self.x1_name, self.x1)])
-        self.y_start = DataArray(y_start, coords=[(self.x1_name, self.x1)])
-        self.z_start = DataArray(z_start, coords=[(self.x1_name, self.x1)])
-        x_end = DataArray(x_end, coords=[(self.x1_name, self.x1)])
-        y_end = DataArray(y_end, coords=[(self.x1_name, self.x1)])
-        z_end = DataArray(z_end, coords=[(self.x1_name, self.x1)])
+        self.x_start = DataArray(
+            x_start,
+            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+        )
+        self.y_start = DataArray(
+            y_start,
+            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+        )
+        self.z_start = DataArray(
+            z_start,
+            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+        )
+
+        x_end = DataArray(
+            x_end,
+            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+        )
+        y_end = DataArray(
+            y_end,
+            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+        )
+        z_end = DataArray(
+            z_end,
+            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+        )
 
         # Fix identical length of all lines of sight
         los_lengths = np.sqrt(
@@ -284,15 +472,43 @@ class LineOfSightTransform(CoordinateTransform):
         _x2 = np.linspace(0, 1, npts, dtype=float)
         x2 = DataArray(_x2, coords=[(self.x2_name, _x2)])
         for x1 in self.x1:
+
             _x, _y = self.convert_to_xy(x1, x2, 0)
             _R, _z = self.convert_to_Rz(x1, x2, 0)
             dist = self.distance(self.x2_name, x1, x2, 0)
-            x.append(xr.where(dist <= los_lengths[x1].values, _x, np.nan))
-            y.append(xr.where(dist <= los_lengths[x1].values, _y, np.nan))
-            z.append(xr.where(dist <= los_lengths[x1].values, _z, np.nan))
-            R.append(xr.where(dist <= los_lengths[x1].values, _R, np.nan))
+
+            x.append(_x)
+            y.append(_y)
+            z.append(_z)
+            R.append(_R)
             _phi = np.arctan2(_y, _x)
             phi.append(_phi)
+
+        # TODO: Loop over DataArray to NaN where los length > LOS distance
+        for x1 in self.x1:
+
+            for beamlet in range(self.beamlets):
+                dist = self.distance(self.x2_name, x1, x2, 0)
+                _x = x[x1].sel(beamlet=beamlet)
+                _y = y[x1].sel(beamlet=beamlet)
+                _z = z[x1].sel(beamlet=beamlet)
+                _R = R[x1].sel(beamlet=beamlet)
+                _phi = phi[x1].sel(beamlet=beamlet)
+                x[x1][beamlet] = xr.where(
+                    dist[beamlet, :] <= los_lengths[x1, beamlet].values, _x, np.nan
+                )
+                y[x1][beamlet] = xr.where(
+                    dist[beamlet, :] <= los_lengths[x1, beamlet].values, _y, np.nan
+                )
+                z[x1][beamlet] = xr.where(
+                    dist[beamlet, :] <= los_lengths[x1, beamlet].values, _z, np.nan
+                )
+                R[x1][beamlet] = xr.where(
+                    dist[beamlet, :] <= los_lengths[x1, beamlet].values, _R, np.nan
+                )
+                phi[x1][beamlet] = xr.where(
+                    dist[beamlet, :] <= los_lengths[x1, beamlet].values, _phi, np.nan
+                )
 
         # Reset end coordinates to values intersecting the machine walls
         self.x_end = x_end
@@ -300,8 +516,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.z_end = z_end
 
         self.x2 = x2
-        # self.mask = xr.concat(mask, "channel").assign_coords({"channel":self.x1})
-        self.dl = float(dist[1] - dist[0])
+        self.dl = float(dist[0, 1] - dist[0, 0])
         self.x = xr.concat(x, "channel")
         self.y = xr.concat(y, "channel")
         self.z = xr.concat(z, "channel")
@@ -395,8 +610,6 @@ class LineOfSightTransform(CoordinateTransform):
 
             along_los = profile_to_map.interp(R=R_, z=z_).T
         elif "rho_poloidal" in coords or "rho_toroidal" in coords:
-            impact_rho = self.rho.min("los_position")
-
             rho_ = self.rho
             if "theta" in coords:
                 theta_ = self.theta
@@ -410,7 +623,6 @@ class LineOfSightTransform(CoordinateTransform):
                     along_los,
                     np.nan,
                 )
-            self.impact_rho = impact_rho
         else:
             raise NotImplementedError("Coordinates not recognized...")
 
@@ -427,6 +639,7 @@ class LineOfSightTransform(CoordinateTransform):
         t: LabeledArray = None,
         limit_to_sep=True,
         calc_rho=False,
+        sum_beamlets=True,
     ) -> DataArray:
         """
         Integrate 1D profile along LOS
@@ -449,9 +662,18 @@ class LineOfSightTransform(CoordinateTransform):
             limit_to_sep=limit_to_sep,
             calc_rho=calc_rho,
         )
-        los_integral = (
-            self.passes * along_los.sum("los_position", skipna=True) * self.dl
-        )
+
+        if sum_beamlets:
+            los_integral = (
+                self.passes
+                * along_los.sum(["los_position", "beamlet"], skipna=True)
+                * self.dl
+                / float(self.beamlets)
+            )
+        else:
+            los_integral = (
+                self.passes * along_los.sum(["los_position"], skipna=True) * self.dl
+            )
 
         if len(los_integral.channel) == 1:
             los_integral = los_integral.sel(channel=0)
@@ -469,23 +691,18 @@ class LineOfSightTransform(CoordinateTransform):
         z = []
         R = []
         for ch in self.x1:
-            distance = np.sqrt(
-                self.x.sel(channel=ch) ** 2
-                + self.y.sel(channel=ch) ** 2
-                + self.z.sel(channel=ch) ** 2
-            )
-            _index = distance.argmin()
-            index.append(_index)
+            x_mean = self.x.sel(channel=ch).mean("beamlet")
+            y_mean = self.y.sel(channel=ch).mean("beamlet")
+            z_mean = self.z.sel(channel=ch).mean("beamlet")
+            distance = np.sqrt(x_mean**2 + y_mean**2 + z_mean**2)
+            _index = np.unravel_index(distance.argmin(), distance.shape)
+            _index_temp = distance.argmin()
+            index.append(_index_temp)
             impact.append(distance[_index])
-            x.append(self.x.sel(channel=ch)[_index])
-            y.append(self.y.sel(channel=ch)[_index])
-            z.append(self.z.sel(channel=ch)[_index])
-            R.append(
-                np.sqrt(
-                    self.x.sel(channel=ch)[_index] ** 2
-                    + self.y.sel(channel=ch)[_index] ** 2
-                )
-            )
+            x.append(x_mean[_index])
+            y.append(y_mean[_index])
+            z.append(z_mean[_index])
+            R.append(np.sqrt(x_mean[_index] ** 2 + y_mean[_index] ** 2))
 
         impact = Dataset(
             {
@@ -500,129 +717,13 @@ class LineOfSightTransform(CoordinateTransform):
 
         return impact
 
-    def plot_los(
-        self,
-        t: float = None,
-        orientation: str = "all",
-        figure: bool = True,
-        save_fig: bool = False,
-        fig_path: str = "",
-        plot_impact: bool = True,
-    ):
 
-        set_plot_rcparams("profiles")
-
-        channels = np.array(self.x1)
-        cols = cm.gnuplot2(np.linspace(0.75, 0.1, np.size(channels), dtype=float))
-
-        wall_bounds, angles = self.get_machine_boundaries(
-            machine_dimensions=self._machine_dims
-        )
-        if hasattr(self, "equilibrium"):
-            if t is None:
-                t = np.float(np.mean(self.equilibrium.rho.t))
-            equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(t)
-            x_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.cos(
-                angles
-            )
-            y_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.sin(
-                angles
-            )
-
-        if orientation == "xy" or orientation == "all":
-            if figure:
-                plt.figure()
-            plt.plot(wall_bounds["x_in"], wall_bounds["y_in"], color="k")
-            plt.plot(wall_bounds["x_out"], wall_bounds["y_out"], color="k")
-            if hasattr(self, "equilibrium"):
-                plt.plot(equil_bounds["x_in"], equil_bounds["y_in"], color="red")
-                plt.plot(equil_bounds["x_out"], equil_bounds["y_out"], color="red")
-                plt.plot(x_ax, y_ax, color="red", linestyle="dashed")
-            for ch in self.x1:
-                plt.plot(
-                    self.x.sel(channel=ch),
-                    self.y.sel(channel=ch),
-                    color=cols[ch],
-                    linewidth=2,
-                )
-                if plot_impact:
-                    plt.plot(
-                        self.impact_parameter["x"][ch],
-                        self.impact_parameter["y"][ch],
-                        color=cols[ch],
-                        marker="o",
-                    )
-            plt.xlabel("x (m)")
-            plt.ylabel("y (m)")
-            plt.axis("scaled")
-            plt.title(f"{self.instrument_name.upper()} @ {t:.3f} s")
-
-            save_figure(fig_path, f"{self.name}_xy", save_fig=save_fig)
-
-        if orientation == "Rz" or orientation == "all":
-            if figure:
-                plt.figure()
-            plt.plot(
-                [wall_bounds["x_out"].max()] * 2,
-                [wall_bounds["z_low"], wall_bounds["z_up"]],
-                color="k",
-            )
-            plt.plot(
-                [wall_bounds["x_in"].max()] * 2,
-                [wall_bounds["z_low"], wall_bounds["z_up"]],
-                color="k",
-            )
-            plt.plot(
-                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
-                [wall_bounds["z_low"]] * 2,
-                color="k",
-            )
-            plt.plot(
-                [wall_bounds["x_in"].max(), wall_bounds["x_out"].max()],
-                [wall_bounds["z_up"]] * 2,
-                color="k",
-            )
-            if hasattr(self, "equilibrium"):
-                rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
-            for ch in channels:
-                plt.plot(
-                    self.R.sel(channel=ch),
-                    self.z.sel(channel=ch),
-                    color=cols[ch],
-                    linewidth=2,
-                )
-                if plot_impact:
-                    plt.plot(
-                        self.impact_parameter["R"][ch],
-                        self.impact_parameter["z"][ch],
-                        color=cols[ch],
-                        marker="o",
-                    )
-            plt.xlabel("R (m)")
-            plt.ylabel("z (m)")
-            plt.axis("scaled")
-            plt.title(f"{self.instrument_name.upper()} @ {t:.3f} s")
-            save_figure(fig_path, f"{self.name}_Rz", save_fig=save_fig)
-
-        if hasattr(self, "equilibrium") and orientation == "all":
-            if not hasattr(self, "rho"):
-                self.convert_to_rho_theta()
-            if figure:
-                plt.figure()
-            for ch in channels:
-                _rho = self.rho.sel(channel=ch)
-                if "t" in self.rho.dims:
-                    _rho = _rho.sel(t=t, method="nearest")
-                _rho.plot(color=cols[ch], linewidth=2)
-            plt.xlabel("Path along LOS")
-            plt.ylabel("Rho")
-            plt.title(f"{self.instrument_name.upper()} @ {t:.3f} s")
-            save_figure(fig_path, f"{self.name}_rho", save_fig=save_fig)
-
-        return cols
-
-
-def example_run(pulse: int = None, plasma=None, plot: bool = False):
+def example_run(
+    pulse: int = None,
+    plasma=None,
+    beamlets=4,
+    spot_width=0.1,
+):
     from indica.models.plasma import example_run as example_plasma
 
     if plasma is None:
@@ -630,7 +731,7 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
 
     machine_dims = ((0.15, 0.85), (-0.75, 0.75))
 
-    nchannels = 11
+    nchannels = 3
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
@@ -649,6 +750,8 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
         name="",
         machine_dimensions=machine_dims,
         passes=1,
+        beamlets=beamlets,
+        spot_width=spot_width,
     )
     los_transform.set_equilibrium(plasma.equilibrium)
 
@@ -660,11 +763,11 @@ def example_run(pulse: int = None, plasma=None, plot: bool = False):
     b_tot_los_int = los_transform.integrate_on_los(b_tot, t=time)
 
     t = time[1]
-    los_transform.plot_los(t=t)
+    los_transform.plot(t=t)
 
     plt.figure()
     b_tot.sel(t=t).plot()
-    los_transform.plot_los(t=t, orientation="Rz", figure=False)
+    los_transform.plot(t=t, orientation="Rz", figure=False)
     plt.axis("equal")
     plt.title("2D profile to integrate")
 

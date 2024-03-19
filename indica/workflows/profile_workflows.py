@@ -1,5 +1,4 @@
 from copy import deepcopy
-import getpass
 
 from matplotlib import cm
 import matplotlib.pylab as plt
@@ -10,6 +9,7 @@ from xarray import DataArray
 
 from indica.numpy_typing import LabeledArray
 from indica.profiles_gauss import Profiles
+from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
@@ -48,8 +48,6 @@ PARAMETER_LIMITS: dict = {
     },
 }
 
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/profiles_pca/"
-
 
 def profile_scans_pca(
     parameter_limits: dict = None,
@@ -60,7 +58,6 @@ def profile_scans_pca(
     save_fig: bool = False,
     fig_path: str = None,
 ):
-
     if fig_path is None:
         fig_path = FIG_PATH
 

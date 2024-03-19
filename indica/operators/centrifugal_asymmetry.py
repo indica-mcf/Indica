@@ -1,274 +1,119 @@
-from typing import Any
-from typing import List
-from typing import Tuple
-from typing import Union
+from copy import deepcopy
 
-from xarray.core.dataarray import DataArray
+import matplotlib.pylab as plt
+import numpy as np
+from xarray import DataArray
 
-from .abstractoperator import EllipsisType
-from .abstractoperator import Operator
-from .. import session
-from ..datatypes import DataType
-from ..datatypes import ELEMENTS
-from ..utilities import input_check
+from indica.datatypes import ELEMENTS
+from indica.equilibrium import Equilibrium
+from indica.models.plasma import example_run as example_plasma
+from indica.numpy_typing import LabeledArray
+import indica.physics as ph
+from indica.utilities import assign_data
 
 
-class ToroidalRotation(Operator):
-    """Calculate the toroidal rotation from asymmetry parameter.
-
-    Parameters
-    ----------
-
-    Returns
-    -------
-    toroidal_rotation
-        xarray.DataArray containing toroidal rotation for a given impurity element
-
-    Attributes
-    ----------
-    ARGUMENT_TYPES: List[DataType]
-        Ordered list of the types of data expected for each argument of the
-        operator.
-    RESULT_TYPES: List[DataType]
-        Ordered list of the types of data returned by the operator.
+def centrifugal_asymmetry_parameter(
+    ion_density: DataArray,
+    ion_temperature: DataArray,
+    electron_temperature: DataArray,
+    toroidal_rotation: DataArray,
+    meanz: DataArray,
+    zeff: DataArray,
+    main_ion: str,
+):
+    """
+    Indica-native wrapper to calculate the centrifugal asymmetry parameter a-la Wesson
     """
 
-    ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
+    elements = ion_density.element
+    zeff = zeff.sum("element")
 
-    RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("toroidal_rotation", "plasma"),
-    ]
-
-    def __init__(self, sess: session.Session = session.global_session):
-        super().__init__(sess=sess)
-
-    def return_types(self, *args: DataType) -> Tuple[Any, ...]:
-        return super().return_types(*args)
-
-    def __call__(  # type: ignore
-        self,
-        asymmetry_parameters: DataArray,
-        ion_temperature: DataArray,
-        main_ion: str,
-        impurity: str,
-        Zeff: DataArray,
-        electron_temp: DataArray,
-    ):
-        """Calculates the toroidal rotation frequency from the asymmetry parameter.
-
-        Parameters
-        ----------
-        asymmetry_parameters
-            xarray.DataArray containing asymmetry parameters data. In units of m^-2.
-        ion_temperature
-            xarray.DataArray containing ion temperature data. In units of eV.
-        main_ion
-            Element symbol of main ion.
-        impurity
-            Element symbol of chosen impurity element.
-        Zeff
-            xarray.DataArray containing Z-effective data from diagnostics.
-        electron_temp
-            xarray.DataArray containing electron temperature data. In units of eV.
-
-        Returns
-        -------
-        toroidal_rotation
-            xarray.DataArray containing data for toroidal rotation frequencies
-            for the given impurity element
-        """
-        input_check(
-            "asymmetry_parameters",
-            asymmetry_parameters,
-            DataArray,
-            ndim_to_check=3,
-            positive=False,
-            strictly_positive=False,
+    asymmetry_parameter = deepcopy(ion_density)
+    for elem in elements.values:
+        main_ion_mass = ELEMENTS[main_ion][1]
+        mass = ELEMENTS[elem][1]
+        asymmetry_parameter.loc[dict(element=elem)] = ph.centrifugal_asymmetry(
+            ion_temperature.sel(element=elem).drop_vars("element"),
+            electron_temperature,
+            mass,
+            meanz.sel(element=elem).drop_vars("element"),
+            zeff,
+            main_ion_mass,
+            toroidal_rotation=toroidal_rotation.sel(element=elem).drop_vars("element"),
         )
 
-        input_check(
-            "ion_temperature",
-            ion_temperature,
-            DataArray,
-            ndim_to_check=3,
-            strictly_positive=True,
-        )
-
-        input_check("main_ion", main_ion, str)
-
-        try:
-            assert main_ion in list(ELEMENTS.keys())
-        except AssertionError:
-            raise ValueError(f"main_ion must be one of {list(ELEMENTS.keys())}")
-
-        input_check("impurity", impurity, str)
-
-        try:
-            assert impurity in list(ELEMENTS.keys())
-        except AssertionError:
-            raise ValueError(f"impurity must be one of {list(ELEMENTS.keys())}")
-
-        input_check("Zeff", Zeff, DataArray, ndim_to_check=2, strictly_positive=False)
-
-        input_check(
-            "electron_temp",
-            electron_temp,
-            DataArray,
-            ndim_to_check=2,
-            strictly_positive=True,
-        )
-
-        asymmetry_parameter = asymmetry_parameters.sel(elements=impurity)
-
-        impurity_mass_int = ELEMENTS[impurity][1]
-
-        unified_atomic_mass_unit = 931.4941e6  # in eV/c^2
-        impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
-
-        mean_charge = ELEMENTS[impurity][0]
-
-        main_ion_mass_int = ELEMENTS[main_ion][1]
-
-        main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
-
-        ion_temperature = ion_temperature.sel(elements=impurity)
-
-        # mypy on the github CI suggests that * is an Unsupported operand type
-        # between float and DataArray, don't know how to fix yet so for now ignored
-        toroidal_rotation = 2.0 * ion_temperature * asymmetry_parameter  # type: ignore
-        toroidal_rotation /= impurity_mass * (
-            1.0
-            - (mean_charge * main_ion_mass * Zeff * electron_temp)  # type: ignore
-            / (impurity_mass * (ion_temperature + Zeff * electron_temp))
-        )
-
-        toroidal_rotation = toroidal_rotation**0.5
-
-        c = 3.0e8  # speed of light in vacuum
-        toroidal_rotation *= c
-
-        return toroidal_rotation
+    return asymmetry_parameter
 
 
-class AsymmetryParameter(Operator):
-    """Calculate the asymmetry parameter from toroidal rotation.
+def centrifugal_asymmetry_2d_map(
+    profile_to_map: DataArray,
+    asymmetry_parameter: DataArray,
+    equilibrium: Equilibrium,
+    t: LabeledArray = None,
+):
+    """Map centrifugal asymmetric profiles to 2D"""
 
-    Parameters
-    ----------
+    if t is None:
+        t = profile_to_map.t.values
 
-    Returns
-    -------
-    asymmetry_parameter
-        xarray.DataArray containing asymmetry_parameter for a given impurity element
+    if "t" in profile_to_map.dims:
+        _profile_to_map = profile_to_map.interp(t=t)
+    else:
+        _profile_to_map = profile_to_map
+    if "t" in asymmetry_parameter.dims:
+        _asymmetry_parameter = asymmetry_parameter.interp(t=t)
+    else:
+        _asymmetry_parameter = asymmetry_parameter
 
-    """
+    rho_2d = equilibrium.rho.interp(t=t)
+    R_0 = (
+        equilibrium.rmjo.drop_vars("z")
+        .interp(t=t)
+        .interp(rho_poloidal=rho_2d)
+        .drop_vars("rho_poloidal")
+    )
 
-    ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
+    _profile_2d = _profile_to_map.interp(rho_poloidal=rho_2d).drop_vars("rho_poloidal")
+    profile_2d = _profile_2d * np.exp(
+        _asymmetry_parameter.interp(rho_poloidal=rho_2d) * (rho_2d.R**2 - R_0**2)
+    )
 
-    def __init__(self, sess: session.Session = session.global_session):
-        super().__init__(sess=sess)
+    return profile_2d
 
-    def return_types(self, *args: DataType) -> Tuple[Any, ...]:
-        return super().return_types(*args)
 
-    def __call__(  # type: ignore
-        self,
-        toroidal_rotations: DataArray,
-        ion_temperature: DataArray,
-        main_ion: str,
-        impurity: str,
-        Zeff: DataArray,
-        electron_temp: DataArray,
-    ):
-        """Calculates the asymmetry parameter from the toroidal rotation frequency.
+def example_run(plot: bool = False):
 
-        Parameters
-        ----------
-        toroidal_rotations
-            xarray.DataArray containing toroidal rotation frequencies data.
-            In units of ms^-1.
-        ion_temperature
-            xarray.DataArray containing ion temperature data. In units of eV.
-        main_ion
-            Element symbol of main ion.
-        impurity
-            Element symbol of chosen impurity element.
-        Zeff
-            xarray.DataArray containing Z-effective data from diagnostics.
-        electron_temp
-            xarray.DataArray containing electron temperature data. In units of eV.
+    plasma = example_plasma()
 
-        Returns
-        -------
-        asymmetry_parameter
-            xarray.DataArray containing data for asymmetry parameters
-            for the given impurity element
-        """
-        input_check(
-            "toroidal_rotations",
-            toroidal_rotations,
-            DataArray,
-            ndim_to_check=3,
-            strictly_positive=False,
-        )
+    asymmetry_parameter = centrifugal_asymmetry_parameter(
+        plasma.ion_density,
+        plasma.ion_temperature,
+        plasma.electron_temperature,
+        plasma.toroidal_rotation,
+        plasma.meanz,
+        plasma.zeff,
+        plasma.main_ion,
+    )
 
-        input_check(
-            "ion_temperature",
-            ion_temperature,
-            DataArray,
-            ndim_to_check=3,
-            strictly_positive=True,
-        )
+    ion_density_2d = centrifugal_asymmetry_2d_map(
+        plasma.ion_density,
+        asymmetry_parameter,
+        plasma.equilibrium,
+    )
 
-        input_check("main_ion", main_ion, str)
+    ion_density_2d = assign_data(
+        ion_density_2d, ("density", "ion"), "$m^{-3}$", long_name="Ion density"
+    )
 
-        try:
-            assert main_ion in list(ELEMENTS.keys())
-        except AssertionError:
-            raise ValueError(f"main_ion must be one of {list(ELEMENTS.keys())}")
+    if plot:
+        tplot = ion_density_2d.t[2]
+        element = ion_density_2d.element[2]
+        plot_2d = ion_density_2d.sel(t=tplot, element=element)
+        plt.figure()
+        plot_2d.plot()
 
-        input_check("impurity", impurity, str)
+        plt.figure()
+        plot_2d.sel(z=0, method="nearest").plot(label="Midplane z=0")
+        plt.legend()
 
-        try:
-            assert impurity in list(ELEMENTS.keys())
-        except AssertionError:
-            raise ValueError(f"impurity must be one of {list(ELEMENTS.keys())}")
-
-        input_check("Zeff", Zeff, DataArray, ndim_to_check=2, strictly_positive=False)
-
-        input_check(
-            "electron_temp",
-            electron_temp,
-            DataArray,
-            ndim_to_check=2,
-            strictly_positive=True,
-        )
-
-        toroidal_rotations = toroidal_rotations.sel(elements=impurity)
-
-        impurity_mass_int = ELEMENTS[impurity][1]
-
-        unified_atomic_mass_unit = 931.4941e6  # in eV/c^2
-        impurity_mass = float(impurity_mass_int) * unified_atomic_mass_unit
-
-        mean_charge = ELEMENTS[impurity][0]
-
-        main_ion_mass_int = ELEMENTS[main_ion][1]
-
-        main_ion_mass = float(main_ion_mass_int) * unified_atomic_mass_unit
-
-        ion_temperature = ion_temperature.sel(elements=impurity)
-
-        c = 3.0e8  # speed of light in m/s
-        toroidal_rotations /= c
-
-        # mypy on the github CI suggests that * is in an Unsupported operand type
-        # between float and DataArray, don't know how to fix yet so for now ignored
-        asymmetry_parameter = (
-            impurity_mass * (toroidal_rotations**2) / (2.0 * ion_temperature)
-        )
-        asymmetry_parameter *= 1.0 - (
-            mean_charge * main_ion_mass * Zeff * electron_temp  # type: ignore
-        ) / (impurity_mass * (ion_temperature + Zeff * electron_temp))
-
-        return asymmetry_parameter
+    return plasma, ion_density_2d

@@ -40,6 +40,7 @@ class Equilibrium:
     R_shift : float
         How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
         on the major radius.
+        TODO: this and z_shift should be time-dependent...
     z_shift : float
         How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
         in the vertical coordinate.
@@ -65,12 +66,29 @@ class Equilibrium:
         self.faxs = equilibrium_data["faxs"]
         self.fbnd = equilibrium_data["fbnd"]
         self.ftor = equilibrium_data["ftor"]
+        self.rmag = equilibrium_data["rmag"]
+        self.rbnd = equilibrium_data["rbnd"]
+        self.zmag = equilibrium_data["zmag"]
+        self.zbnd = equilibrium_data["zbnd"]
+        self.zx = self.zbnd.min("arbitrary_index")
         self.rhotor = np.sqrt(
             (self.ftor - self.ftor.sel(rho_poloidal=0.0))
             / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
         )
         self.psi = equilibrium_data["psi"]
-        self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
+
+        # Including workaround in case faxs or fbnd had messy data
+        rho: DataArray = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
+        if np.any(np.isnan(rho.interp(R=self.rmag, z=self.zmag))):
+            self.faxs = self.psi.interp(R=self.rmag, z=self.zmag).drop(["R", "z"])
+            self.fbnd = self.psi.interp(R=self.rbnd, z=self.zbnd).mean(
+                "arbitrary_index"
+            )
+            rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
+        if np.any(np.isnan(rho)):
+            rho = xr.where(rho > 0, rho, 0.0)
+
+        self.rho = rho
         self.t = self.rho.t
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
             self.psin = equilibrium_data["psin"]
@@ -85,11 +103,6 @@ class Equilibrium:
         if "rmji" and "rmjo" in equilibrium_data:
             self.rmji = equilibrium_data["rmji"]
             self.rmjo = equilibrium_data["rmjo"]
-        self.rmag = equilibrium_data["rmag"]
-        self.rbnd = equilibrium_data["rbnd"]
-        self.zmag = equilibrium_data["zmag"]
-        self.zbnd = equilibrium_data["zbnd"]
-        self.zx = self.zbnd.min("arbitrary_index")
         self.R_offset = R_shift
         self.z_offset = z_shift
 
@@ -1048,6 +1061,8 @@ def fake_equilibrium_data(
         f_raw, coords=[("t", times), ("rho_poloidal", rho1d)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
+
+    # TODO: RMJO and RMJI not calculated correctly...
     result["rmjo"] = (result["rmag"] + a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )

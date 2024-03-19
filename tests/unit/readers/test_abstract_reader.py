@@ -1,5 +1,6 @@
 """Test methods present on the base class DataReader."""
 
+from copy import deepcopy
 from numbers import Number
 from typing import Any
 from typing import Dict
@@ -30,11 +31,12 @@ class Reader(DataReader):
         "equilibrium": "get_equilibrium",
         "cyclotron_emissions": "get_cyclotron_emissions",
         "charge_exchange": "get_charge_exchange",
+        "spectrometer": "get_spectrometer",
         "bremsstrahlung_spectroscopy": "get_bremsstrahlung_spectroscopy",
         "radiation": "get_radiation",
         "helike_spectroscopy": "get_helike_spectroscopy",
         "interferometry": "get_interferometry",
-        "filters": "get_diode_filters",
+        "diode_filters": "get_diode_filters",
     }
 
     def __init__(
@@ -77,9 +79,15 @@ class Reader(DataReader):
         }
         dt = np.random.uniform(0.001, 1.0)
         times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        results["texp"] = np.full_like(times, dt)
+        wavelength = np.arange(520, 530, 0.1)
         nt = times.shape[0]
+        results["times"] = times
+        results["wavelength"] = wavelength
+        results["spectra"] = np.random.uniform(
+            10, 10.0e3, (nt, results["length"], wavelength.size)
+        )
+        results["fit"] = deepcopy(results["spectra"])
+        results["texp"] = np.full_like(times, dt)
 
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
@@ -105,6 +113,41 @@ class Reader(DataReader):
                 f"{quantity}_ti_path",
                 f"{quantity}_angf_path",
                 f"{quantity}_conc_path",
+            ]
+
+        return results
+
+    def _get_spectrometer(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        results: Dict[str, Any] = {
+            "length": np.random.randint(4, 20),
+            "machine_dims": self.MACHINE_DIMS,
+        }
+        dt = np.random.uniform(0.001, 1.0)
+        times = np.arange(TSTART, TEND, dt)
+        wavelength = np.arange(520, 530, 0.1)
+        nt = times.shape[0]
+        results["times"] = times
+        results["wavelength"] = wavelength
+        results["spectra"] = np.random.uniform(
+            10, 10.0e3, (nt, results["length"], wavelength.size)
+        )
+
+        results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+
+        results["revision"] = np.random.randint(0, 10)
+
+        for quantity in quantities:
+            results[f"{quantity}_records"] = [
+                f"{quantity}_time_path",
+                f"{quantity}_spectra_path",
             ]
 
         return results
@@ -325,6 +368,7 @@ class Reader(DataReader):
 
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
+        results["labels"] = np.array(["label"] * results["length"])
 
         for quantity in quantities:
             results[quantity] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
@@ -423,6 +467,10 @@ def test_get_charge_exchange():
     _test_get_methods(instrument="charge_exchange", nsamples=10)
 
 
+def test_get_spectrometer():
+    _test_get_methods(instrument="spectrometer", nsamples=10)
+
+
 def test_get_equilibrium():
     _test_get_methods(instrument="equilibrium", nsamples=10)
 
@@ -447,7 +495,7 @@ def test_get_helike_spectroscopy():
 
 def test_get_diode_filters():
     _test_get_methods(
-        instrument="filters",
+        instrument="diode_filters",
         nsamples=10,
     )
 

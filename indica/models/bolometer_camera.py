@@ -57,6 +57,8 @@ class Bolometer(DiagnosticModel):
         Lz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
+        sum_beamlets: bool = True,
+        **kwargs,
     ):
         """
         Calculate diagnostic measured values
@@ -109,13 +111,14 @@ class Bolometer(DiagnosticModel):
             self.emissivity,
             t=t,
             calc_rho=calc_rho,
+            sum_beamlets=sum_beamlets,
         )
 
         self._build_bckc_dictionary()
 
         return self.bckc
 
-    def plot(self, tplot: float = None):
+    def plot(self, tplot: float = None, nplot: int = 1):
         if len(self.bckc) == 0:
             print("No model results to plot")
             return
@@ -126,16 +129,30 @@ class Bolometer(DiagnosticModel):
             tplot = float(self.t.sel(t=self.t.mean(), method="nearest"))
 
         # Line-of-sight information
-        self.los_transform.plot_los(tplot)
+        self.los_transform.plot(tplot)
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
         plt.figure()
         for i, t in enumerate(self.t.values):
-            self.bckc["brightness"].sel(t=t, method="nearest").plot(
-                label=f"t={t:1.2f} s", color=cols_time[i]
-            )
+            if i % nplot:
+                continue
+
+            _brightness = self.bckc["brightness"].sel(t=t, method="nearest")
+            if "beamlet" in _brightness.dims:
+                plt.fill_between(
+                    _brightness.channel,
+                    _brightness.max("beamlet"),
+                    _brightness.min("beamlet"),
+                    color=cols_time[i],
+                    alpha=0.5,
+                )
+                brightness = _brightness.mean("beamlet")
+            else:
+                brightness = _brightness
+            brightness.plot(label=f"t={t:1.2f} s", color=cols_time[i])
         set_axis_sci()
+        plt.title(self.name.upper())
         plt.xlabel("Channel")
         plt.ylabel("Measured brightness (W/m^2)")
         plt.legend()
@@ -143,6 +160,8 @@ class Bolometer(DiagnosticModel):
         # Local emissivity profiles
         plt.figure()
         for i, t in enumerate(self.t.values):
+            if i % nplot:
+                continue
             plt.plot(
                 self.emissivity.rho_poloidal,
                 self.emissivity.sel(t=t),
@@ -157,7 +176,7 @@ class Bolometer(DiagnosticModel):
 
 def example_run(
     pulse: int = None,
-    diagnostic_name: str = "bolo_Rz",
+    diagnostic_name: str = "bolo_xy",
     origin: LabeledArray = None,
     direction: LabeledArray = None,
     plasma=None,
@@ -173,12 +192,20 @@ def example_run(
     # Create new interferometers diagnostics
     if origin is None or direction is None:
         los_end = np.full((nchannels, 3), 0.0)
-        los_end[:, 0] = 0.17
-        los_end[:, 1] = 0.0
-        los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
-        los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
+        los_end[:, 0] = 0.0
+        los_end[:, 1] = np.linspace(-0.2, -1, nchannels)
+        los_end[:, 2] = 0.0
+        los_start = np.array([[1.5, 0, 0]] * los_end.shape[0])
         origin = los_start
         direction = los_end - los_start
+
+        # los_end = np.full((nchannels, 3), 0.0)
+        # los_end[:, 0] = 0.17
+        # los_end[:, 1] = 0.0
+        # los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
+        # los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
+        # origin = los_start
+        # direction = los_end - los_start
 
     los_transform = LineOfSightTransform(
         origin[:, 0],
@@ -190,6 +217,8 @@ def example_run(
         name=diagnostic_name,
         machine_dimensions=plasma.machine_dimensions,
         passes=1,
+        beamlets=16,
+        spot_width=0.03,
     )
     los_transform.set_equilibrium(plasma.equilibrium)
     model = Bolometer(
@@ -198,7 +227,7 @@ def example_run(
     model.set_los_transform(los_transform)
     model.set_plasma(plasma)
 
-    bckc = model()
+    bckc = model(sum_beamlets=False)
 
     if plot:
         model.plot(tplot=tplot)
