@@ -972,6 +972,7 @@ class Plasma:
                 datatype=("density", "thermal_neutral"),
                 xspl=rho,
                 xend=xend,
+                parameters= self.Nh_prof.get_parameters()
             )
             Nh = Nh_prof()
             tau = None
@@ -1258,7 +1259,7 @@ class TrackDependecies:
         """
         Caching of dependencies
 
-        DataArray and dictionaries of DataArrays currently permitted
+        xr.DataArray, np.ndarray and dictionaries of xr.DataArrays currently permitted
 
         TODO: upgrade so other objects being tracked, e.g. Equilibrium
         """
@@ -1267,18 +1268,18 @@ class TrackDependecies:
             if type(dependency) == dict:
                 for data in dependency.values():
                     _dependencies.append(data.data)
-            elif type(dependency) == DataArray:
+            elif type(dependency) == xr.DataArray:
                 _dependencies.append(dependency.data)
+            elif type(dependency) == np.ndarray:
+                _dependencies.append(dependency)
             else:
-                help(dependency)
                 print(type(dependency))
                 raise NotImplementedError(
-                    "Hashing implemented for DataArray and Dict[DataArray] only"
+                    "Hashing implemented for xr.DataArray, np.ndarray and Dict[xr.DataArray] only"
                 )
 
         hashable = tuple((self.numpyhash(dependency),) for dependency in _dependencies)
         return hash(hashable)
-
 
 class CachedCalculation(TrackDependecies):
     def __init__(self, operator: Callable, dependencies: list, verbose: bool = False):
@@ -1288,8 +1289,8 @@ class CachedCalculation(TrackDependecies):
     @lru_cache()
     def __call__(self):
         if self.verbose:
-            print("Recalculating")
-        return self.operator()
+            print("Calculating")
+        return deepcopy(self.operator())
 
 
 def example_run(
