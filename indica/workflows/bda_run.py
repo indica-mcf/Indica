@@ -163,12 +163,14 @@ def bda_run(
     plasma_context = PlasmaContext(
         plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS
     )
+    if profile_params_to_update:
+        plasma_context.profile_params.update(profile_params_to_update)
+        # plasma_context.update_profiles(profile_params_to_update)
 
     plasma_context.init_plasma(
         data_context.equilibrium, tstart=tstart, tend=tend, dt=dt
     )
-    if profile_params_to_update:
-        plasma_context.update_profiles(profile_params_to_update)
+
     plasma_context.save_phantom_profiles(phantoms=data_context.phantoms)
 
     if set_ts:
@@ -269,11 +271,71 @@ if __name__ == "__main__":
          dict(
              phantom=False,
              tstart=0.05,
-             tend=0.06,
+             tend=0.11,
              dt=0.01,
              starting_samples=200,
-             iterations=20,
-             nwalkers=20,
+             iterations=2000,
+             nwalkers=10,
+             stopping_criteria_factor=0.001,
+             mds_write=True,
+             plot=True,
+             revisions={},
+             run="RUN01",
+             best=True,
+             # dirname="test",
+             set_ts=True,
+             ts_split="",
+             ts_R_shift = 0.02,
+             profile_params_to_update = {"Nh_prof.y0": 1e13, "Nh_prof.y1":1e15, "Nh_prof.yend":1e15}
+         )],
+        [(11089,
+          ["xrcs", "cxff_tws_c", "ts", "efit"],
+          PARAMS_SET_TS,
+          [
+              "xrcs.spectra",
+              "cxff_tws_c.ti",
+              # "cxff_pi.ti",
+              "ts.ne",
+              "ts.te",
+          ]),
+         dict(
+             phantom=False,
+             tstart=0.05,
+             tend=0.11,
+             dt=0.01,
+             starting_samples=200,
+             iterations=2000,
+             nwalkers=10,
+             stopping_criteria_factor=0.001,
+             mds_write=True,
+             plot=True,
+             revisions={},
+             run="RUN02",
+             best=False,
+             # dirname="test",
+             set_ts=True,
+             ts_split="",
+             ts_R_shift=0.02,
+             profile_params_to_update = {"Nh_prof.y0": 1e13, "Nh_prof.y1":1e16, "Nh_prof.yend":1e16}
+         )],
+        [(11089,
+          ["xrcs", "cxff_tws_c", "ts", "efit"],
+          PARAMS_SET_TS,
+          [
+              "xrcs.spectra",
+              "cxff_tws_c.ti",
+              # "cxff_pi.ti",
+              "ts.ne",
+              "ts.te",
+          ]),
+         dict(
+             phantom=False,
+             tstart=0.05,
+             tend=0.11,
+             dt=0.01,
+             starting_samples=200,
+             iterations=2000,
+             nwalkers=10,
              stopping_criteria_factor=0.001,
              mds_write=True,
              plot=True,
@@ -283,8 +345,8 @@ if __name__ == "__main__":
              # dirname="test",
              set_ts=True,
              ts_split="",
-             ts_R_shift = 0.02,
-             profile_params_to_update = {"Nh_prof.y0": 1e15, "Nh_prof.y1":1e17}
+             ts_R_shift=0.02,
+             profile_params_to_update={"Nh_prof.y0": 1e13, "Nh_prof.y1": 1e17, "Nh_prof.yend":1e17, }
          )],
         # RFX low ti/te pulse
         # [(11312,
