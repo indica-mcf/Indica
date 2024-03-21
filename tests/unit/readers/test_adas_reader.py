@@ -26,7 +26,7 @@ from numpy.testing._private.utils import assert_raises
 import prov.model as prov
 import pytest
 
-from indica.datatypes import ADF11_GENERAL_DATATYPES
+from indica.datatypes import DATATYPES
 from indica.datatypes import ELEMENTS
 from indica.readers import ADASReader
 import indica.readers.adas as adas
@@ -273,7 +273,7 @@ def adf11_data_and_file(draw):
 def test_read_adf11(reader, data_file, element, year):
     data, file_contents = data_file
     general_type = data.attrs["datatype"][0]
-    for q, dt in ADF11_GENERAL_DATATYPES.items():
+    for q, dt in DATATYPES.items():
         if dt == general_type:
             quantity = q
             break
@@ -315,7 +315,7 @@ def test_read_invalid_adf11():
     # The following check is not strictly necessary but is included in case
     # ADF11_GENERAL_DATATYPES is changed in the future to exclude "scd" for some reason.
     try:
-        _ = ADF11_GENERAL_DATATYPES[quantity]
+        _ = DATATYPES[quantity]
     except Exception as e:
         raise e
 

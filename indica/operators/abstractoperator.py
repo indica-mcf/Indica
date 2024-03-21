@@ -11,7 +11,6 @@ from typing import List
 from typing import Tuple
 from typing import TYPE_CHECKING
 from typing import Union
-from warnings import warn
 
 import prov.model as prov
 from xarray import DataArray
@@ -20,9 +19,6 @@ from xarray import Dataset
 from .. import session
 from ..datatypes import DatasetType
 from ..datatypes import DataType
-from ..datatypes import DatatypeWarning
-from ..datatypes import GENERAL_DATATYPES
-from ..datatypes import SPECIFIC_DATATYPES
 
 Data = Union[DataArray, Dataset]
 
@@ -100,33 +96,6 @@ class Operator(ABC):
         self._prov_count = 0
         self._end_time: datetime.datetime
         self.activity: prov.ProvActivity
-        for i, datatype in enumerate(self.ARGUMENT_TYPES):
-            if isinstance(datatype, EllipsisType):
-                if i + 1 != len(self.ARGUMENT_TYPES):
-                    raise TypeError(
-                        (
-                            "Operator class {} uses ellipsis dots as a type for"
-                            " argument {}. Only supported in final position."
-                        ).format(self.__class__.__name__, i + 1)
-                    )
-                else:
-                    continue
-            if datatype[0] and datatype[0] not in GENERAL_DATATYPES:
-                warn(
-                    "Operator class {} expects argument {} to have "
-                    "unrecognised general datatype '{}'".format(
-                        self.__class__.__name__, i + 1, datatype[0]
-                    ),
-                    DatatypeWarning,
-                )
-            if datatype[1] and datatype[1] not in SPECIFIC_DATATYPES:
-                warn(
-                    "Operator class {} expects argument {} to have "
-                    "unrecognised specific datatype '{}'".format(
-                        self.__class__.__name__, i + 1, datatype[1]
-                    ),
-                    DatatypeWarning,
-                )
 
     def _ellipsis_type(self, arg: Data) -> DataType:
         """Given the argument corresponding to the penultimate argument type,

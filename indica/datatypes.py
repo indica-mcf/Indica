@@ -1,227 +1,99 @@
-"""Prototype of how information on different data types can be stored.
+"""
+Set of dictionaries providing standard names and units for plasma physics quantities
 
+- UNITS default in Indica = MKS + eV for temperature + nm for wavelength
+- DATATYPES = (long_name, units) to be assigned as attribute to DataArray
+- ELEMENTS = [Z, A, name] of elements in the periodic table
 """
 
-from collections import defaultdict
 from typing import Dict
-from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
 
-
 GeneralDataType = str
 SpecificDataType = str
 
-"""
-Information on the Indica datatypes are stored in a dictionary.
- - Keys:str = datatype name
- - Values:tuple = (long_name, units) to be assigned to DataArray attrs.
-"""
+#: Structure for type information for :py:class:`xarray.DataArray` objects.
+ArrayType = Tuple[Optional[GeneralDataType], Optional[SpecificDataType]]
 
-GENERAL_DATATYPES: Dict[GeneralDataType, Tuple[str, str]] = {
+#: Structure for type information for :py:class:`xarray.Dataset` objects.
+DatasetType = Tuple[Optional[SpecificDataType], Dict[str, GeneralDataType]]
+
+DataType = Union[ArrayType, DatasetType]
+
+UNITS: dict = {
+    "length": "m",
+    "temperature": "eV",
+    "density": "m$^{-3}$",
+    "density_integrated": "m$^{-2}$",
+    "brightness": "W m$^{-2}$",
+    "emissivity": "W m$^{-3}$",
+    "velocity": "m/s",
+    "magnetic_flux": r"Wb/2$\pi$",
+    "f": "Wb m",
+    "current": "A",
+    "energy": "J",
+    "percent": "%",
+    "angular_frequency": "rad/s",
+    "frequency": "Hz",
+    "time": "s",
+    "ionisation_rate": "",
+    "recombination_rate": "",
+    "emission_rate": "W m$^3$",
+}
+
+DATATYPES: Dict[str, Tuple[str, str]] = {
+    "time": ("Time", UNITS["time"]),
+    "electron_density": ("Electron density", UNITS["density"]),
+    "electron_density_integrated": ("Electron density", UNITS["density_integrated"]),
+    "electron_temperature": ("Electron temperature", UNITS["temperature"]),
+    "ion_temperature": ("Ion temperature", UNITS["temperature"]),
+    "toroidal_rotation": ("Toroidal rotation", UNITS["velocity"]),
     "angular_freq": (
-        r"$\omega$",
-        r"$rad \; s^-1$",
+        "Angular frequency",
+        UNITS["angular_frequency"],
     ),
-    "asymmetry": (
-        "Asymmetry",
-        "",
-    ),
-    "concentration": (
-        "Concentration",
-        "%",
-    ),
-    "effective_charge": (
-        "Zeff",
-        "",
-    ),
-    "emissivity": ("Emissivity", r"$W \; m^{-3}$"),
-    "line_emission": ("Line", r"$W \; m^{-3}$"),
-    "luminous_flux": (
-        "Radiation power received per unit area at some point",
-        "W m^-2",
-    ),
-    "major_rad": (
-        "Horizontal position within the tokamak along the major radius",
-        "m",
-    ),
-    "minor_rad": ("Distance of a point from the magnetic axis", "m"),
-    "z": ("Vertical position from mid-plane of Tokamak", "m"),
-    "vol_jacobian": (
-        "Derivative of enclosed volume with respect to normalised poloidal flux",
-        "m^3",
-    ),
-    "f_value": (
-        "f",
-        "Wb m",
-    ),
-    "magnetic_flux": ("Poloidal flux", r"$Wb/2\pi$"),
-    "norm_flux_pol": (
-        "Rho-poloidal",
-        "",
-    ),
-    "norm_flux_tor": (
-        "Rho-toroidal",
-        "",
-    ),
-    "toroidal_flux": ("Toroidal component of magnetic flux", "Wb"),
-    "number_density": ("Number of particles per cubic metre", "m^-3"),
-    "temperature": ("Thermal temperature of some particals", "eV"),
-    "time": ("Time into the pulse", "s"),
-    "times": ("All time values for the pulse", "s"),
-    "ion_coeff": ("Effective ionisation rate coefficient", "m^3 s^-1"),
-    "recomb_coeff": ("Effective recombination coefficient", "m^3 s^-1"),
-    "recomb_emission": ("Emission from recombination and bremsstrahlung", "W m^3"),
-    "sxr_line_emission": ("SXR-filtered line emission from excitation", "W m^3"),
-    "sxr_recomb_emission": (
-        "SXR-filtered emission from recombination and bremsstrahlung",
-        "W m^3",
-    ),
-    "photon_emissivity_coefficient_ca": (
-        "ADAS photon emissivity coefficients",
-        "W m^3",
-    ),
-    "photon_emissivity_coefficient_cl": (
-        "ADAS photon emissivity coefficients",
-        "W m^3",
-    ),
-    "photon_emissivity_coefficient_ic": (
-        "ADAS photon emissivity coefficients",
-        "W m^3",
-    ),
-    "photon_emissivity_coefficient_ls": (
-        "ADAS photon emissivity coefficients",
-        "W m^3",
-    ),
-    "photon_emissivity_coefficient_llu": (
-        "ADAS photon emissivity coefficients",
-        "W m^3",
-    ),
-    "photon_emissivity_coefficient_pju": (
-        "ADAS photon emissivity coefficients",
-        "W m^3",
-    ),
-    "photon_emissivity_coefficient_bnd": (
-        "ADAS photon emissivity coefficients",
-        "W m^3",
-    ),
-    "photon_emissivity_coefficient_pjr": (
-        "ADAS photon emissivity coefficients",
-        "W m^3",
-    ),
-    "ionisation_rate": (
-        "Effective ionisation rate coefficient of all relevant ionisation stages of \
-            given impurity element",
-        "m^3 s^-1",
-    ),
-    "recombination_rate": (
-        "Effective recombination rate of all relevant ionisation stages of \
-            given impurity element",
-        "m^3 s^-1",
-    ),
-    "charge-exchange_rate": (
-        "Charge exchange cross coupling coefficient of all relevant ionisation stages\
-             of given impurity element",
-        "m^3 s^-1",
-    ),
-    "line_power_coefficient": (
-        "Radiated power of line emission from excitation of all relevant ionisation \
-            stages of given impurity element",
-        "w m^3",
-    ),
-    "charge-exchange_power_coefficient": (
-        "Radiated power of charge exchange emission of all relevant ionisation stages \
-            of given impurity element",
-        "w m^3",
-    ),
-    "recombination_power_coefficient": (
-        "Radiated power from recombination and bremsstrahlung of given impurity \
-            element",
-        "w m^3",
-    ),
-    "initial_fractional_abundance": (
-        "Initial fractional abundance for given impurity element, not normalized\
-            , as in the sum of all stages should equal the total number density\
-                for the given impurity element",
-        "m^-3",
-    ),
-    "fractional_abundance": (
-        "Fractional abundance of all ionisation stages of \
-            given impurity element (normalized)",
-        "",
-    ),
-    "total_radiated_power_loss": (
-        "Total radiated power of all ionisation stages of given element",
-        "W m^3",
-    ),
-    "impurity_concentration": (
-        "Impurity concentration of given element",
-        "",
-    ),
-    "toroidal_rotation": ("Toroidal rotation speed of the plasma", "m s^-1"),
-    "mean_charge": (
-        "Mean charge of given element, in units of electron charge",
-        "",
-    ),
-    "weighting": ("Dimensionless weighting to use when fitting data.", ""),
+    "emissiivity": ("Emissivity", UNITS["emissivity"]),
+    "brightness": ("Brightness", UNITS["brightness"]),
+    "line_intensity": ("Line intensity", UNITS["brightness"]),
+    "spectra": ("Spectra", UNITS["brightness"]),
+    "spectra_fit": ("Spectra (fit)", UNITS["brightness"]),
+    "chi_squared": ("Chi$^2$", ""),
+    "effective_charge": ("Effective charge", ""),
+    "equilibrium_f": ("f", UNITS["f"]),
+    "poloidal_flux": ("Poloidal flux", UNITS["magnetic_flux"]),
+    "poloidal_flux_axis": ("Poloidal flux (axis)", UNITS["magnetic_flux"]),
+    "poloidal_flux_boundary": ("Poloidal flux (separatrix)", UNITS["magnetic_flux"]),
+    "poloidal_flux_normalised": ("Normalised poloidal flux", UNITS["magnetic_flux"]),
+    "toroidal_flux": ("Toroidal flux", UNITS["magnetic_flux"]),
+    "major_radius_hfs": ("R$_{HFS}$", UNITS["length"]),
+    "major_radius_lfs": ("R$_{LFS}$", UNITS["length"]),
+    "volume_jacobian": ("Volume Jacobian", "m$^3$"),
+    "area_jacobian": ("Volume Jacobian", "m$^2$"),
+    "major_radius": ("R", UNITS["length"]),
+    "z": ("z", UNITS["length"]),
+    "rho_poloidal": (r"$\rho_{pol}$", ""),
+    "rho_toroidal": (r"$\rho_{tor}$", ""),
+    "major_radius_magnetic_axis": ("R$_{mag}$", UNITS["length"]),
+    "major_radius_geometric_axis": ("R$_{geo}$", UNITS["length"]),
+    "major_radius_boundary": ("R$_{boundary}$", UNITS["length"]),
+    "minor_radius": ("r$_{min}$", UNITS["length"]),
+    "minor_radius_boundary": ("a", UNITS["length"]),
+    "z_magnetic_axis": ("z$_{mag}$", UNITS["length"]),
+    "z_boundary": ("z$_{boundary}$", UNITS["length"]),
+    "plasma_current": ("Plasma current", UNITS["current"]),
+    "stored_energy": ("Stored energy", UNITS["energy"]),
+    "concentration": ("Concentration", UNITS["percent"]),
+    "scd": ("SCD rate coefficient", UNITS["ionisation_rate"]),
+    "acd": ("ACD rate coefficient", UNITS["recombination_rate"]),
+    "ccd": ("CCD rate coefficient", UNITS["recombination_rate"]),
+    "pec": ("PE coefficient", UNITS["emission_rate"]),
+    "plt": ("PLT coefficient", UNITS["emission_rate"]),
+    "prb": ("PRB coefficient", UNITS["emission_rate"]),
+    "prc": ("PRC coefficient", UNITS["emission_rate"]),
 }
 
-#: A dictionary containing information on what the general datatype is
-#  applied to. This could be a type of ion, subatomic particle,
-#  etc. The key is a designator for the specific datatype and the
-#  value is a description.
-SPECIFIC_DATATYPES: Dict[SpecificDataType, str] = {
-    "bolometric": "All wavelengths of radiation",
-    "beryllium": "Beryllium ions in plasma",
-    "electrons": "Electron gas in plasma",
-    "hfs": "High flux surface",
-    "lfs": "Low flux surface",
-    "mag_axis": "Magnetic axis for equilibrium in tokamak",
-    "nickel": "Nickel ions in plasma",
-    "plasma": "The plasma as a whole",
-    "separatrix": "Sepeparatrix surface for equilibrium in tokamak",
-    "sxr": "Soft X-rays",
-    "tungsten": "Tungsten ions in plasma",
-    "argon": "Argon ions in plasma",
-    "impurities": "All impurities in the plasma",
-    "impurity_element": "Chosen impurity element in plasma",
-    "thermal_hydrogen": "Thermal hydrogen in plasma",
-    "main_ion": "Main ion in the plasma (eg. deuterium)",
-}
-
-
-#: A mapping between ADAS datatypes for ADF11 data and the general
-# datatype used by indica.
-ADF11_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
-    "scd": "ion_coeff",
-    "acd": "recomb_coeff",
-    "ccd": "charge_exchange_recomb_coeff",
-    "plt": "line_emission",
-    "prc": "charge_exchange_emission",
-    "pls": "sxr_line_emission",
-    "prb": "recomb_emission",
-    "prs": "sxr_recomb_emission",
-}
-
-ADF12_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
-    "cx": "charge_exchange_cross-section_coefficient",
-}
-
-ADF15_GENERAL_DATATYPES: Dict[str, GeneralDataType] = {
-    "ca": "photon_emissivity_coefficient_ca",
-    "cl": "photon_emissivity_coefficient_cl",
-    "ic": "photon_emissivity_coefficient_ic",
-    "ls": "photon_emissivity_coefficient_ls",
-    "llu": "photon_emissivity_coefficient_llu",
-    "pju": "photon_emissivity_coefficient_pju",
-    "bnd": "photon_emissivity_coefficient_bnd",
-    "pjr": "photon_emissivity_coefficient_pjr",
-}
-
-# Format is {str(element_symbol):
-# [int(charge), int(mass of most common isotope), str(element_name)]}
-# TODO: change mass to float value
 ELEMENTS: dict = {
     "h": [1, 1, "hydrogen"],
     "d": [1, 2, "deuterium"],
@@ -300,81 +172,6 @@ ELEMENTS: dict = {
     "ta": [73, 181, "tantalum"],
     "w": [74, 184, "tungsten"],
 }
-
-#: Dictionary describing which general datatypes are valid for each specific
-#  datatype.
-COMPATIBLE_DATATYPES: Dict[SpecificDataType, List[GeneralDataType]] = defaultdict(
-    lambda: [
-        "angular_freq",
-        "concentration",
-        "effective_charge",
-        "number_density",
-        "temperature",
-        "weighting",
-        "ionisation_rate",
-        "recombination_rate",
-        "charge-exchange_rate",
-        "line_power_coefficient",
-        "recombination_power_coefficient",
-        "charge-exchange_power_coefficient",
-        "initial_fractional_abundance",
-        "fractional_abundance",
-        "total radiated power loss",
-    ],
-    {
-        "bolometric": ["luminous_flux", "weighting", "lines_of_sight_data"],
-        "electrons": ["angular_freq", "number_density", "temperature", "weighting"],
-        "hfs": ["major_rad", "z", "weighting"],
-        "lfs": ["major_rad", "z", "weighting"],
-        "mag_axis": ["magnetic_flux", "major_rad", "minor_rad", "z", "weighting"],
-        "plasma": [
-            "angular_freq",
-            "effective_charge",
-            "flux_surface_coordinates",
-            "magnetic_flux",
-            "norm_flux_pol",
-            "norm_flux_tor",
-            "number_density",
-            "temperature",
-            "toroidal_flux",
-            "vol_jacobian",
-            "weighting",
-            "toroidal_rotation",
-            "times",
-        ],
-        "separatrix": ["magnetic_flux", "major_rad", "minor_rad", "z", "weighting"],
-        "sxr": ["luminous_flux", "weighting", "lines_of_sight_data"],
-        "thermal_hydrogen": ["number_density"],
-        "impurities": ["number_density", "fractional_abundance", "elements"],
-        "impurity_element": [
-            "ionisation_rate",
-            "recombination_rate",
-            "charge-exchange_rate",
-            "line_power_coefficient",
-            "recombination_power_coefficient",
-            "charge-exchange_power_coefficient",
-            "initial_fractional_abundance",
-            "fractional_abundance",
-            "total radiated power loss",
-            "impurity_concentration",
-            "mean_charge",
-            "time",
-        ],
-        "main_ion": ["total radiated power loss", "number_density"],
-    },
-)
-
-
-#: The specific datatypes corresponding to an element/ion in the plasma
-SPECIFIC_ELEMENTS = set(SPECIFIC_DATATYPES) - set(COMPATIBLE_DATATYPES)
-
-#: Structure for type information for :py:class:`xarray.DataArray` objects.
-ArrayType = Tuple[Optional[GeneralDataType], Optional[SpecificDataType]]
-
-#: Structure for type information for :py:class:`xarray.Dataset` objects.
-DatasetType = Tuple[Optional[SpecificDataType], Dict[str, GeneralDataType]]
-
-DataType = Union[ArrayType, DatasetType]
 
 
 class DatatypeWarning(Warning):

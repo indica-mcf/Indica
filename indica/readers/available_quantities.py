@@ -4,70 +4,70 @@ TODO: change the tuple to DataArray (long_name, units) - see examples in abstrac
 """
 
 from typing import Dict
+from typing import Tuple
 
-from ..datatypes import ArrayType
+from indica.datatypes import DATATYPES
 
-
-AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
+AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, str]]] = {
     "get_thomson_scattering": {
-        "ne": ("number_density", "electrons"),
-        "te": ("temperature", "electrons"),
-        "chi2": ("chi-squared", "fit"),
+        "ne": DATATYPES["electron_density"],
+        "te": DATATYPES["electron_temperature"],
+        "chi2": DATATYPES["chi_squared"],
     },
     "get_spectrometer": {
-        "spectra": ("emission", "spectral"),
+        "spectra": DATATYPES["spectra"],
     },
     "get_charge_exchange": {
         # "angf": ("angular_freq", "ion"),
-        "vtor": ("linear_rotation", "ion"),
-        "ti": ("temperature", "ion"),
-        "spectra": ("spectra", "experimental"),
-        "fit": ("spectra", "fit"),
+        "vtor": DATATYPES["toroidal_rotation"],
+        "ti": DATATYPES["ion_temperature"],
+        "spectra": DATATYPES["spectra"],
+        "fit": DATATYPES["spectra_fit"],
     },
     "get_bremsstrahlung_spectroscopy": {
-        "zeff": ("effective_charge", "plasma"),
+        "zeff": DATATYPES["effective_charge"],
     },
     "get_helike_spectroscopy": {
-        "int_w": ("intensity", "spectral_line"),
-        "int_k": ("intensity", "spectral_line"),
-        "int_tot": ("intensity", "spectral_line"),
-        "int_n3": ("intensity", "spectral_line"),
-        "te_kw": ("temperature", "electrons"),
-        "te_n3w": ("temperature", "electrons"),
-        "ti_w": ("temperature", "ions"),
-        "ti_z": ("temperature", "ions"),
-        "spectra": ("spectra", "passive"),
+        "int_w": DATATYPES["line_intensity"],
+        "int_k": DATATYPES["line_intensity"],
+        "int_tot": DATATYPES["line_intensity"],
+        "int_n3": DATATYPES["line_intensity"],
+        "te_kw": DATATYPES["electron_temperature"],
+        "te_n3w": DATATYPES["electron_temperature"],
+        "ti_w": DATATYPES["ion_temperature"],
+        "ti_z": DATATYPES["ion_temperature"],
+        "spectra": DATATYPES["spectra"],
     },
     "get_diode_filters": {
-        "brightness": ("luminous_flux", None),
+        "brightness": DATATYPES["brightness"],
     },
     "get_interferometry": {
-        "ne": ("density", "electrons"),
+        "ne": DATATYPES["electron_density_integrated"],
     },
     "get_equilibrium": {
-        "f": ("f_value", "plasma"),
-        "faxs": ("magnetic_flux_axis", "poloidal"),
-        "fbnd": ("magnetic_flux_separatrix", "poloidal"),
-        "ftor": ("magnetic_flux", "toroidal"),
-        "rmji": ("major_rad", "hfs"),
-        "rmjo": ("major_rad", "lfs"),
-        "psi": ("magnetic_flux", "poloidal"),
-        "vjac": ("volume_jacobian", "plasma"),
-        "ajac": ("area_jacobian", "plasma"),
-        "rmag": ("major_rad", "mag_axis"),
-        "rgeo": ("major_rad", "geometric"),
-        "rbnd": ("major_rad", "separatrix"),
-        "zmag": ("z", "mag_axis"),
-        "zbnd": ("z", "separatrix"),
-        "ipla": ("current", "plasma"),
-        "wp": ("energy", "plasma"),
-        "psin": ("poloidal_flux", "normalised"),
+        "f": DATATYPES["equilibrium_f"],
+        "faxs": DATATYPES["poloidal_flux_axis"],
+        "fbnd": DATATYPES["poloidal_flux_boundary"],
+        "ftor": DATATYPES["toroidal_flux"],
+        "psi": DATATYPES["poloidal_flux"],
+        "rmji": DATATYPES["major_radius_hfs"],
+        "rmjo": DATATYPES["major_radius_lfs"],
+        "vjac": DATATYPES["volume_jacobian"],
+        "ajac": DATATYPES["area_jacobian"],
+        "rmag": DATATYPES["major_radius_magnetic_axis"],
+        "rgeo": DATATYPES["major_radius_geometric_axis"],
+        "rbnd": DATATYPES["major_radius_boundary"],
+        "zmag": DATATYPES["z_magnetic_axis"],
+        "zbnd": DATATYPES["z_boundary"],
+        "ipla": DATATYPES["plasma_current"],
+        "wp": DATATYPES["stored_energy"],
+        "psin": DATATYPES["poloidal_flux_normalised"],
     },
     "get_cyclotron_emissions": {
-        "te": ("temperature", "electrons"),
+        "te": DATATYPES["electron_temperature"],
     },
     "get_radiation": {
-        "brightness": ("luminous_flux", None),
+        "brightness": DATATYPES["brightness"],
     },
     "get_astra": {
         "f": ("f_value", "plasma"),

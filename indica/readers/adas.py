@@ -16,8 +16,7 @@ from xarray import DataArray
 
 from .. import session
 from ..abstractio import BaseIO
-from ..datatypes import ADF11_GENERAL_DATATYPES
-from ..datatypes import ADF15_GENERAL_DATATYPES
+from ..datatypes import DATATYPES
 from ..datatypes import ELEMENTS
 
 # TODO: Evaluate this location
@@ -206,7 +205,7 @@ class ADASReader(BaseIO):
                 if new_date > date:
                     date = new_date
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
-        gen_type = ADF11_GENERAL_DATATYPES[quantity]
+        gen_type = DATATYPES[quantity]
         spec_type = element_name
         try:
             assert (
@@ -412,7 +411,7 @@ class ADASReader(BaseIO):
                 transition.append(transition_tmp)
                 line = f.readline().strip().lower()
 
-        gen_type = ADF15_GENERAL_DATATYPES[filetype]
+        gen_type = DATATYPES[filetype]
         spec_type = element
         name = f"{spec_type}_{gen_type}"
         attrs = {
