@@ -1219,7 +1219,7 @@ class CachedCalculation(TrackDependecies):
     def __call__(self):
         if self.verbose:
             print("Recalculating")
-        return self.operator()
+        return deepcopy(self.operator())
 
 
 def example_run(
