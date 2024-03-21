@@ -23,7 +23,7 @@ def calculate_zeff(
     tstart=0.03,
     tend=0.1,
     dt=0.01,
-    filter_wavelength: float = 531.5,
+    filter_wavelength: float = 532.1,
     filter_fwhm: float = 1,
     revisions: dict = None,
     fit_R_shift: bool = True,
