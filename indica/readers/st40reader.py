@@ -10,6 +10,10 @@ from typing import List
 from typing import Set
 from typing import Tuple
 
+
+
+#from st40conf import MACHINE_DIMS, INSTRUMENT_METHODS, UIDS_MDS, QUANTITIES_MDS
+
 from MDSplus import Connection
 from MDSplus.mdsExceptions import TreeNNF
 from MDSplus.mdsExceptions import TreeNODATA
