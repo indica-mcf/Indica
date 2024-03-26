@@ -1,7 +1,6 @@
 """Coordinate system representing a collection of lines of sight.
 """
 
-import getpass
 from typing import cast
 from typing import Tuple
 
@@ -17,8 +16,6 @@ from .abstractconverter import CoordinateTransform
 from .abstractconverter import find_wall_intersections
 from ..numpy_typing import LabeledArray
 from ..numpy_typing import OnlyArray
-
-FIG_PATH = f"/home/{getpass.getuser()}/figures/Indica/transform/"
 
 
 class LineOfSightTransform(CoordinateTransform):
@@ -181,28 +178,6 @@ class LineOfSightTransform(CoordinateTransform):
             f"{self.__class__.__name__} does not implement a 'convert_from_Rz' "
             "method."
         )
-
-    def convert_to_rho_theta(self, t: LabeledArray = None) -> Coordinates:
-        """
-        Convert (R, z) to (rho, theta) for all LOS
-        """
-        if not hasattr(self, "equilibrium"):
-            raise Exception("Set equilibrium object to convert (R,z) to rho")
-
-        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
-        drop_vars = ["R", "z"]
-        for var in drop_vars:
-            if var in rho.coords:
-                rho = rho.drop_vars(var)
-            if var in theta.coords:
-                theta = theta.drop_vars(var)
-
-        self.t = t
-        self.rho = rho
-        self.theta = theta
-        self.impact_rho = self.rho.min("los_position")
-
-        return rho, theta
 
     def distance(
         self,
@@ -541,7 +516,6 @@ class LineOfSightTransform(CoordinateTransform):
         self.z_end = z_end
 
         self.x2 = x2
-        # self.mask = xr.concat(mask, "channel").assign_coords({"channel":self.x1})
         self.dl = float(dist[0, 1] - dist[0, 0])
         self.x = xr.concat(x, "channel")
         self.y = xr.concat(y, "channel")
@@ -665,7 +639,7 @@ class LineOfSightTransform(CoordinateTransform):
         t: LabeledArray = None,
         limit_to_sep=True,
         calc_rho=False,
-        sum_beamlet=True,
+        sum_beamlets=True,
     ) -> DataArray:
         """
         Integrate 1D profile along LOS
@@ -689,14 +663,13 @@ class LineOfSightTransform(CoordinateTransform):
             calc_rho=calc_rho,
         )
 
-        if sum_beamlet:
+        if sum_beamlets:
             los_integral = (
                 self.passes
                 * along_los.sum(["los_position", "beamlet"], skipna=True)
                 * self.dl
                 / float(self.beamlets)
             )
-
         else:
             los_integral = (
                 self.passes * along_los.sum(["los_position"], skipna=True) * self.dl
@@ -718,24 +691,18 @@ class LineOfSightTransform(CoordinateTransform):
         z = []
         R = []
         for ch in self.x1:
-            distance = np.sqrt(
-                self.x.sel(channel=ch) ** 2
-                + self.y.sel(channel=ch) ** 2
-                + self.z.sel(channel=ch) ** 2
-            )
+            x_mean = self.x.sel(channel=ch).mean("beamlet")
+            y_mean = self.y.sel(channel=ch).mean("beamlet")
+            z_mean = self.z.sel(channel=ch).mean("beamlet")
+            distance = np.sqrt(x_mean**2 + y_mean**2 + z_mean**2)
             _index = np.unravel_index(distance.argmin(), distance.shape)
             _index_temp = distance.argmin()
             index.append(_index_temp)
             impact.append(distance[_index])
-            x.append(self.x.sel(channel=ch)[_index])
-            y.append(self.y.sel(channel=ch)[_index])
-            z.append(self.z.sel(channel=ch)[_index])
-            R.append(
-                np.sqrt(
-                    self.x.sel(channel=ch)[_index] ** 2
-                    + self.y.sel(channel=ch)[_index] ** 2
-                )
-            )
+            x.append(x_mean[_index])
+            y.append(y_mean[_index])
+            z.append(z_mean[_index])
+            R.append(np.sqrt(x_mean[_index] ** 2 + y_mean[_index] ** 2))
 
         impact = Dataset(
             {

@@ -93,6 +93,8 @@ class FractionalAbundance(Operator):
         ACD: DataArray,
         CCD: DataArray = None,
         sess: session.Session = session.global_session,
+        set_default: bool = False,
+        main_ion: str = "h",
     ):
         """Initialises FractionalAbundance class"""
         super().__init__(sess)
@@ -104,6 +106,10 @@ class FractionalAbundance(Operator):
         self.SCD = SCD
         self.ACD = ACD
         self.CCD = CCD
+
+        if set_default:
+            Te, Ne, Nh = default_profiles(main_ion=main_ion)
+            self.__call__(Ne=Ne, Te=Te, Nh=Nh)
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         """Indicates the datatypes of the results when calling the operator
@@ -884,3 +890,25 @@ def interpolate_results(
         ("electron_temperature",)
     )
     return result
+
+
+def default_profiles(main_ion: str = "h"):
+    from indica.readers.adas import ADF11, ADASReader
+
+    _Te = DataArray(np.append(np.arange(5, 500, 10), np.arange(600, 10.0e3, 100)))
+    x = np.linspace(0, 1, np.size(_Te))
+    Te = _Te.assign_coords(dim_0=x)
+    Ne = xr.full_like(Te, 5.0e19)
+
+    adas_reader = ADASReader()
+    scd = adas_reader.get_adf11("scd", main_ion, ADF11[main_ion]["scd"])
+    acd = adas_reader.get_adf11("acd", main_ion, ADF11[main_ion]["acd"])
+    ccd = adas_reader.get_adf11("ccd", main_ion, ADF11[main_ion]["ccd"])
+    Fz_main_ion = FractionalAbundance(scd, acd, CCD=ccd)
+    fz = Fz_main_ion(Te, Ne=Ne)
+    Nh = xr.full_like(Te, 0.0)
+    _Nh = fz.sel(ion_charges=0) - fz.sel(ion_charges=0).min()
+    _Nh /= _Nh.max()
+    Nh.values = _Nh * 1.0e16 + 1.0e12
+
+    return Te, Ne, Nh

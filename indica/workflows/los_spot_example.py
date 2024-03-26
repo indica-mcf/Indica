@@ -185,7 +185,7 @@ b_tot, t = plasma.equilibrium.Btot(R, z, t=time)
 b_tot_los_int = los_transform.integrate_on_los(b_tot, t=time)
 
 b_tot_los_int_beamlets = los_transform.integrate_on_los(
-    b_tot, t=time, sum_beamlet=False
+    b_tot, t=time, sum_beamlets=False
 )
 print(b_tot_los_int)
 print(b_tot_los_int_beamlets)
