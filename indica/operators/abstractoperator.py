@@ -182,33 +182,6 @@ class Operator(ABC):
                         )
                     )
                     raise OperatorError(message)
-                for key, general_type in expected[1].items():
-                    if key not in datatype[1]:
-                        message = (
-                            "Variable {} required by operator {} is missing from "
-                            "argument {}.".format(
-                                key,
-                                self.__class__.__name__,
-                                i + 1,
-                            )
-                        )
-                        raise OperatorError(message)
-                    if datatype[1][key] != general_type:
-                        message = (
-                            "Variable {} of argument {} of wrong general data type for "
-                            "operator {}: expected {}, received {}.".format(
-                                key,
-                                i + 1,
-                                self.__class__.__name__,
-                                general_type,
-                                datatype[1][key],
-                            )
-                        )
-                        raise OperatorError(message)
-            else:
-                raise OperatorError(
-                    "Argument {} is not a DataArray or Dataset".format(arg)
-                )
 
     @abstractmethod
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
@@ -289,7 +262,6 @@ class Operator(ABC):
                 entity_id,
                 {
                     prov.PROV_TYPE: "DataArray",
-                    prov.PROV_VALUE: ",".join(data.attrs["datatype"]),
                 },
             )
         entity.wasGeneratedBy(self.activity, self.end_time)

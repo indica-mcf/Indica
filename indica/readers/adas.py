@@ -17,7 +17,6 @@ from xarray import DataArray
 from .. import session
 from ..abstractio import BaseIO
 from ..datatypes import DATATYPES
-from ..datatypes import ELEMENTS
 
 # TODO: Evaluate this location
 DEFAULT_PATH = Path("")
@@ -172,7 +171,7 @@ class ADASReader(BaseIO):
         filename = Path(file_component) / f"{file_component}_{element.lower()}.dat"
         with self._get_file("adf11", filename) as f:
             header = f.readline().split()
-            z = int(header[0])
+            # z = int(header[0])
             nd = int(header[1])
             nt = int(header[2])
             zmin = int(header[3]) - 1
@@ -205,24 +204,13 @@ class ADASReader(BaseIO):
                 if new_date > date:
                     date = new_date
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
-        gen_type = DATATYPES[quantity]
-        spec_type = element_name
-        try:
-            assert (
-                z
-                == [value[0] for value in ELEMENTS.values() if value[2] == spec_type][0]
-            )
-        except AssertionError:
-            raise AssertionError(
-                "There is a mismatch between atomic number(z)\
-                and element name(element_name) imported from the ADF11 file."
-            )
-        name = f"{spec_type}_{gen_type}"
+        long_name, units = DATATYPES["pec"]
         attrs = {
-            "datatype": (gen_type, spec_type),
+            "long_name": long_name,
+            "units": units,
             "date": date,
             "provenance": self.create_provenance(filename, now),
-            "element_symbol": element,
+            "element": element_name,
             "year": year,
         }
         return DataArray(
@@ -232,7 +220,6 @@ class ADASReader(BaseIO):
                 ("electron_temperature", 10 ** (temperatures)),
                 ("electron_density", 10 ** (densities + 6)),
             ],
-            name=name,
             attrs=attrs,
         )
 
@@ -410,12 +397,10 @@ class ADASReader(BaseIO):
                 transition_tmp = format_transition[transition_type](m)
                 transition.append(transition_tmp)
                 line = f.readline().strip().lower()
-
-        gen_type = DATATYPES[filetype]
-        spec_type = element
-        name = f"{spec_type}_{gen_type}"
+        long_name, units = DATATYPES["pec"]
         attrs = {
-            "datatype": (gen_type, spec_type),
+            "long_name": long_name,
+            "units": units,
             "provenance": self.create_provenance(filename, now),
         }
 
@@ -428,7 +413,6 @@ class ADASReader(BaseIO):
         pecs = DataArray(
             data * 10**-6,
             coords=coords,
-            name=name,
             attrs=attrs,
         )
 

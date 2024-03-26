@@ -108,22 +108,8 @@ class Testadf15:
         )
         assert all([len(transition_type) > 0 for transition_type in data.type.values])
 
-    def test_datatype(self):
-        """Checks datatype is string and as expected"""
-        data = self.reader.get_adf15(
-            self.element, self.charge, self.file_type, year=self.year
-        )
-
-        assert type(data.attrs["datatype"]) is tuple
-        assert len(data.attrs["datatype"]) == 2
-        assert all([type(datatype) is str for datatype in data.attrs["datatype"]])
-        assert data.attrs["datatype"] == (
-            f"photon_emissivity_coefficient_{self.file_type}",
-            self.element,
-        )
-
     def test_provenance(self):
-        """Checks datatype is string and as expected"""
+        """Checks provenance is ProvEntity"""
         data = self.reader.get_adf15(
             self.element, self.charge, self.file_type, year=self.year
         )
