@@ -4,12 +4,12 @@ import matplotlib.pylab as plt
 import numpy as np
 from xarray import DataArray
 
-from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.utilities import assign_data
+from indica.utilities import get_element_info
 
 
 def centrifugal_asymmetry_parameter(
@@ -30,8 +30,8 @@ def centrifugal_asymmetry_parameter(
 
     asymmetry_parameter = deepcopy(ion_density)
     for elem in elements.values:
-        main_ion_mass = ELEMENTS[main_ion][1]
-        mass = ELEMENTS[elem][1]
+        main_ion_mass = get_element_info(main_ion)[1]
+        mass = get_element_info(elem)[1]
         asymmetry_parameter.loc[dict(element=elem)] = ph.centrifugal_asymmetry(
             ion_temperature.sel(element=elem).drop_vars("element"),
             electron_temperature,

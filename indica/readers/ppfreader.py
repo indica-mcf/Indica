@@ -28,7 +28,6 @@ import indica.readers.surf_los as surf_los
 from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .. import session
-from ..datatypes import ELEMENTS
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
@@ -294,18 +293,19 @@ class PPFReader(DataReader):
             uid, instrument, "zqnn", revision
         )
 
-        mass_int = round(mass.data[0])
-        atomic_num_int = round(atomic_num.data[0])
+        # TODO: is there no string information on the element in the database?
+        # mass_int = round(mass.data[0])
+        # atomic_num_int = round(atomic_num.data[0])
+        # results["element"] = [
+        #     value[2]
+        #     for value in ELEMENTS.values()
+        #     if (value[0] == atomic_num_int and value[1] == mass_int)
+        # ][0]
 
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
         results["z"] = z.data[0, :]
         results["length"] = R.data.shape[1]
-        results["element"] = [
-            value[2]
-            for value in ELEMENTS.values()
-            if (value[0] == atomic_num_int and value[1] == mass_int)
-        ][0]
         results["texp"] = texp.data
         results["times"] = None
         paths = [R_path, z_path, m_path, t_path]

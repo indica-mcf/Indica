@@ -11,7 +11,6 @@ from xarray import DataArray
 
 from indica.converters.time import convert_in_time_dt
 from indica.converters.time import get_tlabels_dt
-from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
 from indica.equilibrium import fake_equilibrium_data
 from indica.operators.atomic_data import FractionalAbundance
@@ -22,6 +21,7 @@ from indica.readers import ADASReader
 from indica.readers.adas import ADF11
 from indica.utilities import assign_data
 from indica.utilities import assign_datatype
+from indica.utilities import get_element_info
 from indica.utilities import print_like
 
 plt.ion()
@@ -298,7 +298,7 @@ class Plasma:
         _lz_tot = {}
         _lz_sxr = {}
         for elem in self.elements:
-            z_elem, a_elem, name_elem = ELEMENTS[elem]
+            z_elem, a_elem, name_elem = get_element_info(elem)
             nz = z_elem + 1
             ion_charges = np.arange(nz)
             data3d_fz = DataArray(
@@ -1046,8 +1046,8 @@ class Plasma:
         zeff = self.zeff.sum("element")
         R_0 = self.maj_r_lfs.interp(rho_poloidal=self.rho_2d).drop_vars("rho_poloidal")
         for elem in self.elements:
-            main_ion_mass = ELEMENTS[self.main_ion][1]
-            mass = ELEMENTS[elem][1]
+            main_ion_mass = get_element_info(self.main_ion)[1]
+            mass = get_element_info(elem)[1]
             asymm = ph.centrifugal_asymmetry(
                 self.ion_temperature.sel(element=elem).drop_vars("element"),
                 self.electron_temperature,
