@@ -55,6 +55,16 @@ class Profiles:
 
         if parameters is None:
             parameters = get_defaults(datatype)
+        elif {
+            "y0",
+            "y1",
+            "yend",
+            "wcenter",
+            "wped",
+            "peaking",
+        } >= set(parameters):
+            _parameters = get_defaults(datatype)
+            parameters = dict(_parameters, **parameters)
 
         for k, p in parameters.items():
             setattr(self, k, p)
@@ -210,7 +220,7 @@ def get_defaults(datatype: tuple) -> dict:
         },
         "impurity_density": {  # (m**-3)
             "y0": 5.0e16,
-            "y1": 1.0e16,
+            "y1": 1.0e15,
             "yend": 1.0e15,
             "peaking": 2,
             "wcenter": 0.4,

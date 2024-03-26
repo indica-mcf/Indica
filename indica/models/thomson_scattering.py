@@ -41,6 +41,9 @@ class ThomsonScattering(DiagnosticModel):
                 self.bckc[quantity] = self.Te_at_channels
                 long_name = "Te"
                 units = "eV"
+            elif quant == "chi2":
+                # Placeholder
+                continue
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -82,7 +85,7 @@ class ThomsonScattering(DiagnosticModel):
         """
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
+                t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
             Te = self.plasma.electron_temperature.interp(t=t)
         else:
@@ -98,10 +101,22 @@ class ThomsonScattering(DiagnosticModel):
             t=self.t,
             calc_rho=calc_rho,
         )
+        Ne_at_channels = Ne_at_channels.assign_coords(
+            R=("channel", self.transect_transform.R)
+        )
+        Ne_at_channels = Ne_at_channels.assign_coords(
+            z=("channel", self.transect_transform.z)
+        )
         Te_at_channels = self.transect_transform.map_profile_to_rho(
             Te,
             t=self.t,
             calc_rho=calc_rho,
+        )
+        Te_at_channels = Te_at_channels.assign_coords(
+            R=("channel", self.transect_transform.R)
+        )
+        Te_at_channels = Te_at_channels.assign_coords(
+            z=("channel", self.transect_transform.z)
         )
 
         self.Ne_at_channels = Ne_at_channels
@@ -110,6 +125,20 @@ class ThomsonScattering(DiagnosticModel):
         self._build_bckc_dictionary()
 
         return self.bckc
+
+
+def ts_transform_example(nchannels):
+    x_positions = np.linspace(0.2, 0.8, nchannels)
+    y_positions = np.linspace(0.0, 0.0, nchannels)
+    z_positions = np.linspace(0.0, 0.0, nchannels)
+    transform = TransectCoordinates(
+        x_positions,
+        y_positions,
+        z_positions,
+        "ts",
+        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
+    )
+    return transform
 
 
 def example_run(
@@ -124,19 +153,7 @@ def example_run(
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
 
-    # Create new interferometers diagnostics
-    nchannels = 11
-    x_positions = np.linspace(0.2, 0.8, nchannels)
-    y_positions = np.linspace(0.0, 0.0, nchannels)
-    z_positions = np.linspace(0.0, 0.0, nchannels)
-
-    transect_transform = TransectCoordinates(
-        x_positions,
-        y_positions,
-        z_positions,
-        diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
-    )
+    transect_transform = ts_transform_example(11)
     transect_transform.set_equilibrium(plasma.equilibrium)
     model = ThomsonScattering(
         diagnostic_name,

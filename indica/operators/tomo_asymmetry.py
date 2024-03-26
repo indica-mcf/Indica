@@ -13,6 +13,7 @@ from indica.numpy_typing import ArrayLike
 from indica.numpy_typing import LabeledArray
 import indica.operators.centrifugal_asymmetry as centrifugal_asymmetry
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_2d_map
+from indica.utilities import set_axis_sci
 
 DataArrayCoords = Tuple[DataArray, DataArray]
 
@@ -140,9 +141,9 @@ class InvertPoloidalAsymmetry:
             return (_data - _bckc) / _error
 
         if t is None:
-            t = los_integral.t
+            t = los_integral.t.values
         else:
-            t = los_integral.t.sel(t=t, method="nearest")
+            t = los_integral.t.interp(t=t).values
 
         if hasattr(los_integral, "error"):
             error = los_integral.error
@@ -217,14 +218,31 @@ class InvertPoloidalAsymmetry:
         return profile_2d, bckc, profile, asymmetry
 
 
-def example_run():
+def example_run(asymmetric_profile: bool = True):
 
     plasma, ion_density_2d = centrifugal_asymmetry.example_run()
     _, model, _ = bolo.example_run()
 
-    profile_2d = ion_density_2d.sel(element="ar")
+    ar_density_2d = ion_density_2d.sel(element="ar")
+    ne_density_2d = plasma.electron_density.interp(
+        rho_poloidal=ar_density_2d.rho_poloidal
+    )
+    lz_tot_2d = (
+        plasma.lz_tot["ar"]
+        .sum("ion_charges")
+        .interp(rho_poloidal=ar_density_2d.rho_poloidal)
+    )
+    profile_2d = ne_density_2d * ar_density_2d * lz_tot_2d
     los_transform = model.los_transform
     los_integral = los_transform.integrate_on_los(profile_2d, profile_2d.t.values)
+
+    if not asymmetric_profile:
+        from indica.models.bolometer_camera import example_run as example_bolo
+
+        plasma, model, bckc = example_bolo(plot=False)
+        profile_2d = model.emissivity.interp(rho_poloidal=profile_2d.rho_poloidal)
+        los_transform = model.los_transform
+        los_integral = bckc["brightness"].mean("beamlet")
 
     print("\n Running asymmetry inference...")
     invert_asymm = InvertPoloidalAsymmetry()
@@ -241,37 +259,90 @@ def example_run():
         plt.ioff()
 
         kwargs_phantom = dict(
-            marker="o",
-            label="Phantom",
-            color="k",
-            zorder=1,
+            marker="o", label="Phantom", color="r", zorder=1, alpha=0.8
         )
         kwargs_bckc = dict(
-            marker="x", label="Bckc", color="b", zorder=2, linewidth=4, alpha=0.5
+            marker="x",
+            label="Back-calculated",
+            color="b",
+            zorder=2,
+            alpha=0.8,
         )
         plt.figure()
         plt.errorbar(
             invert_asymm.data.channel,
-            invert_asymm.data.sel(t=t),
-            invert_asymm.error.sel(t=t),
+            invert_asymm.data.sel(t=t, method="nearest"),
+            invert_asymm.error.sel(t=t, method="nearest"),
             **kwargs_phantom,
         )
+        bckc.attrs = {"long_name": "Brightness", "units": "W/m$^2$"}
         bckc.sel(t=t).plot(**kwargs_bckc)
         plt.title("LOS integrals")
         plt.legend()
+        set_axis_sci()
 
         plt.figure()
+        profile_2d.attrs = {"long_name": "Emissivity", "units": "W/m$^3$"}
         profile_2d.sel(t=t).plot()
         plt.title("2D phantom")
+        plt.axis("equal")
 
         plt.figure()
+        profile_2d_bckc.attrs = {"long_name": "Emissivity", "units": "W/m$^3$"}
         profile_2d_bckc.sel(t=t).plot()
-        plt.title("2D bckc")
+        plt.title("2D back-calculated")
+        plt.axis("equal")
 
         plt.figure()
-        profile_2d.sel(t=t).sel(z=0, method="nearest").plot(**kwargs_phantom)
-        profile_2d_bckc.sel(t=t).sel(z=0, method="nearest").plot(**kwargs_bckc)
+        kwargs_phantom = dict(
+            label="Phantom",
+            color="r",
+            zorder=1,
+            alpha=0.8,
+            linestyle="dashed",
+        )
+        kwargs_bckc = dict(
+            label="Back-calculated",
+            color="b",
+            zorder=2,
+            alpha=0.8,
+        )
+        if asymmetric_profile:
+            profile_2d.sel(t=t).sel(z=0, method="nearest").plot(
+                **kwargs_phantom,
+            )
+            profile_2d_bckc.sel(t=t).sel(z=0, method="nearest").plot(
+                **kwargs_bckc,
+            )
+        else:
+            rmag = plasma.equilibrium.rmag.sel(t=t, method="nearest")
+            rho_lfs = (
+                plasma.equilibrium.rho.sel(t=t, method="nearest")
+                .sel(z=0, method="nearest")
+                .sel(R=slice(rmag - 0.01, 1))
+            )
+            profile_1d = (
+                (profile_2d.sel(t=t).sel(z=0, method="nearest").interp(R=rho_lfs.R))
+                .assign_coords(rho_poloidal=("R", rho_lfs.values))
+                .swap_dims({"R": "rho_poloidal"})
+            )
+            profile_1d_bckc = (
+                (
+                    profile_2d_bckc.sel(t=t)
+                    .sel(z=0, method="nearest")
+                    .interp(R=rho_lfs.R)
+                )
+                .assign_coords(rho_poloidal=("R", rho_lfs.values))
+                .swap_dims({"R": "rho_poloidal"})
+            )
+            profile_1d.plot(
+                **kwargs_phantom,
+            )
+            profile_1d_bckc.plot(
+                **kwargs_bckc,
+            )
         plt.title("Midplane cut (z=0)")
+        set_axis_sci()
         plt.legend()
         plt.show()
 

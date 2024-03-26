@@ -81,12 +81,15 @@ class ST40Reader(DataReader):
         "smmh1": "get_interferometry",
         "smmh": "get_interferometry",
         "astra": "get_astra",
-        "sxr_spd": "get_diode_filters",
+        "sxr_spd": "get_radiation",
         "sxr_diode_1": "get_diode_filters",
         "sxr_diode_2": "get_diode_filters",
         "sxr_diode_3": "get_diode_filters",
         "sxr_diode_4": "get_diode_filters",
-        "sxr_camera_4": "get_radiation",
+        "sxr_mid1": "get_radiation",
+        "sxr_mid2": "get_radiation",
+        "sxr_mid3": "get_radiation",
+        "sxr_mid4": "get_radiation",
         "sxrc_xy1": "get_radiation",
         "sxrc_xy2": "get_radiation",
         "blom_xy1": "get_radiation",
@@ -108,10 +111,6 @@ class ST40Reader(DataReader):
         "sxr_diode_2": "sxr",
         "sxr_diode_3": "sxr",
         "sxr_diode_4": "sxr",
-        "sxr_camera_1": "sxr",
-        "sxr_camera_2": "sxr",
-        "sxr_camera_3": "sxr",
-        "sxr_camera_4": "sxr",
     }
     QUANTITIES_MDS = {
         "efit": {
@@ -165,12 +164,19 @@ class ST40Reader(DataReader):
             "brightness": ":emission",
         },
         "sxr_spd": {
-            "brightness": ":emission",
+            "brightness": ".profiles:emission",
         },
-        "sxr_camera_4": {
-            "brightness": ".middle_head.filter_4:",
-            "location": ".middle_head.geometry:location",
-            "direction": ".middle_head.geometry:direction",
+        "sxr_mid1": {
+            "brightness": ".profiles:emission",
+        },
+        "sxr_mid2": {
+            "brightness": ".profiles:emission",
+        },
+        "sxr_mid3": {
+            "brightness": ".profiles:emission",
+        },
+        "sxr_mid4": {
+            "brightness": ".profiles:emission",
         },
         "diode_arrays": {
             "brightness": ".middle_head.filter_4:",
@@ -298,24 +304,6 @@ class ST40Reader(DataReader):
         },
     }
 
-    # TODO: this can be deleted once MDS+ standardisation is complete
-    _IMPLEMENTATION_QUANTITIES = {
-        "diode_arrays": {  # GETTING THE DATA OF THE SXR CAMERA
-            "sxr_camera_1": ("brightness", "total"),
-            "sxr_camera_2": ("brightness", "50_Al_filtered"),
-            "sxr_camera_3": ("brightness", "250_Be_filtered"),
-            "sxr_camera_4": ("brightness", "10_Be_filtered"),
-        },
-    }
-
-    # TODO: this can be deleted once MDS+ standardisation is complete
-    _RADIATION_RANGES = {
-        "sxr_camera_1": (1, 20),
-        "sxr_camera_2": (21, 40),
-        "sxr_camera_3": (41, 60),
-        "sxr_camera_4": (61, 80),
-    }
-
     def __init__(
         self,
         pulse: int,
@@ -371,13 +359,14 @@ class ST40Reader(DataReader):
 
     def _get_data(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
-    ) -> Tuple[np.array, List[np.array]]:
+    ) -> Tuple[np.array, List[np.array], str, str]:
         """Gets the signal and its coordinates for the given INSTRUMENT, at the
         given revision."""
         data, _path = self._get_signal(uid, instrument, quantity, revision)
         dims, _ = self._get_signal_dims(_path, len(data.shape))
+        unit = self._get_signal_units(_path)
 
-        return data, dims
+        return data, dims, unit, _path
 
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
@@ -410,6 +399,18 @@ class ST40Reader(DataReader):
             paths.append(path)
             dimensions.append(np.array(dim_tmp))
         return dimensions, paths
+
+    def _get_signal_units(
+        self,
+        mds_path: str,
+    ) -> str:
+        """Gets the units of a signal given the path to the signal
+        and the number of dimensions"""
+
+        path = f"units_of({mds_path})"
+        unit = self.conn.get(path).data()
+
+        return unit
 
     def _get_revision(
         self, uid: str, instrument: str, revision: RevisionLike
@@ -535,77 +536,6 @@ class ST40Reader(DataReader):
 
         return results
 
-    def _get_radiation_old(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-    ) -> Dict[str, Any]:
-        """Fetch data from SXR cameras, legacy old MDS+ structure."""
-
-        if len(uid) == 0 and instrument in self.UIDS_MDS:
-            uid = self.UIDS_MDS[instrument]
-
-        results: Dict[str, Any] = {
-            "length": {},
-            "machine_dims": self.MACHINE_DIMS,
-        }
-
-        if "sxr_camera" in instrument:
-            _instrument = "diode_arrays"
-        else:
-            _instrument = instrument
-
-        results["revision"] = self._get_revision(uid, _instrument, revision)
-        revision = results["revision"]
-
-        location, location_path = self._get_signal(
-            uid, _instrument, self.QUANTITIES_MDS[instrument]["location"], revision
-        )
-
-        direction, direction_path = self._get_signal(
-            uid, _instrument, self.QUANTITIES_MDS[instrument]["direction"], revision
-        )
-        if len(np.shape(location)) == 1:
-            location = np.array([location])
-            direction = np.array([direction])
-
-        brightness = []
-        records = []
-        quantity = "brightness"
-
-        times, times_path = self._get_signal(
-            uid,
-            _instrument,
-            f"{self.QUANTITIES_MDS[instrument][quantity]}time",
-            revision,
-        )
-
-        chan_start, chan_end = self._RADIATION_RANGES[instrument]
-        nchan = chan_end - chan_start + 1
-        for chan in range(chan_start, chan_end + 1):
-            qval, q_path = self._get_signal(
-                uid,
-                _instrument,
-                self.QUANTITIES_MDS[instrument][quantity] + "ch" + str(chan).zfill(3),
-                revision,
-            )
-            records.append(q_path)
-            brightness.append(qval)
-
-        results["length"] = nchan
-        results["times"] = times
-        results[quantity] = np.array(brightness).T
-        results[quantity + "_records"] = records
-        results[quantity + "_error"] = self._default_error * results[quantity]
-        results["location"] = location[chan_start - 1 : chan_end, :]
-        results["direction"] = direction[chan_start - 1 : chan_end, :]
-
-        results["quantities"] = quantities
-
-        return results
-
     def _get_radiation(
         self,
         uid: str,
@@ -617,9 +547,6 @@ class ST40Reader(DataReader):
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
-
-        if "sxr_camera" in instrument:
-            return self._get_radiation_old(uid, instrument, revision, quantities)
 
         results: Dict[str, Any] = {
             "length": {},
@@ -635,14 +562,6 @@ class ST40Reader(DataReader):
         direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
-        # TODO: temporary fix! Change once the database entries have been fixed
-        if instrument == "sxrc_xy2" or instrument == "sxrc_xy1":
-            location = np.array(
-                [location[i] for i in range(location.shape[0] - 1, -1, -1)]
-            )
-            direction = np.array(
-                [direction[i] for i in range(direction.shape[0] - 1, -1, -1)]
-            )
 
         quantity = "brightness"
         times, times_path = self._get_signal(
@@ -1080,7 +999,6 @@ class ST40Reader(DataReader):
         revision = results["revision"]
 
         times, times_path = self._get_signal(uid, instrument, ":time", revision)
-        # TODO: hardcoded correction to TS coordinates to be fixed in MDS+
         print("\n Hardcoded correction to TS coordinates to be fixed in MDS+ \n")
         # location, location_path = self._get_signal(
         #     uid, instrument, ".geometry:location", revision
