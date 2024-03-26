@@ -155,8 +155,8 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
     grouped = data.sel(t=slice(tbins[0], tbins[-1])).groupby_bins(
         "t", tbins, labels=tlabels
     )
-    averaged = grouped.mean("t", keep_attrs=True)
-    stdev = grouped.std("t", keep_attrs=True)
+    averaged = grouped.mean("t", keep_attrs=True, skipna=True)
+    stdev = grouped.std("t", keep_attrs=True, skipna=True)
     stdev = np.sqrt(stdev**2)
     averaged.attrs["stdev"] = stdev.rename(t_bins="t")
 
