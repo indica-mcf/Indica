@@ -19,6 +19,7 @@ from indica.operators.atomic_data import PowerLoss
 import indica.physics as ph
 from indica.profiles_gauss import Profiles
 from indica.readers import ADASReader
+from indica.readers.adas import ADF11
 from indica.utilities import assign_data
 from indica.utilities import assign_datatype
 from indica.utilities import print_like
@@ -26,77 +27,6 @@ from indica.utilities import print_like
 plt.ion()
 
 # TODO: add elongation and triangularity in all equations
-
-ADF11: dict = {
-    "h": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
-        "pls": "15",
-        "prs": "15",
-    },
-    "he": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
-        "pls": "15",
-        "prs": "15",
-    },
-    "c": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
-        "pls": "15",
-        "prs": "15",
-    },
-    "ar": {
-        "scd": "89",
-        "acd": "89",
-        "ccd": "89",
-        "plt": "89",
-        "prb": "89",
-        "prc": "89",
-        "pls": "15",
-        "prs": "15",
-    },
-    "ne": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
-        "pls": "15",
-        "prs": "15",
-    },
-    "mo": {
-        "scd": "89",
-        "acd": "89",
-        "ccd": "89",
-        "plt": "89",
-        "prb": "89",
-        "prc": "89",
-    },
-    "w": {
-        "scd": "89",
-        "acd": "89",
-        "ccd": "89",
-        "plt": "89",
-        "prb": "89",
-        "prc": "89",
-        "pls": "15",
-        "prs": "15",
-    },
-}
 
 
 class Plasma:
@@ -278,6 +208,8 @@ class Plasma:
         self.Ti_prof = Profiles(datatype=("temperature", "ion"), xspl=self.rho)
         self.Ne_prof = Profiles(datatype=("density", "electron"), xspl=self.rho)
         self.Nimp_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
+        self.Niz1_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
+        self.Niz2_prof = Profiles(datatype=("density", "impurity"), xspl=self.rho)
         self.Nh_prof = Profiles(datatype=("density", "thermal_neutral"), xspl=self.rho)
         self.Vrot_prof = Profiles(datatype=("rotation", "toroidal"), xspl=self.rho)
 
@@ -418,6 +350,27 @@ class Plasma:
             ],
         )
 
+        self.Pth = CachedCalculation(
+            self.calc_pth,
+            [
+                self.electron_density,
+                self.ion_density,
+                self.electron_temperature,
+                self.ion_temperature,
+            ],
+        )
+
+        self.Ptot = CachedCalculation(
+            self.calc_ptot,
+            [
+                self.electron_density,
+                self.ion_density,
+                self.electron_temperature,
+                self.ion_temperature,
+                self.pressure_fast,
+            ],
+        )
+
         self.Lz_tot = CachedCalculation(
             self.calc_lz_tot,
             [
@@ -496,16 +449,20 @@ class Plasma:
         """
         Update plasma profiles with profile parameters i.e.
         {"Ne_prof.y0":1e19} -> Ne_prof.y0
+        TODO: refactor profiles into profiler structure
+            and take care of initialisation of impurity profiles
         """
-        profile_prefixs: list = [
+        profile_prefixes: list = [
             "Te_prof",
             "Ti_prof",
             "Ne_prof",
-            "Nimp_prof",
+            "Niz1_prof",
+            "Niz2_prof",
+            "Nh_prof",
             "Vrot_prof",
         ]
         for param, value in parameters.items():
-            _prefix = [pref for pref in profile_prefixs if pref in param]
+            _prefix = [pref for pref in profile_prefixes if pref in param]
             if _prefix:
                 prefix: str = _prefix[0]
                 key = param.replace(prefix + ".", "")
@@ -515,14 +472,41 @@ class Plasma:
                 else:
                     raise ValueError(f"parameter: {key} not found in {prefix}")
 
-        for key in [
-            "electron_density",
-            "electron_temperature",
-            "ion_temperature",
-            "toroidal_rotation",
-            "impurity_density",
-        ]:
-            self.assign_profiles(key, t=self.time_to_calculate)
+        # Only update profiles which are given in parameters
+        parameter_prefixes = [key.split(".")[0] for key in parameters.keys()]
+        profile_names = set(parameter_prefixes) & set(profile_prefixes)
+
+        if "Te_prof" in profile_names:
+            self.electron_temperature.loc[
+                dict(t=self.time_to_calculate)
+            ] = self.Te_prof()
+        if "Ti_prof" in profile_names:
+            self.ion_temperature.loc[dict(t=self.time_to_calculate)] = self.Ti_prof()
+        if "Ne_prof" in profile_names:
+            self.electron_density.loc[dict(t=self.time_to_calculate)] = self.Ne_prof()
+        if "Nh_prof" in profile_names:
+            self.neutral_density.loc[dict(t=self.time_to_calculate)] = self.Nh_prof()
+        if "Vrot_prof" in profile_names:
+            self.electron_temperature.loc[
+                dict(t=self.time_to_calculate)
+            ] = self.Ne_prof()
+        if "Niz1_prof" in profile_names:
+            self.impurity_density.loc[
+                dict(t=self.time_to_calculate, element=self.impurities[0])
+            ] = self.Niz1_prof()
+        else:
+            self.impurity_density.loc[
+                dict(t=self.time_to_calculate, element=self.impurities[0])
+            ] = (self.Ne_prof() * self.impurity_concentration[0])
+
+        if "Niz2_prof" in profile_names:
+            self.impurity_density.loc[
+                dict(t=self.time_to_calculate, element=self.impurities[1])
+            ] = self.Niz2_prof()
+        else:
+            self.impurity_density.loc[
+                dict(t=self.time_to_calculate, element=self.impurities[1])
+            ] = (self.Ne_prof() * self.impurity_concentration[1])
 
     @property
     def time_to_calculate(self):
@@ -544,13 +528,10 @@ class Plasma:
 
     @property
     def pressure_th(self):
-        ion_density = self.ion_density
-        self._pressure_th.values = self.pressure_el
-        for elem in self.elements:
-            self._pressure_th.values += ph.calc_pressure(
-                ion_density.sel(element=elem).values,
-                self.ion_temperature.sel(element=elem).values,
-            )
+        self._pressure_th = (
+            ph.calc_pressure(self.ion_density, self.ion_temperature).sum("element")
+            + self.pressure_el
+        )
         return self._pressure_th
 
     @property
@@ -568,6 +549,9 @@ class Plasma:
 
     @property
     def pth(self):
+        return self.Pth()
+
+    def calc_pth(self):
         pressure_th = self.pressure_th
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._pth.loc[dict(t=t)] = np.trapz(
@@ -577,6 +561,9 @@ class Plasma:
 
     @property
     def ptot(self):
+        return self.Ptot()
+
+    def calc_ptot(self):
         pressure_tot = self.pressure_tot
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._ptot.loc[dict(t=t)] = np.trapz(
@@ -598,7 +585,8 @@ class Plasma:
 
     @property
     def fz(self):
-        return self.calc_fz()  # self.Fz()
+        return self.Fz()
+        # return self.calc_fz()  # self.Fz()
 
     def calc_fz(self):
         for elem in self.elements:
@@ -621,37 +609,32 @@ class Plasma:
 
     @property
     def zeff(self):
-        return self.calc_zeff()  # Zeff()
+        return self.Zeff()
+        # return self.calc_zeff()
 
     def calc_zeff(self):
-        electron_density = self.electron_density
-        ion_density = self.ion_density
-        meanz = self.meanz
-        for elem in self.elements:
-            self._zeff.loc[dict(element=elem)] = (
-                (ion_density.sel(element=elem) * meanz.sel(element=elem) ** 2)
-                / electron_density
-            ).values
+        self._zeff = self.ion_density * self.meanz**2 / self.electron_density
         return self._zeff
 
     @property
     def ion_density(self):
-        return self.calc_ion_density()  # self.Ion_density()
+        return self.Ion_density()
+        # return self.calc_ion_density()
 
     def calc_ion_density(self):
         meanz = self.meanz
-        main_ion_density = self.electron_density - self.fast_density * meanz.sel(
-            element=self.main_ion
-        )
         for elem in self.impurities:
             self._ion_density.loc[dict(element=elem)] = self.impurity_density.sel(
                 element=elem
             ).values
-            main_ion_density -= self.impurity_density.sel(element=elem) * meanz.sel(
-                element=elem
-            )
 
-        self._ion_density.loc[dict(element=self.main_ion)] = main_ion_density.values
+        main_ion_density = (
+            self.electron_density
+            - self.fast_density * meanz.sel(element=self.main_ion)
+            - (self.impurity_density * meanz).sum("element")
+        )
+
+        self._ion_density.loc[dict(element=self.main_ion)] = main_ion_density
         return self._ion_density
 
     @property
@@ -752,6 +735,7 @@ class Plasma:
     @property
     def meanz(self):
         fz = self.fz
+
         for elem in self.elements:
             self._meanz.loc[dict(element=elem)] = (
                 (fz[elem] * fz[elem].ion_charges).sum("ion_charges").values
@@ -1233,10 +1217,9 @@ class CachedCalculation(TrackDependecies):
 
     @lru_cache()
     def __call__(self):
-        print("Recalculating")
         if self.verbose:
             print("Recalculating")
-        return self.operator()
+        return deepcopy(self.operator())
 
 
 def example_run(

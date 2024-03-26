@@ -57,15 +57,15 @@ def centrifugal_asymmetry_2d_map(
         t = profile_to_map.t.values
 
     if "t" in profile_to_map.dims:
-        _profile_to_map = profile_to_map.sel(t=t, method="nearest")
+        _profile_to_map = profile_to_map.interp(t=t)
     else:
         _profile_to_map = profile_to_map
     if "t" in asymmetry_parameter.dims:
-        _asymmetry_parameter = asymmetry_parameter.sel(t=t, method="nearest")
+        _asymmetry_parameter = asymmetry_parameter.interp(t=t)
     else:
         _asymmetry_parameter = asymmetry_parameter
 
-    rho_2d = equilibrium.rho.sel(t=t, method="nearest")
+    rho_2d = equilibrium.rho.interp(t=t)
     R_0 = (
         equilibrium.rmjo.drop_vars("z")
         .interp(t=t)

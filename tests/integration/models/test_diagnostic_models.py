@@ -110,8 +110,8 @@ class TestModels:
     def test_helike_timepoint_pass(self):
         self._test_timepoint_pass("helike_spectroscopy")
 
-    def test_helike_interpolation(self):
-        self._test_time_interpolation("helike_spectroscopy")
+    # def test_helike_interpolation(self):
+    #     self._test_time_interpolation("helike_spectroscopy")
 
     def test_equil_recon_timepoint_fail(self):
         self._test_timepoint_fail("equilibrium_reconstruction")

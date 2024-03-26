@@ -86,6 +86,9 @@ class SXR_tomography:
         reg_level_guess: float = 0.5,
         reg_level_min: float = 0.4,
         reg_level_max=0.4,
+        nfisher=3,
+        eps=1e-5,
+        optim_regul: bool = False,
     ):
         """
         1D tomography code assuming the emissivity is flux-surface symmetric
@@ -114,6 +117,10 @@ class SXR_tomography:
         self.reg_level_guess = reg_level_guess
         self.reg_level_min = reg_level_min
         self.reg_level_max = reg_level_max
+        self.nfisher = nfisher
+        self.eps = eps
+        self.optim_regul = optim_regul
+
         self.eq = input_dict["rho_equil"]
 
         # Parameters
@@ -333,7 +340,7 @@ class SXR_tomography:
 
         return x0, np.log(fg2)
 
-    def calc_tomo(self, reg_level=0.8, nfisher=3, eps=1e-2, optim_regul=False):
+    def calc_tomo(self, reg_level=0.8, nfisher=3, eps=1e-5, optim_regul=False):
         # calculate tomography using optimised minimum Fisher regularisation
         # Odstrcil, T., et al. "Optimized tomography methods for plasma
         # emissivity reconstruction at the ASDEX  Upgrade tokamak.
@@ -556,7 +563,7 @@ class SXR_tomography:
         def update(reg=None, time=None):
             global cont
             if reg is not None:
-                self.calc_tomo(reg_level=reg**0.5, nfisher=3, eps=1e-5)
+                self.calc_tomo(reg_level=reg, nfisher=3, eps=1e-5)
 
             if time is None:
                 time = slide_time.val
@@ -673,7 +680,13 @@ class SXR_tomography:
             print(step + ". It took " + str(step_time) + " seconds")
             st = tt.time()
         # CALCULATING TOMOGRAPHY
-        self.calc_tomo(optim_regul=False)
+        self.calc_tomo(
+            reg_level=self.reg_level_guess,
+            nfisher=self.nfisher,
+            eps=self.eps,
+            optim_regul=self.optim_regul,
+        )
+
         # DEBUG TIME
         if self.debug:
             step = "Calculating tomography"
@@ -733,6 +746,7 @@ class SXR_tomography:
             # PROFILES
             profile=dict(
                 sym_emissivity=self.emiss,
+                sym_emissivity_err=self.emiss_err,
                 asym_parameter=np.zeros(self.emiss.shape),
                 rho_poloidal=np.repeat(
                     np.array([self.rho_grid_centers]), len(self.tvec), axis=0
@@ -758,15 +772,16 @@ class SXR_tomography:
         return return_data
 
 
-def example_run(plot: bool = True):
+def example_run(plot: bool = True, nplot: int = 2, save_fig: bool = False):
     from indica.models.plasma import example_run as example_plasma
     from indica.converters.line_of_sight import LineOfSightTransform
     from indica.models.bolometer_camera import Bolometer
+    from indica.utilities import set_plot_colors, set_axis_sci, save_figure, FIG_PATH
 
     plt.ioff()
 
     diagnostic_name = "bolo_xy"
-    reg_level_guess = 0.3
+    reg_level_guess = 0.5
 
     los_end = np.full((11, 3), 0.0)
     los_end[:, 0] = 0.0
@@ -776,7 +791,7 @@ def example_run(plot: bool = True):
     origin = los_start
     direction = los_end - los_start
 
-    plasma = example_plasma(calc_power_loss=True)
+    plasma = example_plasma(calc_power_loss=True, tstart=0.03, tend=0.08)
 
     los_transform = LineOfSightTransform(
         origin[:, 0],
@@ -802,8 +817,6 @@ def example_run(plot: bool = True):
 
     brightness = bckc["brightness"].mean("beamlet")
     emissivity = model.emissivity
-    rho_equil = los_transform.equilibrium.rho
-
     has_data = np.logical_not(np.isnan(brightness.isel(t=0).data))
     rho_equil = plasma.equilibrium.rho.interp(t=brightness.t)
     input_dict = dict(
@@ -826,9 +839,86 @@ def example_run(plot: bool = True):
 
     tomo = SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
     tomo()
+
     if plot:
+        cm, cols = set_plot_colors()
+        plt.figure()
+        cols = cm(np.linspace(0.1, 0.75, len(tomo.tvec), dtype=float))
+        for i, t in enumerate(tomo.tvec):
+            if i % nplot:
+                continue
+            plt.plot(
+                tomo.x,
+                tomo.data[i, :],
+                color=cols[i],
+                marker="o",
+                label=f"t={int(t*1.e3)} ms",
+                alpha=0.5,
+            )
+            plt.errorbar(
+                tomo.x,
+                tomo.data[i, :],
+                tomo.err[i, :],
+                color=cols[i],
+                alpha=0.5,
+            )
+            plt.scatter(
+                tomo.x,
+                tomo.backprojection[i, :],
+                color=cols[i],
+                marker="x",
+                linewidths=3,
+            )
+        plt.scatter(
+            tomo.x,
+            tomo.backprojection[0, :],
+            color=cols[0],
+            marker="x",
+            linewidths=3,
+            label="Back-calculated",
+        )
+        plt.ylabel("Brightness (W/m$^{2}$)")
+        plt.xlabel("Channel")
+        plt.title("")
+        plt.legend()
+        set_axis_sci()
+        save_figure(FIG_PATH, "tomo_1D_example_brightness", save_fig=save_fig)
+
+        plt.figure()
+        for i, t in enumerate(tomo.tvec):
+            if i % nplot:
+                continue
+
+            plt.plot(
+                tomo.rho_grid_centers,
+                tomo.emiss[i, :],
+                color=cols[i],
+                label=f"t={int(t * 1.e3)} ms",
+            )
+            plt.fill_between(
+                tomo.rho_grid_centers,
+                (tomo.emiss[i, :] - tomo.emiss_err[i, :]),
+                (tomo.emiss[i, :] + tomo.emiss_err[i, :]),
+                color=cols[i],
+                alpha=0.5,
+            )
+            emissivity.sel(t=t).plot(color=cols[i], linestyle="dashed")
+        emissivity.sel(t=tomo.tvec[0]).plot(
+            color=cols[0], linestyle="dashed", label="Phantom"
+        )
+        plt.ylabel("Emissivity (W/m$^3$)")
+        plt.legend()
+        plt.title("")
+        plt.legend()
+        plt.ylim(
+            0,
+        )
+        set_axis_sci()
+        save_figure(FIG_PATH, "tomo_1D_example_emissivity", save_fig=save_fig)
+
         model.plot()
         tomo.show_reconstruction()
+
         plt.show()
 
 

@@ -96,17 +96,14 @@ class ReadST40:
         if _tstart < 0:
             _tstart = 0.0
         self.reader = ST40Reader(pulse, _tstart, _tend, tree=tree)
-        self.reader_equil = ST40Reader(pulse, _tstart, _tend, tree=tree)
 
         self.equilibrium: Equilibrium
         self.raw_data: dict = {}
-        self.raw_data_trange: dict = {}
         self.binned_data: dict = {}
         self.transforms: dict = {}
 
     def reset_data(self):
         self.raw_data = {}
-        self.raw_data_trange = {}
         self.binned_data = {}
 
     def get_equilibrium(
@@ -117,35 +114,29 @@ class ReadST40:
         z_shift: float = 0.0,
     ):
 
-        equilibrium_data = self.reader_equil.get("", instrument, revision)
+        equilibrium_data = self.reader.get("", instrument, revision)
         equilibrium = Equilibrium(equilibrium_data, R_shift=R_shift, z_shift=z_shift)
         self.equilibrium = equilibrium
 
-    def get_raw_data(self, uid: str, instrument: str, revision: RevisionLike = 0):
+    def get_raw_data(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike = 0,
+        set_equilibrium: bool = False,
+    ):
         data = self.reader.get(uid, instrument, revision)
-        if hasattr(self, "equilibrium"):
-            for quant in data.keys():
-                if "transform" not in data[quant].attrs:
-                    continue
+        for quant in data.keys():
+            if "transform" not in data[quant].attrs:
+                continue
 
-                transform = data[quant].transform
-                if hasattr(transform, "set_equilibrium"):
-                    transform.set_equilibrium(self.equilibrium)
-                self.transforms[instrument] = transform
+            transform = data[quant].transform
+            if hasattr(transform, "set_equilibrium") and set_equilibrium:
+                transform.set_equilibrium(self.equilibrium)
+            self.transforms[instrument] = transform
+
         self.raw_data[instrument] = data
 
-        self.raw_data_trange[instrument] = {}
-        for quant in data.keys():
-            if "t" in data[quant].dims:
-                self.raw_data_trange[instrument][quant] = data[quant].sel(
-                    t=slice(self.tstart, self.tend)
-                )
-                if "error" in data[quant].attrs:
-                    self.raw_data_trange[instrument][quant].attrs["error"] = data[
-                        quant
-                    ].error.sel(t=slice(self.tstart, self.tend))
-                else:
-                    self.raw_data_trange[instrument][quant] = data[quant]
         return data
 
     def bin_data_in_time(
@@ -320,18 +311,19 @@ class ReadST40:
         self,
         instruments: list = [],
         revisions: dict = None,
+        filters: dict = None,
         map_raw: bool = False,
         tstart: float = None,
         tend: float = None,
         dt: float = None,
         R_shift: float = 0.0,
-        chi2_limit: float = 3.0,
+        chi2_limit: float = 100.0,
         map_diagnostics: bool = False,
         raw_only: bool = False,
         debug: bool = False,
+        set_equilibrium: bool = False,
     ):
         self.debug = debug
-
         if len(instruments) == 0:
             instruments = INSTRUMENTS
         if revisions is None:
@@ -341,7 +333,9 @@ class ReadST40:
                 revisions[instr] = 0
         if "efit" not in revisions:
             revisions["efit"] = 0
-
+        if not filters:
+            # TODO: fix default behaviour if missing key
+            filters = FILTER_LIMITS
         if tstart is None:
             tstart = self.tstart
         if tend is None:
@@ -354,7 +348,12 @@ class ReadST40:
         for instrument in instruments:
             print(f"Reading {instrument}")
             try:
-                self.get_raw_data("", instrument, revisions[instrument])
+                self.get_raw_data(
+                    "",
+                    instrument,
+                    revisions[instrument],
+                    set_equilibrium=set_equilibrium,
+                )
             except Exception as e:
                 print(f"Error reading {instrument}: {e}")
                 if debug:
@@ -386,21 +385,42 @@ def filter_general(data: DataArray, quantities: list, limits: dict):
             data[quantity] = filtered
 
 
-def astra_equilibrium(pulse: int, revision: RevisionLike):
-    """Assign ASTRA to equilibrium class"""
+def default_geometries(machine: str, pulse: int = None):
+    import pickle
+    from pathlib import Path
 
+    project_path = Path(__file__).parent.parent
+    geometries_file = f"{project_path}/data/{machine}_default_geometries.pkl"
 
-def sxr_spd():
-    import indica.readers.read_st40 as read_st40
-    from indica.utilities import set_axis_sci
+    if pulse is None:
+        return pickle.load(open(geometries_file, "rb"))
 
-    st40 = read_st40.ReadST40(11215)
-    st40(["sxr_spd"])
+    st40 = ReadST40(pulse)
+    st40()
+    raw_data = st40.raw_data
+    geometry: dict = {}
+    for instr, instr_data in raw_data.items():
+        quant = list(instr_data)[0]
+        quant_data = instr_data[quant]
+        if not hasattr(quant_data, "transform"):
+            continue
 
-    st40.raw_data["sxr_spd"]["brightness"].transform.plot()
+        if "Transect" in str(quant_data.transform):
+            geometry[instr] = {
+                "x_positions": quant_data.transform.x.values,
+                "y_positions": quant_data.transform.y.values,
+                "z_positions": quant_data.transform.z.values,
+            }
+        else:
+            geometry[instr] = {
+                "origin_x": quant_data.transform.origin_x,
+                "origin_y": quant_data.transform.origin_y,
+                "origin_z": quant_data.transform.origin_z,
+                "direction_x": quant_data.transform.direction_x,
+                "direction_y": quant_data.transform.direction_y,
+                "direction_z": quant_data.transform.direction_z,
+            }
 
-    plt.figure()
-    st40.raw_data["sxr_spd"]["brightness"].sel(channel=0).plot()
-    set_axis_sci()
+    pickle.dump(geometry, open(geometries_file, "wb"))
 
-    return st40.raw_data["sxr_spd"]["brightness"]
+    return geometry
