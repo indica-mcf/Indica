@@ -17,6 +17,7 @@ from matplotlib import cm
 from matplotlib import rcParams
 import matplotlib.pylab as plt
 import numpy as np
+import periodictable
 from scipy.interpolate import CubicSpline
 from xarray import apply_ufunc
 from xarray import DataArray
@@ -29,6 +30,36 @@ from .numpy_typing import OnlyArray
 
 DATA_PATH = f"/home/{getuser()}/data/Indica/"
 FIG_PATH = f"/home/{getuser()}/figures/Indica/"
+
+
+def get_element_info(element: str) -> Tuple[int, float, str]:
+    """
+    Return periodic table information of specified element
+
+    Parameters
+    ----------
+    element
+        Element name (e.g. molybdenum) or symbol (Mo)
+
+    Returns
+    -------
+    atomic number, atomic weight, element name
+    """
+    number: int
+    mass: float
+    name: str
+    if len(element) <= 2:
+        _element = element.capitalize()
+    else:
+        _element = element.lower()
+
+    if hasattr(periodictable, _element):
+        elem_info = getattr(periodictable, _element)
+        number, mass, name = elem_info.number, elem_info.mass, elem_info.name
+    else:
+        number, mass, name = 0, 0.0, ""
+
+    return number, mass, name
 
 
 def positional_parameters(func: Callable[..., Any]) -> Tuple[List[str], Optional[str]]:
