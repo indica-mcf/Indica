@@ -176,6 +176,8 @@ class DataReader(BaseIO):
             print(f"No data from {uid}.{instrument}:{revision}")
             return database_results
 
+        # TODO: implement new AVAILABLE_QUANTITIES with long_name and units
+
         channel = np.arange(database_results["length"])
         t = database_results["times"]
         x = database_results["x"]
