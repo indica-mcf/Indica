@@ -33,8 +33,8 @@ maintainers = [
     "Shane Scully <shane.scully@ukaea.uk>",
     "Chris MacMackin <chris.macmackin@ukaea.uk>",
 ]
-repository = "https://github.com/ukaea/Indica"
-documentation = "https://indica-ukaea.readthedocs.io/"
+repository = "https://github.com/indica-mcf/Indica"
+#documentation = "https://indica-ukaea.readthedocs.io/"
 
 readme = 'README.md'  # Markdown files are supported
 include = [".git", "indica/git_version"]
