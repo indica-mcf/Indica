@@ -1,4 +1,4 @@
-"""Routines for averaging or interpolate along the time axis given start and end times
+"""Routines for averaging or interpolate along the time axis given start and end time
 and a desired time resolution"""
 
 import numpy as np
@@ -98,7 +98,7 @@ def interpolate_to_time_labels(
     Parameters
     ----------
     tlabels
-        The times at which the data should be interpolated.
+        The time at which the data should be interpolated.
     data
         Data to be interpolated.
 
@@ -135,7 +135,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
     Parameters
     ----------
     tlabels
-        The times at which the data should be binned.
+        The time at which the data should be binned.
     data
         Data to be binned.
 

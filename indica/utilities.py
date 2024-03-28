@@ -23,6 +23,7 @@ from xarray import apply_ufunc
 from xarray import DataArray
 from xarray.core.dataset import Dataset
 from xarray.core.variable import Variable
+from indica.datatypes import DATATYPES
 
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
@@ -298,20 +299,35 @@ def input_check(
         raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
 
 
-def assign_datatype(data_array: DataArray, datatype: tuple, unit=""):
-    data_array.name = f"{datatype[1]}_{datatype[0]}"
-    data_array.attrs["datatype"] = datatype
-    if len(unit) > 0:
-        data_array.attrs["unit"] = unit
+def assign_datatype(data_array: DataArray, var_name:str):
+    """
+    Assign to input DataArray the long_name and units from indica/datatypes.py
 
+    Parameters
+    ----------
+    data_array
+        Input data
+    var_name
+        Variable name from DATATYPES
+
+    Returns
+    -------
+
+    """
+    long_name:str = ""
+    unit:str = ""
+    if var_name in DATATYPES.keys():
+        long_name, unit = DATATYPES[var_name]
+    else:
+        print(f"{var_name} has no associated DATATYPE")
+    data_array.attrs["long_name"] = long_name
+    data_array.attrs["units"] = unit
 
 def assign_data(
     data: LabeledArray,
-    datatype: tuple,
-    units: str = "",
+    var_name: str,
     make_copy=True,
     coords: list = None,
-    long_name: str = None,
 ):
     new_data: DataArray
 
@@ -323,20 +339,7 @@ def assign_data(
     if type(new_data) is not DataArray and coords is not None:
         new_data = DataArray(new_data, coords)
 
-    new_data.name = f"{datatype[1]}_{datatype[0]}"
-    datatype0 = datatype[0].replace("_", " ")
-    datatype1 = datatype[1].replace("_", " ")
-    datatype1 = f"{str.upper(datatype1[0])}{datatype1[1:]}"
-
-    if long_name is not None:
-        new_data.attrs["long_name"] = long_name
-    else:
-        new_data.attrs["long_name"] = f"{datatype1} {datatype0}"
-
-    new_data.attrs["datatype"] = datatype
-
-    if len(units) > 0:
-        new_data.attrs["units"] = units
+    assign_datatype(new_data, var_name)
 
     return new_data
 

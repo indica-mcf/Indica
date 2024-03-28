@@ -597,7 +597,7 @@ def helike_transform_example(nchannels):
 def example_run(
     pulse: int = None, plasma=None, plot=False, moment_analysis: bool = False, **kwargs
 ):
-    # TODO: LOS sometimes crossing bad EFIT reconstruction
+    # TODO: LOS sometime crossing bad EFIT reconstruction
     if plasma is None:
         plasma = example_plasma(
             pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,), n_rad=10

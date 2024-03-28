@@ -41,8 +41,8 @@ class ST40Reader(DataReader):
 
     Parameters
     ----------
-    times : np.ndarray
-        An ordered array of times to which data will be
+    time : np.ndarray
+        An ordered array of time to which data will be
         downsampled/interpolated.
     pulse : int
         The ID number for the pulse from which to get data.
@@ -442,8 +442,8 @@ class ST40Reader(DataReader):
         results: Dict[str, Any] = {}
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
-        times, _ = self._get_signal(uid, instrument, ":time", revision)
-        results["times"] = times
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
+        results["time"] = time
         results["psin"], results["psin_records"] = self._get_signal(
             uid, instrument, ".profiles.psi_norm:xpsn", revision
         )
@@ -466,7 +466,7 @@ class ST40Reader(DataReader):
             if q == "psi":
                 results["psi"] = qval.reshape(
                     (
-                        len(results["times"]),
+                        len(results["time"]),
                         len(results["psi_z"]),
                         len(results["psi_r"]),
                     )
@@ -520,7 +520,7 @@ class ST40Reader(DataReader):
         results["psi_z"], _ = self._get_signal(
             uid, instrument, ".psi2d:zgrid", revision
         )
-        results["times"], t_path = self._get_signal(uid, instrument, ":time", revision)
+        results["time"], t_path = self._get_signal(uid, instrument, ":time", revision)
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -564,7 +564,7 @@ class ST40Reader(DataReader):
         )
 
         quantity = "brightness"
-        times, times_path = self._get_signal(
+        time, time_path = self._get_signal(
             uid,
             instrument,
             ":time",
@@ -584,7 +584,7 @@ class ST40Reader(DataReader):
         )
 
         results["length"] = np.shape(qval)[1]
-        results["times"] = times
+        results["time"] = time
         results[quantity] = np.array(qval)
         results[quantity + "_records"] = qval_record
         results[quantity + "_error"] = qerr
@@ -624,7 +624,7 @@ class ST40Reader(DataReader):
             location = np.array([location])
             direction = np.array([direction])
 
-        results["times"], _ = self._get_signal(uid, instrument, ":time", revision)
+        results["time"], _ = self._get_signal(uid, instrument, ":time", revision)
         wavelength, _ = self._get_signal(uid, instrument, ":wavelength", revision)
         # TODO: change once wavelength in MDS+ has been fixed to nanometers!
         wavelength /= 10.0
@@ -680,7 +680,7 @@ class ST40Reader(DataReader):
         revision = results["revision"]
 
         texp, texp_path = self._get_signal(uid, instrument, ":exposure", revision)
-        times, _ = self._get_signal(uid, instrument, ":time", revision)
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
         try:
             wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
         except TreeNODATA:
@@ -745,7 +745,7 @@ class ST40Reader(DataReader):
         results["y"] = y
         results["z"] = z
         results["R"] = R
-        results["times"] = times
+        results["time"] = time
         results["texp"] = texp
         results["element"] = ""
         # TODO: check whether wlength should be channel agnostic or not...
@@ -775,7 +775,7 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
-        times, _ = self._get_signal(uid, instrument, ":time", revision)
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
         wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
 
         location, location_path = self._get_signal(
@@ -813,7 +813,7 @@ class ST40Reader(DataReader):
             results[f"{q}_error"] = qval_err
 
         results["length"] = location[:, 0].size
-        results["times"] = times
+        results["time"] = time
         # TODO: check whether wlength should be channel agnostic or not...
         if wavelength is not None:
             results["wavelength"] = wavelength[0, :]
@@ -861,14 +861,14 @@ class ST40Reader(DataReader):
         qval, q_path = self._get_signal(
             uid, instrument, self.QUANTITIES_MDS[instrument][quantity], revision
         )
-        times, _ = self._get_signal(uid, instrument, ":time", revision)
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
         _labels, _ = self._get_signal(uid, instrument, ":label", revision)
         if type(_labels[0]) == np.bytes_:
             labels = np.array([label.decode("UTF-8") for label in _labels])
         else:
             labels = _labels
 
-        results["times"] = times
+        results["time"] = time
         results["labels"] = labels
         results[quantity + "_records"] = q_path
         results[quantity] = qval
@@ -931,15 +931,15 @@ class ST40Reader(DataReader):
             location = np.array([location])
             direction = np.array([direction])
 
-        times, _ = self._get_signal(uid, instrument, ":time", revision)
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
 
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
 
-            if "times" not in results:
-                results["times"] = times
+            if "time" not in results:
+                results["time"] = time
             results[q + "_records"] = q_path
             results[q] = qval
 
@@ -998,7 +998,7 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
-        times, times_path = self._get_signal(uid, instrument, ":time", revision)
+        time, time_path = self._get_signal(uid, instrument, ":time", revision)
         print("\n Hardcoded correction to TS coordinates to be fixed in MDS+ \n")
         # location, location_path = self._get_signal(
         #     uid, instrument, ".geometry:location", revision
@@ -1042,7 +1042,7 @@ class ST40Reader(DataReader):
         results["y"] = y
         results["z"] = z
         results["R"] = R
-        results["times"] = times
+        results["time"] = time
         results["element"] = ""
         # results["location"] = location
         # results["direction"] = direction

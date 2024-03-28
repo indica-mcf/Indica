@@ -104,7 +104,7 @@ def calculate_zeff(
     # TODO: R_shift is time-dependent, but not in equilibrium!!!
     equilibrium.R_offset = te_fit.R_shift.mean("t").values
 
-    print("Interpolate spectra to TS times, and map it to equilibrium")
+    print("Interpolate spectra to TS time, and map it to equilibrium")
     if "spectra" in binned_data["pi"]:
         spectra = binned_data["pi"]["spectra"]
         print("Calculate spectral integral for Bremsstrahlung calculation")

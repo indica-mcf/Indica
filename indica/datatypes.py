@@ -55,6 +55,10 @@ UNITS: dict = {
 
 DATATYPES: Dict[str, Tuple[str, str]] = {
     "time": ("Time", UNITS["time"]),
+    "x": ("x", UNITS["length"]),
+    "y": ("y", UNITS["length"]),
+    "z": ("z", UNITS["length"]),
+    "R": ("R", UNITS["length"]),
     "electron_density": ("$N_e$", UNITS["density"]),
     "ion_density": ("$N_i$", UNITS["density"]),
     "fast_ion_density": ("$N_{fast}$", UNITS["density"]),

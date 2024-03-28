@@ -179,7 +179,7 @@ class DataReader(BaseIO):
         # TODO: implement new AVAILABLE_QUANTITIES with long_name and units
 
         channel = np.arange(database_results["length"])
-        t = database_results["times"]
+        t = database_results["time"]
         x = database_results["x"]
         y = database_results["y"]
         z = database_results["z"]
@@ -263,7 +263,7 @@ class DataReader(BaseIO):
         )
 
         channel = np.arange(database_results["length"])
-        t = database_results["times"]
+        t = database_results["time"]
         x = database_results["x"]
         y = database_results["y"]
         z = database_results["z"]
@@ -407,7 +407,7 @@ class DataReader(BaseIO):
             coords=[("channel", _channel)],
             attrs={"long_name": "Channel", "units": ""},
         )
-        _t = database_results["times"]
+        _t = database_results["time"]
         t = DataArray(_t, coords=[("t", _t)], attrs={"long_name": "t", "units": "s"})
         wavelength = database_results["wavelength"]
         pixel = np.arange(len(wavelength))
@@ -481,7 +481,7 @@ class DataReader(BaseIO):
 
         _coords: dict = {}
         rho = np.sqrt(database_results["psin"])
-        t = database_results["times"]
+        t = database_results["time"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
 
         _coords["psin"] = [("psin", database_results["psin"])]
@@ -636,7 +636,7 @@ class DataReader(BaseIO):
             dl=dl,
             passes=passes,
         )
-        t = database_results["times"]
+        t = database_results["time"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         coords = [("t", t)]
         if database_results["length"] > 1:
@@ -709,7 +709,7 @@ class DataReader(BaseIO):
             dl=dl,
             passes=passes,
         )
-        t = database_results["times"]
+        t = database_results["time"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         coords = [("t", t)]
         if database_results["length"] > 1:
@@ -777,7 +777,7 @@ class DataReader(BaseIO):
             dl=dl,
             passes=passes,
         )
-        t = database_results["times"]
+        t = database_results["time"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         channel = np.arange(database_results["length"])
         wavelength = database_results["wavelength"]
@@ -862,7 +862,7 @@ class DataReader(BaseIO):
             passes=passes,
         )
 
-        t = database_results["times"]
+        t = database_results["time"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         label = database_results["labels"]
         coords = [("t", t)]
@@ -930,7 +930,7 @@ class DataReader(BaseIO):
             dl=dl,
             passes=passes,
         )
-        t = database_results["times"]
+        t = database_results["time"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         channel = np.arange(database_results["length"])
         coords = [("t", t)]
@@ -981,14 +981,14 @@ class DataReader(BaseIO):
         database_results = self._get_astra(uid, instrument, revision, quantities)
 
         # Reorganise coordinate system to match Indica default rho-poloidal
-        t = database_results["times"]
+        t = database_results["time"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         psin = database_results["psin"]
         rhop_psin = np.sqrt(psin)
         rhop_interp = np.linspace(0, 1.0, 65)
         rhot_astra = database_results["rho"] / np.max(database_results["rho"])
         rhot_rhop = []
-        for it in range(len(database_results["times"])):
+        for it in range(len(database_results["time"])):
             ftor_tmp = database_results["ftor"][it, :]
             psi_tmp = database_results["psi_1d"][it, :]
             rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
@@ -1221,10 +1221,10 @@ class DataReader(BaseIO):
         if transform is not None:
             quant_data.attrs["transform"] = transform
 
-        if "times" in database_results:
-            times = database_results["times"]
+        if "time" in database_results:
+            time = database_results["time"]
             downsample_ratio = int(
-                np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
+                np.ceil((len(time) - 1) / (time[-1] - time[0]) / self._max_freq)
             )
             if downsample_ratio > 1:
                 print("** DOWNSAMPLING IN THE ABSTRACTREADER **")

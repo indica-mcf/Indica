@@ -78,16 +78,16 @@ class Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
         dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
+        time = np.arange(TSTART, TEND, dt)
         wavelength = np.arange(520, 530, 0.1)
-        nt = times.shape[0]
-        results["times"] = times
+        nt = time.shape[0]
+        results["time"] = time
         results["wavelength"] = wavelength
         results["spectra"] = np.random.uniform(
             10, 10.0e3, (nt, results["length"], wavelength.size)
         )
         results["fit"] = deepcopy(results["spectra"])
-        results["texp"] = np.full_like(times, dt)
+        results["texp"] = np.full_like(time, dt)
 
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
@@ -130,10 +130,10 @@ class Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
         dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
+        time = np.arange(TSTART, TEND, dt)
         wavelength = np.arange(520, 530, 0.1)
-        nt = times.shape[0]
-        results["times"] = times
+        nt = time.shape[0]
+        results["time"] = time
         results["wavelength"] = wavelength
         results["spectra"] = np.random.uniform(
             10, 10.0e3, (nt, results["length"], wavelength.size)
@@ -169,9 +169,9 @@ class Reader(DataReader):
         }
 
         dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        nt = times.shape[0]
-        results["times"] = times
+        time = np.arange(TSTART, TEND, dt)
+        nt = time.shape[0]
+        results["time"] = time
         results["revision"] = np.random.randint(0, 10)
 
         results["x"] = np.random.uniform(Rmin, Rmax, (results["length"],))
@@ -206,9 +206,9 @@ class Reader(DataReader):
         results: Dict[str, Any] = {}
 
         dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
+        time = np.arange(TSTART, TEND, dt)
+        results["time"] = time
+        nt = time.shape[0]
         nrho = np.random.randint(20, 40)
 
         results["element"] = "element"
@@ -261,13 +261,13 @@ class Reader(DataReader):
 
         results["revision"] = np.random.randint(0, 10)
         dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
+        time = np.arange(TSTART, TEND, dt)
+        results["time"] = time
+        nt = time.shape[0]
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
 
-        results["times"] = times
+        results["time"] = time
         results["brightness"] = np.random.uniform(0, 1.0e6, (nt, results["length"]))
 
         results["brightness_records"] = ["brightness_records"] * results["length"]
@@ -288,9 +288,9 @@ class Reader(DataReader):
         }
         results["revision"] = np.random.randint(0, 10)
         dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
-        nt = times.shape[0]
+        time = np.arange(TSTART, TEND, dt)
+        results["time"] = time
+        nt = time.shape[0]
 
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
@@ -322,8 +322,8 @@ class Reader(DataReader):
         }
         results["revision"] = np.random.randint(0, 10)
         dt = np.random.uniform(0.001, 1.0)
-        times = np.arange(TSTART, TEND, dt)
-        results["times"] = times
+        time = np.arange(TSTART, TEND, dt)
+        results["time"] = time
         nt = times.shape[0]
 
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
