@@ -20,7 +20,7 @@ testpaths = ["tests"]
 [tool.poetry]
 name = "indica"
 version = "0.1.1"
-description = "Integrated Diagnostic Composition Analysis"
+description = "INtegrated DIagnostiC Analysis"
 
 license = "GPL-3.0-or-later"
 
