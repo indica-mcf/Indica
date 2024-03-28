@@ -281,7 +281,7 @@ texinfo_documents = [
         "InDiCa Documentation",
         author,
         "InDiCa",
-        "A library for iteratively determining plasma composition",
+        "A library for **In**tegrated **Di**agnosti**C** **A**nalysis",
         "Miscellaneous",
     ),
 ]
