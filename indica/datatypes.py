@@ -23,6 +23,7 @@ DataType = Union[ArrayType, DatasetType]
 
 UNITS: dict = {
     "none": "",
+    "number": "#",
     "length": "m",
     "temperature": "eV",
     "density": "$1/m^3$",
@@ -51,10 +52,13 @@ UNITS: dict = {
     "voltage": "V",
     "pressure": "Pa",
     "conductivity": r"1/($\Ohm$ m)",
+    "wavelength": "nm",
 }
 
 DATATYPES: Dict[str, Tuple[str, str]] = {
-    "time": ("Time", UNITS["time"]),
+    "t": ("Time", UNITS["time"]),
+    "channel": ("Channel", UNITS["number"]),
+    "wavelength": ("Wavelength", UNITS["wavelength"]),
     "x": ("x", UNITS["length"]),
     "y": ("y", UNITS["length"]),
     "z": ("z", UNITS["length"]),
@@ -64,7 +68,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "fast_ion_density": ("$N_{fast}$", UNITS["density"]),
     "impurity_density": ("$N_{imp}$", UNITS["density"]),
     "thermal_neutral_density": ("$N_{neutrals, th}$", UNITS["density"]),
-    "electron_density_integrated": (r"$\int N_e$", UNITS["density_integrated"]),
+    "electron_density_integrated": (r"$\int N_e$ dl", UNITS["density_integrated"]),
     "electron_temperature": ("$T_e$", UNITS["temperature"]),
     "ion_temperature": ("$T_i$", UNITS["temperature"]),
     "toroidal_rotation": ("$V_{tor}$", UNITS["velocity"]),
@@ -72,7 +76,12 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
         r"$\omega_{tor}$",
         UNITS["angular_frequency"],
     ),
-    "emissiivity": ("Emissivity", UNITS["emissivity"]),
+    "centrifugal_asymmetry": ("Centrifugal asymmetry", UNITS["none"]),
+    "centrifugal_asymmetry_multiplier": (
+        "Centrifugal asymmetry multiplier",
+        UNITS["none"],
+    ),
+    "emissivity": ("Emissivity", UNITS["emissivity"]),
     "brightness": ("Brightness", UNITS["brightness"]),
     "line_intensity": ("Line intensity", UNITS["brightness"]),
     "spectra": ("Spectra", UNITS["brightness"]),
@@ -92,7 +101,6 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "volume": ("Volume", UNITS["volume"]),
     "area": ("Cross-sectional area", UNITS["area"]),
     "major_radius": ("R", UNITS["length"]),
-    "z": ("z", UNITS["length"]),
     "z_geometric": ("$z_{geo}$", UNITS["length"]),
     "z_magnetic_axis": ("$z_{mag}$", UNITS["length"]),
     "z_boundary": ("$z_{boundary}$", UNITS["length"]),
