@@ -209,7 +209,7 @@ class ADASReader(BaseIO):
             "long_name": long_name,
             "units": units,
             "date": date,
-            "provenance": self.create_provenance(filename, now),
+            # "provenance": self.create_provenance(filename, now),
             "element": element_name,
             "year": year,
         }
@@ -401,7 +401,7 @@ class ADASReader(BaseIO):
         attrs = {
             "long_name": long_name,
             "units": units,
-            "provenance": self.create_provenance(filename, now),
+            # "provenance": self.create_provenance(filename, now),
         }
 
         coords = [
@@ -425,35 +425,35 @@ class ADASReader(BaseIO):
 
         return pecs
 
-    def create_provenance(
-        self, filename: Path, start_time: datetime.datetime
-    ) -> prov.ProvEntity:
-        """Create a provenance entity for the given ADAS file.
-
-        Note that this method just creates the provenance data
-        appropriate for the arguments it has been provided with. It
-        does not check that these arguments are actually valid and
-        that the provenance corresponds to actually existing data.
-
-        """
-        end_time = datetime.datetime.now()
-        entity = self.session.prov.entity(
-            session.hash_vals(filename=filename, start_time=start_time)
-        )
-        activity = self.session.prov.activity(
-            session.hash_vals(agent=self.prov_id, date=start_time),
-            start_time,
-            end_time,
-            {prov.PROV_TYPE: "ReadData"},
-        )
-        self.session.prov.association(activity, self.agent)
-        self.session.prov.association(activity, self.session.agent)
-        self.session.prov.communication(activity, self.session.session)
-        self.session.prov.derivation(entity, f"{self.namespace}:{filename}", activity)
-        self.session.prov.generation(entity, activity, end_time)
-        self.session.prov.attribution(entity, self.agent)
-        self.session.prov.attribution(entity, self.session.agent)
-        return entity
+    # def create_provenance(
+    #     self, filename: Path, start_time: datetime.datetime
+    # ) -> prov.ProvEntity:
+    #     """Create a provenance entity for the given ADAS file.
+    #
+    #     Note that this method just creates the provenance data
+    #     appropriate for the arguments it has been provided with. It
+    #     does not check that these arguments are actually valid and
+    #     that the provenance corresponds to actually existing data.
+    #
+    #     """
+    #     end_time = datetime.datetime.now()
+    #     entity = self.session.prov.entity(
+    #         session.hash_vals(filename=filename, start_time=start_time)
+    #     )
+    #     activity = self.session.prov.activity(
+    #         session.hash_vals(agent=self.prov_id, date=start_time),
+    #         start_time,
+    #         end_time,
+    #         {prov.PROV_TYPE: "ReadData"},
+    #     )
+    #     self.session.prov.association(activity, self.agent)
+    #     self.session.prov.association(activity, self.session.agent)
+    #     self.session.prov.communication(activity, self.session.session)
+    #     self.session.prov.derivation(entity, f"{self.namespace}:{filename}", activity)
+    #     self.session.prov.generation(entity, activity, end_time)
+    #     self.session.prov.attribution(entity, self.agent)
+    #     self.session.prov.attribution(entity, self.session.agent)
+    #     return entity
 
     def _get_file(self, dataclass: str, filename: Union[str, Path]) -> TextIO:
         """Retrieves an ADAS file, downloading it from OpenADAS if
