@@ -25,13 +25,12 @@ from sal.dataclass import Signal
 import scipy.constants as sc
 
 import indica.readers.surf_los as surf_los
-from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .. import session
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
-
+CACHE_DIR = ".indica"
 SURF_PATH = Path(surf_los.__file__).parent.parent / "data/surf_los.dat"
 
 

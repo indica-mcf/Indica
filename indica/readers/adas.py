@@ -11,7 +11,6 @@ from urllib.request import pathname2url
 from urllib.request import urlretrieve
 
 import numpy as np
-import prov.model as prov
 from xarray import DataArray
 
 from .. import session
@@ -305,7 +304,6 @@ class ADASReader(BaseIO):
 
             return transition_type, match
 
-        now = datetime.datetime.now()
         file_component = build_file_component(year, element)
         filename = Path(pathname2url(file_component)) / pathname2url(
             f"{file_component}_{filetype.lower()}]"

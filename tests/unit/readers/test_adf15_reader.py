@@ -1,7 +1,6 @@
 """Unit tests for the functions in routines.py
 """
 import numpy as np
-from prov.model import ProvEntity
 
 from indica.readers import ADASReader
 
@@ -107,14 +106,6 @@ class Testadf15:
             [type(transition_type) is np.str_ for transition_type in data.type.values]
         )
         assert all([len(transition_type) > 0 for transition_type in data.type.values])
-
-    def test_provenance(self):
-        """Checks provenance is ProvEntity"""
-        data = self.reader.get_adf15(
-            self.element, self.charge, self.file_type, year=self.year
-        )
-
-        assert type(data.attrs["provenance"]) is ProvEntity
 
 
 class Testadf15_c5(Testadf15):

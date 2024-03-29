@@ -23,8 +23,8 @@ from xarray import apply_ufunc
 from xarray import DataArray
 from xarray.core.dataset import Dataset
 from xarray.core.variable import Variable
-from indica.datatypes import DATATYPES
 
+from indica.datatypes import DATATYPES
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
 from .numpy_typing import OnlyArray
@@ -299,7 +299,7 @@ def input_check(
         raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
 
 
-def assign_datatype(data_array: DataArray, var_name:str):
+def assign_datatype(data_array: DataArray, var_name: str):
     """
     Assign to input DataArray the long_name and units from indica/datatypes.py
 
@@ -314,14 +314,15 @@ def assign_datatype(data_array: DataArray, var_name:str):
     -------
 
     """
-    long_name:str = ""
-    unit:str = ""
+    long_name: str = ""
+    unit: str = ""
     if var_name in DATATYPES.keys():
         long_name, unit = DATATYPES[var_name]
     else:
         print(f"{var_name} has no associated DATATYPE")
     data_array.attrs["long_name"] = long_name
     data_array.attrs["units"] = unit
+
 
 def assign_data(
     data: LabeledArray,

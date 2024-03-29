@@ -3,7 +3,6 @@ reading MDS+ data produced by ST40.
 
 """
 
-from copy import deepcopy
 from typing import Any
 from typing import Dict
 from typing import List
@@ -161,7 +160,7 @@ class ST40Reader(DataReader):
             "ne": ".global:ne_int",
         },
         "lines": {
-            "brightness": ":emission",
+            "brightness": ".profiles:emission",
         },
         "sxr_spd": {
             "brightness": ".profiles:emission",
@@ -312,7 +311,6 @@ class ST40Reader(DataReader):
         server: str = "smaug",
         tree: str = "ST40",
         default_error: float = 0.05,
-        max_freq: float = 1e6,
         session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"st40:{server.replace('-', '_')}:{pulse}"
@@ -320,7 +318,6 @@ class ST40Reader(DataReader):
         super().__init__(
             tstart,
             tend,
-            max_freq,
             session,
             pulse=pulse,
             server=server,
@@ -443,7 +440,7 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
         time, _ = self._get_signal(uid, instrument, ":time", revision)
-        results["time"] = time
+        results["t"] = time
         results["psin"], results["psin_records"] = self._get_signal(
             uid, instrument, ".profiles.psi_norm:xpsn", revision
         )
@@ -466,7 +463,7 @@ class ST40Reader(DataReader):
             if q == "psi":
                 results["psi"] = qval.reshape(
                     (
-                        len(results["time"]),
+                        len(results["t"]),
                         len(results["psi_z"]),
                         len(results["psi_r"]),
                     )
@@ -520,7 +517,7 @@ class ST40Reader(DataReader):
         results["psi_z"], _ = self._get_signal(
             uid, instrument, ".psi2d:zgrid", revision
         )
-        results["time"], t_path = self._get_signal(uid, instrument, ":time", revision)
+        results["t"], t_path = self._get_signal(uid, instrument, ":time", revision)
         for q in quantities:
             qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -584,7 +581,7 @@ class ST40Reader(DataReader):
         )
 
         results["length"] = np.shape(qval)[1]
-        results["time"] = time
+        results["t"] = time
         results[quantity] = np.array(qval)
         results[quantity + "_records"] = qval_record
         results[quantity + "_error"] = qerr
@@ -624,7 +621,7 @@ class ST40Reader(DataReader):
             location = np.array([location])
             direction = np.array([direction])
 
-        results["time"], _ = self._get_signal(uid, instrument, ":time", revision)
+        results["t"], _ = self._get_signal(uid, instrument, ":time", revision)
         wavelength, _ = self._get_signal(uid, instrument, ":wavelength", revision)
         # TODO: change once wavelength in MDS+ has been fixed to nanometers!
         wavelength /= 10.0
@@ -745,7 +742,7 @@ class ST40Reader(DataReader):
         results["y"] = y
         results["z"] = z
         results["R"] = R
-        results["time"] = time
+        results["t"] = time
         results["texp"] = texp
         results["element"] = ""
         # TODO: check whether wlength should be channel agnostic or not...
@@ -813,7 +810,7 @@ class ST40Reader(DataReader):
             results[f"{q}_error"] = qval_err
 
         results["length"] = location[:, 0].size
-        results["time"] = time
+        results["t"] = time
         # TODO: check whether wlength should be channel agnostic or not...
         if wavelength is not None:
             results["wavelength"] = wavelength[0, :]
@@ -868,7 +865,7 @@ class ST40Reader(DataReader):
         else:
             labels = _labels
 
-        results["time"] = time
+        results["t"] = time
         results["labels"] = labels
         results[quantity + "_records"] = q_path
         results[quantity] = qval
@@ -938,8 +935,8 @@ class ST40Reader(DataReader):
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
 
-            if "time" not in results:
-                results["time"] = time
+            if "t" not in results:
+                results["t"] = time
             results[q + "_records"] = q_path
             results[q] = qval
 
@@ -1000,19 +997,13 @@ class ST40Reader(DataReader):
 
         time, time_path = self._get_signal(uid, instrument, ":time", revision)
         print("\n Hardcoded correction to TS coordinates to be fixed in MDS+ \n")
-        # location, location_path = self._get_signal(
-        #     uid, instrument, ".geometry:location", revision
-        # )
-        # direction, direction_path = self._get_signal(
-        #     uid, instrument, ".geometry:direction", revision
-        # )
-        x, x_path = self._get_signal(uid, instrument, ":x", revision)
-        y, y_path = self._get_signal(uid, instrument, ":y", revision)
-        z, z_path = self._get_signal(uid, instrument, ":z", revision)
-        R, R_path = self._get_signal(uid, instrument, ":R", revision)
+        x, _ = self._get_signal(uid, instrument, ":x", revision)
+        y, _ = self._get_signal(uid, instrument, ":y", revision)
+        z, _ = self._get_signal(uid, instrument, ":z", revision)
+        R, _ = self._get_signal(uid, instrument, ":R", revision)
         z = R * 0.0
-        x = deepcopy(R)
-        y = 0
+        x = R
+        y = R * 0.0
 
         for q in quantities:
             qval, q_path = self._get_signal(
@@ -1042,7 +1033,7 @@ class ST40Reader(DataReader):
         results["y"] = y
         results["z"] = z
         results["R"] = R
-        results["time"] = time
+        results["t"] = time
         results["element"] = ""
         # results["location"] = location
         # results["direction"] = direction

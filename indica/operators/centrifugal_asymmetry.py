@@ -101,9 +101,7 @@ def example_run(plot: bool = False):
         plasma.equilibrium,
     )
 
-    ion_density_2d = assign_data(
-        ion_density_2d, ("density", "ion"), "$m^{-3}$", long_name="Ion density"
-    )
+    ion_density_2d = assign_data(ion_density_2d, "ion_density")
 
     if plot:
         tplot = ion_density_2d.t[2]
