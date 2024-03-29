@@ -1,123 +1,120 @@
 """
 Quantities that can be read with the current abstract reader implementation
-TODO: change the tuple to DataArray (long_name, units) - see examples in abstractreader
+
+To each quantity is associated a datatype string corresponding to indica/datatypes.py
 """
 
 from typing import Dict
-from typing import Tuple
 
-from indica.datatypes import DATATYPES
-
-AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, str]]] = {
+AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
     "get_thomson_scattering": {
-        "ne": DATATYPES["electron_density"],
-        "te": DATATYPES["electron_temperature"],
-        "chi2": DATATYPES["chi_squared"],
+        "ne": "electron_density",
+        "te": "electron_temperature",
+        "chi2": "chi_squared",
     },
     "get_spectrometer": {
-        "spectra": DATATYPES["spectra"],
+        "spectra": "spectra",
     },
     "get_charge_exchange": {
         # "angf": ("angular_freq", "ion"),
-        "vtor": DATATYPES["toroidal_rotation"],
-        "ti": DATATYPES["ion_temperature"],
-        "spectra": DATATYPES["spectra"],
-        "fit": DATATYPES["spectra_fit"],
+        "vtor": "toroidal_rotation",
+        "ti": "ion_temperature",
+        "spectra": "spectra",
+        "fit": "spectra_fit",
     },
     "get_bremsstrahlung_spectroscopy": {
-        "zeff": DATATYPES["effective_charge"],
+        "zeff": "effective_charge",
     },
     "get_helike_spectroscopy": {
-        "int_w": DATATYPES["line_intensity"],
-        "int_k": DATATYPES["line_intensity"],
-        "int_tot": DATATYPES["line_intensity"],
-        "int_n3": DATATYPES["line_intensity"],
-        "te_kw": DATATYPES["electron_temperature"],
-        "te_n3w": DATATYPES["electron_temperature"],
-        "ti_w": DATATYPES["ion_temperature"],
-        "ti_z": DATATYPES["ion_temperature"],
-        "spectra": DATATYPES["spectra"],
+        "int_w": "line_intensity",
+        "int_k": "line_intensity",
+        "int_tot": "line_intensity",
+        "int_n3": "line_intensity",
+        "te_kw": "electron_temperature",
+        "te_n3w": "electron_temperature",
+        "ti_w": "ion_temperature",
+        "ti_z": "ion_temperature",
+        "spectra": "spectra",
     },
     "get_diode_filters": {
-        "brightness": DATATYPES["brightness"],
+        "brightness": "brightness",
     },
     "get_interferometry": {
-        "ne": DATATYPES["electron_density_integrated"],
+        "ne": "electron_density_integrated",
     },
     "get_equilibrium": {
-        "f": DATATYPES["equilibrium_f"],
-        "faxs": DATATYPES["poloidal_flux_axis"],
-        "fbnd": DATATYPES["poloidal_flux_boundary"],
-        "ftor": DATATYPES["toroidal_flux"],
-        "psi": DATATYPES["poloidal_flux"],
-        "rmji": DATATYPES["major_radius_hfs"],
-        "rmjo": DATATYPES["major_radius_lfs"],
-        "vjac": DATATYPES["volume_jacobian"],
-        "ajac": DATATYPES["area_jacobian"],
-        "rmag": DATATYPES["major_radius_magnetic_axis"],
-        "rgeo": DATATYPES["major_radius_geometric_axis"],
-        "rbnd": DATATYPES["major_radius_boundary"],
-        "zmag": DATATYPES["z_magnetic_axis"],
-        "zbnd": DATATYPES["z_boundary"],
-        "ipla": DATATYPES["plasma_current"],
-        "wp": DATATYPES["equilibrium_stored_energy"],
-        "psin": DATATYPES["poloidal_flux_normalised"],
+        "f": "equilibrium_f",
+        "faxs": "poloidal_flux_axis",
+        "fbnd": "poloidal_flux_boundary",
+        "ftor": "toroidal_flux",
+        "psi": "poloidal_flux",
+        "rmji": "major_radius_hfs",
+        "rmjo": "major_radius_lfs",
+        "vjac": "volume_jacobian",
+        "ajac": "area_jacobian",
+        "rmag": "major_radius_magnetic_axis",
+        "rgeo": "major_radius_geometric_axis",
+        "rbnd": "major_radius_boundary",
+        "zmag": "z_magnetic_axis",
+        "zbnd": "z_boundary",
+        "ipla": "plasma_current",
+        "wp": "equilibrium_stored_energy",
     },
     "get_cyclotron_emissions": {
-        "te": DATATYPES["electron_temperature"],
+        "te": "electron_temperature",
     },
     "get_radiation": {
-        "brightness": DATATYPES["brightness"],
+        "brightness": "brightness",
     },
     "get_astra": {  # TODO: check all units!!!!
-        "faxs": DATATYPES["poloidal_flux_axis"],
-        "fbnd": DATATYPES["poloidal_flux_boundary"],
-        "ftor": DATATYPES["toroidal_flux"],
-        "psi": DATATYPES["poloidal_flux"],
-        "rmji": DATATYPES["major_radius_hfs"],
-        "rmjo": DATATYPES["major_radius_lfs"],
-        "volume": DATATYPES["volume"],
-        "area": DATATYPES["area"],
-        "rmag": DATATYPES["major_radius_magnetic_axis"],
-        "rgeo": DATATYPES["major_radius_geometric_axis"],
-        "rbnd": DATATYPES["major_radius_boundary"],
-        "zmag": DATATYPES["z_magnetic_axis"],
-        "zgeo": DATATYPES["z_geometric"],
-        "zbnd": DATATYPES["z_boundary"],
-        "ipla": DATATYPES["plasma_current"],
-        "wp": DATATYPES["total_stored_energy"],
-        "psin": DATATYPES["poloidal_flux_normalised"],
-        "upl": DATATYPES["loop_voltage"],  # V
-        "wth": DATATYPES["equilibrium_stored_energy"],
-        "wtherm": DATATYPES["thermal_stored_energy"],
-        "wfast": DATATYPES["fast_ion_stored_energy"],
-        "j_bs": DATATYPES["bootstrap_current_density"],  # MA/m2
-        "j_nbi": DATATYPES["nbi_current_density"],  # MA/m2
-        "j_oh": DATATYPES["ohmic_current_density"],  # MA/m2
-        "j_tot": DATATYPES["total_current_density"],  # MA/m2
-        "ne": DATATYPES["electron_density"],  # 10^19 m^-3
-        "ni": DATATYPES["ion_density"],  # 10^19 m^-3
-        "nf": DATATYPES["fast_ion_density"],  # 10^19 m^-3
-        "omega_tor": DATATYPES["toroidal_angular_frequency"],  # 1/s
-        "q_oh": DATATYPES["ohmic_power_density"],  # MW/m3
-        "q_nbi": DATATYPES["nbi_power_density"],  # MW/m3
-        "sbm": DATATYPES["nbi_particle_source"],  # 10^19/m^3/s
-        "swall": DATATYPES["wall_particle_source"],  # 10^19/m^3/s
-        "stot": DATATYPES["total_particle_source"],  # 10^19/m^3/s
-        "te": DATATYPES["electron_temperature"],  # keV
-        "ti": DATATYPES["ion_temperature"],  # keV
-        "zeff": DATATYPES["effective_charge"],
-        "p": DATATYPES["total_pressure"],  #
-        "pblon": DATATYPES["parallel_fast_particle_pressure"],  #
-        "pbper": DATATYPES["perpendicular_fast_particle_pressure"],  #
-        "pnb": DATATYPES["injected_nbi_power"],  # W
-        "pabs": DATATYPES["absorbed_nbi_power"],  # W
-        "p_oh": DATATYPES["absorbed_ohmic_power"],  # W
-        "q": DATATYPES["safety_factor"],  #
-        "sigmapar": DATATYPES["parallel_conductivity"],  # 1/(Ohm*m)
-        "nn": DATATYPES["thermal_neutral_density"],  # 10^19/m^3
-        "niz1": DATATYPES["impurity_density"],  # what element?
-        "niz2": DATATYPES["impurity_density"],  # what element?
-        "niz3": DATATYPES["impurity_density"],  # what element?
+        "faxs": "poloidal_flux_axis",
+        "fbnd": "poloidal_flux_boundary",
+        "ftor": "toroidal_flux",
+        "psi": "poloidal_flux",
+        "rmji": "major_radius_hfs",
+        "rmjo": "major_radius_lfs",
+        "volume": "volume",
+        "area": "area",
+        "rmag": "major_radius_magnetic_axis",
+        "rgeo": "major_radius_geometric_axis",
+        "rbnd": "major_radius_boundary",
+        "zmag": "z_magnetic_axis",
+        "zgeo": "z_geometric",
+        "zbnd": "z_boundary",
+        "ipla": "plasma_current",
+        "wp": "total_stored_energy",
+        "psin": "poloidal_flux_normalised",
+        "upl": "loop_voltage",  # V
+        "wth": "equilibrium_stored_energy",
+        "wtherm": "thermal_stored_energy",
+        "wfast": "fast_ion_stored_energy",
+        "j_bs": "bootstrap_current_density",  # MA/m2
+        "j_nbi": "nbi_current_density",  # MA/m2
+        "j_oh": "ohmic_current_density",  # MA/m2
+        "j_tot": "total_current_density",  # MA/m2
+        "ne": "electron_density",  # 10^19 m^-3
+        "ni": "ion_density",  # 10^19 m^-3
+        "nf": "fast_ion_density",  # 10^19 m^-3
+        "omega_tor": "toroidal_angular_frequency",  # 1/s
+        "q_oh": "ohmic_power_density",  # MW/m3
+        "q_nbi": "nbi_power_density",  # MW/m3
+        "sbm": "nbi_particle_source",  # 10^19/m^3/s
+        "swall": "wall_particle_source",  # 10^19/m^3/s
+        "stot": "total_particle_source",  # 10^19/m^3/s
+        "te": "electron_temperature",  # keV
+        "ti": "ion_temperature",  # keV
+        "zeff": "effective_charge",
+        "p": "total_pressure",  #
+        "pblon": "parallel_fast_particle_pressure",  #
+        "pbper": "perpendicular_fast_particle_pressure",  #
+        "pnb": "injected_nbi_power",  # W
+        "pabs": "absorbed_nbi_power",  # W
+        "p_oh": "absorbed_ohmic_power",  # W
+        "q": "safety_factor",  #
+        "sigmapar": "parallel_conductivity",  # 1/(Ohm*m)
+        "nn": "thermal_neutral_density",  # 10^19/m^3
+        "niz1": "impurity_density",  # what element?
+        "niz2": "impurity_density",  # what element?
+        "niz3": "impurity_density",  # what element?
     },
 }
