@@ -163,7 +163,6 @@ class PPFReader(DataReader):
         tend: float,
         server: str = "https://sal.jet.uk",
         default_error: float = 0.05,
-        max_freq: float = 1e6,
         session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
@@ -171,7 +170,6 @@ class PPFReader(DataReader):
         super().__init__(
             tstart,
             tend,
-            max_freq,
             session,
             pulse=pulse,
             server=server,
