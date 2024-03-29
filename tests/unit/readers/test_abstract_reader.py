@@ -46,7 +46,6 @@ class Reader(DataReader):
         tend: float,
         server: str = "",
         default_error: float = 0.05,
-        max_freq: float = 1e6,
         session: session.Session = session.global_session,
     ):
         self._reader_cache_id = ""
@@ -54,7 +53,6 @@ class Reader(DataReader):
         super().__init__(
             tstart,
             tend,
-            max_freq,
             session,
             pulse=pulse,
             server=server,
@@ -324,7 +322,7 @@ class Reader(DataReader):
         dt = np.random.uniform(0.001, 1.0)
         time = np.arange(TSTART, TEND, dt)
         results["time"] = time
-        nt = times.shape[0]
+        nt = time.shape[0]
 
         results["location"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
         results["direction"] = np.array([[1.0, 2.0, 3.0]] * results["length"])
