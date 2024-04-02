@@ -33,7 +33,7 @@ DATA_PATH = f"/home/{getuser()}/data/Indica/"
 FIG_PATH = f"/home/{getuser()}/figures/Indica/"
 
 
-def get_element_info(element: str) -> Tuple[int, float, str]:
+def get_element_info(element: str) -> Tuple[int, float, str, str]:
     """
     Return periodic table information of specified element
 
@@ -49,6 +49,7 @@ def get_element_info(element: str) -> Tuple[int, float, str]:
     number: int
     mass: float
     name: str
+    symbol: str
     if len(element) <= 2:
         _element = element.capitalize()
     else:
@@ -56,11 +57,16 @@ def get_element_info(element: str) -> Tuple[int, float, str]:
 
     if hasattr(periodictable, _element):
         elem_info = getattr(periodictable, _element)
-        number, mass, name = elem_info.number, elem_info.mass, elem_info.name
+        number, mass, name, symbol = (
+            elem_info.number,
+            elem_info.mass,
+            elem_info.name,
+            elem_info.symbol,
+        )
     else:
-        number, mass, name = 0, 0.0, ""
+        number, mass, name, symbol = 0, 0.0, "", ""
 
-    return number, mass, name
+    return number, mass, name, symbol
 
 
 def positional_parameters(func: Callable[..., Any]) -> Tuple[List[str], Optional[str]]:
@@ -299,50 +305,79 @@ def input_check(
         raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
 
 
-def assign_datatype(data_array: DataArray, var_name: str):
+def format_coord(data: LabeledArray, var_name: str):
     """
-    Assign to input DataArray the long_name and units from indica/datatypes.py
+    Create coordinate dataarray using the variable name == dimension
+    and the values as coordinates
 
     Parameters
     ----------
-    data_array
+    data
+        Input coordinate data to convert to DataArray
+    var_name
+        Name of the variable to be assigned as coordinate
+    """
+    coords = [(var_name, DataArray(data, dims=var_name))]
+    return format_dataarray(data, var_name, coords)
+
+
+def format_dataarray(
+    data: LabeledArray, var_name: str, coords: List[Tuple[str, LabeledArray]] = []
+):
+    """
+    Generate DataArray with long_name & units (indica/datatypes.py) & coordinates
+
+    Parameters
+    ----------
+    data
         Input data
     var_name
-        Variable name from DATATYPES
+        Variable name (see DATATYPES)
+    coords
+        Coordinates sequence (see xr.DataArray documentation)
 
     Returns
     -------
+    Formatted data array
 
     """
+
+    if len(coords) != 0:
+        data_array = DataArray(data, coords=coords)
+
+    if type(data) != DataArray:
+        raise ValueError("data must be a DataArray if coordinates are not given")
+
     long_name: str = ""
-    unit: str = ""
-    if var_name in DATATYPES.keys():
-        long_name, unit = DATATYPES[var_name]
+    units: str = ""
+    if var_name in DATATYPES:
+        long_name, units = DATATYPES[var_name]
     else:
         print(f"{var_name} has no associated DATATYPE")
     data_array.attrs["long_name"] = long_name
-    data_array.attrs["units"] = unit
+    data_array.attrs["units"] = units
+
+    return data_array
 
 
-def assign_data(
-    data: LabeledArray,
-    var_name: str,
-    make_copy=True,
-    coords: list = None,
-):
-    new_data: DataArray
+# def assign_data(
+#     data: LabeledArray,
+#     var_name: str,
+#     make_copy=True,
+#     coords: list = None,
+# ):
+#     new_data: DataArray
 
-    if make_copy:
-        new_data = deepcopy(data)
-    else:
-        new_data = data
+#     if make_copy:
+#         new_data = deepcopy(data)
+#     else:
+#         new_data = data
 
-    if type(new_data) is not DataArray and coords is not None:
-        new_data = DataArray(new_data, coords)
+#     return new_data
 
-    assign_datatype(new_data, var_name)
+#     format_dataarray(new_data, var_name, coordinates=coords)
 
-    return new_data
+#     return new_data
 
 
 def print_like(string: str):
