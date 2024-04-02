@@ -21,7 +21,8 @@ from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.session import hash_vals
 from indica.session import Session
-from indica.utilities import assign_datatype
+from indica.utilities import format_coord
+from indica.utilities import format_dataarray
 
 
 def instatiate_line_of_sight(
@@ -978,36 +979,25 @@ class DataReader(BaseIO):
         -------
         DataArray with assigned coordinates, transform, error, long_name and units
         """
-        var_name = self.available_quantities(instrument)[quantity]
-
-        def format_dataarray(dataarray: DataArray, coordinates: dict):
-            assign_datatype(dataarray, var_name)
-
-            for dim, coord in coordinates.items():
-                dataarray.coords[dim] = coord
-
-            if "t" in dataarray.dims:
-                dataarray = dataarray.sel(t=slice(self._tstart, self._tend))
-
-            return dataarray
-
-        # Build coordinates with long_name + units
-        coordinates = {}
+        # Build coordinate dictionary
+        coords = []
         for dim in dims:
-            coord = DataArray(database_results[dim], dims=dim)
-            assign_datatype(coord, dim)
-            coord.coords[dim] = coord
-            coordinates[dim] = coord
+            coords.append((dim, format_coord(database_results[dim], dim)))
 
         # Build DataArray data with coordinates and long_name + units
-        _data = DataArray(database_results[quantity], dims=dims)
-        data = format_dataarray(_data, coordinates)
+        var_name = self.available_quantities(instrument)[quantity]
+        data = format_dataarray(database_results[quantity], var_name, coords)
+        if "t" in data.dims:
+            data = data.sel(t=slice(self._tstart, self._tend))
 
         # ..do the same with the error
         error = xr.zeros_like(data)
         if quantity + "_error" in database_results:
-            _error = DataArray(database_results[quantity + "_error"], dims=dims)
-            error = format_dataarray(_error, coordinates)
+            error = format_dataarray(
+                database_results[quantity + "_error"], var_name, coords
+            )
+            if "t" in error.dims:
+                error = error.sel(t=slice(self._tstart, self._tend))
 
         if include_error:
             data.attrs["error"] = error

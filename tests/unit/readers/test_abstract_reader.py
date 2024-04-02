@@ -337,7 +337,8 @@
 #                     0, 1.0e6, (nt, results["length"], nwavelength)
 #                 )
 #             else:
-#                 results[quantity] = np.random.uniform(0, 1.0e4, (nt, results["length"]))
+#                 length = results["length"]
+#                 results[quantity] = np.random.uniform(0, 1.0e4, (nt, length))
 #
 #             results[f"{quantity}_records"] = [
 #                 f"{quantity}_path_records",

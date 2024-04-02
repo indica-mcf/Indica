@@ -105,8 +105,8 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "ti": "ion_temperature",  # keV
         "zeff": "effective_charge",
         "p": "total_pressure",  #
-        "pblon": "parallel_fast_particle_pressure",  #
-        "pbper": "perpendicular_fast_particle_pressure",  #
+        "pblon": "parallel_fast_ion_pressure",  #
+        "pbper": "perpendicular_fast_ion_pressure",  #
         "pnb": "injected_nbi_power",  # W
         "pabs": "absorbed_nbi_power",  # W
         "p_oh": "absorbed_ohmic_power",  # W

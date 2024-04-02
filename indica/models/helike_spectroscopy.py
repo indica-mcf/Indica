@@ -66,7 +66,7 @@ class HelikeSpectrometer(DiagnosticModel):
         self.name = name
         self.instrument_method = instrument_method
         self.element: str = element
-        z_elem, a_elem, name_elem = get_element_info(element)
+        z_elem, a_elem, name_elem, _ = get_element_info(element)
         self.ion_charge: int = z_elem - 2  # He-like
         self.ion_mass: float = a_elem
         self.etendue = etendue

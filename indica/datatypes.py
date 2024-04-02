@@ -1,8 +1,5 @@
 """
 Set of dictionaries providing standard names and units for plasma physics quantities
-
-- UNITS default in Indica = MKS + eV for temperature + nm for wavelength
-- DATATYPES = (long_name, units) to be assigned as attribute to DataArray
 """
 
 from typing import Dict
@@ -21,7 +18,8 @@ DatasetType = Tuple[Optional[SpecificDataType], Dict[str, GeneralDataType]]
 
 DataType = Union[ArrayType, DatasetType]
 
-UNITS: dict = {
+#: Units expected by each quantity in Indica (key = string identifier)
+UNITS: Dict[str, str] = {
     "none": "",
     "number": "#",
     "length": "m",
@@ -57,6 +55,7 @@ UNITS: dict = {
     "wavelength": "nm",
 }
 
+#: (DataArraay long_name and units) expected by for quantity in Indica
 DATATYPES: Dict[str, Tuple[str, str]] = {
     "t": ("Time", UNITS["time"]),
     "channel": ("Channel", UNITS["number"]),
@@ -65,6 +64,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "y": ("y", UNITS["length"]),
     "z": ("z", UNITS["length"]),
     "R": ("R", UNITS["length"]),
+    "element": ("Element", UNITS["none"]),
     "electron_density": ("$N_e$", UNITS["density"]),
     "ion_density": ("$N_i$", UNITS["density"]),
     "fast_ion_density": ("$N_{fast}$", UNITS["density"]),

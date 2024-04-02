@@ -8,7 +8,7 @@ from indica.equilibrium import Equilibrium
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
-from indica.utilities import assign_data
+from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
 
 
@@ -101,7 +101,7 @@ def example_run(plot: bool = False):
         plasma.equilibrium,
     )
 
-    ion_density_2d = assign_data(ion_density_2d, "ion_density")
+    ion_density_2d = format_dataarray(ion_density_2d, "ion_density")
 
     if plot:
         tplot = ion_density_2d.t[2]
