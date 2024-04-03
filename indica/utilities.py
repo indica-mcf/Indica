@@ -322,7 +322,10 @@ def format_coord(data: LabeledArray, var_name: str):
 
 
 def format_dataarray(
-    data: LabeledArray, var_name: str, coords: List[Tuple[str, LabeledArray]] = []
+    data: LabeledArray,
+    var_name: str,
+    coords: List[Tuple[str, Any]] = [],
+    make_copy: bool = False,
 ):
     """
     Generate DataArray with long_name & units (indica/datatypes.py) & coordinates
@@ -342,11 +345,16 @@ def format_dataarray(
 
     """
 
-    if len(coords) != 0:
-        data_array = DataArray(data, coords=coords)
+    if make_copy:
+        _data = deepcopy(data)
+    else:
+        _data = data
 
-    if type(data) != DataArray:
-        raise ValueError("data must be a DataArray if coordinates are not given")
+    if len(coords) != 0:
+        data_array = DataArray(_data, coords=coords)
+    else:
+        if type(_data) != DataArray:
+            raise ValueError("data must be a DataArray if coordinates are not given")
 
     long_name: str = ""
     units: str = ""

@@ -80,7 +80,7 @@ class DataReader(BaseIO):
     _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {}
 
     _RECORD_TEMPLATE = "{}-{}-{}-{}-{}"
-    NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
+    NAMESPACE: Tuple[str, str] = ("", "")
 
     def __init__(
         self,

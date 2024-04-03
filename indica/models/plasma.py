@@ -3,12 +3,14 @@ from functools import lru_cache
 import hashlib
 import pickle
 from typing import Callable
+from typing import Tuple
 
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.converters.time import convert_in_time_dt
 from indica.converters.time import get_tlabels_dt
 from indica.equilibrium import Equilibrium
 from indica.equilibrium import fake_equilibrium_data
@@ -25,8 +27,6 @@ from indica.utilities import print_like
 
 plt.ion()
 
-# TODO: add elongation and triangularity in all equations
-
 
 class Plasma:
     def __init__(
@@ -35,12 +35,14 @@ class Plasma:
         tend: float = 0.14,
         dt: float = 0.01,
         machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
-        impurities: tuple = ("c", "ar"),
+        impurities: Tuple[str, ...] = ("c", "ar"),
         main_ion: str = "h",
-        impurity_concentration: tuple = (0.02, 0.001),
+        impurity_concentration: Tuple[float, ...] = (0.02, 0.001),
         pulse: int = None,
         full_run: bool = False,
         n_rad: int = 41,
+        n_R: int = 100,
+        n_z: int = 100,
         verbose: bool = False,
     ):
         """
@@ -80,10 +82,15 @@ class Plasma:
         self.verbose = verbose
         self.ADASReader = ADASReader()
         self.main_ion = main_ion
+        elements: Tuple[str, ...] = (self.main_ion,)
+        for elem in impurities:
+            elements += (elem,)
+        self.elements = elements
         self.impurities = impurities
-        self.elements = [self.main_ion]
-        for elem in self.impurities:
-            self.elements.append(elem)
+        self.impurity_concentration = (
+            impurity_concentration  # TODO: should be deleted and implemented as method
+        )
+
         self.set_adf11(ADF11)
         self.machine_dimensions = machine_dimensions
         self.n_rad = n_rad
@@ -92,7 +99,7 @@ class Plasma:
             print_like("Only rho_poloidal in input for the time being...")
             raise AssertionError
 
-        self.initialize_variables(impurity_concentration=impurity_concentration)
+        self.initialize_variables(n_R, n_z)
 
         self.equilibrium: Equilibrium
 
@@ -105,15 +112,9 @@ class Plasma:
     def set_adf11(self, adf11: dict):
         self.adf11 = adf11
 
-    def initialize_variables(self, impurity_concentration: tuple):
+    def initialize_variables(self, n_R: int = 100, n_z: int = 100):
         """
         Initialize all class attributes
-
-        Description of variables being initialized
-        ------------------------------------------
-        time_to_calculate
-            subset of time-point(s) to use for computation of the dependent variables
-            (to be used e.g. in optimisation workflows)
         """
 
         self.optimisation: dict = {}
@@ -121,45 +122,43 @@ class Plasma:
         self.power_loss_sxr: dict = {}
         self.power_loss_tot: dict = {}
 
-        # Assign plasma and machine attributes
-        self.machine_R = np.linspace(
-            self.machine_dimensions[0][0], self.machine_dimensions[0][1], 100
-        )
-        self.machine_z = np.linspace(
-            self.machine_dimensions[1][0], self.machine_dimensions[1][1], 100
-        )
-        R_midplane = np.linspace(self.machine_R.min(), self.machine_R.max(), 100)
-        self.R_midplane = R_midplane
+        # Machine attributes
+        R0, R1 = self.machine_dimensions[0]
+        z0, z1 = self.machine_dimensions[1]
+        self.R = format_coord(np.linspace(R0, R1, n_R), "R")
+        self.z = format_coord(np.linspace(z0, z1, n_z), "z")
+        R_midplane = np.linspace(self.R.min(), self.R.max(), n_R)
+        self.R_midplane = format_coord(R_midplane, "R_midplane")
         z_midplane = np.full_like(R_midplane, 0.0)
-        self.z_midplane = z_midplane
+        self.z_midplane = format_coord(z_midplane, "z_midplane")
 
-        _time = get_tlabels_dt(self.tstart, self.tend, self.dt)
-        _radius = np.linspace(0, 1.0, self.n_rad)
-        _elem = list(self.elements)
-        _imp = list(self.impurities)
-
-        self.rho = format_coord(_radius, self.rho_type)
-        self.element = format_coord(_elem, "element")
-        self.impurity = format_coord(_imp, "element")
-        z_elem, a_elem, name_elem, symbol_elem = [], [], [], []
-        for elem in self.element.values:
-            _z, _a, _name, _symbol = get_element_info(elem)
-            z_elem.append(_z)
-            a_elem.append(_a)
-            name_elem.append(_name)
-            symbol_elem.append(_symbol)
-        self.element.assign_coords(Z=("element", z_elem))
-        self.element.assign_coords(A=("element", a_elem))
-        self.element.assign_coords(name=("element", name_elem))
-        self.element.assign_coords(symbol=("element", symbol_elem))
-        self.t = format_coord(_time, "t")
+        # Time and radial grid
+        self.rho = format_coord(np.linspace(0, 1.0, self.n_rad), self.rho_type)
+        self.t = format_coord(get_tlabels_dt(self.tstart, self.tend, self.dt), "t")
         self.time_to_calculate = deepcopy(self.t)
 
+        # Elements (ions and specifics of impurities)
+        element_z, element_a, element_name, element_symbol = [], [], [], []
+        for elem in self.elements:
+            _z, _a, _name, _symbol = get_element_info(elem)
+            element_z.append(_z)
+            element_a.append(_a)
+            element_name.append(_name)
+            element_symbol.append(_symbol)
+
+        coords_elem = [("element", list(self.elements))]
+        self.element_z = format_dataarray(element_z, "atomic_number", coords_elem)
+        self.element_a = format_dataarray(element_a, "atomic_weight", coords_elem)
+        self.element_name = format_dataarray(element_name, "element_name", coords_elem)
+        self.element_symbol = format_dataarray(
+            element_symbol, "element_symbol", coords_elem
+        )
+
         # Assign data to variables
-        nt = len(_time)
-        nr = len(_radius)
-        nel = len(_elem)
-        nimp = len(_imp)
+        nt = len(self.t)
+        nr = len(self.rho)
+        nel = len(self.elements)
+        nimp = len(self.impurities)
         data1d_time = np.zeros(nt)
         data2d = np.zeros((nt, nr))
         data2d_elem = np.zeros((nel, nt))
@@ -167,22 +166,18 @@ class Plasma:
         data3d_imp = np.zeros((nimp, nt, nr))
 
         coords1d_time = [("t", self.t)]
-        coords1d_impurity = [("element", self.impurity)]
         coords2d = [("t", self.t), (self.rho_type, self.rho)]
-        coords2d_elem = [("element", self.element), ("t", self.t)]
-        coords3d = [("element", self.element), ("t", self.t), (self.rho_type, self.rho)]
-        coords3d_imp = [
-            ("element", self.impurity),
+        coords2d_elem = [("element", list(self.elements)), ("t", self.t)]
+        coords3d = [
+            ("element", list(self.elements)),
             ("t", self.t),
             (self.rho_type, self.rho),
         ]
-
-        # TODO: should be deleted with a method set_concentration implemented
-        # to set densities from inputted concentration & element
-        _conc = np.array(impurity_concentration)
-        self.impurity_concentration = format_dataarray(
-            _conc, "element", coords1d_impurity
-        )
+        coords3d_imp = [
+            ("element", list(self.impurities)),
+            ("t", self.t),
+            (self.rho_type, self.rho),
+        ]
 
         # Profilers
         # TODO: Move out of this class
@@ -198,88 +193,120 @@ class Plasma:
 
         # Independent plasma quantities
         self.electron_temperature = format_dataarray(
-            data2d, "electron_temperature", coords2d
+            data2d, "electron_temperature", coords2d, make_copy=True
         )
-        self.electron_density = format_dataarray(data2d, "electron_density", coords2d)
+        self.electron_density = format_dataarray(
+            data2d, "electron_density", coords2d, make_copy=True
+        )
         self.neutral_density = format_dataarray(
-            data2d, "thermal_neutral_density", coords2d
+            data2d, "thermal_neutral_density", coords2d, make_copy=True
         )
-        self.tau = format_dataarray(data2d, "residence_time", coords2d)
-        self.ion_temperature = format_dataarray(data3d, "ion_temperature", coords3d)
-        self.toroidal_rotation = format_dataarray(data3d, "toroidal_rotation", coords3d)
+        self.tau = format_dataarray(data2d, "residence_time", coords2d, make_copy=True)
+        self.ion_temperature = format_dataarray(
+            data3d, "ion_temperature", coords3d, make_copy=True
+        )
+        self.toroidal_rotation = format_dataarray(
+            data3d, "toroidal_rotation", coords3d, make_copy=True
+        )
         self.impurity_density = format_dataarray(
-            data3d_imp, "impurity_density", coords3d_imp
+            data3d_imp, "impurity_density", coords3d_imp, make_copy=True
         )
-        self.fast_density = format_dataarray(data2d, "fast_ion_density", coords2d)
+        self.fast_density = format_dataarray(
+            data2d, "fast_ion_density", coords2d, make_copy=True
+        )
         self.pressure_fast_parallel = format_dataarray(
-            data2d, "parallel_fast_ion_pressure", coords2d
+            data2d, "parallel_fast_ion_pressure", coords2d, make_copy=True
         )
         self.pressure_fast_perpendicular = format_dataarray(
-            data2d, "perpendicular_fast_ion_pressure", coords2d
+            data2d, "perpendicular_fast_ion_pressure", coords2d, make_copy=True
         )
 
         # Private variables for class property variables
         self._rmag = format_dataarray(
-            data1d_time, "major_radius_magnetic_axis", coords1d_time
+            data1d_time, "major_radius_magnetic_axis", coords1d_time, make_copy=True
         )
-        self._zmag = format_dataarray(data1d_time, "z_magnetic_axis", coords1d_time)
-        self._rmji = format_dataarray(data2d, "major_radius_hfs", coords2d)
-        self._rmjo = format_dataarray(data2d, "major_radius_lfs", coords2d)
-        self._rmin = format_dataarray(data2d, "minor_radius", coords2d)
-        self._volume = format_dataarray(data2d, "volume", coords2d)
-        self._area = format_dataarray(data2d, "area", coords2d)
+        self._zmag = format_dataarray(
+            data1d_time, "z_magnetic_axis", coords1d_time, make_copy=True
+        )
+        self._rmji = format_dataarray(
+            data2d, "major_radius_hfs", coords2d, make_copy=True
+        )
+        self._rmjo = format_dataarray(
+            data2d, "major_radius_lfs", coords2d, make_copy=True
+        )
+        self._rmin = format_dataarray(data2d, "minor_radius", coords2d, make_copy=True)
+        self._volume = format_dataarray(data2d, "volume", coords2d, make_copy=True)
+        self._area = format_dataarray(data2d, "area", coords2d, make_copy=True)
         self._pressure_fast = format_dataarray(
-            data2d, "total_fast_ion_pressure", coords2d
+            data2d, "total_fast_ion_pressure", coords2d, make_copy=True
         )
-        self._pressure_el = format_dataarray(data2d, "electron_pressure", coords2d)
-        self._pressure_th = format_dataarray(data2d, "thermal_pressure", coords2d)
-        self._pressure_tot = format_dataarray(data2d, "total_pressure", coords2d)
+        self._pressure_el = format_dataarray(
+            data2d, "electron_pressure", coords2d, make_copy=True
+        )
+        self._pressure_th = format_dataarray(
+            data2d, "thermal_pressure", coords2d, make_copy=True
+        )
+        self._pressure_tot = format_dataarray(
+            data2d, "total_pressure", coords2d, make_copy=True
+        )
         self._pth = format_dataarray(
-            data1d_time, "thermal_pressure_integral", coords1d_time
+            data1d_time, "thermal_pressure_integral", coords1d_time, make_copy=True
         )
         self._ptot = format_dataarray(
-            data1d_time, "total_pressure_integral", coords1d_time
+            data1d_time, "total_pressure_integral", coords1d_time, make_copy=True
         )
         self._wth = format_dataarray(
-            data1d_time, "thermal_stored_energy", coords1d_time
+            data1d_time, "thermal_stored_energy", coords1d_time, make_copy=True
         )
-        self._wp = format_dataarray(data1d_time, "total_stored_energy", coords1d_time)
-        self._zeff = format_dataarray(data3d, "effective_charge", coords3d)
-        self._ion_density = format_dataarray(data3d, "ion_density", coords3d)
-        self._meanz = format_dataarray(data3d, "mean_charge", coords3d)
+        self._wp = format_dataarray(
+            data1d_time, "total_stored_energy", coords1d_time, make_copy=True
+        )
+        self._zeff = format_dataarray(
+            data3d, "effective_charge", coords3d, make_copy=True
+        )
+        self._ion_density = format_dataarray(
+            data3d, "ion_density", coords3d, make_copy=True
+        )
+        self._meanz = format_dataarray(data3d, "mean_charge", coords3d, make_copy=True)
         self._total_radiation = format_dataarray(
-            data3d, "total_radiated_power_emission", coords3d
+            data3d, "total_radiated_power_emission", coords3d, make_copy=True
         )
         self._sxr_radiation = format_dataarray(
-            data3d, "sxr_radiated_power_emission", coords3d
+            data3d, "sxr_radiated_power_emission", coords3d, make_copy=True
         )
         self._prad_tot = format_dataarray(
-            data2d_elem, "total_radiated_power", coords2d_elem
+            data2d_elem, "total_radiated_power", coords2d_elem, make_copy=True
         )
         self._prad_sxr = format_dataarray(
-            data2d_elem, "sxr_radiated_power", coords2d_elem
+            data2d_elem, "sxr_radiated_power", coords2d_elem, make_copy=True
         )
 
         _fz = {}
         _lz_tot = {}
         _lz_sxr = {}
         for elem in self.elements:
-            _z, _, _, _ = get_element_info(elem)
-            nz = _z + 1
+            nz = self.element_z.sel(element=elem).values + 1
+            ion_charge = format_coord(np.arange(nz), "ion_charge")
             coords3d_fract = [
                 ("t", self.t),
                 ("rho_poloidal", self.rho),
-                ("ion_charges", np.arange(nz)),
+                ("ion_charge", ion_charge),
             ]
             data3d_fz = np.full((len(self.t), len(self.rho), nz), 0.0)
             _fz[elem] = format_dataarray(
-                data3d_fz, "fractional_abundance", coords3d_fract
+                data3d_fz, "fractional_abundance", coords3d_fract, make_copy=True
             )
             _lz_tot[elem] = format_dataarray(
-                data3d_fz, "total_radiation_loss_parameter", coords3d_fract
+                data3d_fz,
+                "total_radiation_loss_parameter",
+                coords3d_fract,
+                make_copy=True,
             )
             _lz_sxr[elem] = format_dataarray(
-                data3d_fz, "sxr_radiation_loss_parameter", coords3d_fract
+                data3d_fz,
+                "sxr_radiation_loss_parameter",
+                coords3d_fract,
+                make_copy=True,
             )
         self._fz = _fz
         self._lz_tot = _lz_tot
@@ -376,31 +403,30 @@ class Plasma:
 
     # TODO: should be implemented elsewhere!
     def assign_profiles(
-        self, profile: str = "electron_density", t: float = None, element: str = None
+        self,
+        profile: str = "electron_density",
+        t: float = None,
+        element: Tuple[str, ...] = (),
     ):
-        # TODO: impurities and elements should be both either tuples or lists...
-        elements: list = []
-        impurities: tuple = ()
-        if element is None:
-            elements = self.elements
-            impurities = self.impurities
-        else:
-            elements = [element]
-            if element in self.impurities:
-                impurities = (element,)
+        if len(element):
+            element = self.elements
+
         if profile == "electron_density":
             self.electron_density.loc[dict(t=t)] = self.Ne_prof()
         elif profile == "electron_temperature":
             self.electron_temperature.loc[dict(t=t)] = self.Te_prof()
         elif profile == "ion_temperature":
-            for elem in elements:
+            for elem in element:
                 self.ion_temperature.loc[dict(t=t, element=elem)] = self.Ti_prof()
         elif profile == "toroidal_rotation":
-            for elem in elements:
+            for elem in element:
                 self.toroidal_rotation.loc[dict(t=t, element=elem)] = self.Vrot_prof()
         elif profile == "impurity_density":
-            for imp in impurities:
-                self.impurity_density.loc[dict(t=t, element=imp)] = self.Nimp_prof()
+            for elem in element:
+                if elem in self.impurities:
+                    self.impurity_density.loc[
+                        dict(t=t, element=elem)
+                    ] = self.Nimp_prof()
         elif profile == "neutral_density":
             self.neutral_density.loc[dict(t=t)] = self.Nh_prof()
         else:
@@ -409,6 +435,7 @@ class Plasma:
             )
 
     # TODO: should be implemented elsewhere!
+    # TODO: can only accept 2 impurities...generalize!
     def update_profiles(
         self,
         parameters: dict,
@@ -459,20 +486,20 @@ class Plasma:
             ] = self.Ne_prof()
         if "Niz1_prof" in profile_names:
             self.impurity_density.loc[
-                dict(t=self.time_to_calculate, element=self.impurities[0])
+                dict(t=self.time_to_calculate, element=[self.impurities[0]])
             ] = self.Niz1_prof()
         else:
             self.impurity_density.loc[
-                dict(t=self.time_to_calculate, element=self.impurities[0])
+                dict(t=self.time_to_calculate, element=[self.impurities[0]])
             ] = (self.Ne_prof() * self.impurity_concentration[0])
 
         if "Niz2_prof" in profile_names:
             self.impurity_density.loc[
-                dict(t=self.time_to_calculate, element=self.impurities[1])
+                dict(t=self.time_to_calculate, element=[self.impurities[1]])
             ] = self.Niz2_prof()
         else:
             self.impurity_density.loc[
-                dict(t=self.time_to_calculate, element=self.impurities[1])
+                dict(t=self.time_to_calculate, element=[self.impurities[1]])
             ] = (self.Ne_prof() * self.impurity_concentration[1])
 
     @property
@@ -495,7 +522,7 @@ class Plasma:
 
     @property
     def pressure_th(self):
-        self._pressure_th = (
+        self._pressure_th.values = (
             ph.calc_pressure(self.ion_density, self.ion_temperature).sum("element")
             + self.pressure_el
         )
@@ -519,10 +546,9 @@ class Plasma:
         return self.Pth()
 
     def calc_pth(self):
-        pressure_th = self.pressure_th
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._pth.loc[dict(t=t)] = np.trapz(
-                pressure_th.sel(t=t), self.volume.sel(t=t)
+                self.pressure_th.sel(t=t), self.volume.sel(t=t)
             )
         return self._pth
 
@@ -531,29 +557,25 @@ class Plasma:
         return self.Ptot()
 
     def calc_ptot(self):
-        pressure_tot = self.pressure_tot
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._ptot.loc[dict(t=t)] = np.trapz(
-                pressure_tot.sel(t=t), self.volume.sel(t=t)
+                self.pressure_tot.sel(t=t), self.volume.sel(t=t)
             )
         return self._ptot
 
     @property
     def wth(self):
-        pth = self.pth
-        self._wth.values = 3 / 2 * pth.values
+        self._wth.values = 3 / 2 * self.pth
         return self._wth
 
     @property
     def wp(self):
-        ptot = self.ptot
-        self._wp.values = 3 / 2 * ptot.values
+        self._wp.values = 3 / 2 * self.ptot
         return self._wp
 
     @property
     def fz(self):
         return self.Fz()
-        # return self.calc_fz()  # self.Fz()
 
     def calc_fz(self):
         for elem in self.elements:
@@ -571,16 +593,15 @@ class Plasma:
                 fz_tmp = self.fract_abu[elem](
                     Te, Ne=Ne, Nh=Nh, tau=tau, full_run=self.full_run
                 )
-                self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose().values
+                self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose()
         return self._fz
 
     @property
     def zeff(self):
         return self.Zeff()
-        # return self.calc_zeff()
 
     def calc_zeff(self):
-        self._zeff = self.ion_density * self.meanz**2 / self.electron_density
+        self._zeff.values = self.ion_density * self.meanz**2 / self.electron_density
         return self._zeff
 
     @property
@@ -589,16 +610,15 @@ class Plasma:
         # return self.calc_ion_density()
 
     def calc_ion_density(self):
-        meanz = self.meanz
         for elem in self.impurities:
             self._ion_density.loc[dict(element=elem)] = self.impurity_density.sel(
                 element=elem
-            ).values
+            )
 
         main_ion_density = (
             self.electron_density
-            - self.fast_density * meanz.sel(element=self.main_ion)
-            - (self.impurity_density * meanz).sum("element")
+            - self.fast_density * self.meanz.sel(element=self.main_ion)
+            - (self.impurity_density * self.meanz).sum("element")
         )
 
         self._ion_density.loc[dict(element=self.main_ion)] = main_ion_density
@@ -606,7 +626,7 @@ class Plasma:
 
     @property
     def lz_tot(self):
-        return self.calc_lz_tot()  # self.Lz_tot()
+        return self.Lz_tot()
 
     def calc_lz_tot(self):
         fz = self.fz
@@ -620,18 +640,14 @@ class Plasma:
                 Nh = None
                 if np.any(self.neutral_density.sel(t=t) != 0):
                     Nh = self.neutral_density.sel(t=t)
-                self._lz_tot[elem].loc[dict(t=t)] = (
-                    self.power_loss_tot[elem](
-                        Te, Fz, Ne=Ne, Nh=Nh, full_run=self.full_run
-                    )
-                    .transpose()
-                    .values
-                )
+                self._lz_tot[elem].loc[dict(t=t)] = self.power_loss_tot[elem](
+                    Te, Fz, Ne=Ne, Nh=Nh, full_run=self.full_run
+                ).transpose()
         return self._lz_tot
 
     @property
     def lz_sxr(self):
-        return self.calc_lz_sxr()  # self.Lz_sxr()
+        return self.Lz_sxr()
 
     def calc_lz_sxr(self):
         fz = self.fz
@@ -647,25 +663,21 @@ class Plasma:
                 Nh = None
                 if np.any(self.neutral_density.sel(t=t) != 0):
                     Nh = self.neutral_density.sel(t=t)
-                self._lz_sxr[elem].loc[dict(t=t)] = (
-                    self.power_loss_sxr[elem](
-                        Te, Fz, Ne=Ne, Nh=Nh, full_run=self.full_run
-                    )
-                    .transpose()
-                    .values
-                )
+                self._lz_sxr[elem].loc[dict(t=t)] = self.power_loss_sxr[elem](
+                    Te, Fz, Ne=Ne, Nh=Nh, full_run=self.full_run
+                ).transpose()
         return self._lz_sxr
 
     @property
     def total_radiation(self):
-        return self.calc_total_radiation()  # self.Total_radiation()
+        return self.Total_radiation()
 
     def calc_total_radiation(self):
         lz_tot = self.lz_tot
         ion_density = self.ion_density
         for elem in self.elements:
             total_radiation = (
-                lz_tot[elem].sum("ion_charges")
+                lz_tot[elem].sum("ion_charge")
                 * self.electron_density
                 * ion_density.sel(element=elem)
             )
@@ -673,12 +685,12 @@ class Plasma:
                 total_radiation >= 0,
                 total_radiation,
                 0.0,
-            ).values
+            )
         return self._total_radiation
 
     @property
     def sxr_radiation(self):
-        return self.calc_sxr_radiation()  # self.Sxr_radiation()
+        return self.Sxr_radiation()
 
     def calc_sxr_radiation(self):
         if not hasattr(self, "power_loss_sxr"):
@@ -688,7 +700,7 @@ class Plasma:
         ion_density = self.ion_density
         for elem in self.elements:
             sxr_radiation = (
-                lz_sxr[elem].sum("ion_charges")
+                lz_sxr[elem].sum("ion_charge")
                 * self.electron_density
                 * ion_density.sel(element=elem)
             )
@@ -696,7 +708,7 @@ class Plasma:
                 sxr_radiation >= 0,
                 sxr_radiation,
                 0.0,
-            ).values
+            )
         return self._sxr_radiation
 
     @property
@@ -704,8 +716,8 @@ class Plasma:
         fz = self.fz
 
         for elem in self.elements:
-            self._meanz.loc[dict(element=elem)] = (
-                (fz[elem] * fz[elem].ion_charges).sum("ion_charges").values
+            self._meanz.loc[dict(element=elem)] = (fz[elem] * fz[elem].ion_charge).sum(
+                "ion_charge"
             )
         return self._meanz
 
@@ -735,7 +747,7 @@ class Plasma:
     @property
     def volume(self):
         if len(np.where(self._volume > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._volume = self.convert_in_time(
+            self._volume.values = self.convert_in_time(
                 self.equilibrium.volume.interp(rho_poloidal=self.rho)
             )
         return self._volume
@@ -743,7 +755,7 @@ class Plasma:
     @property
     def area(self):
         if len(np.where(self._area > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._area = self.convert_in_time(
+            self._area.values = self.convert_in_time(
                 self.equilibrium.area.interp(rho_poloidal=self.rho)
             )
         return self._area
@@ -751,7 +763,7 @@ class Plasma:
     @property
     def rmjo(self):
         if len(np.where(self._rmjo > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._rmjo = self.convert_in_time(
+            self._rmjo.values = self.convert_in_time(
                 self.equilibrium.rmjo.interp(rho_poloidal=self.rho)
             )
         return self._rmjo
@@ -759,7 +771,7 @@ class Plasma:
     @property
     def rmji(self):
         if len(np.where(self._rmji > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._rmji = self.convert_in_time(
+            self._rmji.values = self.convert_in_time(
                 self.equilibrium.rmji.interp(rho_poloidal=self.rho)
             )
         return self._rmji
@@ -767,44 +779,20 @@ class Plasma:
     @property
     def rmag(self):
         if len(np.where(self._rmag > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._rmag = self.convert_in_time(self.equilibrium.rmag)
+            self._rmag.values = self.convert_in_time(self.equilibrium.rmag)
         return self._rmag
 
     @property
     def zmag(self):
         if len(np.where(self._zmag > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._zmag = self.convert_in_time(self.equilibrium.zmag)
+            self._zmag.values = self.convert_in_time(self.equilibrium.zmag)
         return self._zmag
 
     @property
     def rmin(self):
         if len(np.where(self._rmin > 0)[0]) == 0:
-            self._rmin = (self.rmjo - self.rmji) / 2.0
+            self._rmin.values = (self.rmjo - self.rmji) / 2.0
         return self._zmag
-
-    # TODO: implementation not checked
-    # @property
-    # def vloop(self):
-    #     zeff = self.zeff
-    #     j_phi = self.j_phi
-    #     self.conductivity = ph.conductivity_neo(
-    #         self.electron_density,
-    #         self.electron_temperature,
-    #         zeff.sum("element"),
-    #         self.minor_radius,
-    #         self.minor_radius.interp(rho_poloidal=1.0),
-    #         self.R_mag,
-    #         self.q_prof,
-    #         approx="sauter",
-    #     )
-    #     for t in np.array(self.time_to_calculate, ndmin=1):
-    #         resistivity = 1.0 / self.conductivity.sel(t=t)
-    #         ir = np.where(np.isfinite(resistivity))
-    #         vloop = ph.vloop(
-    #             resistivity[ir], j_phi.sel(t=t)[ir], self.area.sel(t=t)[ir]
-    #         )
-    #         self._vloop.loc[dict(t=t)] = vloop.values
-    #     return self._vloop
 
     # TODO: currently not used --> check that it's not required or implement elsewhere!
     # def calc_impurity_density(self, elements):
@@ -841,12 +829,12 @@ class Plasma:
     #             )
     #             self.ion_density.loc[dict(element=elem)] = ion_density_tmp.values
 
-    # def convert_in_time(self, value: DataArray, method="linear"):
-    #     binned = convert_in_time_dt(self.tstart, self.tend, self.dt, value).interp(
-    #         t=self.t, method=method
-    #     )
+    def convert_in_time(self, value: DataArray, method="linear"):
+        binned = convert_in_time_dt(self.tstart, self.tend, self.dt, value).interp(
+            t=self.t, method=method
+        )
 
-    #     return binned
+        return binned
 
     # TODO: should be moved outside of here
     def build_atomic_data(
@@ -1086,7 +1074,7 @@ class Plasma:
     #     """
     #     for elem in self.elements:
     #         total_radiation = (
-    #             self.lz_tot[elem].sum("ion_charges")
+    #             self.lz_tot[elem].sum("ion_charge")
     #             * self.electron_density
     #             * self.ion_density.sel(element=elem)
     #         )
@@ -1098,7 +1086,7 @@ class Plasma:
     #         self.total_radiation.loc[dict(element=elem)] = total_radiation.values
 
     #         sxr_radiation = (
-    #             self.lz_sxr[elem].sum("ion_charges")
+    #             self.lz_sxr[elem].sum("ion_charge")
     #             * self.electron_density
     #             * self.ion_density.sel(element=elem)
     #         )
@@ -1206,8 +1194,8 @@ def example_run(
     tend=0.1,
     dt=0.01,
     main_ion="h",
-    impurities=("c", "ar", "he"),
-    impurity_concentration=(0.03, 0.001, 0.01),
+    impurities: Tuple[str, ...] = ("c", "ar", "he"),
+    impurity_concentration: Tuple[float, ...] = (0.03, 0.001, 0.01),
     verbose: bool = True,
     n_rad: int = 41,
     full_run=False,
