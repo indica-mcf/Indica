@@ -13,6 +13,8 @@ from typing import List
 from typing import Set
 from typing import Tuple
 
+from indica.abstractio import BaseIO    
+
 from ..numpy_typing import RevisionLike
 
 import numpy as np
@@ -34,25 +36,30 @@ class MDSWarning(UserWarning):
 
     """
 
-class MDSReader(DataReader): 
+#this will be baseio class instead. what is defauly pulse?
+class MDSUtils(BaseIO): 
         
     def __init__(
         self,
-        pulse: int,
-        tstart: float,
-        tend: float,
+        pulse,
         server: str = "smaug",
         tree: str = "ST40",
-        default_error: float = 0.05,
-        max_freq: float = 1e6,
-        session: session.Session = session.global_session,
     ): 
         self.tree: str = tree
+        self.pulse: int = pulse
         self.conn: Connection = Connection(server)
         self.conn.openTree(self.tree, self.pulse)
 
 
 
+
+
+    def close(self) -> None:
+        del self.conn
+
+    @property
+    def requires_authentication(self) -> bool:
+        return False
 
     def get_mds_path_dims(self, mds_path: str, dim: int):
         """Gets the dimensions' path given an mds_path"""
@@ -61,7 +68,7 @@ class MDSReader(DataReader):
         return dims_path
     
 
-    def _get_signal(
+    def get_signal(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[np.array, str]:
         """Gets the signal for the given INSTRUMENT, at the
@@ -75,7 +82,7 @@ class MDSReader(DataReader):
 
         return data, path
     
-    def _get_signal_dims(
+    def get_signal_dims(
         self,
         mds_path: str,
         ndims: int,
@@ -94,7 +101,7 @@ class MDSReader(DataReader):
         return dimensions, paths
     
 
-    def _get_signal_units(
+    def get_signal_units(
         self,
         mds_path: str,
     ) -> str:
@@ -130,3 +137,15 @@ class MDSReader(DataReader):
 
         dims_path = f"dim_of({mds_path},{dim})"
         return dims_path
+    
+    def mdsCheck(self, mds_path):
+        """Return FAILED if node doesn't exist or other error
+        Return FAILED if: lenght(data)==1 and data==nan"""
+
+        mds_path_test = (
+            f"_dummy = IF_ERROR (IF ((SIZE ({mds_path})==1), "
+            + f'IF ({mds_path}+1>{mds_path}, {mds_path}, "FAILED"),'
+            + f' {mds_path}), "FAILED")'
+        )
+
+        return mds_path_test

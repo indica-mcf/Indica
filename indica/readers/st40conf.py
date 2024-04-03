@@ -1,5 +1,9 @@
-MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
-INSTRUMENT_METHODS = {
+class ST40Conf:
+    def __init__(self):
+    
+
+        self.MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
+        self.INSTRUMENT_METHODS = {
     "efit": "get_equilibrium",
     "xrcs": "get_helike_spectroscopy",
     "princeton": "get_charge_exchange",
@@ -27,9 +31,9 @@ INSTRUMENT_METHODS = {
     "pi": "get_spectrometer",
     "tws_c": "get_spectrometer",
     "ts": "get_thomson_scattering",
-}
-# TODO: this will not be necessary once the MDS+ standardisation is complete
-UIDS_MDS = {
+        }
+
+        self.UIDS_MDS = {
     "xrcs": "sxr",
     "princeton": "spectrom",
     "nirh1": "interferom",
@@ -40,7 +44,7 @@ UIDS_MDS = {
     "sxr_diode_3": "sxr",
     "sxr_diode_4": "sxr",
 }
-QUANTITIES_MDS = {
+        self.QUANTITIES_MDS = {
     "efit": {
         "f": ".profiles.psi_norm:f",
         "faxs": ".global:faxs",
@@ -229,5 +233,5 @@ QUANTITIES_MDS = {
         "niz1": ".profiles.astra:niz1",  # Impurity density, 10^19/m^3
         "niz2": ".profiles.astra:niz2",  # Impurity density, 10^19/m^3
         "niz3": ".profiles.astra:niz3",  # Impurity density, 10^19/m^3
-    },
+    }
 }
