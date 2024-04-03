@@ -134,13 +134,13 @@ class HelikeSpectrometer(DiagnosticModel):
         _Nimp = self.Nimp.sel(element=element, )
         _Fz = self.Fz[element]
         transition_matrix = xr.concat([
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge - 1, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge - 1, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge - 1, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge + 1, ),
-            self.Nh * _Nimp * _Fz.sel(ion_charges=charge + 1, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge - 1, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge - 1, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge - 1, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge + 1, ),
+            self.Nh * _Nimp * _Fz.sel(ion_charge=charge + 1, ),
         ], "type").assign_coords(
             type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr", ])
         # fmt: on

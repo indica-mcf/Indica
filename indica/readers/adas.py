@@ -215,7 +215,7 @@ class ADASReader(BaseIO):
         return DataArray(
             10 ** (data - 6),
             coords=[
-                ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
+                ("ion_charge", np.arange(zmin, zmax + 1, dtype=int)),
                 ("electron_temperature", 10 ** (temperatures)),
                 ("electron_density", 10 ** (densities + 6)),
             ],
