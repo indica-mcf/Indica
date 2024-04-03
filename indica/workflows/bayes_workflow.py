@@ -467,9 +467,9 @@ class PlasmaContext:
             midplane_profiles[profile] = blobs[profile].interp(rho_poloidal=rho)
             midplane_profiles[profile]["R"] = R
             midplane_profiles[profile]["z"] = z
-            midplane_profiles[profile] = midplane_profiles[profile].swap_dims(
-                {"rho_poloidal": "R"}
-            )
+            # midplane_profiles[profile] = midplane_profiles[profile].swap_dims(
+            #     {"rho_poloidal": "R"}
+            # )
         return midplane_profiles
 
 
