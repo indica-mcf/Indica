@@ -127,10 +127,13 @@ class Plasma:
         z0, z1 = self.machine_dimensions[1]
         self.R = format_coord(np.linspace(R0, R1, n_R), "R")
         self.z = format_coord(np.linspace(z0, z1, n_z), "z")
+
+        index = np.arange(n_R)
         R_midplane = np.linspace(self.R.min(), self.R.max(), n_R)
-        self.R_midplane = format_coord(R_midplane, "R_midplane")
         z_midplane = np.full_like(R_midplane, 0.0)
-        self.z_midplane = format_coord(z_midplane, "z_midplane")
+        coords_midplane = [("index", format_coord(index, "index"))]
+        self.R_midplane = format_dataarray(R_midplane, "R_midplane", coords_midplane)
+        self.z_midplane = format_dataarray(z_midplane, "z_midplane", coords_midplane)
 
         # Time and radial grid
         self.rho = format_coord(np.linspace(0, 1.0, self.n_rad), self.rho_type)
