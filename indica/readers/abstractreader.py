@@ -1,17 +1,14 @@
 """Experimental design for reading data from disk/database.
 """
 
-from copy import deepcopy
 import datetime
 from typing import Any
 from typing import Dict
-from typing import Iterable
 from typing import List
 from typing import Set
 from typing import Tuple
 
 import numpy as np
-import prov.model as prov
 import xarray as xr
 from xarray import DataArray
 
@@ -19,18 +16,35 @@ from indica.abstractio import BaseIO
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
 from indica.datatypes import ArrayType
+from indica.numpy_typing import OnlyArray
 from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.session import hash_vals
 from indica.session import Session
+from indica.utilities import format_coord
+from indica.utilities import format_dataarray
 
-# TODO: Place this in some global location?
-CACHE_DIR = ".indica"
 
-# TODO: change datatypes to long_name & units!!!
-NAME_UNITS = {
-    "brightness": ("Brightness", "W $m^{-2}$"),
-}
+def instatiate_line_of_sight(
+    location: OnlyArray,
+    direction: OnlyArray,
+    instrument: str,
+    machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]],
+    dl: float,
+    passes: int,
+) -> LineOfSightTransform:
+    return LineOfSightTransform(
+        location[:, 0],
+        location[:, 1],
+        location[:, 2],
+        direction[:, 0],
+        direction[:, 1],
+        direction[:, 2],
+        f"{instrument}",
+        machine_dimensions=machine_dimensions,
+        dl=dl,
+        passes=passes,
+    )
 
 
 class DataReader(BaseIO):
@@ -66,13 +80,12 @@ class DataReader(BaseIO):
     _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {}
 
     _RECORD_TEMPLATE = "{}-{}-{}-{}-{}"
-    NAMESPACE: Tuple[str, str] = ("impurities", "https://ccfe.ukaea.uk")
+    NAMESPACE: Tuple[str, str] = ("experiment", "server")
 
     def __init__(
         self,
         tstart: float,
         tend: float,
-        max_freq: float,
         sess: Session,
         **kwargs: Any,
     ):
@@ -86,9 +99,6 @@ class DataReader(BaseIO):
             Start of time range for which to get data.
         tend
             End of time range for which to get data.
-        max_freq
-            Maximum frequency of data-sampling, above which some sort of
-            averaging or compression may be performed.
         sess
             An object representing the session being run. Contains information
             such as provenance data.
@@ -100,13 +110,10 @@ class DataReader(BaseIO):
         self._reader_cache_id: str
         self._tstart = tstart
         self._tend = tend
-        self._max_freq = max_freq
         self._start_time = None
         self.session = sess
         self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
-        prov_attrs: Dict[str, Any] = dict(
-            tstart=tstart, tend=tend, max_freq=max_freq, **kwargs
-        )
+        prov_attrs: Dict[str, Any] = dict(tstart=tstart, tend=tend, **kwargs)
         self.prov_id = hash_vals(reader_type=self.__class__.__name__, **prov_attrs)
         self.agent = self.session.prov.agent(self.prov_id)
         self.session.prov.actedOnBehalfOf(self.agent, self.session.agent)
@@ -172,60 +179,26 @@ class DataReader(BaseIO):
         database_results = self._get_thomson_scattering(
             uid, instrument, revision, quantities
         )
-        if len(database_results) == 0:
-            print(f"No data from {uid}.{instrument}:{revision}")
-            return database_results
 
-        channel = np.arange(database_results["length"])
-        t = database_results["times"]
-        x = database_results["x"]
-        y = database_results["y"]
-        z = database_results["z"]
-        R = database_results["R"]
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
-        x_coord = DataArray(
-            x, coords=[("channel", channel)], attrs={"long_name": "x", "units": "m"}
-        )
-        y_coord = DataArray(
-            y, coords=[("channel", channel)], attrs={"long_name": "y", "units": "m"}
-        )
-        z_coord = DataArray(
-            z, coords=[("channel", channel)], attrs={"long_name": "z", "units": "m"}
-        )
-        R_coord = DataArray(
-            R, coords=[("channel", channel)], attrs={"long_name": "R", "units": "m"}
-        )
-        if x_coord.equals(y_coord):
-            x_coord = R_coord
-            y_coord = xr.zeros_like(x_coord)
         transform = TransectCoordinates(
-            x_coord,
-            y_coord,
-            z_coord,
+            database_results["x"],
+            database_results["y"],
+            database_results["z"],
             f"{instrument}",
             machine_dimensions=database_results["machine_dims"],
         )
-        coords = [
-            ("t", t),
-            ("channel", channel),
-        ]
+        database_results["channel"] = np.arange(database_results["length"])
+
         data = {}
+        dims = ["t", "channel"]
         for quantity in quantities:
-            quant_data = self.assign_dataarray(
-                uid,
+            data[quantity] = self.assign_dataarray(
                 instrument,
                 quantity,
                 database_results,
-                coords,
-                transform,
+                dims,
+                transform=transform,
             )
-
-            quant_data = quant_data.assign_coords(x=("channel", x_coord))
-            quant_data = quant_data.assign_coords(y=("channel", y_coord))
-            quant_data = quant_data.assign_coords(z=("channel", z_coord))
-            quant_data = quant_data.assign_coords(R=("channel", R_coord))
-
-            data[quantity] = quant_data
 
         return data
 
@@ -260,97 +233,41 @@ class DataReader(BaseIO):
             uid, instrument, revision, quantities
         )
 
-        channel = np.arange(database_results["length"])
-        t = database_results["times"]
-        x = database_results["x"]
-        y = database_results["y"]
-        z = database_results["z"]
-        R = database_results["R"]
-        if "wavelength" in database_results.keys():
-            wavelength = database_results["wavelength"]
-            pixel = np.arange(len(wavelength))
-            wavelength = DataArray(
-                wavelength,
-                coords=[("pixel", pixel)],
-                attrs={"long_name": "Wavelength", "units": "nm"},
-            )
-            coords_spectra = [
-                ("t", t),
-                ("channel", channel),
-                ("wavelength", wavelength),
-            ]
-
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
-        x_coord = DataArray(
-            x, coords=[("channel", channel)], attrs={"long_name": "x", "units": "m"}
-        )
-        y_coord = DataArray(
-            y, coords=[("channel", channel)], attrs={"long_name": "y", "units": "m"}
-        )
-        z_coord = DataArray(
-            z, coords=[("channel", channel)], attrs={"long_name": "z", "units": "m"}
-        )
-        R_coord = DataArray(
-            R, coords=[("channel", channel)], attrs={"long_name": "R", "units": "m"}
-        )
-
-        if x_coord.equals(y_coord):
-            x_coord = R_coord
-            y_coord = xr.zeros_like(x_coord)
         transform = TransectCoordinates(
-            x_coord,
-            y_coord,
-            z_coord,
+            database_results["x"],
+            database_results["y"],
+            database_results["z"],
             f"{instrument}",
             machine_dimensions=database_results["machine_dims"],
         )
-        coords = [
-            ("t", t),
-            ("channel", channel),
-        ]
+        los_transform = instatiate_line_of_sight(
+            database_results["location"],
+            database_results["direction"],
+            instrument,
+            database_results["machine_dims"],
+            dl,
+            passes,
+        )
 
-        location = database_results["location"]
-        direction = database_results["direction"]
-        if location is not None and direction is not None:
-            los_transform = LineOfSightTransform(
-                location[:, 0],
-                location[:, 1],
-                location[:, 2],
-                direction[:, 0],
-                direction[:, 1],
-                direction[:, 2],
-                f"{instrument}",
-                machine_dimensions=database_results["machine_dims"],
-                dl=dl,
-                passes=passes,
-            )
+        database_results["channel"] = np.arange(database_results["length"])
+        if "wavelength" in database_results.keys():
+            database_results["pixel"] = np.arange(len(database_results["wavelength"]))
 
         data = {}
         for quantity in quantities:
             if quantity == "spectra" or quantity == "fit":
-                if "wavelength" in database_results.keys():
-                    _coords = coords_spectra
-                else:
-                    continue
+                dims = ["t", "channel", "wavelength"]
             else:
-                _coords = coords
+                dims = ["t", "channel"]
 
             quant_data = self.assign_dataarray(
-                uid,
                 instrument,
                 quantity,
                 database_results,
-                _coords,
-                transform,
+                dims,
+                transform=transform,
             )
-            if location is not None and direction is not None:
-                quant_data.attrs["los_transform"] = los_transform
-
-            quant_data = quant_data.assign_coords(x=("channel", x_coord))
-            quant_data = quant_data.assign_coords(y=("channel", y_coord))
-            quant_data = quant_data.assign_coords(z=("channel", z_coord))
-            quant_data = quant_data.assign_coords(R=("channel", R_coord))
-
+            quant_data.attrs["los_transform"] = los_transform
             data[quantity] = quant_data
 
         return data
@@ -395,54 +312,30 @@ class DataReader(BaseIO):
             )[0]
         database_results["spectra"] = database_results["spectra"][:, has_data, :]
         database_results["spectra_error"] = database_results["spectra"] * 0.0
-        # database_results["spectra_error"] = database_results["spectra_error"][
-        #     :, has_data, :
-        # ]
 
-        _channel = np.arange(len(has_data))  # np.arange(database_results["length"])
-        channel = DataArray(
-            _channel,
-            coords=[("channel", _channel)],
-            attrs={"long_name": "Channel", "units": ""},
+        los_transform = instatiate_line_of_sight(
+            database_results["location"],
+            database_results["direction"],
+            instrument,
+            database_results["machine_dims"],
+            dl,
+            passes,
         )
-        _t = database_results["times"]
-        t = DataArray(_t, coords=[("t", _t)], attrs={"long_name": "t", "units": "s"})
-        wavelength = database_results["wavelength"]
-        pixel = np.arange(len(wavelength))
-        wavelength = DataArray(
-            wavelength,
-            coords=[("pixel", pixel)],
-            attrs={"long_name": "Wavelength", "units": "nm"},
-        )
+        database_results["channel"] = np.arange(len(has_data))
 
-        location = database_results["location"][has_data, :]
-        direction = database_results["direction"][has_data, :]
-        transform = LineOfSightTransform(
-            location[:, 0],
-            location[:, 1],
-            location[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
-            dl=dl,
-            passes=passes,
-        )
-        coords = [
-            ("t", t),
-            ("channel", channel),
-            ("wavelength", wavelength),
-        ]
         data = {}
         for quantity in quantities:
+            if quantity == "spectra":
+                dims = ["t", "channel", "wavelength"]
+            else:
+                dims = ["t", "channel"]
+
             quant_data = self.assign_dataarray(
-                uid,
                 instrument,
                 quantity,
                 database_results,
-                coords,
-                transform,
+                dims,
+                transform=los_transform,
             )
 
             data[quantity] = quant_data
@@ -477,86 +370,58 @@ class DataReader(BaseIO):
 
         database_results = self._get_equilibrium(uid, instrument, revision, quantities)
 
-        _coords: dict = {}
-        rho = np.sqrt(database_results["psin"])
-        t = database_results["times"]
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
-
-        _coords["psin"] = [("psin", database_results["psin"])]
-        _coords["psi"] = [
-            ("t", t),
-            ("z", database_results["psi_z"]),
-            ("R", database_results["psi_r"]),
-        ]
-
-        global_quantities: list = [
-            "rmag",
-            "zmag",
-            "rgeo",
-            "faxs",
-            "fbnd",
-            "ipla",
-            "wp",
-            "df",
-        ]
-        global_coords = [("t", t)]
-        for quant in global_quantities:
-            _coords[quant] = global_coords
-
-        separatrix_quantities: list = ["rbnd", "zbnd"]
+        # Reorganise coordinates
+        database_results["rho_poloidal"] = np.sqrt(database_results["psin"])
+        database_results["z"] = database_results["psi_z"]
+        database_results["R"] = database_results["psi_r"]
         if "rbnd" in database_results.keys():
-            sep_coords = [
-                ("t", t),
-                ("arbitrary_index", np.arange(np.size(database_results["rbnd"][0, :]))),
-            ]
-            for quant in separatrix_quantities:
-                _coords[quant] = sep_coords
+            database_results["arbitrary_index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
 
-        flux_quantities: list = ["f", "ftor", "vjac", "ajac", "rmji", "rmjo"]
-        for quant in flux_quantities:
-            _coords[quant] = [("t", t), ("rho_poloidal", rho)]
+        # Group variables for coordinate assignement
+        sep_vars = ["rbnd", "zbnd"]
+        flux_vars = ["f", "ftor", "vjac", "ajac", "rmji", "rmjo"]
 
-        t_unique, ind_unique = np.unique(t, return_index=True)
-        rmag = self.assign_dataarray(
-            uid,
-            instrument,
-            "rmag",
-            database_results,
-            _coords["rmag"],
-            include_error=False,
-        )
-        zmag = self.assign_dataarray(
-            uid,
-            instrument,
-            "zmag",
-            database_results,
-            _coords["zmag"],
-            include_error=False,
-        )
+        # Check that times are unique
+        correct_times: bool = False
+        t_unique, ind_unique = np.unique(database_results["t"], return_index=True)
+        if len(database_results["t"]) != len(t_unique):
+            correct_times = True
+
         data: Dict[str, DataArray] = {}
         for quantity in quantities:
-            coords = _coords[quantity]
+            if quantity == "psi":
+                dims = ["t", "z", "R"]
+            elif quantity in sep_vars:
+                dims = ["t", "arbitrary_index"]
+            elif quantity in flux_vars:
+                dims = ["t", "rho_poloidal"]
+            else:  # global quantities
+                dims = ["t"]
+
             quant_data = self.assign_dataarray(
-                uid,
                 instrument,
                 quantity,
                 database_results,
-                coords,
+                dims,
                 include_error=False,
             )
-            if quantity in {"rmji", "rmjo"}:
-                quant_data.coords["z"] = zmag
-            elif quantity == "faxs":
-                quant_data.coords["R"] = rmag
-                quant_data.coords["z"] = zmag
 
-            if len(t) != len(t_unique):
-                print(
-                    """Equilibrium time axis does not have
-                    unique elements...correcting..."""
-                )
+            if correct_times:
+                print(f"{instrument}: correcting non-unique times")
                 quant_data = quant_data.isel(t=ind_unique)
+
             data[quantity] = quant_data
+
+        # Add additional coordinates
+        if "rmji" in quantities:
+            data["rmji"].coords["z"] = data["zmag"]
+        if "rmji" in quantities:
+            data["rmjo"].coords["z"] = data["zmag"]
+        if "faxs" in quantities:
+            data["faxs"].coords["R"] = data["rmag"]
+            data["faxs"].coords["z"] = data["zmag"]
 
         return data
 
@@ -620,41 +485,25 @@ class DataReader(BaseIO):
             revision,
             quantities,
         )
-        location = database_results["location"]
-        direction = database_results["direction"]
-        transform = LineOfSightTransform(
-            location[:, 0],
-            location[:, 1],
-            location[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
-            dl=dl,
-            passes=passes,
+        los_transform = instatiate_line_of_sight(
+            database_results["location"],
+            database_results["direction"],
+            instrument,
+            database_results["machine_dims"],
+            dl,
+            passes,
         )
-        t = database_results["times"]
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
-        coords = [("t", t)]
-        if database_results["length"] > 1:
-            coords.append(("channel", np.arange(database_results["length"])))
+        database_results["channel"] = np.arange(database_results["length"])
 
         data = {}
+        dims = ["t", "channel"]
         for quantity in quantities:
-            if quantity in NAME_UNITS.keys():
-                long_name, units = NAME_UNITS[quantity]
-            else:
-                long_name, units = "", ""
             quant_data = self.assign_dataarray(
-                uid,
                 instrument,
                 quantity,
                 database_results,
-                coords,
-                transform=transform,
-                long_name=long_name,
-                units=units,
+                dims,
+                transform=los_transform,
             )
             data[quantity] = quant_data
 
@@ -693,34 +542,26 @@ class DataReader(BaseIO):
             revision,
             quantities,
         )
-        location = database_results["location"]
-        direction = database_results["direction"]
-        transform = LineOfSightTransform(
-            location[:, 0],
-            location[:, 1],
-            location[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
-            dl=dl,
-            passes=passes,
+        los_transform = instatiate_line_of_sight(
+            database_results["location"],
+            database_results["direction"],
+            instrument,
+            database_results["machine_dims"],
+            dl,
+            passes,
         )
-        t = database_results["times"]
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
-        coords = [("t", t)]
         if database_results["length"] > 1:
-            coords.append(("channel", np.arange(database_results["length"])))
+            database_results["channel"] = np.arange(database_results["length"])
+
         data = {}
+        dims = ["t"]
         for quantity in quantities:
             quant_data = self.assign_dataarray(
-                uid,
                 instrument,
                 quantity,
                 database_results,
-                coords,
-                transform=transform,
+                dims,
+                transform=los_transform,
             )
             data[quantity] = quant_data
 
@@ -761,52 +602,29 @@ class DataReader(BaseIO):
             quantities,
         )
 
-        location = database_results["location"]
-        direction = database_results["direction"]
-        transform = LineOfSightTransform(
-            location[:, 0],
-            location[:, 1],
-            location[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
-            dl=dl,
-            passes=passes,
+        los_transform = instatiate_line_of_sight(
+            database_results["location"],
+            database_results["direction"],
+            instrument,
+            database_results["machine_dims"],
+            dl,
+            passes,
         )
-        t = database_results["times"]
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
-        channel = np.arange(database_results["length"])
-        wavelength = database_results["wavelength"]
-        pixel = np.arange(len(wavelength))
-        wavelength = DataArray(
-            wavelength,
-            coords=[("pixel", pixel)],
-            attrs={"long_name": "Wavelength", "units": "nm"},
-        )
-
-        _coords: dict = {}
-        _coords["1d"] = [("t", t)]
-        if database_results["length"] > 1:
-            _coords["1d"].append(("channel", channel))
-        _coords["spectra"] = deepcopy(_coords["1d"])
-        _coords["spectra"].append(("wavelength", wavelength))
+        database_results["channel"] = np.arange(database_results["length"])
 
         data: dict = {}
         for quantity in quantities:
-            if quantity in _coords:
-                coords = _coords["spectra"]
+            if quantity == "spectra":
+                dims = ["t", "wavelength"]
             else:
-                coords = _coords["1d"]
+                dims = ["t"]
 
             quant_data = self.assign_dataarray(
-                uid,
                 instrument,
                 quantity,
                 database_results,
-                coords,
-                transform=transform,
+                dims,
+                transform=los_transform,
             )
             data[quantity] = quant_data
 
@@ -845,39 +663,29 @@ class DataReader(BaseIO):
             revision,
             quantities,
         )
-        location = database_results["location"]
-        direction = database_results["direction"]
-        transform = LineOfSightTransform(
-            location[:, 0],
-            location[:, 1],
-            location[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
-            dl=dl,
-            passes=passes,
+        los_transform = instatiate_line_of_sight(
+            database_results["location"],
+            database_results["direction"],
+            instrument,
+            database_results["machine_dims"],
+            dl,
+            passes,
         )
-
-        t = database_results["times"]
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
-        label = database_results["labels"]
-        coords = [("t", t)]
-        if database_results["length"] > 1:
-            coords.append(("channel", np.arange(database_results["length"])))
+        database_results["channel"] = np.arange(database_results["length"])
 
         data: dict = {}
+        dims = ["t", "channel"]
         for quantity in quantities:
             quant_data = self.assign_dataarray(
-                uid,
                 instrument,
                 quantity,
                 database_results,
-                coords,
-                transform=transform,
+                dims,
+                transform=los_transform,
             )
-            data[quantity] = quant_data.assign_coords(label=("channel", label))
+            data[quantity] = quant_data.assign_coords(
+                label=("channel", database_results["labels"])
+            )
 
         return data
 
@@ -914,36 +722,25 @@ class DataReader(BaseIO):
             revision,
             quantities,
         )
-        location = database_results["location"]
-        direction = database_results["direction"]
-        transform = LineOfSightTransform(
-            location[:, 0],
-            location[:, 1],
-            location[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
-            dl=dl,
-            passes=passes,
+        los_transform = instatiate_line_of_sight(
+            database_results["location"],
+            database_results["direction"],
+            instrument,
+            database_results["machine_dims"],
+            dl,
+            passes,
         )
-        t = database_results["times"]
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
-        channel = np.arange(database_results["length"])
-        coords = [("t", t)]
-        if database_results["length"] > 1:
-            coords.append(("channel", channel))
+        database_results["channel"] = np.arange(database_results["length"])
 
         data: dict = {}
+        dims = ["t"]
         for quantity in quantities:
             quant_data = self.assign_dataarray(
-                uid,
                 instrument,
                 quantity,
                 database_results,
-                coords,
-                transform=transform,
+                dims,
+                transform=los_transform,
             )
             data[quantity] = quant_data
 
@@ -975,18 +772,20 @@ class DataReader(BaseIO):
     ) -> Dict[str, DataArray]:
         """
         Reads ASTRA data
+
+        TODO: must be fixed post change to new DATATYPES and AVAILABLE_QUANTITIES
         """
         database_results = self._get_astra(uid, instrument, revision, quantities)
 
         # Reorganise coordinate system to match Indica default rho-poloidal
-        t = database_results["times"]
+        t = database_results["t"]
         t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
         psin = database_results["psin"]
         rhop_psin = np.sqrt(psin)
         rhop_interp = np.linspace(0, 1.0, 65)
         rhot_astra = database_results["rho"] / np.max(database_results["rho"])
         rhot_rhop = []
-        for it in range(len(database_results["times"])):
+        for it in range(len(database_results["t"])):
             ftor_tmp = database_results["ftor"][it, :]
             psi_tmp = database_results["psi_1d"][it, :]
             rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
@@ -1030,7 +829,6 @@ class DataReader(BaseIO):
                 continue
 
             quant_data = self.assign_dataarray(
-                uid,
                 instrument,
                 quantity,
                 database_results,
@@ -1071,75 +869,75 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    def create_provenance(
-        self,
-        diagnostic: str,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantity: str,
-        data_objects: Iterable[str],
-    ) -> prov.ProvEntity:
-        """Create a provenance entity for the given set of data. This should
-        be attached as metadata.
-
-        Note that this method just creates the provenance data
-        appropriate for the arguments it has been provided with. It
-        does not check that these arguments are actually valid and
-        that the provenance corresponds to actually existing data.
-
-        Parameters
-        ----------
-        data_objects
-            Identifiers for the database entries or files which the data was
-            read from.
-
-        Returns
-        -------
-        :
-            A provenance entity for the newly read-in data.
-        """
-        end_time = datetime.datetime.now()
-        entity_id = hash_vals(
-            creator=self.prov_id,
-            diagnostic=diagnostic,
-            uid=uid,
-            instrument=instrument,
-            revision=revision,
-            quantity=quantity,
-            date=end_time,
-        )
-        attrs = {
-            prov.PROV_TYPE: "DataArray",
-            prov.PROV_VALUE: ",".join(
-                str(s) for s in self.available_quantities(instrument)[quantity]
-            ),
-            "uid": uid,
-            "instrument": instrument,
-            "diagnostic": diagnostic,
-            "revision": revision,
-            "quantity": quantity,
-        }
-        activity_id = hash_vals(agent=self.prov_id, date=end_time)
-        activity = self.session.prov.activity(
-            activity_id,
-            self._start_time,
-            end_time,
-            {prov.PROV_TYPE: "ReadData"},
-        )
-        activity.wasAssociatedWith(self.session.agent)
-        activity.wasAssociatedWith(self.agent)
-        activity.wasInformedBy(self.session.session)
-        entity = self.session.prov.entity(entity_id, attrs)
-        entity.wasGeneratedBy(activity, end_time)
-        entity.wasAttributedTo(self.session.agent)
-        entity.wasAttributedTo(self.agent)
-        for data in data_objects:
-            # TODO: Find some way to avoid duplicate records
-            data_entity = self.session.prov.entity(self.NAMESPACE[0] + ":" + data)
-            entity.wasDerivedFrom(data_entity)
-            activity.used(data_entity)
-            return entity
+    # def create_provenance(
+    #     self,
+    #     diagnostic: str,
+    #     uid: str,
+    #     instrument: str,
+    #     revision: RevisionLike,
+    #     quantity: str,
+    #     data_objects: Iterable[str],
+    # ) -> prov.ProvEntity:
+    #     """Create a provenance entity for the given set of data. This should
+    #     be attached as metadata.
+    #
+    #     Note that this method just creates the provenance data
+    #     appropriate for the arguments it has been provided with. It
+    #     does not check that these arguments are actually valid and
+    #     that the provenance corresponds to actually existing data.
+    #
+    #     Parameters
+    #     ----------
+    #     data_objects
+    #         Identifiers for the database entries or files which the data was
+    #         read from.
+    #
+    #     Returns
+    #     -------
+    #     :
+    #         A provenance entity for the newly read-in data.
+    #     """
+    #     end_time = datetime.datetime.now()
+    #     entity_id = hash_vals(
+    #         creator=self.prov_id,
+    #         diagnostic=diagnostic,
+    #         uid=uid,
+    #         instrument=instrument,
+    #         revision=revision,
+    #         quantity=quantity,
+    #         date=end_time,
+    #     )
+    #     attrs = {
+    #         prov.PROV_TYPE: "DataArray",
+    #         prov.PROV_VALUE: ",".join(
+    #             str(s) for s in self.available_quantities(instrument)[quantity]
+    #         ),
+    #         "uid": uid,
+    #         "instrument": instrument,
+    #         "diagnostic": diagnostic,
+    #         "revision": revision,
+    #         "quantity": quantity,
+    #     }
+    #     activity_id = hash_vals(agent=self.prov_id, date=end_time)
+    #     activity = self.session.prov.activity(
+    #         activity_id,
+    #         self._start_time,
+    #         end_time,
+    #         {prov.PROV_TYPE: "ReadData"},
+    #     )
+    #     activity.wasAssociatedWith(self.session.agent)
+    #     activity.wasAssociatedWith(self.agent)
+    #     activity.wasInformedBy(self.session.session)
+    #     entity = self.session.prov.entity(entity_id, attrs)
+    #     entity.wasGeneratedBy(activity, end_time)
+    #     entity.wasAttributedTo(self.session.agent)
+    #     entity.wasAttributedTo(self.agent)
+    #     for data in data_objects:
+    #         # TODO: Find some way to avoid duplicate records
+    #         data_entity = self.session.prov.entity(self.NAMESPACE[0] + ":" + data)
+    #         entity.wasDerivedFrom(data_entity)
+    #         activity.used(data_entity)
+    #         return entity
 
     def available_quantities(self, instrument) -> dict:
         """Return the quantities which can be read for the specified
@@ -1153,23 +951,17 @@ class DataReader(BaseIO):
 
     def assign_dataarray(
         self,
-        uid: str,
         instrument: str,
         quantity: str,
         database_results: Dict[str, DataArray],
-        coords: List,
+        dims: List[str],
         transform=None,
         include_error: bool = True,
-        long_name: str = "",
-        units: str = "",
     ) -> DataArray:
         """
 
         Parameters
         ----------
-
-        uid
-            User ID
         instrument
             The instrument name
         quantity
@@ -1177,7 +969,7 @@ class DataReader(BaseIO):
         database_results
             Dictionary output of private reader methods
         coords
-            DataArray coordinate list.
+            List of coordinate names from database_results.
         transform
             Coordinate transform.
         include_error
@@ -1185,66 +977,32 @@ class DataReader(BaseIO):
 
         Returns
         -------
-
+        DataArray with assigned coordinates, transform, error, long_name and units
         """
+        # Build coordinate dictionary
+        coords = []
+        for dim in dims:
+            coords.append((dim, format_coord(database_results[dim], dim)))
 
-        available_quantities = self.available_quantities(instrument)
+        # Build DataArray data with coordinates and long_name + units
+        var_name = self.available_quantities(instrument)[quantity]
+        data = format_dataarray(database_results[quantity], var_name, coords)
+        if "t" in data.dims:
+            data = data.sel(t=slice(self._tstart, self._tend))
 
-        quant_data = DataArray(
-            database_results[quantity],
-            coords,
-        )
-        if "t" in quant_data.dims:
-            quant_data = quant_data.sel(t=slice(self._tstart, self._tend))
-
-        quant_data.attrs = {
-            "datatype": available_quantities[quantity],
-        }
-        if len(long_name) > 0:
-            quant_data.attrs["long_name"] = long_name
-        if len(units) > 0:
-            quant_data.attrs["units"] = units
+        # ..do the same with the error
+        error = xr.zeros_like(data)
+        if quantity + "_error" in database_results:
+            error = format_dataarray(
+                database_results[quantity + "_error"], var_name, coords
+            )
+            if "t" in error.dims:
+                error = error.sel(t=slice(self._tstart, self._tend))
 
         if include_error:
-            if quantity + "_error" in database_results:
-                quant_error = DataArray(
-                    database_results[quantity + "_error"], coords=coords
-                )
-                if "t" in quant_data.dims:
-                    quant_error = quant_error.sel(t=slice(self._tstart, self._tend))
-            else:
-                quant_error = xr.zeros_like(quant_data)
-            quant_data.attrs["error"] = quant_error
+            data.attrs["error"] = error
 
         if transform is not None:
-            quant_data.attrs["transform"] = transform
+            data.attrs["transform"] = transform
 
-        if "times" in database_results:
-            times = database_results["times"]
-            downsample_ratio = int(
-                np.ceil((len(times) - 1) / (times[-1] - times[0]) / self._max_freq)
-            )
-            if downsample_ratio > 1:
-                print("** DOWNSAMPLING IN THE ABSTRACTREADER **")
-                quant_data = quant_data.coarsen(
-                    t=downsample_ratio, boundary="trim", keep_attrs=True
-                ).mean()
-                quant_data.attrs["error"] = np.sqrt(
-                    (quant_data.attrs["error"] ** 2)
-                    .coarsen(t=downsample_ratio, boundary="trim", keep_attrs=True)
-                    .mean()
-                    / downsample_ratio
-                )
-        quant_data.name = instrument + "_" + quantity
-        quant_data.attrs["partial_provenance"] = self.create_provenance(
-            self.INSTRUMENT_METHODS[instrument],
-            uid,
-            instrument,
-            database_results["revision"],
-            quantity,
-            database_results[quantity + "_records"],
-        )
-        quant_data.attrs["provenance"] = quant_data.attrs["partial_provenance"]
-        quant_data = quant_data
-
-        return quant_data
+        return data

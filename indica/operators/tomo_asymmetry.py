@@ -229,7 +229,7 @@ def example_run(asymmetric_profile: bool = True):
     )
     lz_tot_2d = (
         plasma.lz_tot["ar"]
-        .sum("ion_charges")
+        .sum("ion_charge")
         .interp(rho_poloidal=ar_density_2d.rho_poloidal)
     )
     profile_2d = ne_density_2d * ar_density_2d * lz_tot_2d

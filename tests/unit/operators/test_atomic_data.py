@@ -204,7 +204,7 @@ def test_calc_eigen_vals_and_vecs(test_calc_F_z_tinf):
     )
 
     for irho in range(rho.size):
-        for ieig in range(example_frac_abundance_no_optional.num_of_ion_charges):
+        for ieig in range(example_frac_abundance_no_optional.num_of_ion_charge):
             test_eigen = np.dot(
                 ionisation_balance_matrix[:, :, irho], eig_vecs[:, ieig, irho]
             ) - np.dot(eig_vals[ieig, irho], eig_vecs[:, ieig, irho])
@@ -229,7 +229,7 @@ def test_calc_eigen_vals_and_vecs(test_calc_F_z_tinf):
     ionisation_balance_matrix = example_frac_abundance.ionisation_balance_matrix
 
     for irho in range(rho.size):
-        for ieig in range(example_frac_abundance.num_of_ion_charges):
+        for ieig in range(example_frac_abundance.num_of_ion_charge):
             test_eigen = np.dot(
                 ionisation_balance_matrix[:, :, irho], eig_vecs[:, ieig, irho]
             ) - np.dot(eig_vals[ieig, irho], eig_vecs[:, ieig, irho])

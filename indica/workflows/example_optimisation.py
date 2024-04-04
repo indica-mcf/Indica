@@ -115,7 +115,7 @@ def match_helike_spectroscopy_intensity(
     guess: float = 1.0e15,
     bounds: tuple = (1.0e13, 1.0e19),
     bckc: dict = {},
-    element: str = "ar",
+    element: tuple = ("ar",),
 ):
     def residuals(guess):
         plasma.Nimp_prof.y0 = guess

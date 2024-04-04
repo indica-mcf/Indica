@@ -680,6 +680,18 @@ qa = ["flake8 (==3.8.3)", "mypy (==0.782)"]
 testing = ["docopt", "pytest (<6.0.0)"]
 
 [[package]]
+name = "periodictable"
+version = "1.6.1"
+description = "Extensible periodic table of the elements"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+numpy = "*"
+pyparsing = "*"
+
+[[package]]
 name = "pexpect"
 version = "4.9.0"
 description = "Pexpect allows easy control of interactive console applications."
@@ -1228,7 +1240,7 @@ testing = ["big-o", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9,<3.11"
-content-hash = "900b71fe9062e8768a92fb7273aad6661d52ca65a50fd7fbeb22603388bf3e7c"
+content-hash = "1abf50df6ca402116f77e65b4bf233377d8379b5c87891055b45b641a8452eac"
 
 [metadata.files]
 aniso8601 = [
@@ -2033,6 +2045,10 @@ pandas = [
 parso = [
     {file = "parso-0.8.3-py2.py3-none-any.whl", hash = "sha256:c001d4636cd3aecdaf33cbb40aebb59b094be2a74c556778ef5576c175e19e75"},
     {file = "parso-0.8.3.tar.gz", hash = "sha256:8c07be290bb59f03588915921e29e8a50002acaf2cdc5fa0e0114f91709fafa0"},
+]
+periodictable = [
+    {file = "periodictable-1.6.1-py2.py3-none-any.whl", hash = "sha256:5b02d7171e6a8bcb7060b086c6150ac4152a36b70edcd34e5549981d84d31eed"},
+    {file = "periodictable-1.6.1.tar.gz", hash = "sha256:7c501c9f73d77b1fb28cb51e85b28429c2c44a99ce3d1274894564c72d712603"},
 ]
 pexpect = [
     {file = "pexpect-4.9.0-py2.py3-none-any.whl", hash = "sha256:7236d1e080e4936be2dc3e326cec0af72acf9212a7e1d060210e70a47e253523"},

@@ -112,7 +112,7 @@ QUANTITIES = itertools.chain(
 )
 @click.option(
     "-t",
-    "--max-times",
+    "--max-time",
     default=100,
     help="The (rough) maximum number of increments along the time axis for which "
     "to keep data.",
@@ -144,7 +144,7 @@ def get_example_ppfs(
     uid,
     url,
     channel_stride,
-    max_times,
+    max_time,
     single_precision,
     sourcefile,
     fake_data,
@@ -188,7 +188,7 @@ def get_example_ppfs(
         try:
             print(f"Getting data for {path}...")
             values[q] = thin_data(
-                client.get(path), channel_stride, max_times, single_precision
+                client.get(path), channel_stride, max_time, single_precision
             )
             if fake_data:
                 values[q].data = np.random.rand(*values[q].data.shape)
@@ -204,7 +204,7 @@ def get_example_ppfs(
             try:
                 print(f"Getting data for {path}...")
                 values[key] = thin_data(
-                    client.get(path), channel_stride, max_times, single_precision
+                    client.get(path), channel_stride, max_time, single_precision
                 )
                 if fake_data:
                     values[key].data = np.random.rand(*values[key].data.shape)
@@ -213,9 +213,9 @@ def get_example_ppfs(
     pickle.dump(values, output)
 
 
-def thin_data(signal, channel_stride=2, max_times=100, single_precision=True):
+def thin_data(signal, channel_stride=2, max_time=100, single_precision=True):
     """Reduces the size of some data by dropping some of the channels,
-    reducing the number of times to some maximum, and/or switching to
+    reducing the number of time to some maximum, and/or switching to
     single precision.
 
     Parameters
@@ -224,7 +224,7 @@ def thin_data(signal, channel_stride=2, max_times=100, single_precision=True):
         The data to be reduced in size.
     channel_stride : int
         The inverse of the fraction of channels to keep.
-    max_times : int
+    max_time : int
         The maximum number of points to keep along the time axis. The actual
         number may be slightly different, to ensure equal spacing.
     single_precision : bool
@@ -242,7 +242,7 @@ def thin_data(signal, channel_stride=2, max_times=100, single_precision=True):
         else:
             other_dims.append(dim)
     if time_dim:
-        time_stride = max(int(len(time_dim.data) / max_times), 1)
+        time_stride = max(int(len(time_dim.data) / max_time), 1)
         new_time = sal.dataclass.ArrayDimension(
             time_dim.data[::time_stride],
             dtype,

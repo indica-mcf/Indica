@@ -155,7 +155,7 @@ class FractionalAbundance(Operator):
             Interpolated effective recombination rate coefficients.
         CCD_spec
             Interpolated charge exchange cross coupling coefficients.
-        num_of_ion_charges
+        num_of_ion_charge
             Number of ionisation charges(stages) for the given impurity element.
         """
 
@@ -186,9 +186,9 @@ class FractionalAbundance(Operator):
         )
 
         self.SCD_spec, self.ACD_spec, self.CCD_spec = SCD_spec, ACD_spec, CCD_spec
-        self.num_of_ion_charges = self.SCD_spec.shape[0] + 1
+        self.num_of_ion_charge = self.SCD_spec.shape[0] + 1
 
-        return SCD_spec, ACD_spec, CCD_spec, self.num_of_ion_charges
+        return SCD_spec, ACD_spec, CCD_spec, self.num_of_ion_charge
 
     def calc_ionisation_balance_matrix(
         self,
@@ -224,15 +224,15 @@ class FractionalAbundance(Operator):
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
-        num_of_ion_charges = self.num_of_ion_charges
+        num_of_ion_charge = self.num_of_ion_charge
         SCD, ACD, CCD = self.SCD_spec, self.ACD_spec, self.CCD_spec
 
-        x1_coord = SCD.coords[[k for k in SCD.dims if k != "ion_charges"][0]]
+        x1_coord = SCD.coords[[k for k in SCD.dims if k != "ion_charge"][0]]
         self.x1_coord = x1_coord
 
         dims = (
-            num_of_ion_charges,
-            num_of_ion_charges,
+            num_of_ion_charge,
+            num_of_ion_charge,
             *x1_coord.shape,
         )
 
@@ -246,7 +246,7 @@ class FractionalAbundance(Operator):
                 + (Nh * CCD[icharge] if Nh is not None and CCD is not None else 0.0),
             ]
         )
-        for icharge in range(1, num_of_ion_charges - 1):
+        for icharge in range(1, num_of_ion_charge - 1):
             ionisation_balance_matrix[icharge, icharge - 1 : icharge + 2] = np.array(
                 [
                     Ne * SCD[icharge - 1],
@@ -262,7 +262,7 @@ class FractionalAbundance(Operator):
                     ),
                 ]
             )
-        icharge = num_of_ion_charges - 1
+        icharge = num_of_ion_charge - 1
         ionisation_balance_matrix[icharge, icharge - 1 : icharge + 1] = np.array(
             [
                 Ne * SCD[icharge - 1],
@@ -292,8 +292,8 @@ class FractionalAbundance(Operator):
         x1_coord = self.x1_coord
         ionisation_balance_matrix = self.ionisation_balance_matrix
 
-        null_space = np.zeros((self.num_of_ion_charges, x1_coord.size))
-        F_z_tinf = np.zeros((self.num_of_ion_charges, x1_coord.size))
+        null_space = np.zeros((self.num_of_ion_charge, x1_coord.size))
+        F_z_tinf = np.zeros((self.num_of_ion_charge, x1_coord.size))
 
         for ix1 in range(x1_coord.size):
             null_space[:, ix1, np.newaxis] = scipy.linalg.null_space(
@@ -310,14 +310,12 @@ class FractionalAbundance(Operator):
             data=F_z_tinf,
             coords=[
                 (
-                    "ion_charges",
-                    np.linspace(
-                        0, self.num_of_ion_charges - 1, self.num_of_ion_charges
-                    ),
+                    "ion_charge",
+                    np.linspace(0, self.num_of_ion_charge - 1, self.num_of_ion_charge),
                 ),
                 x1_coord,
             ],
-            dims=["ion_charges", x1_coord.dims[0]],
+            dims=["ion_charge", x1_coord.dims[0]],
         )
 
         self.F_z_tinf = F_z_tinf
@@ -339,10 +337,10 @@ class FractionalAbundance(Operator):
         """
         x1_coord = self.x1_coord
         eig_vals = np.zeros(
-            (self.num_of_ion_charges, x1_coord.size), dtype=np.complex128
+            (self.num_of_ion_charge, x1_coord.size), dtype=np.complex128
         )
         eig_vecs = np.zeros(
-            (self.num_of_ion_charges, self.num_of_ion_charges, x1_coord.size),
+            (self.num_of_ion_charge, self.num_of_ion_charge, x1_coord.size),
             dtype=np.complex128,
         )
 
@@ -390,14 +388,14 @@ class FractionalAbundance(Operator):
                 data=F_z_t0,
                 coords=[
                     (
-                        "ion_charges",
+                        "ion_charge",
                         np.linspace(
-                            0, self.num_of_ion_charges - 1, self.num_of_ion_charges
+                            0, self.num_of_ion_charge - 1, self.num_of_ion_charge
                         ),
                     ),
                     x1_coord,  # type: ignore
                 ],
-                dims=["ion_charges", x1_coord.dims[0]],
+                dims=["ion_charge", x1_coord.dims[0]],
             )
         else:
             try:
@@ -412,14 +410,14 @@ class FractionalAbundance(Operator):
                 data=F_z_t0.values,  # type: ignore
                 coords=[
                     (
-                        "ion_charges",
+                        "ion_charge",
                         np.linspace(
-                            0, self.num_of_ion_charges - 1, self.num_of_ion_charges
+                            0, self.num_of_ion_charge - 1, self.num_of_ion_charge
                         ),
                     ),
                     x1_coord,  # type: ignore
                 ],
-                dims=["ion_charges", x1_coord.dims[0]],
+                dims=["ion_charge", x1_coord.dims[0]],
             )
 
         eig_vals = self.eig_vals
@@ -466,7 +464,7 @@ class FractionalAbundance(Operator):
             else:
                 itau = tau
 
-            for icharge in range(self.num_of_ion_charges):
+            for icharge in range(self.num_of_ion_charge):
                 F_z_t[:, ix1] += (
                     self.eig_coeffs[icharge, ix1]
                     * np.exp(self.eig_vals[icharge, ix1] * itau)
@@ -670,7 +668,7 @@ class PowerLoss(Operator):
             ionisation charges.
         PRB_spec
             Interpolated radiated power from recombination and bremsstrahlung.
-        num_of_ion_charges
+        num_of_ion_charge
             Number of ionisation charges(stages) for the given impurity element.
         """
 
@@ -720,9 +718,9 @@ class PowerLoss(Operator):
         )
 
         self.PLT_spec, self.PRC_spec, self.PRB_spec = PLT_spec, PRC_spec, PRB_spec
-        self.num_of_ion_charges = self.PLT_spec.shape[0] + 1
+        self.num_of_ion_charge = self.PLT_spec.shape[0] + 1
 
-        return PLT_spec, PRC_spec, PRB_spec, self.num_of_ion_charges
+        return PLT_spec, PRC_spec, PRB_spec, self.num_of_ion_charge
 
     def calculate_power_loss(
         self,
@@ -775,7 +773,7 @@ class PowerLoss(Operator):
             raise ValueError("Please provide a valid F_z_t (Fractional Abundance).")
 
         self.x1_coord = self.PLT_spec.coords[
-            [k for k in self.PLT_spec.dims if k != "ion_charges"][0]
+            [k for k in self.PLT_spec.dims if k != "ion_charge"][0]
         ]
 
         x1_coord = self.x1_coord
@@ -789,7 +787,7 @@ class PowerLoss(Operator):
             cooling_factor[icharge, ix1] = (
                 PLT[icharge, ix1] * self.F_z_t[icharge, ix1]  # type: ignore
             )
-            for icharge in range(1, self.num_of_ion_charges - 1):
+            for icharge in range(1, self.num_of_ion_charge - 1):
                 cooling_factor[icharge, ix1] = (
                     PLT[icharge, ix1]
                     + (
@@ -802,7 +800,7 @@ class PowerLoss(Operator):
                     icharge, ix1
                 ]  # type: ignore
 
-            icharge = self.num_of_ion_charges - 1
+            icharge = self.num_of_ion_charge - 1
             cooling_factor[icharge, ix1] = (
                 (
                     (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
@@ -883,7 +881,7 @@ def interpolate_results(
     -------
     Interpolated values
     """
-    dim_old = [d for d in data.dims if d != "ion_charges"][0]
+    dim_old = [d for d in data.dims if d != "ion_charge"][0]
     _data = data.assign_coords(electron_temperature=(dim_old, Te_data))
     _data = _data.swap_dims({dim_old: "electron_temperature"}).drop_vars(dim_old)
     result = _data.interp(electron_temperature=Te_interp).drop_vars(
@@ -907,7 +905,7 @@ def default_profiles(main_ion: str = "h"):
     Fz_main_ion = FractionalAbundance(scd, acd, CCD=ccd)
     fz = Fz_main_ion(Te, Ne=Ne)
     Nh = xr.full_like(Te, 0.0)
-    _Nh = fz.sel(ion_charges=0) - fz.sel(ion_charges=0).min()
+    _Nh = fz.sel(ion_charge=0) - fz.sel(ion_charge=0).min()
     _Nh /= _Nh.max()
     Nh.values = _Nh * 1.0e16 + 1.0e12
 

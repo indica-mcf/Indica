@@ -148,7 +148,7 @@ def example_run(
     plot=False,
 ):
 
-    # TODO: LOS sometimes crossing bad EFIT reconstruction and crashing...
+    # TODO: LOS sometime crossing bad EFIT reconstruction and crashing...
 
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
