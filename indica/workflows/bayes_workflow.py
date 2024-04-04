@@ -459,17 +459,13 @@ class PlasmaContext:
 
         R = self.plasma.R_midplane
         z = self.plasma.z_midplane
-        rho = self.plasma.equilibrium.rho.interp(t=self.plasma.t, R=R, z=z).drop_vars(
-            ["R", "z"]
-        )
+        _rho = self.plasma.equilibrium.rho.interp(t=self.plasma.t).interp(R=R, z=z)
+        rho = _rho.swap_dims({"index": "R"}).drop_vars("index")
+
         midplane_profiles = {}
         for profile in kinetic_profiles:
             midplane_profiles[profile] = blobs[profile].interp(rho_poloidal=rho)
-            midplane_profiles[profile]["R"] = R
-            midplane_profiles[profile]["z"] = z
-            # midplane_profiles[profile] = midplane_profiles[profile].swap_dims(
-            #     {"rho_poloidal": "R"}
-            # )
+
         return midplane_profiles
 
 
