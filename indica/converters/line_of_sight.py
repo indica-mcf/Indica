@@ -528,7 +528,7 @@ class LineOfSightTransform(CoordinateTransform):
         self, profile_to_map: DataArray, t: LabeledArray = None, calc_rho: bool = False
     ) -> DataArray:
         """
-        Check requested times
+        Check requested time
         """
 
         time = np.array(t)
@@ -538,7 +538,7 @@ class LineOfSightTransform(CoordinateTransform):
         equil_t = self.equilibrium.rho.t
         equil_ok = (np.min(time) >= np.min(equil_t)) * (np.max(time) <= np.max(equil_t))
         if not equil_ok:
-            print(f"Available equilibrium times {np.array(equil_t)}")
+            print(f"Available equilibrium time {np.array(equil_t)}")
             raise ValueError(
                 f"Inserted time {time} is not available in Equilibrium object"
             )

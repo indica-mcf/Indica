@@ -25,14 +25,12 @@ from sal.dataclass import Signal
 import scipy.constants as sc
 
 import indica.readers.surf_los as surf_los
-from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .. import session
-from ..datatypes import ELEMENTS
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
-
+CACHE_DIR = ".indica"
 SURF_PATH = Path(surf_los.__file__).parent.parent / "data/surf_los.dat"
 
 
@@ -57,8 +55,8 @@ class PPFReader(DataReader):
 
     Parameters
     ----------
-    times : np.ndarray
-        An ordered array of times to which data will be
+    time : np.ndarray
+        An ordered array of time to which data will be
         downsampled/interpolated.
     pulse : int
         The ID number for the pulse from which to get data.
@@ -164,7 +162,6 @@ class PPFReader(DataReader):
         tend: float,
         server: str = "https://sal.jet.uk",
         default_error: float = 0.05,
-        max_freq: float = 1e6,
         session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
@@ -172,7 +169,6 @@ class PPFReader(DataReader):
         super().__init__(
             tstart,
             tend,
-            max_freq,
             session,
             pulse=pulse,
             server=server,
@@ -294,42 +290,43 @@ class PPFReader(DataReader):
             uid, instrument, "zqnn", revision
         )
 
-        mass_int = round(mass.data[0])
-        atomic_num_int = round(atomic_num.data[0])
+        # TODO: is there no string information on the element in the database?
+        # mass_int = round(mass.data[0])
+        # atomic_num_int = round(atomic_num.data[0])
+        # results["element"] = [
+        #     value[2]
+        #     for value in ELEMENTS.values()
+        #     if (value[0] == atomic_num_int and value[1] == mass_int)
+        # ][0]
 
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
         results["z"] = z.data[0, :]
         results["length"] = R.data.shape[1]
-        results["element"] = [
-            value[2]
-            for value in ELEMENTS.values()
-            if (value[0] == atomic_num_int and value[1] == mass_int)
-        ][0]
         results["texp"] = texp.data
-        results["times"] = None
+        results["time"] = None
         paths = [R_path, z_path, m_path, t_path]
         if "angf" in quantities:
             angf, a_path = self._get_signal(uid, instrument, "angf", revision)
             afhi, e_path = self._get_signal(uid, instrument, "afhi", revision)
-            if results["times"] is None:
-                results["times"] = angf.dimensions[0].data
+            if results["time"] is None:
+                results["time"] = angf.dimensions[0].data
             results["angf"] = angf.data
             results["angf_error"] = afhi.data - angf.data
             results["angf_records"] = paths + [a_path, e_path]
         if "conc" in quantities:
             conc, c_path = self._get_signal(uid, instrument, "conc", revision)
             cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
-            if results["times"] is None:
-                results["times"] = conc.dimensions[0].data
+            if results["time"] is None:
+                results["time"] = conc.dimensions[0].data
             results["conc"] = conc.data
             results["conc_error"] = cohi.data - conc.data
             results["conc_records"] = paths + [c_path, e_path]
         if "ti" in quantities:
             ti, t_path = self._get_signal(uid, instrument, "ti", revision)
             tihi, e_path = self._get_signal(uid, instrument, "tihi", revision)
-            if results["times"] is None:
-                results["times"] = ti.dimensions[0].data
+            if results["time"] is None:
+                results["time"] = ti.dimensions[0].data
             results["ti"] = ti.data
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
@@ -406,7 +403,7 @@ class PPFReader(DataReader):
                 results["psi_r"] = r.data
                 results["psi_z"] = z.data
                 results["psi"] = qval.data.reshape(
-                    (len(results["times"]), len(z.data), len(r.data))
+                    (len(results["time"]), len(z.data), len(r.data))
                 )
                 results["psi_records"] = [q_path, r_path, z_path]
             else:
@@ -455,8 +452,8 @@ class PPFReader(DataReader):
                 )
                 records.append(q_path)
                 data.append(qval.data)
-                if "times" not in results:
-                    results["times"] = qval.dimensions[0].data
+                if "time" not in results:
+                    results["time"] = qval.dimensions[0].data
             results[q] = np.array(data).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
@@ -481,7 +478,7 @@ class PPFReader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
         for q in quantities:
-            qtime = q + "_times"
+            qtime = q + "_time"
             records = [SURF_PATH.name]
             if instrument == "bolo":
                 qval, qpath = self._get_signal(uid, instrument, q, revision)
@@ -547,8 +544,8 @@ class PPFReader(DataReader):
         for q in quantities:
             qval, q_path = self._get_signal(uid, instrument, q, revision)
             los, l_path = self._get_signal(uid, los_instrument, "los" + q[-1], revision)
-            if "times" not in results:
-                results["times"] = qval.dimensions[0].data
+            if "time" not in results:
+                results["time"] = qval.dimensions[0].data
             results["length"][q] = 1
             results[q] = qval.data
             results[q + "_error"] = 0.0 * results[q]
