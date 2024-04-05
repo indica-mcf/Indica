@@ -1,3 +1,6 @@
+import importlib
+import sys
+
 from indica.workflows.bayes_workflow import BayesBBSettings
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.bayes_workflow import DEFAULT_PRIORS
@@ -157,6 +160,11 @@ def bda_run(
 
 if __name__ == "__main__":
 
-    from configs import example_bda
+    if len(sys.argv) < 2:
+        config_name = "example_bda"
+    else:
+        config_name = sys.argv[1]
 
-    bda_run(**example_bda.__dict__)
+    config_path = f"indica.workflows.configs.{config_name}"
+    config_file = importlib.import_module("indica.workflows.configs.example_bda")
+    bda_run(**config_file.__dict__)
