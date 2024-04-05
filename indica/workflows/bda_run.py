@@ -32,6 +32,9 @@ def bda_run(
     iterations=500,
     nwalkers=50,
     stopping_criteria_factor=0.002,
+    burn_frac=0.20,
+    stopping_criteria="mode",
+    sample_method="high_density",
     mds_write=False,
     plot=False,
     run="RUN01",
@@ -41,6 +44,7 @@ def bda_run(
     ts_R_shift=0,
     profile_params_to_update=None,
     model_init=None,
+    plasma_settings=None,
     **kwargs,
 ):
 
@@ -52,7 +56,7 @@ def bda_run(
         model_init = {}
     if profile_params_to_update is None:
         profile_params_to_update = {}
-    if not all([pulse, diagnostics, param_names, opt_quantity]):
+    if not all([pulse, diagnostics, param_names, opt_quantity, plasma_settings]):
         raise ValueError("Not all inputs defined")
 
     if dirname is None:
@@ -86,11 +90,7 @@ def bda_run(
         )
     data_context.read_data()
 
-    plasma_settings = PlasmaSettings(
-        main_ion="h",
-        impurities=("ar", "c"),
-        impurity_concentration=(0.001, 0.005),
-        n_rad=20,
+    plasma_settings = PlasmaSettings(**plasma_settings
     )
     plasma_context = PlasmaContext(
         plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS
@@ -128,10 +128,10 @@ def bda_run(
         param_names=bayes_settings.param_names,
         nwalkers=nwalkers,
         iterations=iterations,
-        sample_method="high_density",
+        sample_method=sample_method,
         starting_samples=starting_samples,
-        burn_frac=0.20,
-        stopping_criteria="mode",
+        burn_frac=burn_frac,
+        stopping_criteria=stopping_criteria,
         stopping_criteria_factor=stopping_criteria_factor,
         stopping_criteria_debug=True,
         priors=bayes_settings.priors,

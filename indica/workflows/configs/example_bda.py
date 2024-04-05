@@ -24,6 +24,13 @@ param_names = [
     "Ti_prof.peaking",
 ]
 
+plasma_settings = dict(
+        main_ion="h",
+        impurities=("ar", "c"),
+        impurity_concentration=(0.001, 0.005),
+        n_rad=20,
+    )
+
 phantom = False
 set_ts = True,
 ts_split = ""
@@ -39,6 +46,10 @@ starting_samples = 100
 iterations = 1000
 nwalkers = 10
 stopping_criteria_factor = 0.05
+sample_method="high_density"
+stopping_criteria="mode"
+burn_frac=0.20
+
 mds_write = False
 best = False
 plot = True
