@@ -53,5 +53,5 @@ burn_frac=0.20
 mds_write = False
 best = False
 plot = True
-run = "RUN01"
+run = "TEST"
 dirname = None
