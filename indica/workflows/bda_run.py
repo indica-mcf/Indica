@@ -1,6 +1,3 @@
-from typing import Any
-from typing import List
-
 from indica.workflows.bayes_workflow import BayesBBSettings
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.bayes_workflow import DEFAULT_PRIORS
@@ -15,98 +12,19 @@ from indica.workflows.bayes_workflow import PlasmaContext
 from indica.workflows.bayes_workflow import PlasmaSettings
 from indica.workflows.bayes_workflow import ReaderSettings
 
-PARAMS_DEFAULT = [
-    "Ne_prof.y1",
-    "Ne_prof.y0",
-    "Ne_prof.peaking",
-    # "Ne_prof.wcenter",
-    "Ne_prof.wped",
-    # "Niz1_prof.y1",
-    "Niz1_prof.y0",
-    # "Niz1_prof.wcenter",
-    # "Niz1_prof.wped",
-    "Niz1_prof.peaking",
-    "Te_prof.y0",
-    "Te_prof.wped",
-    "Te_prof.wcenter",
-    "Te_prof.peaking",
-    "Ti_prof.y0",
-    # "Ti_prof.wped",
-    "Ti_prof.wcenter",
-    "Ti_prof.peaking",
-]
-
-PARAMS_SET_TS = [
-    # "Ne_prof.y1",
-    # "Ne_prof.y0",
-    # "Ne_prof.peaking",
-    # "Ne_prof.wcenter",
-    # "Ne_prof.wped",
-    # "Niz1_prof.y1",
-    "Niz1_prof.y0",
-    # "Niz1_prof.wcenter",
-    # "Niz1_prof.wped",
-    "Niz1_prof.peaking",
-    # "Te_prof.y0",
-    # "Te_prof.wped",
-    # "Te_prof.wcenter",
-    # "Te_prof.peaking",
-    "Ti_prof.y0",
-    # "Ti_prof.wped",
-    "Ti_prof.wcenter",
-    "Ti_prof.peaking",
-]
-
-DIAG_DEFAULT = [
-    "xrcs",
-    "ts",
-    "efit",
-    "cxff_pi",
-    "cxff_tws_c"
-    # "smmh1",
-]
-
-DIAG_DEFAULT_CHERS = [
-    "xrcs",
-    "ts",
-    # "efit",
-    # "cxff_pi",
-    "cxff_tws_c"
-    # "smmh1",
-]
-
-DIAG_DEFAULT_PI = [
-    "xrcs",
-    "ts",
-    # "efit",
-    "cxff_pi",
-    # "cxff_tws_c"
-    # "smmh1",
-]
-
-OPT_DEFAULT = [
-    "xrcs.spectra",
-    "ts.ne",
-    "ts.te",
-    # "efit.wp",
-    "cxff_pi.ti",
-    "cxff_tws_c.ti",
-    # "smmh1.ne"
-]
-
 
 def bda_run(
-    pulse,
-    diagnostics,
-    param_names,
-    opt_quantity,
+    pulse=None,
+    diagnostics=None,
+    param_names=None,
+    opt_quantity=None,
     phantom=False,
     best=True,
     tstart=0.02,
     tend=0.05,
     dt=0.01,
-    revisions={},
-    filters={},
+    revisions=None,
+    filters=None,
     starting_samples = 100,
     iterations=500,
     nwalkers=50,
@@ -118,14 +36,25 @@ def bda_run(
     set_ts=False,
     ts_split="LFS",
     ts_R_shift=0,
-    profile_params_to_update = {},
+    profile_params_to_update=None,
+    model_init=None,
     **kwargs,
 ):
+
+    if filters is None:
+        filters = {}
+    if revisions is None:
+        revisions = {}
+    if model_init is None:
+        model_init = {}
+    if profile_params_to_update is None:
+        profile_params_to_update = {}
+    if not all([pulse, diagnostics, param_names, opt_quantity]):
+        raise ValueError("Not all inputs defined")
 
     if dirname is None:
         dirname = f"{pulse}.{run}"
 
-    # BlackBoxSettings
     bayes_settings = BayesBBSettings(
         diagnostics=diagnostics,
         param_names=param_names,
@@ -165,7 +94,6 @@ def bda_run(
     )
     if profile_params_to_update:
         plasma_context.profile_params.update(profile_params_to_update)
-        # plasma_context.update_profiles(profile_params_to_update)
 
     plasma_context.init_plasma(
         data_context.equilibrium, tstart=tstart, tend=tend, dt=dt
@@ -176,7 +104,7 @@ def bda_run(
     if set_ts:
         plasma_context.set_ts_profiles(data_context, split=ts_split, R_shift=ts_R_shift)
 
-    model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}})
+    model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}}, init_kwargs=model_init)
 
     model_context = ModelContext(
         diagnostics=diagnostics,
@@ -229,285 +157,6 @@ def bda_run(
 
 if __name__ == "__main__":
 
-    pulse_info: List[Any] = [
-        # [(11224,
-        #   ["xrcs", "cxff_tws_c", "cxff_pi", "ts", "efit"],
-        #   PARAMS_SET_TS,
-        #   [
-        #       "xrcs.spectra",
-        #       "cxff_tws_c.ti",
-        #       "cxff_pi.ti",
-        #       "ts.ne",
-        #       "ts.te",
-        #   ]),
-        #  dict(
-        #      phantom=False,
-        #      tstart=0.03,
-        #      tend=0.12,
-        #      dt=0.01,
-        #      starting_samples=200,
-        #      iterations=2000,
-        #      nwalkers=20,
-        #      stopping_criteria_factor=0.001,
-        #      mds_write=True,
-        #      plot=True,
-        #      revisions={},
-        #      run="RUN01",
-        #      # dirname="test",
-        #      set_ts=True,
-        #      ts_split="",
-        #      ts_R_shift=0.02,
-        #  )],
-        [(11089,
-          ["xrcs", "cxff_tws_c", "ts", "efit"],
-          PARAMS_SET_TS,
-          [
-              "xrcs.spectra",
-              "cxff_tws_c.ti",
-              # "cxff_pi.ti",
-              "ts.ne",
-              "ts.te",
-          ]),
-         dict(
-             phantom=False,
-             tstart=0.05,
-             tend=0.11,
-             dt=0.01,
-             starting_samples=200,
-             iterations=2000,
-             nwalkers=10,
-             stopping_criteria_factor=0.001,
-             mds_write=True,
-             plot=True,
-             revisions={},
-             run="RUN01",
-             best=True,
-             # dirname="test",
-             set_ts=True,
-             ts_split="",
-             ts_R_shift = 0.02,
-             profile_params_to_update = {"Nh_prof.y0": 1e13, "Nh_prof.y1":1e15, "Nh_prof.yend":1e15}
-         )],
-        [(11089,
-          ["xrcs", "cxff_tws_c", "ts", "efit"],
-          PARAMS_SET_TS,
-          [
-              "xrcs.spectra",
-              "cxff_tws_c.ti",
-              # "cxff_pi.ti",
-              "ts.ne",
-              "ts.te",
-          ]),
-         dict(
-             phantom=False,
-             tstart=0.05,
-             tend=0.11,
-             dt=0.01,
-             starting_samples=200,
-             iterations=2000,
-             nwalkers=10,
-             stopping_criteria_factor=0.001,
-             mds_write=True,
-             plot=True,
-             revisions={},
-             run="RUN02",
-             best=False,
-             # dirname="test",
-             set_ts=True,
-             ts_split="",
-             ts_R_shift=0.02,
-             profile_params_to_update = {"Nh_prof.y0": 1e13, "Nh_prof.y1":1e16, "Nh_prof.yend":1e16}
-         )],
-        [(11089,
-          ["xrcs", "cxff_tws_c", "ts", "efit"],
-          PARAMS_SET_TS,
-          [
-              "xrcs.spectra",
-              "cxff_tws_c.ti",
-              # "cxff_pi.ti",
-              "ts.ne",
-              "ts.te",
-          ]),
-         dict(
-             phantom=False,
-             tstart=0.05,
-             tend=0.11,
-             dt=0.01,
-             starting_samples=200,
-             iterations=2000,
-             nwalkers=10,
-             stopping_criteria_factor=0.001,
-             mds_write=True,
-             plot=True,
-             revisions={},
-             run="RUN03",
-             best=False,
-             # dirname="test",
-             set_ts=True,
-             ts_split="",
-             ts_R_shift=0.02,
-             profile_params_to_update={"Nh_prof.y0": 1e13, "Nh_prof.y1": 1e17, "Nh_prof.yend":1e17, }
-         )],
-        # RFX low ti/te pulse
-        # [(11312,
-        #   ["xrcs", "cxff_pi", "ts", "efit"],
-        #   [
-        #       "Niz1_prof.y0",
-        #       "Niz1_prof.peaking",
-        #       "Ti_prof.y0",
-        #       "Ti_prof.wcenter",
-        #       "Ti_prof.peaking",
-        #   ],
-        #   [
-        #       "xrcs.spectra",
-        #       "cxff_pi.ti",
-        #       "ts.ne",
-        #       "ts.te",
-        #   ]),
-        #  dict(
-        #      phantom=False,
-        #      tstart=0.05,
-        #      tend=0.10,
-        #      dt=0.01,
-        #      iterations=1000,
-        #      nwalkers=20,
-        #      stopping_criteria_factor=0.002,
-        #      mds_write=True,
-        #      plot=True,
-        #      revisions={},
-        #      run="RUN01",
-        #      # dirname="test",
-        #      set_ts=True,
-        #  )],
-     #    [(11314,
-     #      ["xrcs", "cxff_pi", "ts", "efit"],
-     #      [
-     #          "Niz1_prof.y0",
-     #          "Niz1_prof.peaking",
-     #          "Ti_prof.y0",
-     #          "Ti_prof.wcenter",
-     #          "Ti_prof.peaking",
-     #      ],
-     #      [
-     #          "xrcs.spectra",
-     #          "cxff_pi.ti",
-     #          "ts.ne",
-     #          "ts.te",
-     #      ]),
-     #     dict(
-     #         phantom=False,
-     #         tstart=0.05,
-     #         tend=0.10,
-     #         dt=0.01,
-     #         iterations=2000,
-     #         nwalkers=20,
-     #         stopping_criteria_factor=0.001,
-     #         mds_write=True,
-     #         plot=True,
-     #         revisions={},
-     #         run="RUN02",
-     #         # dirname="test",
-     #         set_ts=True,
-     #         ts_split="",
-     #     )],
-     #    [(11317,
-     #      ["xrcs", "cxff_pi", "ts", "efit"],
-     #      [
-     #          "Niz1_prof.y0",
-     #          "Niz1_prof.peaking",
-     #          "Ti_prof.y0",
-     #          "Ti_prof.wcenter",
-     #          "Ti_prof.peaking",
-     #      ],
-     #      [
-     #          "xrcs.spectra",
-     #          "cxff_pi.ti",
-     #          "ts.ne",
-     #          "ts.te",
-     #      ]),
-     #     dict(
-     #         phantom=False,
-     #         tstart=0.05,
-     #         tend=0.10,
-     #         dt=0.01,
-     #         iterations=2000,
-     #         nwalkers=20,
-     #         stopping_criteria_factor=0.001,
-     #         mds_write=True,
-     #         plot=True,
-     #         revisions={},
-     #         run="RUN02",
-     #         # dirname="test",
-     #         set_ts=True,
-     #         ts_split = "",
-     # )],
-     #    [(11419,
-     #      ["xrcs", "cxff_pi", "ts", "efit"],
-     #      [
-     #          "Niz1_prof.y0",
-     #          "Niz1_prof.peaking",
-     #          "Ti_prof.y0",
-     #          "Ti_prof.wcenter",
-     #          "Ti_prof.peaking",
-     #      ],
-     #      [
-     #          "xrcs.spectra",
-     #          "cxff_pi.ti",
-     #          "ts.ne",
-     #          "ts.te",
-     #      ]),
-     #     dict(
-     #         phantom=False,
-     #         tstart=0.10,
-     #         tend=0.16,
-     #         dt=0.02,
-     #         iterations=2000,
-     #         nwalkers=20,
-     #         stopping_criteria_factor=0.002,
-     #         mds_write=True,
-     #         plot=True,
-     #         revisions={},
-     #         run="RUN02",
-     #         # dirname="test",
-     #         set_ts=True,
-     #     )],
-    #     [
-    #         (
-    #             11032,
-    #             ["xrcs", "cxff_pi", "ts", "efit"],
-    #             [
-    #                 "Niz1_prof.y0",
-    #                 "Niz1_prof.peaking",
-    #                 "Ti_prof.y0",
-    #                 "Ti_prof.wcenter",
-    #                 "Ti_prof.peaking",
-    #             ],
-    #             [
-    #                 "xrcs.spectra",
-    #                 "cxff_pi.ti",
-    #                 "ts.ne",
-    #                 "ts.te",
-    #             ],
-    #         ),
-    #         dict(
-    #             phantom=False,
-    #             tstart=0.03,
-    #             tend=0.09,
-    #             dt=0.01,
-    #             iterations=2000,
-    #             nwalkers=20,
-    #             stopping_criteria_factor=0.001,
-    #             mds_write=True,
-    #             plot=True,
-    #             revisions={},
-    #             run="RUN02",
-    #             # dirname="test",
-    #             set_ts=True,
-    #             ts_split="",
-    #         ),
-    #     ],
-    ]
+    from configs import example_bda
 
-    for info in pulse_info:
-        print(f"pulse: {info[0][0]}")
-        bda_run(*info[0], **info[1])
+    bda_run(**example_bda.__dict__)
