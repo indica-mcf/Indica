@@ -101,11 +101,10 @@ def plasma_code(
         impurities=impurities,
         main_ion=main_ion,
         impurity_concentration=impurity_concentration,
-        pulse=pulse,
         full_run=False,
         n_rad=n_rad,
     )
-    _plasma.build_atomic_data(default=True)
+    _plasma.build_atomic_data()
     for run in runs:
         plasma[run] = deepcopy(_plasma)
 

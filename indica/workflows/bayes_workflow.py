@@ -347,7 +347,7 @@ class PlasmaContext:
 
         self.plasma.set_equilibrium(equilibrium)
         self.update_profiles(self.profile_params)
-        self.plasma.build_atomic_data(calc_power_loss=False)
+        self.plasma.build_atomic_data()
 
     def update_profiles(self, params: dict):
         if not hasattr(self, "plasma"):

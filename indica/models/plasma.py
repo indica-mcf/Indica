@@ -6,7 +6,6 @@ from typing import Callable
 from typing import List
 from typing import Tuple
 
-import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
@@ -16,18 +15,13 @@ from indica.converters.time import get_tlabels_dt
 from indica.equilibrium import Equilibrium
 from indica.equilibrium import fake_equilibrium_data
 from indica.numpy_typing import LabeledArray
-from indica.operators.atomic_data import FractionalAbundance
-from indica.operators.atomic_data import PowerLoss
+from indica.operators.atomic_data import default_atomic_data
 import indica.physics as ph
 from indica.profiles_gauss import Profiles
-from indica.readers import ADASReader
-from indica.readers.adas import ADF11
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
 from indica.utilities import print_like
-
-plt.ion()
 
 
 class Plasma:
@@ -38,8 +32,8 @@ class Plasma:
         dt: float = 0.01,
         machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
         impurities: Tuple[str, ...] = ("c", "ar"),
+        impurity_concentration: Tuple[float, ...] = (0.02, 0.001),  # should be deleted!
         main_ion: str = "h",
-        pulse: int = None,
         full_run: bool = False,
         n_rad: int = 41,
         n_R: int = 100,
@@ -51,6 +45,7 @@ class Plasma:
         - completely independent of experimental data
         - can be assigned an equilibrium object for remapping (currently 1D)
         - independent parameters can be set, dependent ones are properties
+        TODO: concentration should not be inputted in initialization!
 
         Parameters
         ----------
@@ -73,15 +68,14 @@ class Plasma:
             If False: calculate default and interpolate
         """
 
-        self.pulse = pulse
         self.tstart = tstart
         self.tend = tend
         self.dt = dt
         self.full_run = full_run
         self.verbose = verbose
-        self.ADASReader = ADASReader()
         self.main_ion = main_ion
         self.impurities = impurities
+        self.impurity_concentration = impurity_concentration
         elements: Tuple[str, ...] = (self.main_ion,)
         for elem in impurities:
             elements += (elem,)
@@ -92,7 +86,6 @@ class Plasma:
             print_like("Only rho_poloidal in input for the time being...")
             raise AssertionError
 
-        self.set_adf11(ADF11)
         self.initialize_variables(n_rad, n_R, n_z)
 
         self.equilibrium: Equilibrium
@@ -835,67 +828,12 @@ class Plasma:
 
         return binned
 
-    # TODO: should be moved outside of here
-    def build_atomic_data(
-        self,
-        Te: DataArray = None,
-        Ne: DataArray = None,
-        Nh: DataArray = None,
-        tau: DataArray = None,
-        default=True,
-        calc_power_loss=True,
-    ):
-        if default:
-            xend = 1.02
-            rho_end = 1.01
-            rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end - 0.01)
-            Te_prof = Profiles(
-                datatype=("temperature", "electron"),
-                xspl=rho,
-                xend=xend,
-            )
-            Te_prof.y0 = 10.0e3
-            Te = Te_prof()
-            Ne_prof = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend)
-            Ne = Ne_prof()
-            Nh_prof = Profiles(
-                datatype=("density", "thermal_neutral"),
-                xspl=rho,
-                xend=xend,
-            )
-            Nh = Nh_prof()
-            tau = None
-        else:
-            if Te is None or Ne is None:
-                raise ValueError("Input Te and Ne if default == False")
-
-        # print_like("Initialize fractional abundance and power loss objects")
-        fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
-        for elem in self.elements:
-            scd = self.ADASReader.get_adf11("scd", elem, self.adf11[elem]["scd"])
-            acd = self.ADASReader.get_adf11("acd", elem, self.adf11[elem]["acd"])
-            ccd = self.ADASReader.get_adf11("ccd", elem, self.adf11[elem]["ccd"])
-            fract_abu[elem] = FractionalAbundance(scd, acd, CCD=ccd)
-            fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau, full_run=self.full_run)
-
-            plt = self.ADASReader.get_adf11("plt", elem, self.adf11[elem]["plt"])
-            prb = self.ADASReader.get_adf11("prb", elem, self.adf11[elem]["prb"])
-            prc = self.ADASReader.get_adf11("prc", elem, self.adf11[elem]["prc"])
-            power_loss_tot[elem] = PowerLoss(plt, prb, PRC=prc)
-            try:
-                pls = self.ADASReader.get_adf11("pls", elem, self.adf11[elem]["pls"])
-                prs = self.ADASReader.get_adf11("prs", elem, self.adf11[elem]["prs"])
-                power_loss_sxr[elem] = PowerLoss(pls, prs)
-            except Exception:
-                print("No SXR-filtered data available")
-
-            if calc_power_loss:
-                F_z_t = fract_abu[elem].F_z_t
-                power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh, full_run=self.full_run)
-                if elem in power_loss_sxr.keys():
-                    power_loss_sxr[elem](Te, F_z_t, Ne=Ne, full_run=self.full_run)
-
-        self.adf11 = self.adf11
+    def build_atomic_data(self):
+        """
+        Assigns default atomic fractional abundance and radiated power operators
+        TODO: SXR radiation shouldn't be here? can it be set only in diagnostic model?
+        """
+        fract_abu, power_loss_tot, power_loss_sxr = default_atomic_data(self.elements)
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
         self.power_loss_sxr = power_loss_sxr
@@ -912,7 +850,7 @@ class Plasma:
         R = self.R_midplane
         z = self.z_midplane
 
-        midplane_profiles = {}
+        midplane_profiles: dict = {}
         for attr in attrs:
             if not hasattr(self, attr):
                 continue
@@ -932,13 +870,13 @@ class Plasma:
     # TODO: if ion asymmetry parameters are not == 0, calculate 2D (R, z) maps
     def map_to_2d(self):
         """
-        Calculate total and SXR filtered radiated power on a 2D poloidal plane
+        Calculate total radiated power on a 2D poloidal plane
         including effects from poloidal asymmetries
         """
         print("\n Not implemented yet")
 
-    def write_to_pickle(self):
-        with open(f"data_{self.pulse}.pkl", "wb") as f:
+    def write_to_pickle(self, pulse: int = None):
+        with open(f"data_{pulse}.pkl", "wb") as f:
             pickle.dump(
                 self,
                 f,
@@ -1037,7 +975,7 @@ def example_run(
         n_rad=n_rad,
         **kwargs,
     )
-    plasma.build_atomic_data(default=True, calc_power_loss=calc_power_loss)
+    plasma.build_atomic_data()
     # Assign profiles to time-points
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
