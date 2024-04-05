@@ -166,5 +166,5 @@ if __name__ == "__main__":
         config_name = sys.argv[1]
 
     config_path = f"indica.workflows.configs.{config_name}"
-    config_file = importlib.import_module("indica.workflows.configs.example_bda")
+    config_file = importlib.import_module(config_path)
     bda_run(**config_file.__dict__)
