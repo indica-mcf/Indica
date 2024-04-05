@@ -163,6 +163,8 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         config_name = "example_bda"
+        print(f"using default config file {config_name}")
+
     else:
         config_name = sys.argv[1]
 
