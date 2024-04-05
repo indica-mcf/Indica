@@ -107,7 +107,8 @@ def bda_run(
     if set_ts:
         plasma_context.set_ts_profiles(data_context, split=ts_split, R_shift=ts_R_shift)
 
-    model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}}, init_kwargs=model_init)
+    model_settings = ModelSettings()
+    model_settings.init_kwargs.update(model_init)
 
     model_context = ModelContext(
         diagnostics=diagnostics,
