@@ -837,7 +837,7 @@ class CachedCalculation(TrackDependecies):
 
 
 class PlasmaProfiles:
-    def __init__(self, plasma: Plasma, profiler: Callable = ProfilesGauss):
+    def __init__(self, plasma: Plasma, profiler_object: Callable = ProfilesGauss):
         """
         Interface a Profiler class with a Plasma object to generate plasma profiles
         and update them.
@@ -853,93 +853,75 @@ class PlasmaProfiles:
               all would be simpler!
         """
         self.plasma = plasma
-        self.profiler = profiler
+        impurities = plasma.impurities
 
-        profiler_dict: dict = {}
-        profiler_dict["Te_prof"] = profiler(
-            datatype="eletron_temperature", xspl=plasma.rho
-        )
-        profiler_dict["Ti_prof"] = profiler(datatype="ion_temperature", xspl=plasma.rho)
-        profiler_dict["Ne_prof"] = profiler(
-            datatype="electron_density", xspl=plasma.rho
-        )
-        profiler_dict["Nimp_prof"] = profiler(
-            datatype="impurity_density", xspl=plasma.rho
-        )
-        profiler_dict["Niz1_prof"] = profiler(
-            datatype="impurity_density", xspl=plasma.rho
-        )
-        profiler_dict["Niz2_prof"] = profiler(
-            datatype="impurity)density", xspl=plasma.rho
-        )
-        profiler_dict["Nh_prof"] = profiler(
-            datatype="thermal_neutral_density", xspl=plasma.rho
-        )
-        profiler_dict["Vrot_prof"] = profiler(
-            datatype="toroidal_rotation", xspl=plasma.rho
-        )
-        self.profiler_dict = profiler_dict
+        # Ion_temperature and toroidal_rotation currently taken as equal for all ion
+        profile_datatypes = [
+            "electron_temperature",
+            "ion_temperature",
+            "electron_density",
+            "thermal_neutral_density",
+            "toroidal_rotation",
+        ]
+        profilers: dict = {}
+        for profile_datatype in profile_datatypes:
+            profilers[profile_datatype] = profiler_object(
+                datatype=profile_datatype, xspl=plasma.rho
+            )
+        # Impurities have separate profilers identified by datatype:element, e.g.
+        # impurity_density:c or impurity_density:ar
+        profile_datatype = "impurity_density"
+        for element in impurities:
+            profilers[f"{profile_datatype}:{element}"] = profiler_object(
+                datatype=profile_datatype, xspl=plasma.rho
+            )
+        self.profilers = profilers
 
-    def __call__(self, parameters: dict, t:float=None):
+    def __call__(self, parameters: dict, t: float = None):
         """
         Set parameters of desired profilers and assign to plasma class profiles
 
         Parameters
         ----------
         parameters
-            Flat dictionary of {"profier_key.profile_parameter":value} with
-            profile_key one of profiler_dict.key() and profile_parameter one
-            of the parameters that build a profile in the desired Callable object.
+            Flat dictionary of {"datatype.parameter":value} with:
+            - datatype in profiler_dict.keys()
+            - parameter in profiler.profile_parameters.keys().
+            Special case for impurity density:
+                {"datatype:element.parameter":value}
         """
         plasma = self.plasma
-        profiler_dict = self.profiler_dict
-        profiles_to_update: list = []
+        profilers = self.profilers
+        _profiles_to_update: list = []
+        # Set all parameters for all profilers
         for identifier, value in parameters.items():
-            profiler_key, param_key = identifier.split(".")
-            if profiler_key not in self.profiler_dict.keys():
-                raise ValueError(f"profiler {profiler_key} not found")
-            if not hasattr(self.profiler_dict[profiler_key], param_key):
-                raise ValueError(
-                    f"parameter {param_key} not found for profile {profiler_key}"
-                )
+            profile_datatype, parameter = identifier.split(".")
 
-            setattr(self.profiler_dict[profiler_key], param_key, value)
-            if profiler_key not in profiles_to_update:
-                profiles_to_update.append(profiler_key)
+            if profile_datatype not in profilers.keys():
+                raise ValueError(f"No profiler available for {profile_datatype}")
+            if not hasattr(profilers[profile_datatype], parameter):
+                raise ValueError(
+                    f"No parameter {parameter} available for {profile_datatype}"
+                )
+            setattr(profilers[profile_datatype], parameter, value)
+            _profiles_to_update.append(profile_datatype)
 
         if t is None:
             t = plasma.time_to_calculate
 
-        # Only update profiles which are given in parameters
-        # TODO: find a better way of doing this...
-        if "Te_prof" in profiles_to_update:
-            plasma.electron_temperature.loc[dict(t=t)] = profiler_dict["Te_prof"]()
-        if "Ti_prof" in profiles_to_update:
-            plasma.ion_temperature.loc[dict(t=t)] = profiler_dict["Ti_prof"]()
-        if "Ne_prof" in profiles_to_update:
-            plasma.electron_density.loc[dict(t=t)] = profiler_dict["Ne_prof"]()
-        if "Nh_prof" in profiles_to_update:
-            plasma.neutral_density.loc[dict(t=t)] = profiler_dict["Nh_prof"]()
-        if "Vrot_prof" in profiles_to_update:
-            plasma.electron_temperature.loc[dict(t=t)] = profiler_dict["Ne_prof"]()
+        # Update only desired profiles, distinguish case of impurity_density
+        profiles_to_update = np.unique(_profiles_to_update)
+        for profile_datatype in profiles_to_update:
+            profiler_output = profilers[profile_datatype]()
+            if "impurity_density" in profile_datatype:
+                datatype, element = profile_datatype.split(":")
+                getattr(plasma, datatype).loc[
+                    dict(t=t, element=element)
+                ] = profiler_output
+            else:
+                datatype = profile_datatype
+                getattr(plasma, datatype).loc[dict(t=t)] = profiler_output
 
-        if "Niz1_prof" in profiles_to_update:
-            plasma.impurity_density.loc[
-                dict(t=t, element=[plasma.impurities[0]])
-            ] = profiler_dict["Niz1_prof"]()
-        else:
-            plasma.impurity_density.loc[dict(t=t, element=[plasma.impurities[0]])] = (
-                profiler_dict["Ne_prof"]() * plasma.impurity_concentration[0]
-            )
-
-        if "Niz2_prof" in profiles_to_update:
-            plasma.impurity_density.loc[
-                dict(t=t, element=[plasma.impurities[1]])
-            ] = profiler_dict["Niz2_prof"]()
-        else:
-            plasma.impurity_density.loc[dict(t=t, element=[plasma.impurities[1]])] = (
-                profiler_dict["Ne_prof"]() * plasma.impurity_concentration[1]
-            )
 
 def example_run(
     pulse: int = None,
@@ -948,10 +930,6 @@ def example_run(
     dt=0.01,
     main_ion="h",
     impurities: Tuple[str, ...] = ("c", "ar", "he"),
-    verbose: bool = True,
-    n_rad: int = 41,
-    full_run=False,
-    calc_power_loss: bool = False,
     **kwargs,
 ):
     # TODO: swap all profiles to new version!
@@ -962,42 +940,44 @@ def example_run(
         dt=dt,
         main_ion=main_ion,
         impurities=impurities,
-        full_run=full_run,
-        verbose=verbose,
-        n_rad=n_rad,
         **kwargs,
     )
     plasma.build_atomic_data()
+
+    update_profiles = PlasmaProfiles(plasma)
 
     # Assign profiles to time-points
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
     te_peaking = np.linspace(1, 2, nt)
+    _y0 = update_profiles.profilers["toroidal_rotation"].y0
+    vrot0 = np.linspace(
+        _y0 * 1.1,
+        _y0 * 2.5,
+        nt,
+    )
     vrot_peaking = np.linspace(1, 2, nt)
-    vrot0 = np.linspace(plasma.Vrot_prof.y0 * 1.1, plasma.Vrot_prof.y0 * 2.5, nt)
-    ti0 = np.linspace(plasma.Ti_prof.y0 * 1.1, plasma.Te_prof.y0 * 2.5, nt)
+
+    _y0 = update_profiles.profilers["ion_temperature"].y0
+    ti0 = np.linspace(_y0 * 1.1, _y0 * 2.5, nt)
+
+    _y0 = update_profiles.profilers[f"impurity_density:{impurities[0]}"].y0
+    nimp_y0 = _y0 * 5 * np.linspace(1, 8, nt)
     nimp_peaking = np.linspace(1, 5, nt)
-    nimp_y0 = plasma.Nimp_prof.y0 * 5 * np.linspace(1, 8, nt)
     nimp_wcenter = np.linspace(0.4, 0.1, nt)
     for i, t in enumerate(plasma.t):
-        plasma.Te_prof.peaking = te_peaking[i]
-        plasma.assign_profiles("electron_temperature", t=t)
-
-        plasma.Ti_prof.peaking = te_peaking[i]
-        plasma.Ti_prof.y0 = ti0[i]
-        plasma.assign_profiles("ion_temperature", t=t)
-
-        plasma.Vrot_prof.peaking = vrot_peaking[i]
-        plasma.Vrot_prof.y0 = vrot0[i]
-        plasma.assign_profiles("toroidal_rotation", t=t)
-
-        plasma.Ne_prof.peaking = ne_peaking[i]
-        plasma.assign_profiles("electron_density", t=t)
-
-        plasma.Nimp_prof.peaking = nimp_peaking[i]
-        plasma.Nimp_prof.y0 = nimp_y0[i]
-        plasma.Nimp_prof.wcenter = nimp_wcenter[i]
-        plasma.assign_profiles(profile="impurity_density", t=t)
+        parameters = {
+            "electron_temperature.peaking": te_peaking[i],
+            "ion_temperature.peaking": te_peaking[i],
+            "ion_temperature.y0": ti0[i],
+            "toroidal_rotation.peaking": vrot_peaking[i],
+            "toroidal_rotation.y0": vrot0[i],
+            "electron_density.peaking": ne_peaking[i],
+            "impurity_density:ar.peaking": nimp_peaking[i],
+            "impurity_density:ar.y0": nimp_y0[i],
+            "impurity_density:ar.wcenter": nimp_wcenter[i],
+        }
+        update_profiles(parameters, t=t)
 
     if pulse is None:
         equilibrium_data = fake_equilibrium_data(

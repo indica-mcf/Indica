@@ -165,7 +165,7 @@ def example_run(
 ):
 
     if plasma is None:
-        plasma = example_plasma(pulse=pulse, calc_power_loss=True)
+        plasma = example_plasma(pulse=pulse)
 
     # return plasma
     # Create new interferometers diagnostics

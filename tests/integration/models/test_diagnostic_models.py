@@ -29,7 +29,7 @@ class TestModels:
     """Test that the model calls run without error"""
 
     def setup_class(self):
-        self.plasma = example_plasma(calc_power_loss=True)
+        self.plasma = example_plasma()
         nt = np.size(self.plasma.t)
         tstart = self.plasma.tstart
         tend = self.plasma.tend

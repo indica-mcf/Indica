@@ -910,16 +910,16 @@ def default_profiles():
     rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end - 0.01)
 
     Te_prof = Profiles(
-        datatype=("temperature", "electron"),
+        datatype="electron_temperature",
         xspl=rho,
         xend=xend,
     )
     Te_prof.y0 = 10.0e3
     Te = Te_prof()
-    Ne_prof = Profiles(datatype=("density", "electron"), xspl=rho, xend=xend)
+    Ne_prof = Profiles(datatype="electron_density", xspl=rho, xend=xend)
     Ne = Ne_prof()
     Nh_prof = Profiles(
-        datatype=("density", "thermal_neutral"),
+        datatype="thermal_neutral_density",
         xspl=rho,
         xend=xend,
     )

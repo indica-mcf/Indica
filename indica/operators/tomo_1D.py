@@ -791,7 +791,7 @@ def example_run(plot: bool = True, nplot: int = 2, save_fig: bool = False):
     origin = los_start
     direction = los_end - los_start
 
-    plasma = example_plasma(calc_power_loss=True, tstart=0.03, tend=0.08)
+    plasma = example_plasma(tstart=0.03, tend=0.08)
 
     los_transform = LineOfSightTransform(
         origin[:, 0],
