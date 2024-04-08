@@ -57,9 +57,9 @@ DEFAULT_PROFILE_PARAMS = {
     # "Niz1_prof.wcenter": 0.3,
     # "Niz1_prof.wped": 3,
     # "Niz1_prof.peaking": 2,
-    "Nh_prof.y0": 1e13,
-    "Nh_prof.y1": 1e15,
-    "Nh_prof.yend": 1e15,
+    "Nh_prof.y0": 5e14,
+    "Nh_prof.y1": 5e15,
+    "Nh_prof.yend": 5e15,
     "Nh_prof.wcenter": 0.01,
     "Nh_prof.wped": 18,
     "Nh_prof.peaking": 1,
@@ -328,6 +328,35 @@ class PlasmaContext:
     plasma_settings: PlasmaSettings
     profile_params: dict = field(default_factory=lambda: DEFAULT_PROFILE_PARAMS)
 
+    plasma_attribute_names: list = field(default_factory=lambda:[
+        "electron_temperature",
+        "electron_density",
+        "ion_temperature",
+        "ion_density",
+        "impurity_density",
+        "fast_density",
+        "fast_temperature",
+        "pressure_fast",
+        "neutral_density",
+        "zeff",
+        "wp",
+        "wth",
+        "pressure_tot",
+        "pressure_th",])
+    plasma_profile_names: list = field(default_factory=lambda: [
+        "electron_temperature",
+        "electron_density",
+        "ion_temperature",
+        "ion_density",
+        "impurity_density",
+        "fast_density",
+        "fast_temperature",
+        "pressure_fast",
+        "neutral_density",
+        "zeff",
+        "pressure_tot",
+        "pressure_th", ])
+
     """
     set profiles / profiler
     """
@@ -366,22 +395,8 @@ class PlasmaContext:
         return iter(self.plasma.t)
 
     def return_plasma_attrs(self):
-        PLASMA_ATTRIBUTES = [
-            "electron_temperature",
-            "electron_density",
-            "ion_temperature",
-            "ion_density",
-            "impurity_density",
-            "fast_density",
-            "neutral_density",
-            "zeff",
-            "wp",
-            "wth",
-            "ptot",
-            "pth",
-        ]
         plasma_attributes = {}
-        for plasma_key in PLASMA_ATTRIBUTES:
+        for plasma_key in self.plasma_attribute_names:
             if hasattr(self.plasma, plasma_key):
                 plasma_attributes[plasma_key] = getattr(self.plasma, plasma_key).sel(
                     t=self.plasma.time_to_calculate
@@ -392,15 +407,7 @@ class PlasmaContext:
 
     def save_phantom_profiles(self, kinetic_profiles=None, phantoms=None):
         if kinetic_profiles is None:
-            kinetic_profiles = [
-                "electron_density",
-                "impurity_density",
-                "electron_temperature",
-                "ion_temperature",
-                "ion_density",
-                "fast_density",
-                "neutral_density",
-            ]
+            kinetic_profiles = self.plasma_profile_names
         if phantoms:
             phantom_profiles = {
                 profile_key: getattr(self.plasma, profile_key)
@@ -460,16 +467,6 @@ class PlasmaContext:
         )
 
     def map_profiles_to_midplane(self, blobs):
-        kinetic_profiles = [
-            "electron_density",
-            "impurity_density",
-            "electron_temperature",
-            "ion_temperature",
-            "ion_density",
-            "fast_density",
-            "neutral_density",
-            "zeff",
-        ]
         nchan = len(self.plasma.R_midplane)
         chan = np.arange(nchan)
         R = xr.DataArray(self.plasma.R_midplane, coords=[("channel", chan)])
@@ -479,7 +476,7 @@ class PlasmaContext:
             ["R", "z"]
         )
         midplane_profiles = {}
-        for profile in kinetic_profiles:
+        for profile in self.plasma_profile_names:
             midplane_profiles[profile] = (
                 blobs[profile].interp(rho_poloidal=rho).drop_vars("rho_poloidal")
             )
@@ -1128,9 +1125,6 @@ class BayesWorkflow(AbstractBayesWorkflow):
                 filepath=filepath,
             )
 
-        if plot:  # currently requires result with DataArrays
-            plot_bayes_result(self.result, filepath)
-
         self.result = dict_of_dataarray_to_numpy(self.result)
 
         if mds_write:
@@ -1155,6 +1149,9 @@ class BayesWorkflow(AbstractBayesWorkflow):
                 data_to_write=self.result,
                 debug=False,
             )
+        if plot:
+            plot_bayes_result(filepath=filepath)
+
         return
 
 
