@@ -18,6 +18,7 @@ from indica.workflows.bayes_workflow import ReaderSettings
 
 def bda_run(
     pulse=None,
+    pulse_to_write = None,
     diagnostics=None,
     param_names=None,
     opt_quantity=None,
@@ -47,6 +48,8 @@ def bda_run(
     plasma_settings=None,
     **kwargs,
 ):
+    if pulse_to_write is None:
+        pulse_to_write = 43000000 + pulse
 
     if filters is None:
         filters = {}
@@ -150,7 +153,7 @@ def bda_run(
     )
 
     workflow(
-        pulse_to_write=43000000 + pulse,
+        pulse_to_write=pulse_to_write,
         run=run,
         best=best,
         mds_write=mds_write,
