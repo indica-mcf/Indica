@@ -308,7 +308,7 @@ class Plasma:
         self.tau: DataArray = assign_data(self.data2d, ("time", "residence"), "s")
 
         self.ion_temperature: DataArray = assign_data(
-            self.data3d, ("temperature", "ion"), "eV"
+            self.data2d, ("temperature", "ion"), "eV"
         )
         self.toroidal_rotation: DataArray = assign_data(
             self.data3d, ("toroidal_rotation", "ion"), "rad $s^{-1}$"
@@ -497,8 +497,7 @@ class Plasma:
         elif profile == "electron_temperature":
             self.electron_temperature.loc[dict(t=t)] = self.Te_prof()
         elif profile == "ion_temperature":
-            for elem in elements:
-                self.ion_temperature.loc[dict(t=t, element=elem)] = self.Ti_prof()
+            self.ion_temperature.loc[dict(t=t)] = self.Ti_prof()
         elif profile == "toroidal_rotation":
             for elem in elements:
                 self.toroidal_rotation.loc[dict(t=t, element=elem)] = self.Vrot_prof()
@@ -1120,7 +1119,7 @@ class Plasma:
             main_ion_mass = ELEMENTS[self.main_ion][1]
             mass = ELEMENTS[elem][1]
             asymm = ph.centrifugal_asymmetry(
-                self.ion_temperature.sel(element=elem).drop_vars("element"),
+                self.ion_temperature,
                 self.electron_temperature,
                 mass,
                 meanz.sel(element=elem).drop_vars("element"),

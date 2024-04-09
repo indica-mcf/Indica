@@ -339,6 +339,7 @@ class PlasmaContext:
         "pressure_fast",
         "neutral_density",
         "zeff",
+        "meanz",
         "wp",
         "wth",
         "pressure_tot",
@@ -354,6 +355,7 @@ class PlasmaContext:
         "pressure_fast",
         "neutral_density",
         "zeff",
+        "meanz",
         "pressure_tot",
         "pressure_th", ])
 
@@ -407,7 +409,7 @@ class PlasmaContext:
 
     def save_phantom_profiles(self, kinetic_profiles=None, phantoms=None):
         if kinetic_profiles is None:
-            kinetic_profiles = self.plasma_profile_names
+            kinetic_profiles = self.plasma_attribute_names
         if phantoms:
             phantom_profiles = {
                 profile_key: getattr(self.plasma, profile_key)
