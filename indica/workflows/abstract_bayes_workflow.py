@@ -222,7 +222,7 @@ class AbstractBayesWorkflow(ABC):
             .median(dim="index"),
             "WP": self.blobs["wp"].median(dim="index"),
             "WTH": self.blobs["wth"].median(dim="index"),
-            "ZEFF_AVG": self.midplane_blobs["zeff"].median(dim="index").mean(dim="R"),
+            "ZEFF_AVG": self.midplane_blobs["zeff"].sum(dim="element").median(dim="index").mean(dim="R"),
             "NNEUTR0": self.blobs["neutral_density"].sel(rho_poloidal=0, method="nearest").median(dim="index"),
             "NNEUTRB": self.blobs["neutral_density"].sel(rho_poloidal=1, method="nearest").median(dim="index"),
 
@@ -240,7 +240,7 @@ class AbstractBayesWorkflow(ABC):
                 .std(dim="index"),
             "WTH_ERR": self.blobs["wth"].std(dim="index"),
             "WP_ERR": self.blobs["wp"].std(dim="index"),
-            "ZEFF_AVG_ERR": self.midplane_blobs["zeff"].std(dim="index").mean(dim="R"),
+            "ZEFF_AVG_ERR": self.midplane_blobs["zeff"].sum(dim="element").std(dim="index").mean(dim="R"),
             "NNEUTR0_ERR": self.blobs["neutral_density"].sel(rho_poloidal=0, method="nearest").std(dim="index"),
             "NNEUTRB_ERR": self.blobs["neutral_density"].sel(rho_poloidal=1, method="nearest").std(dim="index"),
         }
