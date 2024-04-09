@@ -1,5 +1,5 @@
 pulse = 11089
-pulse_to_write = 43011089
+pulse_to_write = 43000000
 
 diagnostics = ["xrcs", "cxff_tws_c", "ts", "efit"]
 opt_quantity = ["xrcs.spectra", "cxff_tws_c.ti", "ts.ne", "ts.te"]
@@ -54,5 +54,5 @@ burn_frac=0.20
 mds_write = True
 best = True
 plot = False
-run = "RUN01"
+run = "TEST"
 dirname = None
