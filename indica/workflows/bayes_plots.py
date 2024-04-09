@@ -239,7 +239,7 @@ def plot_autocorr(autocorr, param_names, figheader, filetype=".png"):
 
 # flake8: noqa: C901
 def plot_bayes_result(
-    results,
+    results=None,
     filepath="./results/test/",
     filetype=".png",
     **kwargs,
@@ -257,8 +257,13 @@ def plot_bayes_result(
                 print(f"Deleting {os.path.join(root, f)}")
                 os.remove(os.path.join(root, f))
 
+    if results is None:
+        with open(filepath + "results.pkl", "rb") as handle:
+            results = pickle.load(handle)
+
     # Create time directories
     time = results["TIME"]
+    element = results["ELEMENT"]
     for t in time.values:
         Path(filepath + f"/t:{t:.2f}").mkdir(parents=True, exist_ok=True)
 
@@ -268,7 +273,7 @@ def plot_bayes_result(
     post_sample = results["OPTIMISATION"]["POST_SAMPLE"]
     prior_sample = results["OPTIMISATION"]["PRIOR_SAMPLE"]
     auto_corr = results["OPTIMISATION"]["AUTO_CORR"]
-    param_names = results["INPUT"]["PARAM_NAMES"]
+    param_names = results["OPTIMISATION"]["PARAM_NAMES"]
     phantom_profiles = flatdict.FlatDict(results["PHANTOMS"], ".")
 
     diag_data_err = {}
@@ -444,8 +449,8 @@ def plot_bayes_result(
         )
         key = "NI"
         plot_profile(
-            profiles[key].sel(t=t),
-            phantom_profiles[key].sel(t=t),
+            profiles[key].sel(t=t, element=element[0]),
+            phantom_profiles[key].sel(t=t, element=element[0]),
             key,
             figheader=figheader,
             filetype=filetype,
@@ -463,27 +468,17 @@ def plot_bayes_result(
             color="green",
         )
 
-        key = "NIZ1"
-        plot_profile(
-            profiles[key].sel(t=t),
-            phantom_profiles[key].sel(t=t),
-            key,
-            figheader=figheader,
-            filename=f"{profiles[key].element.values} density",
-            filetype=filetype,
-            color="red",
-        )
-
-        key = "NIZ2"
-        plot_profile(
-            profiles[key].sel(t=t),
-            phantom_profiles[key].sel(t=t),
-            key,
-            figheader=figheader,
-            filename=f"{profiles[key].element.values} density",
-            filetype=filetype,
-            color="red",
-        )
+        key = "NI"
+        for elem in element[1:]:
+            plot_profile(
+                profiles[key].sel(t=t, element=elem),
+                phantom_profiles[key].sel(t=t, element=elem),
+                key,
+                figheader=figheader,
+                filename=f"{elem} density",
+                filetype=filetype,
+                color="red",
+            )
 
         key = "NNEUTR"
         plot_profile(
@@ -517,7 +512,5 @@ def plot_bayes_result(
 
 
 if __name__ == "__main__":
-    filehead = "./results/test/"
-    with open(filehead + "results.pkl", "rb") as handle:
-        results = pickle.load(handle)
-    plot_bayes_result(results, filehead, filetype=".png")
+    filehead = "./results/11089.RUN01/"
+    plot_bayes_result(filepath=filehead, filetype=".png")
