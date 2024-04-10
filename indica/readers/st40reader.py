@@ -9,18 +9,13 @@ from typing import List
 from typing import Set
 from typing import Tuple
 
-
-
-from .st40conf import ST40Conf
-
-from .mdsutils import MDSUtils
-
-from MDSplus import Connection
 from MDSplus.mdsExceptions import TreeNNF
 from MDSplus.mdsExceptions import TreeNODATA
 import numpy as np
 
 from .abstractreader import DataReader
+from .mdsutils import MDSUtils
+from .st40conf import ST40Conf
 from .. import session
 from ..numpy_typing import RevisionLike
 
@@ -59,7 +54,6 @@ class ST40Reader(DataReader):
 
     """
 
-   
     def __init__(
         self,
         pulse: int,
@@ -83,18 +77,14 @@ class ST40Reader(DataReader):
         self.pulse: int = pulse
 
         self._default_error = default_error
-        self.mdsutils=MDSUtils(server,tree,pulse)
+        self.mdsutils = MDSUtils(pulse, server, tree)
 
-
-        #ST40 configurations. ACtually should modify the code not to set as self..
+        # ST40 configurations. ACtually should modify the code not to set as self..
         self.st40conf = ST40Conf()
-        self.MACHINE_DIMS=self.st40conf.MACHINE_DIMS
-        self.INSTRUMENT_METHODS=self.st40conf.INSTRUMENT_METHODS
-        self.UIDS_MDS=self.st40conf.UIDS_MDS
-        self.QUANTITIES_MDS=self.st40conf.QUANTITIES_MDS
-
-
-
+        self.MACHINE_DIMS = self.st40conf.MACHINE_DIMS
+        self.INSTRUMENT_METHODS = self.st40conf.INSTRUMENT_METHODS
+        self.UIDS_MDS = self.st40conf.UIDS_MDS
+        self.QUANTITIES_MDS = self.st40conf.QUANTITIES_MDS
 
     def _get_data(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
@@ -106,9 +96,7 @@ class ST40Reader(DataReader):
         unit = self.mdsutils.get_signal_units(_path)
 
         return data, dims, unit, _path
-    
 
-    
     def _get_revision(
         self, uid: str, instrument: str, revision: RevisionLike
     ) -> RevisionLike:
@@ -119,7 +107,9 @@ class ST40Reader(DataReader):
             return revision
 
         if revision == 0:
-            run_name, _ = self.mdsutils.get_signal(uid, instrument, ":best_run", revision)
+            run_name, _ = self.mdsutils.get_signal(
+                uid, instrument, ":best_run", revision
+            )
             return run_name
 
         return revision
@@ -217,7 +207,9 @@ class ST40Reader(DataReader):
         results["psi_z"], _ = self.mdsutils.get_signal(
             uid, instrument, ".psi2d:zgrid", revision
         )
-        results["times"], t_path = self.mdsutils.get_signal(uid, instrument, ":time", revision)
+        results["times"], t_path = self.mdsutils.get_signal(
+            uid, instrument, ":time", revision
+        )
         for q in quantities:
             qval, q_path = self.mdsutils.get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
@@ -261,7 +253,7 @@ class ST40Reader(DataReader):
         )
 
         quantity = "brightness"
-        times, times_path = self.mdsutils.get_signal(
+        time, times_path = self.mdsutils.get_signal(
             uid,
             instrument,
             ":time",
@@ -321,8 +313,12 @@ class ST40Reader(DataReader):
             location = np.array([location])
             direction = np.array([direction])
 
-        results["times"], _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
-        wavelength, _ = self.mdsutils.get_signal(uid, instrument, ":wavelength", revision)
+        results["times"], _ = self.mdsutils.get_signal(
+            uid, instrument, ":time", revision
+        )
+        wavelength, _ = self.mdsutils.get_signal(
+            uid, instrument, ":wavelength", revision
+        )
         # TODO: change once wavelength in MDS+ has been fixed to nanometers!
         wavelength /= 10.0
         if self.pulse >= 10307:
@@ -376,10 +372,14 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
-        texp, texp_path = self.mdsutils.get_signal(uid, instrument, ":exposure", revision)
-        times, _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
+        texp, texp_path = self.mdsutils.get_signal(
+            uid, instrument, ":exposure", revision
+        )
+        time, _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
         try:
-            wavelength, _ = self.mdsutils.get_signal(uid, instrument, ":wavelen", revision)
+            wavelength, _ = self.mdsutils.get_signal(
+                uid, instrument, ":wavelen", revision
+            )
         except TreeNODATA:
             wavelength = None
 
@@ -510,7 +510,7 @@ class ST40Reader(DataReader):
             results[f"{q}_error"] = qval_err
 
         results["length"] = location[:, 0].size
-        results["t"] = time
+        results["t"] = times
         # TODO: check whether wlength should be channel agnostic or not...
         if wavelength is not None:
             results["wavelength"] = wavelength[0, :]
@@ -565,7 +565,7 @@ class ST40Reader(DataReader):
         else:
             labels = _labels
 
-        results["t"] = time
+        results["t"] = times
         results["labels"] = labels
         results[quantity + "_records"] = q_path
         results[quantity] = qval
@@ -636,7 +636,7 @@ class ST40Reader(DataReader):
             )
 
             if "t" not in results:
-                results["t"] = time
+                results["t"] = times
             results[q + "_records"] = q_path
             results[q] = qval
 
@@ -739,7 +739,7 @@ class ST40Reader(DataReader):
         results["y"] = y
         results["z"] = z
         results["R"] = R
-        results["t"] = time
+        results["t"] = times
         results["element"] = ""
         # results["location"] = location
         # results["direction"] = direction
@@ -768,26 +768,6 @@ class ST40Reader(DataReader):
         #     return True
         #
         return False
-
-
-
-    def get_revision_name(self, revision) -> str:
-        """Return string defining RUN## or BEST if revision = 0"""
-
-        if type(revision) == int:
-            rev_str = ""
-            if revision < 0:
-                rev_str = ""
-            elif revision == 0:
-                rev_str = ".best"
-            elif revision < 10:
-                rev_str = f".run0{int(revision)}"
-            elif revision > 9:
-                rev_str = f".run{int(revision)}"
-        else:
-            rev_str = f".{revision}"
-
-        return rev_str
 
     def get_los(self, position, direction):
         """

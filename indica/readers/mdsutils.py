@@ -1,24 +1,11 @@
-from MDSplus import Connection
-from MDSplus.mdsExceptions import TreeNNF
-from MDSplus.mdsExceptions import TreeNODATA
-
-from .abstractreader import DataReader
-from .. import session
-
-
-from copy import deepcopy
-from typing import Any
-from typing import Dict
 from typing import List
-from typing import Set
 from typing import Tuple
 
-from indica.abstractio import BaseIO    
-
-from ..numpy_typing import RevisionLike
-
+from MDSplus import Connection
 import numpy as np
 
+from indica.abstractio import BaseIO
+from ..numpy_typing import RevisionLike
 
 
 class MDSError(Exception):
@@ -36,23 +23,19 @@ class MDSWarning(UserWarning):
 
     """
 
-#this will be baseio class instead. what is defauly pulse?
-class MDSUtils(BaseIO): 
-        
+
+# this will be baseio class instead. what is defauly pulse?
+class MDSUtils(BaseIO):
     def __init__(
         self,
         pulse,
         server: str = "smaug",
         tree: str = "ST40",
-    ): 
+    ):
         self.tree: str = tree
         self.pulse: int = pulse
         self.conn: Connection = Connection(server)
         self.conn.openTree(self.tree, self.pulse)
-
-
-
-
 
     def close(self) -> None:
         del self.conn
@@ -60,6 +43,24 @@ class MDSUtils(BaseIO):
     @property
     def requires_authentication(self) -> bool:
         return False
+
+    def get_revision_name(self, revision) -> str:
+        """Return string defining RUN## or BEST if revision = 0"""
+
+        if type(revision) == int:
+            rev_str = ""
+            if revision < -1:
+                rev_str = ""
+            elif revision == -1:
+                rev_str = ".best"
+            elif revision < 9:
+                rev_str = f".run-1{int(revision)}"
+            elif revision > 8:
+                rev_str = f".run{int(revision)}"
+        else:
+            rev_str = f".{revision}"
+
+        return rev_str
 
     def get_signal(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
@@ -74,7 +75,7 @@ class MDSUtils(BaseIO):
             # data = np.array(self.conn.get(path_check))
 
         return data, path
-    
+
     def get_signal_dims(
         self,
         mds_path: str,
@@ -92,7 +93,6 @@ class MDSUtils(BaseIO):
             paths.append(path)
             dimensions.append(np.array(dim_tmp))
         return dimensions, paths
-    
 
     def get_signal_units(
         self,
@@ -105,7 +105,7 @@ class MDSUtils(BaseIO):
         unit = self.conn.get(path).data()
 
         return unit
-    
+
     def get_mds_path(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[str, str]:
@@ -130,7 +130,7 @@ class MDSUtils(BaseIO):
 
         dims_path = f"dim_of({mds_path},{dim})"
         return dims_path
-    
+
     def mdsCheck(self, mds_path):
         """Return FAILED if node doesn't exist or other error
         Return FAILED if: lenght(data)==1 and data==nan"""
