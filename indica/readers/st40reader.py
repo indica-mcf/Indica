@@ -130,7 +130,7 @@ class ST40Reader(DataReader):
         results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
         times, _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
-        results["times"] = times
+        results["t"] = times
         results["psin"], results["psin_records"] = self.mdsutils.get_signal(
             uid, instrument, ".profiles.psi_norm:xpsn", revision
         )
@@ -207,7 +207,7 @@ class ST40Reader(DataReader):
         results["psi_z"], _ = self.mdsutils.get_signal(
             uid, instrument, ".psi2d:zgrid", revision
         )
-        results["times"], t_path = self.mdsutils.get_signal(
+        results["t"], t_path = self.mdsutils.get_signal(
             uid, instrument, ":time", revision
         )
         for q in quantities:
@@ -313,9 +313,7 @@ class ST40Reader(DataReader):
             location = np.array([location])
             direction = np.array([direction])
 
-        results["times"], _ = self.mdsutils.get_signal(
-            uid, instrument, ":time", revision
-        )
+        results["t"], _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
         wavelength, _ = self.mdsutils.get_signal(
             uid, instrument, ":wavelength", revision
         )
