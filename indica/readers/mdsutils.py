@@ -44,19 +44,19 @@ class MDSUtils(BaseIO):
     def requires_authentication(self) -> bool:
         return False
 
-    def get_revision_name(self, revision) -> str:
+    def get_revision_name(self, revision: RevisionLike) -> str:
         """Return string defining RUN## or BEST if revision = 0"""
 
         if type(revision) == int:
-            rev_str = ""
-            if revision < -1:
+            _revision = int(revision)
+            if _revision < 0:
                 rev_str = ""
-            elif revision == -1:
+            elif _revision == 0:
                 rev_str = ".best"
-            elif revision < 9:
-                rev_str = f".run-1{int(revision)}"
-            elif revision > 8:
-                rev_str = f".run{int(revision)}"
+            elif _revision < 10:
+                rev_str = f".run0{int(_revision)}"
+            else:
+                rev_str = f".run{int(_revision)}"
         else:
             rev_str = f".{revision}"
 
