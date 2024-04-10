@@ -1,6 +1,7 @@
-
-MACHINE_DIMS = {"st40":((0.15, 0.85), (-0.75, 0.75)),
-                "jet":((1.83, 3.9), (-1.75, 2.0))}
+MACHINE_DIMS = {
+    "st40": ((0.15, 0.85), (-0.75, 0.75)),
+    "jet": ((1.83, 3.9), (-1.75, 2.0)),
+}
 
 
 def default_geometries(machine: str, pulse: int = None):

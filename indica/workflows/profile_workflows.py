@@ -102,10 +102,10 @@ def profile_scans_pca(
                 color=cols[i],
             )
         plt.title("")
-        if quantity == "thermal_neutral_density":
+        if datatype == "thermal_neutral_density":
             plt.yscale("log")
         set_axis_sci()
-        save_figure(fig_path, f"{quantity}_uniform_scan", save_fig=save_fig)
+        save_figure(fig_path, f"{datatype}_uniform_scan", save_fig=save_fig)
 
         for k in parameter_keys:
             counts, bins = np.histogram(getattr(profile_scans, k))

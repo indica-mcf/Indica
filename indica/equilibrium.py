@@ -16,6 +16,7 @@ from xarray import where
 from xarray import zeros_like
 
 from indica.converters.time import get_tlabels_dt
+from indica.settings.default_settings import MACHINE_DIMS
 from indica.utilities import check_time_present
 from . import session
 from .numpy_typing import LabeledArray
@@ -91,7 +92,7 @@ class Equilibrium:
         self.rho = rho
         self.t = self.rho.t
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
-            psin = (equilibrium_data["vjac"].rho_poloidal)**2
+            psin = (equilibrium_data["vjac"].rho_poloidal) ** 2
             dpsin = psin[1] - psin[0]
             self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
             self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
@@ -807,7 +808,7 @@ def prepare_coords(R: LabeledArray, z: LabeledArray) -> Tuple[DataArray, DataArr
 
     return _R, _z
 
-from indica.settings.default_settings import MACHINE_DIMS
+
 DEFAULT_PARAMS = {
     "poloidal_a": 0.5,
     "poloidal_b": 1.0,

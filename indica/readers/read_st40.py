@@ -383,4 +383,3 @@ def filter_general(data: DataArray, quantities: list, limits: dict):
             filtered = xr.where(condition, data[quantity], np.nan)
             filtered.attrs = attrs
             data[quantity] = filtered
-

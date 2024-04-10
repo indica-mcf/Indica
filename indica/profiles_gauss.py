@@ -5,7 +5,10 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 import xarray as xr
 from xarray import DataArray
-from indica.utilities import format_coord, format_dataarray
+
+from indica.utilities import format_coord
+from indica.utilities import format_dataarray
+
 
 class Profiles:
     def __init__(
@@ -33,7 +36,7 @@ class Profiles:
         self.peaking: float
         self.wcenter: float
         self.wped: float
-        self.parameters:dict = {}
+        self.parameters: dict = {}
 
         self.xend = xend
         self.coord = f"rho_{coord}"
@@ -254,11 +257,12 @@ def get_defaults(datatype: str) -> dict:
     }
 
     if datatype not in parameters.keys():
+        _datatype = "temperature_electron"
         print(
             f"\n Profile {datatype} not available "
-            f"\n Using 'temperature_electron' as default \n"
+            f"\n Using '{_datatype}' as default \n"
         )
-        identifier = "temperature_electron"
+        datatype = _datatype
 
     return parameters[datatype]
 
