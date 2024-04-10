@@ -1,3 +1,7 @@
+# TODO: implement test to check availability of instruments methods and
+#       quantities have corresponding DATATYPE
+
+
 class ST40Conf:
     def __init__(self):
 
@@ -34,14 +38,6 @@ class ST40Conf:
 
         self.UIDS_MDS = {
             "xrcs": "sxr",
-            "princeton": "spectrom",
-            "nirh1": "interferom",
-            "nirh1_bin": "interferom",
-            "smmh1": "interferom",
-            "sxr_diode_1": "sxr",
-            "sxr_diode_2": "sxr",
-            "sxr_diode_3": "sxr",
-            "sxr_diode_4": "sxr",
         }
         self.QUANTITIES_MDS = {
             "efit": {
@@ -165,13 +161,9 @@ class ST40Conf:
                 "f": ".profiles.psi_norm:fpol",
                 "faxs": ".global:faxs",
                 "fbnd": ".global:fbnd",
-                "ftor": ".profiles.psi_norm:ftor",  # Wb
-                # "rmji": ".profiles.psi_norm:rmji",
-                # "rmjo": ".profiles.psi_norm:rmjo",
+                "ftor": ".profiles.psi_norm:ftor",
                 "psi_1d": ".profiles.psi_norm:psi",
                 "psi": ".psi2d:psi",
-                # "vjac": ".profiles.psi_norm:vjac",
-                # "ajac": ".profiles.psi_norm:ajac",
                 "volume": ".profiles.psi_norm:volume",
                 "area": ".profiles.psi_norm:areat",
                 "rmag": ".global:rmag",
@@ -187,50 +179,50 @@ class ST40Conf:
                 "wtherm": ".global:wtherm",
                 "wfast": ".global:wfast",
                 "df": ".global.df",
-                "elon": ".profiles.astra:elon",  # Elongation profile
-                "j_bs": ".profiles.astra:j_bs",  # Bootstrap current density,MA/m2
-                "j_nbi": ".profiles.astra:j_nbi",  # NB driven current density,MA/m2
-                "j_oh": ".profiles.astra:j_oh",  # Ohmic current density,MA/m2
-                "j_rf": ".profiles.astra:j_rf",  # EC driven current density,MA/m2
-                "j_tot": ".profiles.astra:j_tot",  # Total current density,MA/m2
-                "ne": ".profiles.astra:ne",  # Electron density, 10^19 m^-3
-                "ni": ".profiles.astra:ni",  # Main ion density, 10^19 m^-3
-                "nf": ".profiles.astra:nf",  # Main ion density, 10^19 m^-3
-                "n_d": ".profiles.astra:n_d",  # Deuterium density,10E19/m3
-                "n_t": ".profiles.astra:n_t",  # Tritium density	,10E19/m3
-                "omega_tor": ".profiles.astra:omega_tor",  # Toroidal rot. freq., 1/s
-                "qe": ".profiles.astra:qe",  # electron power flux, MW
-                "qi": ".profiles.astra:qi",  # ion power flux, MW
-                "qn": ".profiles.astra:qn",  # total electron flux, 10^19/s
-                "qnbe": ".profiles.astra:qnbe",  # Beam power density to electrons, MW/m3
-                "qnbi": ".profiles.astra:qnbi",  # Beam power density to ions, MW/m3
-                "q_oh": ".profiles.astra:q_oh",  # Ohmic heating power profile, MW/m3
-                "q_rf": ".profiles.astra:q_rf",  # RF power density to electron,MW/m3
+                "elon": ".profiles.astra:elon",  #
+                "j_bs": ".profiles.astra:j_bs",  # MA/m2
+                "j_nbi": ".profiles.astra:j_nbi",  # MA/m2
+                "j_oh": ".profiles.astra:j_oh",  # MA/m2
+                "j_rf": ".profiles.astra:j_rf",  # MA/m2
+                "j_tot": ".profiles.astra:j_tot",  # MA/m2
+                "ne": ".profiles.astra:ne",  # 10^19 m^-3
+                "ni": ".profiles.astra:ni",  # 10^19 m^-3
+                "nf": ".profiles.astra:nf",  # 10^19 m^-3
+                "n_d": ".profiles.astra:n_d",  # 10E19/m3
+                "n_t": ".profiles.astra:n_t",  # 10E19/m3
+                "omega_tor": ".profiles.astra:omega_tor",  # 1/s
+                "qe": ".profiles.astra:qe",  # MW
+                "qi": ".profiles.astra:qi",  # MW
+                "qn": ".profiles.astra:qn",  # 10^19/s
+                "qnbe": ".profiles.astra:qnbe",  # MW/m3
+                "qnbi": ".profiles.astra:qnbi",  # MW/m3
+                "q_oh": ".profiles.astra:q_oh",  # MW/m3
+                "q_rf": ".profiles.astra:q_rf",  # MW/m3
                 "rho": ".profiles.astra:rho",  # ASTRA rho-toroidal
                 "rmid": ".profiles.astra:rmid",  # Centre of flux surfaces, m
                 "rminor": ".profiles.astra:rminor",  # minor radius, m
-                "sbm": ".profiles.astra:sbm",  # Particle source from beam, 10^19/m^3/s
-                "spel": ".profiles.astra:spel",  # Particle source from pellets, 10^19/m^3/s
-                "stot": ".profiles.astra:stot",  # Total electron source,10^19/s/m3
-                "swall": ".profiles.astra:swall",  # Wall neutrals source, 10^19/m^3/s
-                "te": ".profiles.astra:te",  # Electron temperature, keV
-                "ti": ".profiles.astra:ti",  # Ion temperature, keV
-                "tri": ".profiles.astra:tri",  # Triangularity (up/down symmetrized) profile
-                "t_d": ".profiles.astra:t_d",  # Deuterium temperature,keV
-                "t_t": ".profiles.astra:t_t",  # Tritium temperature,keV
-                "zeff": ".profiles.astra:zeff",  # Effective ion charge
-                "areat": ".profiles.psi_norm:areat",  # Toroidal cross section,m2
-                "p": ".profiles.psi_norm:p",  # PRESSURE(PSI_NORM)
-                "pblon": ".profiles.astra:pblon",  # PRESSURE(PSI_NORM)
-                "pbper": ".profiles.astra:pbper",  # PRESSURE(PSI_NORM)
-                "pnb": ".global:pnb",  # Injected NBI power, W
-                "pabs": ".global:pabs",  # Absorber NBI power, W
-                "p_oh": ".global:p_oh",  # Absorber NBI power, W
-                "q": ".profiles.psi_norm:q",  # Q_PROFILE(PSI_NORM)
-                "sigmapar": ".profiles.psi_norm:sigmapar",  # Paral. conduct.,1/(Ohm*m)
-                "nn": ".profiles.astra:nn",  # Thermal neutral density, 10^19/m^3
-                "niz1": ".profiles.astra:niz1",  # Impurity density, 10^19/m^3
-                "niz2": ".profiles.astra:niz2",  # Impurity density, 10^19/m^3
-                "niz3": ".profiles.astra:niz3",  # Impurity density, 10^19/m^3
+                "sbm": ".profiles.astra:sbm",  # 10^19/m^3/s
+                "spel": ".profiles.astra:spel",  # 10^19/m^3/s
+                "stot": ".profiles.astra:stot",  # 10^19/s/m3
+                "swall": ".profiles.astra:swall",  # 10^19/m^3/s
+                "te": ".profiles.astra:te",  # keV
+                "ti": ".profiles.astra:ti",  # keV
+                "tri": ".profiles.astra:tri",  # Triangularity (up/down symmetrized)
+                "t_d": ".profiles.astra:t_d",  # keV
+                "t_t": ".profiles.astra:t_t",  # keV
+                "zeff": ".profiles.astra:zeff",
+                "areat": ".profiles.psi_norm:areat",  # Toroidal cross section, m2
+                "p": ".profiles.psi_norm:p",
+                "pblon": ".profiles.astra:pblon",
+                "pbper": ".profiles.astra:pbper",
+                "pnb": ".global:pnb",  # W
+                "pabs": ".global:pabs",  # W
+                "p_oh": ".global:p_oh",  # W
+                "q": ".profiles.psi_norm:q",
+                "sigmapar": ".profiles.psi_norm:sigmapar",  # 1/(Ohm*m)
+                "nn": ".profiles.astra:nn",  # 10^19/m^3
+                "niz1": ".profiles.astra:niz1",  # 10^19/m^3
+                "niz2": ".profiles.astra:niz2",  # 10^19/m^3
+                "niz3": ".profiles.astra:niz3",  # 10^19/m^3
             },
         }
