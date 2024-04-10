@@ -849,8 +849,8 @@ class PlasmaProfiles:
         profiler
             Object to generate profiles
 
-        TODO: if keys == datatypes e.g. "electron_temperature" instead of "Te_prof"
-              all would be simpler!
+        TODO: currently testing keys == datatypes e.g. "electron_temperature" instead of
+              "Te_prof" so that profiler key = plasma attribute.
         """
         self.plasma = plasma
         impurities = plasma.impurities
@@ -893,6 +893,7 @@ class PlasmaProfiles:
         plasma = self.plasma
         profilers = self.profilers
         _profiles_to_update: list = []
+
         # Set all parameters for all profilers
         for identifier, value in parameters.items():
             profile_datatype, parameter = identifier.split(".")

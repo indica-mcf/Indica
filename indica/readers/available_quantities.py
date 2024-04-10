@@ -83,7 +83,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "zbnd": "z_boundary",
         "ipla": "plasma_current",
         "wp": "total_stored_energy",
-        "psin": "poloidal_flux_normalised",
         "upl": "loop_voltage",  # V
         "wth": "equilibrium_stored_energy",
         "wtherm": "thermal_stored_energy",

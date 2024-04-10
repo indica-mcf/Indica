@@ -33,6 +33,14 @@ class DiagnosticModel(ABC):
         """
         self.plasma = plasma
 
+    def set_parameters(self, **kwargs):
+        """
+        Set any model kwargs
+        """
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
     @abstractmethod
     def _build_bckc_dictionary(self):
         """

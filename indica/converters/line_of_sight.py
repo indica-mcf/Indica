@@ -725,11 +725,10 @@ def example_run(
     spot_width=0.1,
 ):
     from indica.models.plasma import example_run as example_plasma
+    from indica.settings.default_settings import MACHINE_DIMS
 
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
-
-    machine_dims = ((0.15, 0.85), (-0.75, 0.75))
 
     nchannels = 3
     los_end = np.full((nchannels, 3), 0.0)
@@ -748,7 +747,7 @@ def example_run(
         direction[:, 1],
         direction[:, 2],
         name="",
-        machine_dimensions=machine_dims,
+        machine_dimensions=MACHINE_DIMS["st40"],
         passes=1,
         beamlets=beamlets,
         spot_width=spot_width,
