@@ -31,7 +31,8 @@ from indica.models.helike_spectroscopy import helike_transform_example
 from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
 from indica.models.interferometry import smmh1_transform_example
-from indica.models.plasma import Plasma, PlasmaProfiles
+from indica.models.plasma import Plasma
+from indica.models.plasma import PlasmaProfiles
 from indica.models.thomson_scattering import ThomsonScattering
 from indica.models.thomson_scattering import ts_transform_example
 from indica.operators.gpr_fit import gpr_fit_ts
@@ -74,7 +75,9 @@ DEFAULT_PROFILE_PARAMS = {
 DEFAULT_PRIORS = {
     "electron_density.y0": get_uniform(2e19, 4e20),
     "electron_density.y1": get_uniform(1e18, 2e19),
-    "electron_density.y0/electron_density.y1": lambda x1, x2: np.where((x1 > x2 * 2), 1, 0),
+    "electron_density.y0/electron_density.y1": lambda x1, x2: np.where(
+        (x1 > x2 * 2), 1, 0
+    ),
     "electron_density.wped": loguniform(2, 20),
     "electron_density.wcenter": get_uniform(0.2, 0.4),
     "electron_density.peaking": get_uniform(1, 4),
@@ -83,7 +86,9 @@ DEFAULT_PRIORS = {
     "electron_density.y0/impurity_density:ar.y0": lambda x1, x2: np.where(
         (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
     ),
-    "impurity_density:ar.y0/impurity_density:ar.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
+    "impurity_density:ar.y0/impurity_density:ar.y1": lambda x1, x2: np.where(
+        (x1 > x2), 1, 0
+    ),
     "impurity_density:ar.wped": get_uniform(2, 6),
     "impurity_density:ar.wcenter": get_uniform(0.2, 0.4),
     "impurity_density:ar.peaking": get_uniform(1, 6),
@@ -94,7 +99,9 @@ DEFAULT_PRIORS = {
     "electron_temperature.wped": get_uniform(1, 6),
     "electron_temperature.wcenter": get_uniform(0.2, 0.4),
     "electron_temperature.peaking": get_uniform(1, 4),
-    # "ion_temperature.y0/electron_temperature.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
+    # "ion_temperature.y0/electron_temperature.y0": lambda x1, x2: np.where(
+    #     x1 > x2, 1, 0
+    # ),  # hot ion mode
     "ion_temperature.y0": get_uniform(1000, 10000),
     "ion_temperature.wped": get_uniform(1, 6),
     "ion_temperature.wcenter": get_uniform(0.2, 0.4),
