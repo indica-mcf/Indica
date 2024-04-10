@@ -1,6 +1,3 @@
-"""Experimental design for reading data from disk/database.
-"""
-
 from typing import Any
 from typing import Dict
 from typing import List
