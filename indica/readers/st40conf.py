@@ -1,9 +1,10 @@
 # TODO: implement test to check availability of instruments methods and
 #       quantities have corresponding DATATYPE
 
+
 class ST40Conf:
     def __init__(self):
-
+        self.READER = "indica.readers.ST40Reader"
         self.MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
         self.INSTRUMENT_METHODS = {
             "efit": "get_equilibrium",
