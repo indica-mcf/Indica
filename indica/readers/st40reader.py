@@ -3,7 +3,6 @@ reading MDS+ data produced by ST40.
 
 """
 
-from copy import deepcopy
 from typing import Any
 from typing import Dict
 from typing import List
@@ -31,8 +30,8 @@ class ST40Reader(DataReader):
 
     Parameters
     ----------
-    times : np.ndarray
-        An ordered array of times to which data will be
+    time : np.ndarray
+        An ordered array of time to which data will be
         downsampled/interpolated.
     pulse : int
         The ID number for the pulse from which to get data.
@@ -69,7 +68,6 @@ class ST40Reader(DataReader):
         server: str = "smaug",
         tree: str = "ST40",
         default_error: float = 0.05,
-        max_freq: float = 1e6,
         session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"st40:{server.replace('-', '_')}:{pulse}"
@@ -77,7 +75,6 @@ class ST40Reader(DataReader):
         super().__init__(
             tstart,
             tend,
-            max_freq,
             session,
             pulse=pulse,
             server=server,
@@ -166,7 +163,7 @@ class ST40Reader(DataReader):
             if q == "psi":
                 results["psi"] = qval.reshape(
                     (
-                        len(results["times"]),
+                        len(results["t"]),
                         len(results["psi_z"]),
                         len(results["psi_r"]),
                     )
@@ -284,7 +281,7 @@ class ST40Reader(DataReader):
         )
 
         results["length"] = np.shape(qval)[1]
-        results["times"] = times
+        results["t"] = time
         results[quantity] = np.array(qval)
         results[quantity + "_records"] = qval_record
         results[quantity + "_error"] = qerr
@@ -445,7 +442,7 @@ class ST40Reader(DataReader):
         results["y"] = y
         results["z"] = z
         results["R"] = R
-        results["times"] = times
+        results["t"] = time
         results["texp"] = texp
         results["element"] = ""
         # TODO: check whether wlength should be channel agnostic or not...
@@ -513,7 +510,7 @@ class ST40Reader(DataReader):
             results[f"{q}_error"] = qval_err
 
         results["length"] = location[:, 0].size
-        results["times"] = times
+        results["t"] = time
         # TODO: check whether wlength should be channel agnostic or not...
         if wavelength is not None:
             results["wavelength"] = wavelength[0, :]
@@ -568,7 +565,7 @@ class ST40Reader(DataReader):
         else:
             labels = _labels
 
-        results["times"] = times
+        results["t"] = time
         results["labels"] = labels
         results[quantity + "_records"] = q_path
         results[quantity] = qval
@@ -638,8 +635,8 @@ class ST40Reader(DataReader):
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
 
-            if "times" not in results:
-                results["times"] = times
+            if "t" not in results:
+                results["t"] = time
             results[q + "_records"] = q_path
             results[q] = qval
 
@@ -711,8 +708,8 @@ class ST40Reader(DataReader):
         z, z_path = self.mdsutils.get_signal(uid, instrument, ":z", revision)
         R, R_path = self.mdsutils.get_signal(uid, instrument, ":R", revision)
         z = R * 0.0
-        x = deepcopy(R)
-        y = 0
+        x = R
+        y = R * 0.0
 
         for q in quantities:
             qval, q_path = self.mdsutils.get_signal(
@@ -742,7 +739,7 @@ class ST40Reader(DataReader):
         results["y"] = y
         results["z"] = z
         results["R"] = R
-        results["times"] = times
+        results["t"] = time
         results["element"] = ""
         # results["location"] = location
         # results["direction"] = direction

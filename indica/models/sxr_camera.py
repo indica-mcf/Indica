@@ -101,7 +101,7 @@ class SXRcamera(DiagnosticModel):
         _emissivity = []
         for ielem, elem in enumerate(elements):
             _emissivity.append(
-                self.Lz[elem].sum("ion_charges") * self.Nion.sel(element=elem) * self.Ne
+                self.Lz[elem].sum("ion_charge") * self.Nion.sel(element=elem) * self.Ne
             )
         self.emissivity_element = xr.concat(_emissivity, "element")
         self.emissivity = self.emissivity_element.sum("element")

@@ -234,7 +234,7 @@ latex_documents = [
         "indica.tex",
         "InDiCa Documentation",
         "Marco Sertoli, Chris MacMackin",
-        "A library for iteratively determining plasma composition",
+        "A library for integrated diagnostic analysis",
     ),
 ]
 
@@ -281,7 +281,7 @@ texinfo_documents = [
         "InDiCa Documentation",
         author,
         "InDiCa",
-        "A library for iteratively determining plasma composition",
+        "A library for **In**tegrated **Di**agnosti**C** **A**nalysis",
         "Miscellaneous",
     ),
 ]

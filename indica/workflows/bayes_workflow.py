@@ -456,24 +456,16 @@ class PlasmaContext:
             "neutral_density",
             "zeff",
         ]
-        nchan = len(self.plasma.R_midplane)
-        chan = np.arange(nchan)
-        R = xr.DataArray(self.plasma.R_midplane, coords=[("channel", chan)])
-        z = xr.DataArray(self.plasma.z_midplane, coords=[("channel", chan)])
 
-        rho = self.plasma.equilibrium.rho.interp(t=self.plasma.t, R=R, z=z).drop_vars(
-            ["R", "z"]
-        )
+        R = self.plasma.R_midplane
+        z = self.plasma.z_midplane
+        _rho = self.plasma.equilibrium.rho.interp(t=self.plasma.t).interp(R=R, z=z)
+        rho = _rho.swap_dims({"index": "R"}).drop_vars("index")
+
         midplane_profiles = {}
         for profile in kinetic_profiles:
-            midplane_profiles[profile] = (
-                blobs[profile].interp(rho_poloidal=rho).drop_vars("rho_poloidal")
-            )
-            midplane_profiles[profile]["R"] = R
-            midplane_profiles[profile]["z"] = z
-            midplane_profiles[profile] = midplane_profiles[profile].swap_dims(
-                {"channel": "R"}
-            )
+            midplane_profiles[profile] = blobs[profile].interp(rho_poloidal=rho)
+
         return midplane_profiles
 
 
