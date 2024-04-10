@@ -61,13 +61,6 @@ class MDSUtils(BaseIO):
     def requires_authentication(self) -> bool:
         return False
 
-    def get_mds_path_dims(self, mds_path: str, dim: int):
-        """Gets the dimensions' path given an mds_path"""
-
-        dims_path = f"dim_of({mds_path},{dim})"
-        return dims_path
-    
-
     def get_signal(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[np.array, str]:
