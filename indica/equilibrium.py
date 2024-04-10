@@ -16,7 +16,6 @@ from xarray import where
 from xarray import zeros_like
 
 from indica.converters.time import get_tlabels_dt
-from indica.settings.default_settings import MACHINE_DIMS
 from indica.utilities import check_time_present
 from . import session
 from .numpy_typing import LabeledArray
@@ -848,12 +847,10 @@ def fake_equilibrium(
     tend: float = 0.1,
     dt: float = 0.01,
     machine_dims=None,
+    machine: str = "st40",
 ):
     equilibrium_data = fake_equilibrium_data(
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        machine_dims=machine_dims,
+        tstart=tstart, tend=tend, dt=dt, machine_dims=machine_dims, machine=machine
     )
     return Equilibrium(equilibrium_data)
 
@@ -863,6 +860,7 @@ def fake_equilibrium_data(
     tend: float = 0.1,
     dt: float = 0.01,
     machine_dims=None,
+    machine: str = "st40",
 ):
     def monotonic_series(
         start: float,
@@ -877,7 +875,7 @@ def fake_equilibrium_data(
         )
 
     if machine_dims is None:
-        machine_dims = MACHINE_DIMS["st40"]
+        machine_dims = ((0.15, 0.85), (-0.75, 0.75))
 
     get_tlabels_dt(tstart, tend, dt)
     time = np.arange(tstart, tend + dt, dt)
