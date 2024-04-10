@@ -19,10 +19,11 @@ from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
 from indica.numpy_typing import RevisionLike
-from indica.readers.read_st40 import default_geometries
+from indica.settings.default_settings import default_geometries
+from indica.settings.default_settings import MACHINE_DIMS
+from typing import List
 
 # TODO: hardcoded for ST40!!! to be moved somewhere else!!!
-MACHINE_DIMENSIONS = ((0.15, 0.95), (-0.7, 0.7))
 INSTRUMENT_MODELS = {
     "smmh": Interferometry,
     "cxff_pi": ChargeExchange,
@@ -38,9 +39,8 @@ INSTRUMENT_MODELS = {
 
 # TODO: First stab, but need to check Michael Gemmell implementation
 
-
-class PhantomReader:
-    """Reader of phantom plasma and diagnostic forward model data"""
+class ModelReader:
+    """Reads output of diagnostic forward models"""
 
     def __init__(
         self,
@@ -49,6 +49,7 @@ class PhantomReader:
         tend: float,
         dt: float,
         dl: float = 0.005,
+        instruments:List[str]=[],
         machine: str = "st40",
         **kwargs: Any,
     ):
@@ -56,48 +57,44 @@ class PhantomReader:
 
         Parameters
         ----------
-        tstart
-            Start of time range for which to get data.
-        tend
-            End of time range for which to get data.
-        dt
-            Delta t of time window
-        kwargs
-            Any other arguments which should be recorded in the PROV entity for
-            the reader.
+        diagnostics
+            List of diagnostic identifiers for which a model exists.
+        machine
+            Machine identifier on which the diagnostic is "installed".
 
+        # TODO: Los and transect transforms must still be distinguished
+            but will be solved once transect == special LOS transform case
         """
-        self.pulse = pulse
-        self._machine = machine
-        self._machine_dims = MACHINE_DIMENSIONS
+        self.models: dict = {}
+        self.transforms:dict = {}
+        self.machine = machine
+        self._machine_dims = MACHINE_DIMS[machine]
         self._tstart = tstart
         self._tend = tend
         self._dt = dt
-        self._instr_geometries = default_geometries("st40")
 
-        instr_models: dict = {}
-        for instr, geom in self._instr_geometries.items():
-            if instr not in INSTRUMENT_MODELS.keys():
-                continue
+        if len(instruments) == 0:
+            self._instruments = INSTRUMENT_MODELS.keys()
+        else:
+            self._instruments = [instr for instr in instruments if instr in INSTRUMENT_MODELS.keys()]
 
-            _model = INSTRUMENT_MODELS[instr](name=instr)
-            geom["machine_dimensions"] = self._machine_dims
-            if "name" not in geom:
-                geom["name"] = instr
+        for instr in self._instruments:
+            self.models[instr] = INSTRUMENT_MODELS[instr](name=instr)
 
-            if "origin_x" in geom.keys():
-                geom["dl"] = dl
-                _model.set_los_transform(
-                    LineOfSightTransform(
-                        **geom,
-                    )
-                )
-            else:
-                _model.set_transect_transform(TransectCoordinates(**geom))
-
-            instr_models[instr] = _model
-
-        self.instr_models = instr_models
+        # if pulse > 0:
+        #
+        # else:
+        #     _instr_geometries = default_geometries(machine)
+        #     for instr, geom in _instr_geometries.items():
+        #         geom["machine_dimensions"] = self._machine_dims
+        #         geom["name"] = instr
+        #         if "origin_x" in geom.keys():
+        #             geom["dl"] = dl
+        #             self.transforms[instr] = LineOfSightTransform(**geom)
+        #             self.models[instr].set_los_transform(self.transforms[instr])
+        #         else:
+        #             self.transforms[instr] = TransectCoordinates(**geom)
+        #             self.models[instr].set_transect_transform(self.transforms[instr])
 
     def set_plasma(self, plasma: Plasma = None):
         if plasma is None:
@@ -105,21 +102,15 @@ class PhantomReader:
                 pulse=None, tstart=self._tstart, tend=self._tend, dt=self._dt
             )
 
-        for instr in self.instr_models.keys():
-            if instr not in self.instr_models:
+        for instr in self.models.keys():
+            if instr not in self.models:
                 continue
 
-            self.instr_models[instr].set_plasma(plasma)
-            if hasattr(self.instr_models[instr], "los_transform"):
-                self.instr_models[instr].los_transform.set_equilibrium(
-                    plasma.equilibrium,
-                    force=True,
-                )
-            else:
-                self.instr_models[instr].transect_transform.set_equilibrium(
-                    plasma.equilibrium,
-                    force=True,
-                )
+            self.models[instr].set_plasma(plasma)
+            self.transforms[instr].set_equilibrium(
+                plasma.equilibrium,
+                force=True,
+            )
 
         self.plasma = plasma
 
@@ -132,14 +123,14 @@ class PhantomReader:
         **kwargs,
     ) -> Dict[str, DataArray]:
 
-        if instrument in self.instr_models:
-            return self.instr_models[instrument]()
+        if instrument in self.models:
+            return self.models[instrument]()
         else:
             return {}
 
     def __call__(self, instruments: list = [], **kwargs):
         if len(instruments) == 0:
-            instruments = list(self.instr_models)
+            instruments = list(self.models)
 
         self.set_plasma()
 
