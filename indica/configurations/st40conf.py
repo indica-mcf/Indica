@@ -1,7 +1,6 @@
 # TODO: implement test to check availability of instruments methods and
 #       quantities have corresponding DATATYPE
 
-
 class ST40Conf:
     def __init__(self):
 
