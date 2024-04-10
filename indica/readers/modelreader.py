@@ -91,14 +91,7 @@ class ModelReader:
             if instr not in geometries.keys():
                 raise ValueError(f"{instr} not available in default_geometries file")
 
-            geom = geometries[instr]
-            geom["machine_dimensions"] = self.machine_conf.MACHINE_DIMS
-            geom["name"] = instr
-            if "origin_x" in geom.keys():
-                geom["dl"] = dl
-                self.transforms[instr] = LineOfSightTransform(**geom)
-            else:
-                self.transforms[instr] = TransectCoordinates(**geom)
+            self.transforms[instr] = geometries[instr]
 
             self._set_geometries()
 

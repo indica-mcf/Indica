@@ -61,11 +61,10 @@ def write_default_geometries(
             transforms[instr] = data[list(data)[0]].transform
         except Exception as e:
             print(f"Error reading {instr}: {e}")
-            raise e
-
+            
     filename = geometry_filename(machine)
     print(f"\n Writing geometry file to: {filename}. \n")
     pickle.dump(transforms, open(filename, "wb"))
 
 def geometry_filename(machine: str):
-    return GEOMETRIES_PATH + f"{machine}_default_geometries.pkl"
+    return GEOMETRIES_PATH + f"{machine}_default_geometry_transforms.pkl"
