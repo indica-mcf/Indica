@@ -164,6 +164,7 @@ DIAGNOSTIC_QUANTITY = [
 def create_nodes(
     pulse_to_write=43000000,
     run="RUN01",
+    run_info="Default run",
     best=True,
     diagnostic_quantities=DIAGNOSTIC_QUANTITY,
     mode="EDIT",
@@ -212,7 +213,7 @@ def create_nodes(
         script=None,
         node_information_type="json",
         run_name=run,
-        run_info=run,
+        run_info=run_info,
         script_name=script_name,
         script_info=script_info,
         root_node=None,

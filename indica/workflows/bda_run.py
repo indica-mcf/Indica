@@ -39,6 +39,7 @@ def bda_run(
     mds_write=False,
     plot=False,
     run="RUN01",
+    run_info="Default run",
     dirname=None,
     set_ts=False,
     ts_split="LFS",
@@ -155,6 +156,7 @@ def bda_run(
     workflow(
         pulse_to_write=pulse_to_write,
         run=run,
+        run_info=run_info,
         best=best,
         mds_write=mds_write,
         plot=plot,
@@ -166,11 +168,10 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 2:
         config_name = "example_bda"
-        print(f"using default config file {config_name}")
-
     else:
         config_name = sys.argv[1]
 
+    print(f"using config file: {config_name}")
     config_path = f"indica.workflows.configs.{config_name}"
     config_file = importlib.import_module(config_path)
     bda_run(**config_file.__dict__)

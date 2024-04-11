@@ -55,4 +55,5 @@ mds_write = False
 best = True
 plot = False
 run = "RUN01"
+run_info = "Default run"
 dirname = None

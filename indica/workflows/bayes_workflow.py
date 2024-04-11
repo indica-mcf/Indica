@@ -1084,6 +1084,7 @@ class BayesWorkflow(AbstractBayesWorkflow):
         self,
         filepath="./results/test/",
         run="RUN01",
+        run_info="Default run",
         mds_write=False,
         best=True,
         pulse_to_write=None,
