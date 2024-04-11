@@ -170,8 +170,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+        **kwargs,
     ) -> Dict[str, DataArray]:
         """
         Reads data based on Thomson Scattering.
@@ -348,6 +347,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = None,
     ) -> Dict[str, Any]:
         """
         Gets raw data for CXRS diagnostic from the database
@@ -363,6 +363,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        **kwargs,
     ) -> Dict[str, DataArray]:
         """
         Reads equilibrium data
@@ -767,8 +768,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+        **kwargs,
     ) -> Dict[str, DataArray]:
         """
         Reads ASTRA data
