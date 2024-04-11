@@ -16,6 +16,7 @@ class ST40Conf:
             "cxqf_tws_c": "get_charge_exchange",
             "lines": "get_diode_filters",
             "smmh": "get_interferometry",
+            "nirh": "get_interferometry",
             "ts": "get_thomson_scattering",
             "sxr_spd": "get_radiation",
             "sxrc_xy1": "get_radiation",

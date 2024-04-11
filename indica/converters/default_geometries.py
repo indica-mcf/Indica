@@ -1,6 +1,5 @@
 from pathlib import Path
 import pickle
-from typing import List
 from indica.readers import ST40Reader, ST40Conf
 
 PROJECT_PATH = Path(__file__).parent.parent
@@ -58,7 +57,9 @@ def write_default_geometries(
     for instr in _conf.INSTRUMENT_METHODS.keys():
         try:
             data = _reader.get("", instr, 0, dl=dl)
-            transforms[instr] = data[list(data)[0]].transform
+            _transform = data[list(data)[0]].transform
+            if "LineOfSightTransform" in str(_transform) or "TransectCoordinates" in str(_transform):
+                transforms[instr] = _transform
         except Exception as e:
             print(f"Error reading {instr}: {e}")
             
