@@ -51,7 +51,7 @@ sample_method="high_density"
 stopping_criteria="mode"
 burn_frac=0.20
 
-mds_write = True
+mds_write = False
 best = True
 plot = False
 run = "RUN01"
