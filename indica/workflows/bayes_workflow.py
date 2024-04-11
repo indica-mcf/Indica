@@ -57,7 +57,7 @@ DEFAULT_PROFILE_PARAMS = {
     # "Niz1_prof.wcenter": 0.3,
     # "Niz1_prof.wped": 3,
     # "Niz1_prof.peaking": 2,
-    "Nh_prof.y0": 5e14,
+    "Nh_prof.y0": 1e14,
     "Nh_prof.y1": 5e15,
     "Nh_prof.yend": 5e15,
     "Nh_prof.wcenter": 0.01,
@@ -1136,6 +1136,7 @@ class BayesWorkflow(AbstractBayesWorkflow):
                 mode = "EDIT"
             else:
                 mode = "NEW"
+
             self.node_structure = create_nodes(
                 pulse_to_write=pulse_to_write,
                 best=best,
@@ -1143,6 +1144,9 @@ class BayesWorkflow(AbstractBayesWorkflow):
                 diagnostic_quantities=self.blackbox_settings.opt_quantity,
                 mode=mode,
             )
+
+            if mode == "NEW":
+                util.standard_fn_MDSplus.make_ST40_subtree("BDA", pulse_to_write)
 
             util.StandardNodeWriting(
                 pulse_number=pulse_to_write,  # pulse number for which data should be written
