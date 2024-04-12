@@ -5,14 +5,12 @@ from typing import List
 from xarray import DataArray
 
 from indica.converters.default_geometries import load_default_geometries
-from indica.converters.line_of_sight import LineOfSightTransform
-from indica.converters.transect import TransectCoordinates
 from indica.models.bolometer_camera import Bolometer
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
-from indica.models.plasma import Plasma
+from indica.models.plasma import Plasma, example_plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
 from indica.numpy_typing import RevisionLike
@@ -82,18 +80,18 @@ class ModelReader:
         for instr in self._instruments:
             self.models[instr] = INSTRUMENT_MODELS[machine][instr](name=instr)
 
-    def set_phantom_geometry(self, dl: float = 0.02):
+    def set_phantom_geometry(self):
         """
         Set instrument geometry from standard set
         """
         geometries = load_default_geometries(self.machine)
         for instr in self._instruments:
-            if instr not in geometries.keys():
+            if instr in geometries.keys():
+                self.transforms[instr] = geometries[instr]
+            else:
                 raise ValueError(f"{instr} not available in default_geometries file")
 
-            self.transforms[instr] = geometries[instr]
-
-            self._set_geometries()
+        self._set_geometries()
 
     def set_experimental_geometry(
         self,
@@ -129,7 +127,7 @@ class ModelReader:
 
     def _set_geometries(self):
         for instr in self._instruments:
-            _transform = self.transform[instr]
+            _transform = self.transforms[instr]
             if "LineOfSightTransform" in str(_transform):
                 self.models[instr].set_los_transform(_transform)
             else:
@@ -177,16 +175,18 @@ class ModelReader:
         if len(instruments) == 0:
             instruments = list(self.models)
 
-        binned_data: dict = {}
+        bckc: dict = {}
         for instrument in instruments:
-            binned_data[instrument] = self.get("", instrument)
+            bckc[instrument] = self.get("", instrument)
 
-        self.binned_data = binned_data
+        return bckc
 
+def example_modelreader():
+    modelreader = ModelReader("st40")
+    modelreader.set_phantom_geometry()
+    modelreader.set_plasma(example_plasma())
 
-# def modelreader_example_phantom():
-#     phantom_reader = ModelReader()
-#     phantom_reader.set_phantom_geometry()
+    return modelreader
 
 
 # def modelreader_example_experiment():
