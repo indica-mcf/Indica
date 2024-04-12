@@ -11,7 +11,7 @@ from xarray import DataArray
 from indica.equilibrium import Equilibrium
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.diode_filters import example_run as brems_example
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.models.sxr_camera import example_run as sxr_example
 from indica.models.sxr_camera import SXRcamera
 from indica.operators import tomo_1D

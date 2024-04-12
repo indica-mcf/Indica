@@ -1,6 +1,6 @@
 import indica.models.helike_spectroscopy as helike
 from indica.models.helike_spectroscopy import helike_transform_example
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 
 
 class TestHelike:

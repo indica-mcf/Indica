@@ -10,7 +10,7 @@ from indica.models.diode_filters import example_run as diodes
 from indica.models.equilibrium_reconstruction import example_run as equil_recon
 from indica.models.helike_spectroscopy import example_run as helike
 from indica.models.interferometry import example_run as interf
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.models.thomson_scattering import example_run as ts
 
 

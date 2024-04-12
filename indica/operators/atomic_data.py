@@ -896,7 +896,7 @@ def default_atomic_data(
             power_loss_sxr[elem] = PowerLoss(pls, prs)
             power_loss_sxr[elem](Te, F_z_t, Ne=Ne, Nh=Nh)
         except Exception:
-            print("No SXR-filtered data available")
+            print(f"No SXR-filtered data available for element {elem}")
 
     return fract_abu, power_loss_tot, power_loss_sxr
 

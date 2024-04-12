@@ -6,7 +6,7 @@ from xarray import DataArray
 
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import set_axis_sci

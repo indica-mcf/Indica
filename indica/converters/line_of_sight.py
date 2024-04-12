@@ -724,7 +724,7 @@ def example_run(
     beamlets=4,
     spot_width=0.1,
 ):
-    from indica.models.plasma import example_run as example_plasma
+    from indica.models.plasma import example_plasma
     from indica.settings.default_settings import MACHINE_DIMS
 
     if plasma is None:

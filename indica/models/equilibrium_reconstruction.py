@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import check_time_present
 

@@ -5,7 +5,7 @@ import numpy as np
 from xarray import DataArray
 
 from indica.equilibrium import Equilibrium
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.utilities import format_dataarray

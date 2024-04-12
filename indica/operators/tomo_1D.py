@@ -773,7 +773,7 @@ class SXR_tomography:
 
 
 def example_run(plot: bool = True, nplot: int = 2, save_fig: bool = False):
-    from indica.models.plasma import example_run as example_plasma
+    from indica.models.plasma import example_plasma
     from indica.converters.line_of_sight import LineOfSightTransform
     from indica.models.bolometer_camera import Bolometer
     from indica.utilities import set_plot_colors, set_axis_sci, save_figure, FIG_PATH

@@ -924,7 +924,7 @@ class PlasmaProfiles:
                 getattr(plasma, datatype).loc[dict(t=t)] = profiler_output
 
 
-def example_run(
+def example_plasma(
     pulse: int = None,
     tstart=0.02,
     tend=0.1,
@@ -997,4 +997,4 @@ def example_run(
 
 
 if __name__ == "__main__":
-    example_run()
+    example_plasma()
