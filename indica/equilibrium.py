@@ -91,8 +91,8 @@ class Equilibrium:
         self.rho = rho
         self.t = self.rho.t
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
-            self.psin = equilibrium_data["psin"]
-            dpsin = self.psin[1] - self.psin[0]
+            psin = equilibrium_data["vjac"].rho_poloidal ** 2
+            dpsin = psin[1] - psin[0]
             self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
             self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
         elif "volume" in equilibrium_data and "area" in equilibrium_data:
