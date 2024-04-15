@@ -10,7 +10,8 @@ from indica.models.charge_exchange import ChargeExchange
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
-from indica.models.plasma import Plasma, example_plasma
+from indica.models.plasma import example_plasma
+from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
 from indica.numpy_typing import RevisionLike
@@ -180,6 +181,7 @@ class ModelReader:
             bckc[instrument] = self.get("", instrument)
 
         return bckc
+
 
 def example_modelreader():
     modelreader = ModelReader("st40")

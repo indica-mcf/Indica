@@ -91,7 +91,7 @@ class Equilibrium:
         self.rho = rho
         self.t = self.rho.t
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
-            psin = (equilibrium_data["vjac"].rho_poloidal) ** 2
+            psin = equilibrium_data["vjac"].rho_poloidal ** 2
             dpsin = psin[1] - psin[0]
             self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
             self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
@@ -808,6 +808,7 @@ def prepare_coords(R: LabeledArray, z: LabeledArray) -> Tuple[DataArray, DataArr
     return _R, _z
 
 
+MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
 DEFAULT_PARAMS = {
     "poloidal_a": 0.5,
     "poloidal_b": 1.0,
@@ -847,10 +848,12 @@ def fake_equilibrium(
     tend: float = 0.1,
     dt: float = 0.01,
     machine_dims=None,
-    machine: str = "st40",
 ):
     equilibrium_data = fake_equilibrium_data(
-        tstart=tstart, tend=tend, dt=dt, machine_dims=machine_dims, machine=machine
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        machine_dims=machine_dims,
     )
     return Equilibrium(equilibrium_data)
 
@@ -860,7 +863,6 @@ def fake_equilibrium_data(
     tend: float = 0.1,
     dt: float = 0.01,
     machine_dims=None,
-    machine: str = "st40",
 ):
     def monotonic_series(
         start: float,
@@ -875,7 +877,7 @@ def fake_equilibrium_data(
         )
 
     if machine_dims is None:
-        machine_dims = ((0.15, 0.85), (-0.75, 0.75))
+        machine_dims = MACHINE_DIMS
 
     get_tlabels_dt(tstart, tend, dt)
     time = np.arange(tstart, tend + dt, dt)

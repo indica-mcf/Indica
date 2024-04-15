@@ -1,9 +1,12 @@
 from pathlib import Path
 import pickle
-from indica.readers import ST40Reader, ST40Conf
+
+from indica.readers import ST40Conf
+from indica.readers import ST40Reader
 
 PROJECT_PATH = Path(__file__).parent.parent
 GEOMETRIES_PATH = f"{PROJECT_PATH}/data/"
+
 
 def load_default_geometries(machine: str):
     """
@@ -27,7 +30,7 @@ def load_default_geometries(machine: str):
 
 
 def write_default_geometries(
-    machine:str,
+    machine: str,
     pulse: int,
     tstart: float = 0.01,
     tend: float = 0.1,
@@ -47,7 +50,7 @@ def write_default_geometries(
     -------
     dictionary of instrument coordinate transforms
     """
-    if machine=="st40":
+    if machine == "st40":
         _reader = ST40Reader(pulse, tstart, tend)
         _conf = ST40Conf()
     else:
@@ -58,14 +61,17 @@ def write_default_geometries(
         try:
             data = _reader.get("", instr, 0, dl=dl)
             _transform = data[list(data)[0]].transform
-            if "LineOfSightTransform" in str(_transform) or "TransectCoordinates" in str(_transform):
+            if "LineOfSightTransform" in str(
+                _transform
+            ) or "TransectCoordinates" in str(_transform):
                 transforms[instr] = _transform
         except Exception as e:
             print(f"Error reading {instr}: {e}")
-            
+
     filename = geometry_filename(machine)
     print(f"\n Writing geometry file to: {filename}. \n")
     pickle.dump(transforms, open(filename, "wb"))
+
 
 def geometry_filename(machine: str):
     return GEOMETRIES_PATH + f"{machine}_default_geometry_transforms.pkl"

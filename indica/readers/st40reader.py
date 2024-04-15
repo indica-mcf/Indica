@@ -5,7 +5,6 @@ reading MDS+ data produced by ST40.
 
 from typing import Any
 from typing import Dict
-from typing import List
 from typing import Set
 from typing import Tuple
 
@@ -86,33 +85,10 @@ class ST40Reader(DataReader):
         self.UIDS_MDS = self.st40conf.UIDS_MDS
         self.QUANTITIES_MDS = self.st40conf.QUANTITIES_MDS
 
-    def _get_data(
-        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
-    ) -> Tuple[np.array, List[np.array], str, str]:
-        """Gets the signal and its coordinates for the given INSTRUMENT, at the
-        given revision."""
-        data, _path = self.mdsutils.get_signal(uid, instrument, quantity, revision)
-        dims, _ = self.mdsutils.get_signal_dims(_path, len(data.shape))
-        unit = self.mdsutils.get_signal_units(_path)
-
-        return data, dims, unit, _path
-
-    def _get_revision(
-        self, uid: str, instrument: str, revision: RevisionLike
-    ) -> RevisionLike:
-        """
-        Gets the effective revision name if latest/best is given in input
-        """
-        if type(revision) == str:
-            return revision
-
-        if revision == 0:
-            run_name, _ = self.mdsutils.get_signal(
-                uid, instrument, ":best_run", revision
-            )
-            return run_name
-
-        return revision
+        self._get_signal = self.mdsutils.get_signal
+        self._get_signal_dims = self.mdsutils.get_signal_dims
+        self._get_data = self.mdsutils.get_data
+        self._get_revision = self.mdsutils.get_best_revision
 
     def _get_equilibrium(
         self,
@@ -127,24 +103,24 @@ class ST40Reader(DataReader):
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {}
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument)
         revision = results["revision"]
-        times, _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
-        results["t"] = times
-        results["psin"], results["psin_records"] = self.mdsutils.get_signal(
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
+        results["t"] = time
+        results["psin"], results["psin_records"] = self._get_signal(
             uid, instrument, ".profiles.psi_norm:xpsn", revision
         )
-        results["psi_r"], results["psi_r_records"] = self.mdsutils.get_signal(
+        results["psi_r"], results["psi_r_records"] = self._get_signal(
             uid, instrument, ".psi2d:rgrid", revision
         )
-        results["psi_z"], results["psi_z_records"] = self.mdsutils.get_signal(
+        results["psi_z"], results["psi_z_records"] = self._get_signal(
             uid, instrument, ".psi2d:zgrid", revision
         )
         for q in quantities:
             if q not in self.QUANTITIES_MDS[instrument].keys():
                 continue
             try:
-                qval, q_path = self.mdsutils.get_signal(
+                qval, q_path = self._get_signal(
                     uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
                 )
             except TreeNNF:
@@ -182,36 +158,34 @@ class ST40Reader(DataReader):
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {}
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument)
         revision = results["revision"]
 
         # Read time and radial dimensions
-        results["boundary_index"], _ = self.mdsutils.get_signal(
+        results["boundary_index"], _ = self._get_signal(
             uid, instrument, ".p_boundary:index", revision
         )
-        results["psi"], _ = self.mdsutils.get_signal(
+        results["psi"], _ = self._get_signal(
             uid, instrument, ".profiles.psi_norm:psi", revision
         )
-        results["psin"], psin_path = self.mdsutils.get_signal(
+        results["psin"], psin_path = self._get_signal(
             uid, instrument, ".profiles.psi_norm:xpsn", revision
         )
-        results["ftor"], _ = self.mdsutils.get_signal(
+        results["ftor"], _ = self._get_signal(
             uid, instrument, ".profiles.psi_norm:ftor", revision
         )
-        results["rho"], rho_path = self.mdsutils.get_signal(
+        results["rho"], rho_path = self._get_signal(
             uid, instrument, ".profiles.astra:rho", revision
         )
-        results["psi_r"], _ = self.mdsutils.get_signal(
+        results["psi_r"], _ = self._get_signal(
             uid, instrument, ".psi2d:rgrid", revision
         )
-        results["psi_z"], _ = self.mdsutils.get_signal(
+        results["psi_z"], _ = self._get_signal(
             uid, instrument, ".psi2d:zgrid", revision
         )
-        results["t"], t_path = self.mdsutils.get_signal(
-            uid, instrument, ":time", revision
-        )
+        results["t"], t_path = self._get_signal(uid, instrument, ":time", revision)
         for q in quantities:
-            qval, q_path = self.mdsutils.get_signal(
+            qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
 
@@ -242,30 +216,30 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument)
         revision = results["revision"]
 
-        location, location_path = self.mdsutils.get_signal(
+        location, location_path = self._get_signal(
             uid, instrument, ".geometry:location", revision
         )
-        direction, direction_path = self.mdsutils.get_signal(
+        direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
 
         quantity = "brightness"
-        time, times_path = self.mdsutils.get_signal(
+        time, time_path = self._get_signal(
             uid,
             instrument,
             ":time",
             revision,
         )
-        qval, qval_record = self.mdsutils.get_signal(
+        qval, qval_record = self._get_signal(
             uid,
             instrument,
             self.QUANTITIES_MDS[instrument][quantity],
             revision,
         )
-        qerr, qerr_record = self.mdsutils.get_signal(
+        qerr, qerr_record = self._get_signal(
             uid,
             instrument,
             self.QUANTITIES_MDS[instrument][quantity] + "_err",
@@ -300,23 +274,21 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument)
         revision = results["revision"]
 
-        location, location_path = self.mdsutils.get_signal(
+        location, location_path = self._get_signal(
             uid, instrument, ".geometry:location", revision
         )
-        direction, direction_path = self.mdsutils.get_signal(
+        direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
         if len(np.shape(location)) == 1:
             location = np.array([location])
             direction = np.array([direction])
 
-        results["t"], _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
-        wavelength, _ = self.mdsutils.get_signal(
-            uid, instrument, ":wavelength", revision
-        )
+        results["t"], _ = self._get_signal(uid, instrument, ":time", revision)
+        wavelength, _ = self._get_signal(uid, instrument, ":wavelength", revision)
         # TODO: change once wavelength in MDS+ has been fixed to nanometers!
         wavelength /= 10.0
         if self.pulse >= 10307:
@@ -325,14 +297,14 @@ class ST40Reader(DataReader):
         results["wavelength"] = wavelength
 
         for q in quantities:
-            qval, q_path = self.mdsutils.get_signal(
+            qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
             results[q + "_records"] = q_path
             results[q] = qval
 
             try:
-                qval_err, q_path_err = self.mdsutils.get_signal(
+                qval_err, q_path_err = self._get_signal(
                     uid,
                     instrument,
                     self.QUANTITIES_MDS[instrument][q] + "_err",
@@ -367,31 +339,27 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument)
         revision = results["revision"]
 
-        texp, texp_path = self.mdsutils.get_signal(
-            uid, instrument, ":exposure", revision
-        )
-        time, _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
+        texp, texp_path = self._get_signal(uid, instrument, ":exposure", revision)
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
         try:
-            wavelength, _ = self.mdsutils.get_signal(
-                uid, instrument, ":wavelen", revision
-            )
+            wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
         except TreeNODATA:
             wavelength = None
 
-        x, x_path = self.mdsutils.get_signal(uid, instrument, ":x", revision)
-        y, y_path = self.mdsutils.get_signal(uid, instrument, ":y", revision)
-        z, z_path = self.mdsutils.get_signal(uid, instrument, ":z", revision)
-        R, R_path = self.mdsutils.get_signal(uid, instrument, ":R", revision)
+        x, x_path = self._get_signal(uid, instrument, ":x", revision)
+        y, y_path = self._get_signal(uid, instrument, ":y", revision)
+        z, z_path = self._get_signal(uid, instrument, ":z", revision)
+        R, R_path = self._get_signal(uid, instrument, ":R", revision)
 
         # TODO: temporary fix until geometry sorted (especially pulse if statement..)
         try:
-            location, location_path = self.mdsutils.get_signal(
+            location, location_path = self._get_signal(
                 uid, instrument, ".geometry:location", revision
             )
-            direction, direction_path = self.mdsutils.get_signal(
+            direction, direction_path = self._get_signal(
                 uid, instrument, ".geometry:direction", revision
             )
             if len(np.shape(location)) == 1:
@@ -411,7 +379,7 @@ class ST40Reader(DataReader):
 
         for q in quantities:
             try:
-                qval, q_path = self.mdsutils.get_signal(
+                qval, q_path = self._get_signal(
                     uid,
                     instrument,
                     self.QUANTITIES_MDS[instrument][q],
@@ -421,7 +389,7 @@ class ST40Reader(DataReader):
                 continue
 
             try:
-                qval_err, q_path_err = self.mdsutils.get_signal(
+                qval_err, q_path_err = self._get_signal(
                     uid,
                     instrument,
                     self.QUANTITIES_MDS[instrument][q] + "_err",
@@ -430,7 +398,7 @@ class ST40Reader(DataReader):
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
 
-            dimensions, _ = self.mdsutils.get_signal_dims(q_path, len(qval.shape))
+            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
             results[q + "_records"] = q_path
             results[q] = qval
             results[f"{q}_error"] = qval_err
@@ -457,6 +425,7 @@ class ST40Reader(DataReader):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = None,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
@@ -467,16 +436,16 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument)
         revision = results["revision"]
 
-        times, _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
-        wavelength, _ = self.mdsutils.get_signal(uid, instrument, ":wavelen", revision)
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
+        wavelength, _ = self._get_signal(uid, instrument, ":wavelen", revision)
 
-        location, location_path = self.mdsutils.get_signal(
+        location, location_path = self._get_signal(
             uid, instrument, ".geometry:location", revision
         )
-        direction, direction_path = self.mdsutils.get_signal(
+        direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
         if len(np.shape(location)) == 1:
@@ -484,7 +453,7 @@ class ST40Reader(DataReader):
             direction = np.array([direction])
 
         for q in quantities:
-            qval, q_path = self.mdsutils.get_signal(
+            qval, q_path = self._get_signal(
                 uid,
                 instrument,
                 self.QUANTITIES_MDS[instrument][q],
@@ -492,7 +461,7 @@ class ST40Reader(DataReader):
             )
 
             try:
-                qval_err, q_path_err = self.mdsutils.get_signal(
+                qval_err, q_path_err = self._get_signal(
                     uid,
                     instrument,
                     self.QUANTITIES_MDS[instrument][q] + "_err",
@@ -501,14 +470,14 @@ class ST40Reader(DataReader):
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
 
-            dimensions, _ = self.mdsutils.get_signal_dims(q_path, len(qval.shape))
+            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
 
             results[q + "_records"] = q_path
             results[q] = qval
             results[f"{q}_error"] = qval_err
 
         results["length"] = location[:, 0].size
-        results["t"] = times
+        results["t"] = time
         # TODO: check whether wlength should be channel agnostic or not...
         if wavelength is not None:
             results["wavelength"] = wavelength[0, :]
@@ -530,10 +499,10 @@ class ST40Reader(DataReader):
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
-        location, location_path = self.mdsutils.get_signal(
+        location, location_path = self._get_signal(
             uid, instrument, ".geometry:location", revision
         )
-        direction, position_path = self.mdsutils.get_signal(
+        direction, position_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
         if len(np.shape(location)) == 1:
@@ -548,27 +517,27 @@ class ST40Reader(DataReader):
         }
         results["location"] = location
         results["direction"] = direction
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument)
         results["revision"] = revision
         revision = results["revision"]
 
         quantity = "brightness"
-        qval, q_path = self.mdsutils.get_signal(
+        qval, q_path = self._get_signal(
             uid, instrument, self.QUANTITIES_MDS[instrument][quantity], revision
         )
-        times, _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
-        _labels, _ = self.mdsutils.get_signal(uid, instrument, ":label", revision)
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
+        _labels, _ = self._get_signal(uid, instrument, ":label", revision)
         if type(_labels[0]) == np.bytes_:
             labels = np.array([label.decode("UTF-8") for label in _labels])
         else:
             labels = _labels
 
-        results["t"] = times
+        results["t"] = time
         results["labels"] = labels
         results[quantity + "_records"] = q_path
         results[quantity] = qval
         try:
-            qval_err, q_path_err = self.mdsutils.get_signal(
+            qval_err, q_path_err = self._get_signal(
                 uid,
                 instrument,
                 self.QUANTITIES_MDS[instrument][quantity] + "_ERR",
@@ -602,21 +571,21 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument)
         revision = results["revision"]
 
-        location, location_path = self.mdsutils.get_signal(
+        location, location_path = self._get_signal(
             uid, instrument, ".geometry:location", revision
         )
-        direction, direction_path = self.mdsutils.get_signal(
+        direction, direction_path = self._get_signal(
             uid, instrument, ".geometry:direction", revision
         )
 
         if instrument == "smmh":
-            location_r, _ = self.mdsutils.get_signal(
+            location_r, _ = self._get_signal(
                 uid, instrument, ".geometry:location_r", revision
             )
-            direction_r, _ = self.mdsutils.get_signal(
+            direction_r, _ = self._get_signal(
                 uid, instrument, ".geometry:direction_r", revision
             )
             location = (location + location_r) / 2.0
@@ -626,20 +595,20 @@ class ST40Reader(DataReader):
             location = np.array([location])
             direction = np.array([direction])
 
-        times, _ = self.mdsutils.get_signal(uid, instrument, ":time", revision)
+        time, _ = self._get_signal(uid, instrument, ":time", revision)
 
         for q in quantities:
-            qval, q_path = self.mdsutils.get_signal(
+            qval, q_path = self._get_signal(
                 uid, instrument, self.QUANTITIES_MDS[instrument][q], revision
             )
 
             if "t" not in results:
-                results["t"] = times
+                results["t"] = time
             results[q + "_records"] = q_path
             results[q] = qval
 
             try:
-                qval_err, q_path_err = self.mdsutils.get_signal(
+                qval_err, q_path_err = self._get_signal(
                     uid,
                     instrument,
                     self.QUANTITIES_MDS[instrument][q] + "_err",
@@ -652,7 +621,7 @@ class ST40Reader(DataReader):
             results[q + "_error" + "_records"] = q_path_err
 
             try:
-                qval_syserr, q_path_syserr = self.mdsutils.get_signal(
+                qval_syserr, q_path_syserr = self._get_signal(
                     uid,
                     instrument,
                     self.QUANTITIES_MDS[instrument][q] + "_syserr",
@@ -690,34 +659,28 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument, revision)
+        results["revision"] = self._get_revision(uid, instrument)
         revision = results["revision"]
 
-        times, times_path = self.mdsutils.get_signal(uid, instrument, ":time", revision)
+        time, time_path = self._get_signal(uid, instrument, ":time", revision)
         print("\n Hardcoded correction to TS coordinates to be fixed in MDS+ \n")
-        # location, location_path = self.mdsutils.get_signal(
-        #     uid, instrument, ".geometry:location", revision
-        # )
-        # direction, direction_path = self.mdsutils.get_signal(
-        #     uid, instrument, ".geometry:direction", revision
-        # )
-        x, x_path = self.mdsutils.get_signal(uid, instrument, ":x", revision)
-        y, y_path = self.mdsutils.get_signal(uid, instrument, ":y", revision)
-        z, z_path = self.mdsutils.get_signal(uid, instrument, ":z", revision)
-        R, R_path = self.mdsutils.get_signal(uid, instrument, ":R", revision)
+        x, _ = self._get_signal(uid, instrument, ":x", revision)
+        y, _ = self._get_signal(uid, instrument, ":y", revision)
+        z, _ = self._get_signal(uid, instrument, ":z", revision)
+        R, _ = self._get_signal(uid, instrument, ":R", revision)
         z = R * 0.0
         x = R
         y = R * 0.0
 
         for q in quantities:
-            qval, q_path = self.mdsutils.get_signal(
+            qval, q_path = self._get_signal(
                 uid,
                 instrument,
                 self.QUANTITIES_MDS[instrument][q],
                 revision,
             )
             try:
-                qval_err, q_path_err = self.mdsutils.get_signal(
+                qval_err, q_path_err = self._get_signal(
                     uid,
                     instrument,
                     self.QUANTITIES_MDS[instrument][q] + "_err",
@@ -726,7 +689,7 @@ class ST40Reader(DataReader):
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
 
-            dimensions, _ = self.mdsutils.get_signal_dims(q_path, len(qval.shape))
+            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
 
             results[q + "_records"] = q_path
             results[q] = qval
@@ -737,7 +700,7 @@ class ST40Reader(DataReader):
         results["y"] = y
         results["z"] = z
         results["R"] = R
-        results["t"] = times
+        results["t"] = time
         results["element"] = ""
         # results["location"] = location
         # results["direction"] = direction

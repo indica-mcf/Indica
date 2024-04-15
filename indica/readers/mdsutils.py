@@ -44,24 +44,6 @@ class MDSUtils(BaseIO):
     def requires_authentication(self) -> bool:
         return False
 
-    def get_revision_name(self, revision: RevisionLike) -> str:
-        """Return string defining RUN## or BEST if revision = 0"""
-
-        if type(revision) == int:
-            _revision = int(revision)
-            if _revision < 0:
-                rev_str = ""
-            elif _revision == 0:
-                rev_str = ".best"
-            elif _revision < 10:
-                rev_str = f".run0{int(_revision)}"
-            else:
-                rev_str = f".run{int(_revision)}"
-        else:
-            rev_str = f".{revision}"
-
-        return rev_str
-
     def get_signal(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[np.array, str]:
@@ -72,7 +54,6 @@ class MDSUtils(BaseIO):
             data = str(self.conn.get(path))
         else:
             data = np.array(self.conn.get(path))
-            # data = np.array(self.conn.get(path_check))
 
         return data, path
 
@@ -88,7 +69,7 @@ class MDSUtils(BaseIO):
         paths = []
         for dim in range(ndims):
             path = f"dim_of({mds_path},{dim})"
-            dim_tmp = self.conn.get(self.mdsCheck(path)).data()
+            dim_tmp = self.conn.get(path).data()
 
             paths.append(path)
             dimensions.append(np.array(dim_tmp))
@@ -106,6 +87,42 @@ class MDSUtils(BaseIO):
 
         return unit
 
+    def get_data(
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
+    ) -> Tuple[np.array, List[np.array], str, str]:
+        """Gets the signal and its coordinates for the given INSTRUMENT, at the
+        given revision."""
+        data, _path = self.get_signal(uid, instrument, quantity, revision)
+        dims, _ = self.get_signal_dims(_path, len(data.shape))
+        unit = self.get_signal_units(_path)
+
+        return data, dims, unit, _path
+
+    def revision_name(self, revision: RevisionLike) -> str:
+        """Return string defining RUN## or BEST if revision = 0"""
+
+        if type(revision) == int:
+            _revision = int(revision)
+            if _revision < 0:
+                rev_str = ""
+            elif _revision == 0:
+                rev_str = "best"
+            elif _revision < 10:
+                rev_str = f"run0{int(_revision)}"
+            else:
+                rev_str = f"run{int(_revision)}"
+        else:
+            rev_str = f"{revision}"
+
+        return rev_str.upper()
+
+    def get_best_revision(self, uid: str, instrument: str):
+        """
+        Return revision name to which BEST is pointing to
+        """
+        best_revision, _ = self.get_signal(uid, instrument, ".best_run", "best")
+        return best_revision
+
     def get_mds_path(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[str, str]:
@@ -116,20 +133,14 @@ class MDSUtils(BaseIO):
         quantity: e.g. ".global:cr0" # minor radius
         revision: if 0 --> looks for "best", else "run##"
         """
-        revision_name = self.get_revision_name(revision)
+        revision_name = self.revision_name(revision)
         mds_path = ""
         if len(uid) > 0:
             mds_path += f".{uid}".upper()
         if len(instrument) > 0 and instrument.upper() != self.tree.upper():
             mds_path += f".{instrument}".upper()
-        mds_path += f"{revision_name}{quantity}".upper()
+        mds_path += f".{revision_name}{quantity}".upper()
         return mds_path, self.mdsCheck(mds_path)
-
-    def get_mds_path_dims(self, mds_path: str, dim: int):
-        """Gets the dimensions' path given an mds_path"""
-
-        dims_path = f"dim_of({mds_path},{dim})"
-        return dims_path
 
     def mdsCheck(self, mds_path):
         """Return FAILED if node doesn't exist or other error
