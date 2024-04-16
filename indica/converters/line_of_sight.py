@@ -375,6 +375,9 @@ class LineOfSightTransform(CoordinateTransform):
             Spatial resolution (m)
         """
 
+        if hasattr(self, "rho"):
+            delattr(self, "rho")
+
         # Calculate start and end coordinates, R, z and phi for all LOS
         x_start: list = []
         y_start: list = []

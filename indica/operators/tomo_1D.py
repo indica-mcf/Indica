@@ -156,8 +156,16 @@ class SXR_tomography:
         # load data
         self.data = input_dict["brightness"]  # W/m^2 ??
 
+        # load error
+        default_err = self.data * 0.05 + np.nanmax(self.data) * 0.01  # assume 5% error
+        if "brightness_error" in input_dict.keys():
+            self.err = input_dict["brightness_error"]  # W/m^2 ??
+        else:
+            self.err = default_err
+
         # guess!! of uncertainty
-        self.err = self.data * 0.05 + np.nanmax(self.data) * 0.01  # assume 5% error
+        if np.all(self.err) == 0:
+            self.err = default_err
 
         self.tvec = input_dict["t"]
 

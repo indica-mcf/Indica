@@ -32,7 +32,6 @@ from .numpy_typing import OnlyArray
 DATA_PATH = f"/home/{getuser()}/data/Indica/"
 FIG_PATH = f"/home/{getuser()}/figures/Indica/"
 
-
 def get_element_info(element: str) -> Tuple[int, float, str, str]:
     """
     Return periodic table information of specified element
@@ -356,36 +355,23 @@ def format_dataarray(
         if type(_data) != DataArray:
             raise ValueError("data must be a DataArray if coordinates are not given")
 
-    long_name: str = ""
-    units: str = ""
+    assign_datatype(data_array, var_name)
+
+    return data_array
+
+
+def assign_datatype(
+    data_array: DataArray,
+    var_name: str,
+):
+    long_name:str = ""
+    units:str = ""
     if var_name in DATATYPES:
         long_name, units = DATATYPES[var_name]
     else:
         print(f"{var_name} has no associated DATATYPE")
     data_array.attrs["long_name"] = long_name
     data_array.attrs["units"] = units
-
-    return data_array
-
-
-# def assign_data(
-#     data: LabeledArray,
-#     var_name: str,
-#     make_copy=True,
-#     coords: list = None,
-# ):
-#     new_data: DataArray
-
-#     if make_copy:
-#         new_data = deepcopy(data)
-#     else:
-#         new_data = data
-
-#     return new_data
-
-#     format_dataarray(new_data, var_name, coordinates=coords)
-
-#     return new_data
 
 
 def print_like(string: str):
