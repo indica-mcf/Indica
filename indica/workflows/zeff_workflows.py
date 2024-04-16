@@ -3,13 +3,12 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.examples.los_transform_examples import tangential_xy
 from indica.models.diode_filters import BremsstrahlungDiode
-from indica.models.plasma import Plasma
+from indica.models.plasma import Plasma, example_plasma
 from indica.operators import tomo_1D
 from indica.operators.tomo_1D import SXR_tomography
 import indica.physics as ph
-from indica.readers.read_phantoms import PhantomReader
+from indica.readers.modelreader import ModelReader
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
@@ -48,7 +47,8 @@ def calculate_zeff(
     dt
         Delta t for time binning of all quantities.
 
-    ...see other parameter definition in separate methods...
+    ...see other parameter definition in separ
+    return binned_dataate methods...
 
     Returns
     -------
@@ -73,14 +73,11 @@ def calculate_zeff(
         )
         binned_data = st40.binned_data
     else:
-        st40_phantom = PhantomReader(pulse, tstart, tend, dt)
-        _los_transform = tangential_xy(st40_phantom._machine_dims)
-        st40_phantom.instr_models["pi"].set_los_transform(_los_transform)
-        st40_phantom(
-            ["pi", "tws_c", "ts", "efit"], revisions=revisions, set_equilibrium=True
-        )
-        binned_data = st40_phantom.binned_data
-        plasma = st40_phantom.plasma
+        plasma = example_plasma(tstart=tstart, tend=tend, dt=dt)
+        modelreader = ModelReader("st40", instruments=["pi", "tws_c", "ts", "efit"])
+        modelreader.set_phantom_geometry()
+        modelreader.set_plasma(plasma)
+        binned_data = modelreader()
 
     te_data = binned_data["ts"]["te"]
     te_err = binned_data["ts"]["te"].error
@@ -112,11 +109,13 @@ def calculate_zeff(
             spectra,
             filter_wavelength,
             filter_fwhm,
-            default_perc_err=default_perc_err,
         )
     else:
         filter_data = binned_data["pi"]["brightness"]
         spectra_to_integrate = None
+
+    if not hasattr(filter_data, "error"):
+        filter_data.attrs["error"] = filter_data * default_perc_err
 
     print("Calculate LOS-averaged Zeff")
     zeff_los_avrg = calculate_zeff_los_averaged(
@@ -160,7 +159,6 @@ def filter_passive_spectra(
     spectra: DataArray,
     filter_wavelength,
     filter_fwhm,
-    default_perc_err: float = 0.05,
 ):
     """
     Create object representing a filtered diode measuring Bremsstrahlung and
@@ -174,8 +172,6 @@ def filter_passive_spectra(
         Centroid of the interference filter
     filter_fwhm
         FWHM of the interference filter
-    default_perc_err
-        Default percentage error of the output if not self-consistently calculated
 
     Returns
     -------
@@ -195,10 +191,6 @@ def filter_passive_spectra(
         spectra, fit_background=False
     )
     filter_data.attrs["transform"] = spectra_to_integrate.transform
-    if not hasattr(filter_data, "error"):
-        filter_data.attrs["error"] = filter_data * default_perc_err
-    if np.all(filter_data.error) == 0:
-        filter_data.attrs["error"] = filter_data * default_perc_err
 
     return filter_data, spectra_to_integrate, filter_model
 
@@ -249,7 +241,6 @@ def calculate_zeff_los_averaged(
         lfs_bound = los_transform.impact_parameter.R + dR_limit
         hfs_bound = los_transform.impact_parameter.R - dR_limit
         good_channels = (hfs_bound > Rhfs) * (lfs_bound < Rlfs)
-        good_channels.coords["channel"] = filter_data.channel
         zeff_los_avrg = xr.where(good_channels, zeff_los_avrg, np.nan)
 
     return zeff_los_avrg
