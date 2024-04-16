@@ -4,7 +4,7 @@ import xarray as xr
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_plasma
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import check_time_present
+from indica.utilities import check_time_present, assign_datatype
 
 
 class EquilibriumReconstruction(DiagnosticModel):
@@ -31,13 +31,11 @@ class EquilibriumReconstruction(DiagnosticModel):
                 error = xr.full_like(self.bckc[quant], 0.0)
                 stdev = xr.full_like(self.bckc[quant], 0.0)
                 self.bckc[quant].attrs = {
-                    "datatype": datatype,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
-                    "long_name": "Wp",
-                    "units": "J",
                 }
+                assign_datatype(self.bckc[quantity], datatype)
             else:
                 # print(f"{quant} not available in model for {self.instrument_method}")
                 continue

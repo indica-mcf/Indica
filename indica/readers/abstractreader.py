@@ -313,8 +313,8 @@ class DataReader(BaseIO):
         database_results["spectra_error"] = database_results["spectra"] * 0.0
 
         los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
+            database_results["location"][has_data, :],
+            database_results["direction"][has_data, :],
             instrument,
             database_results["machine_dims"],
             dl,

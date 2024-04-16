@@ -13,7 +13,7 @@ from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.readers.marchuk import MARCHUKReader
 from indica.utilities import get_element_info
 from indica.utilities import set_axis_sci
-from indica.utilities import set_plot_rcparams
+from indica.utilities import set_plot_rcparams, assign_datatype
 
 # TODO: why resonance lines in upper case, others lower?
 LINE_RANGES = {
@@ -328,8 +328,6 @@ class HelikeSpectrometer(DiagnosticModel):
         self.bckc = {}
         if "spectra" in self.quantities and hasattr(self, "measured_spectra"):
             self.bckc["spectra"] = self.measured_spectra
-            self.bckc["spectra"].attrs["long_name"] = "Spectra"
-            self.bckc["spectra"].attrs["units"] = "a.u."
 
         if self.moment_analysis:
             for quantity in self.quantities:
@@ -352,21 +350,7 @@ class HelikeSpectrometer(DiagnosticModel):
                     continue
 
                 self.bckc[quantity].attrs["emiss"] = self.line_emission[line]
-                self.bckc[quantity].attrs["datatype"] = datatype
-                if "te" in quantity:
-                    long_name = "Te"
-                    units = "eV"
-                elif "ti" in quantity:
-                    long_name = "Ti"
-                    units = "eV"
-                elif "int" in quantity:
-                    long_name = "Line intensity"
-                    units = "a.u."
-                else:
-                    long_name = ""
-                    units = ""
-                self.bckc[quantity].attrs["long_name"] = long_name
-                self.bckc[quantity].attrs["units"] = units
+                assign_datatype(self.bckc[quantity], datatype)
 
                 if line in self.pos.keys():
                     self.bckc[quantity].attrs["pos"] = self.pos[line]

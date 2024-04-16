@@ -9,7 +9,7 @@ from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-
+from indica.utilities import assign_datatype
 
 class ChargeExchange(DiagnosticModel):
     """
@@ -35,13 +35,9 @@ class ChargeExchange(DiagnosticModel):
             if quant == "vtor":
                 quantity = quant
                 self.bckc[quantity] = self.Vtor_at_channels
-                long_name = "Toroidal rotation"
-                units = "rad/s"
             elif quant == "ti":
                 quantity = quant
                 self.bckc[quantity] = self.Ti_at_channels
-                long_name = "Ion temperature"
-                units = "eV"
             elif quant == "spectra":
                 # Placeholder
                 continue
@@ -55,14 +51,12 @@ class ChargeExchange(DiagnosticModel):
             error = xr.full_like(self.bckc[quantity], 0.0)
             stdev = xr.full_like(self.bckc[quantity], 0.0)
             self.bckc[quantity].attrs = {
-                "datatype": datatype,
                 "transform": self.transect_transform,
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
-                "long_name": long_name,
-                "units": units,
             }
+            assign_datatype(self.bckc[quantity], datatype)
 
     def __call__(
         self,

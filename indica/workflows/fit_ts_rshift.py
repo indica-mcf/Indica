@@ -42,8 +42,8 @@ def fit_ts(
     else:
         R_shift = None
 
-    ts_R = te_data.R
-    ts_z = te_data.z
+    ts_R = te_data.transform.R
+    ts_z = te_data.transform.z
     equilibrium = te_data.transform.equilibrium
     print("  Te")
     te_fit, te_R_shift, te_rho = fit_profile_and_R_shift(

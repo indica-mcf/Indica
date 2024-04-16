@@ -9,7 +9,7 @@ from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import set_axis_sci
+from indica.utilities import set_axis_sci, assign_datatype
 
 
 class Bolometer(DiagnosticModel):
@@ -38,14 +38,12 @@ class Bolometer(DiagnosticModel):
                 error = xr.full_like(self.bckc[quantity], 0.0)
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
-                    "datatype": datatype,
                     "transform": self.los_transform,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
-                    "long_name": "Brightness",
-                    "units": "W $m^{-2}$",
                 }
+                assign_datatype(self.bckc[quantity], datatype)
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue

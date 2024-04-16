@@ -9,6 +9,7 @@ from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.utilities import assign_datatype
 
 
 class ThomsonScattering(DiagnosticModel):
@@ -34,13 +35,9 @@ class ThomsonScattering(DiagnosticModel):
             if quant == "ne":
                 quantity = quant
                 self.bckc[quantity] = self.Ne_at_channels
-                long_name = "Ne"
-                units = "$m^{-3}$"
             elif quant == "te":
                 quantity = quant
                 self.bckc[quantity] = self.Te_at_channels
-                long_name = "Te"
-                units = "eV"
             elif quant == "chi2":
                 # Placeholder
                 continue
@@ -51,14 +48,12 @@ class ThomsonScattering(DiagnosticModel):
             error = xr.full_like(self.bckc[quantity], 0.0)
             stdev = xr.full_like(self.bckc[quantity], 0.0)
             self.bckc[quantity].attrs = {
-                "datatype": datatype,
                 "transform": self.transect_transform,
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
-                "long_name": long_name,
-                "units": units,
             }
+            assign_datatype(self.bckc[quantity], datatype)
 
     def __call__(
         self,
