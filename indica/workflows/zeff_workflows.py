@@ -3,8 +3,11 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.defaults.default_geometries import load_default_equilibrium
+from indica.defaults.default_geometries import load_default_transforms
 from indica.models.diode_filters import BremsstrahlungDiode
-from indica.models.plasma import Plasma, example_plasma
+from indica.models.plasma import example_plasma
+from indica.models.plasma import Plasma
 from indica.operators import tomo_1D
 from indica.operators.tomo_1D import SXR_tomography
 import indica.physics as ph
@@ -73,11 +76,18 @@ def calculate_zeff(
         )
         binned_data = st40.binned_data
     else:
-        plasma = example_plasma(tstart=tstart, tend=tend, dt=dt)
-        modelreader = ModelReader("st40", instruments=["pi", "tws_c", "ts", "efit"])
-        modelreader.set_phantom_geometry()
-        modelreader.set_plasma(plasma)
-        binned_data = modelreader()
+        machine = "st40"
+        _reader = ModelReader(machine, instruments=["pi", "ts"])
+        _reader.set_geometry_transforms(load_default_transforms(machine))
+
+        equilibrium = load_default_equilibrium(machine)
+        tstart = equilibrium.t.min() + dt
+        tend = equilibrium.t.max() - dt
+        plasma = example_plasma("st40", tstart=tstart, tend=tend)
+        plasma.set_equilibrium(equilibrium)
+        _reader.set_plasma(plasma)
+        binned_data = _reader()
+        fit_R_shift = False
 
     te_data = binned_data["ts"]["te"]
     te_err = binned_data["ts"]["te"].error
