@@ -1146,8 +1146,7 @@ class BayesWorkflow(AbstractBayesWorkflow):
                 mode=mode,
             )
 
-            if mode == "NEW":
-                util.standard_fn_MDSplus.make_ST40_subtree("BDA", pulse_to_write)
+            util.standard_fn_MDSplus.make_ST40_subtree("BDA", pulse_to_write)
 
             util.StandardNodeWriting(
                 pulse_number=pulse_to_write,  # pulse number for which data should be written
