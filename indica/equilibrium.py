@@ -63,6 +63,7 @@ class Equilibrium:
 
         self._session = sess
         self.f = equilibrium_data["f"]
+        self.t = equilibrium_data["f"].t
         self.faxs = equilibrium_data["faxs"]
         self.fbnd = equilibrium_data["fbnd"]
         self.ftor = equilibrium_data["ftor"]
