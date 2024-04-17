@@ -11,9 +11,10 @@ from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.readers.marchuk import MARCHUKReader
+from indica.utilities import assign_datatype
 from indica.utilities import get_element_info
 from indica.utilities import set_axis_sci
-from indica.utilities import set_plot_rcparams, assign_datatype
+from indica.utilities import set_plot_rcparams
 
 # TODO: why resonance lines in upper case, others lower?
 LINE_RANGES = {

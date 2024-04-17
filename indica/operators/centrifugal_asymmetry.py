@@ -83,7 +83,17 @@ def centrifugal_asymmetry_2d_map(
 
 def example_run(plot: bool = False):
 
+    from indica.equilibrium import fake_equilibrium
+
     plasma = example_plasma()
+    machine_dims = plasma.machine_dimensions
+    equilibrium = fake_equilibrium(
+        tstart=plasma.tstart,
+        tend=plasma.tend,
+        dt=plasma.dt / 2.0,
+        machine_dims=machine_dims,
+    )
+    plasma.set_equilibrium(equilibrium)
 
     asymmetry_parameter = centrifugal_asymmetry_parameter(
         plasma.ion_density,

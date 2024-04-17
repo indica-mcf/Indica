@@ -4,6 +4,7 @@ from typing import Dict
 import numpy as np
 import pytest
 
+from indica.equilibrium import fake_equilibrium
 from indica.models.bolometer_camera import example_run as bolo
 from indica.models.charge_exchange import example_run as cxrs
 from indica.models.diode_filters import example_run as diodes
@@ -30,6 +31,14 @@ class TestModels:
 
     def setup_class(self):
         self.plasma = example_plasma()
+        machine_dims = self.plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=self.plasma.tstart,
+            tend=self.plasma.tend,
+            dt=self.plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        self.plasma.set_equilibrium(equilibrium)
         nt = np.size(self.plasma.t)
         tstart = self.plasma.tstart
         tend = self.plasma.tend

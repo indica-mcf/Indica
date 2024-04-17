@@ -9,7 +9,8 @@ from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import set_axis_sci, assign_datatype
+from indica.utilities import assign_datatype
+from indica.utilities import set_axis_sci
 
 
 class Bolometer(DiagnosticModel):
@@ -184,7 +185,17 @@ def example_run(
 ):
 
     if plasma is None:
+        from indica.equilibrium import fake_equilibrium
+
         plasma = example_plasma(pulse=pulse)
+        machine_dims = plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=plasma.tstart,
+            tend=plasma.tend,
+            dt=plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        plasma.set_equilibrium(equilibrium)
 
     # return plasma
     # Create new interferometers diagnostics

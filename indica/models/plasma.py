@@ -13,7 +13,6 @@ from xarray import DataArray
 from indica.converters.time import convert_in_time_dt
 from indica.converters.time import get_tlabels_dt
 from indica.equilibrium import Equilibrium
-from indica.equilibrium import fake_equilibrium_data
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import default_atomic_data
 import indica.physics as ph
@@ -925,27 +924,31 @@ class PlasmaProfiles:
 
 
 def example_plasma(
-    machine:str="st40",
+    machine: str = "st40",
     pulse: int = None,
     tstart=0.02,
     tend=0.1,
     dt=0.01,
     main_ion="h",
     impurities: Tuple[str, ...] = ("c", "ar", "he"),
-    load_from_pkl:bool=True,
+    load_from_pkl: bool = True,
     **kwargs,
 ):
     from pathlib import Path
-    default_plasma_file = f"{Path(__file__).parent.parent}/data/{machine}_default_plasma_phantom.pkl"
+
+    default_plasma_file = (
+        f"{Path(__file__).parent.parent}/data/{machine}_default_plasma_phantom.pkl"
+    )
 
     if load_from_pkl and pulse is not None:
         try:
             print(f"\n Loading phantom plasma class from {default_plasma_file}. \n")
             return pickle.load(open(default_plasma_file, "rb"))
         except FileNotFoundError:
-            print(f"\n\n No phantom plasma class file {default_plasma_file}. \n"
-                  f" Building it and saving to file. \n\n")
-            write_to_pkl = True
+            print(
+                f"\n\n No phantom plasma class file {default_plasma_file}. \n"
+                f" Building it and saving to file. \n\n"
+            )
 
     # TODO: swap all profiles to new version!
 
@@ -993,19 +996,6 @@ def example_plasma(
             "impurity_density:ar.wcenter": nimp_wcenter[i],
         }
         update_profiles(parameters, t=t)
-
-    if pulse is None:
-        equilibrium_data = fake_equilibrium_data(
-            tstart=tstart, tend=tend, dt=dt / 2, machine_dims=plasma.machine_dimensions
-        )
-    else:
-        from indica.readers import ST40Reader
-
-        reader = ST40Reader(pulse, plasma.tstart - plasma.dt, plasma.tend + plasma.dt)
-        equilibrium_data = reader.get("", "efit", 0)
-
-    equilibrium = Equilibrium(equilibrium_data)
-    plasma.set_equilibrium(equilibrium)
 
     if load_from_pkl and pulse is not None:
         print(f"\n Caching phantom plasma class in {default_plasma_file} \n")

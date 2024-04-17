@@ -11,6 +11,7 @@ from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
 
+
 class ChargeExchange(DiagnosticModel):
     """
     Object representing a CXRS diagnostic
@@ -138,7 +139,17 @@ def example_run(
     # TODO: LOS sometimes crossing bad EFIT reconstruction
 
     if plasma is None:
+        from indica.equilibrium import fake_equilibrium
+
         plasma = example_plasma(pulse=pulse)
+        machine_dims = plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=plasma.tstart,
+            tend=plasma.tend,
+            dt=plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        plasma.set_equilibrium(equilibrium)
 
     # Create new interferometers diagnostics
     transect_transform = pi_transform_example(5)

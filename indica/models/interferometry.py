@@ -112,7 +112,17 @@ def smmh1_transform_example(nchannels):
 
 def example_run(pulse: int = None, plasma=None, plot=False):
     if plasma is None:
+        from indica.equilibrium import fake_equilibrium
+
         plasma = example_plasma(pulse=pulse)
+        machine_dims = plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=plasma.tstart,
+            tend=plasma.tend,
+            dt=plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        plasma.set_equilibrium(equilibrium)
 
     # Create new interferometers diagnostics
     diagnostic_name = "smmh1"
