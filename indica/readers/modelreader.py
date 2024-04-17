@@ -4,19 +4,15 @@ from typing import List
 
 from xarray import DataArray
 
-from indica.converters.default_geometries import load_default_geometries
 from indica.models.bolometer_camera import Bolometer
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
-from indica.models.plasma import example_plasma
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
-from indica.numpy_typing import RevisionLike
 from indica.readers import ST40Conf
-from indica.readers import ST40Reader
 
 # TODO: First stab, but need to check Michael Gemmell implementation
 
@@ -81,58 +77,20 @@ class ModelReader:
         for instr in self._instruments:
             self.models[instr] = INSTRUMENT_MODELS[machine][instr](name=instr)
 
-    def set_phantom_geometry(self):
+    def set_geometry_transforms(self, transforms: dict):
         """
         Set instrument geometry from standard set
         """
-        geometries = load_default_geometries(self.machine)
+
         for instr in self._instruments:
-            if instr in geometries.keys():
-                self.transforms[instr] = geometries[instr]
-            else:
+            if instr not in transforms.keys():
                 raise ValueError(f"{instr} not available in default_geometries file")
 
-        self._set_geometries()
-
-    def set_experimental_geometry(
-        self,
-        pulse: int,
-        tstart: float,
-        tend: float,
-        uid: str = "",
-        dl: float = 0.02,
-        revisions: Dict[str, RevisionLike] = None,
-    ):
-        """
-        Save instrument geometry transforms from experimental database
-        """
-        if self.machine == "st40":
-            _reader = ST40Reader(pulse, tstart, tend)
-        else:
-            raise ValueError(f"{self.machine} currently not supported")
-
-        self.reader = _reader
-        _revision: RevisionLike = 0
-        for instr in self._instruments:
-            if revisions is not None:
-                _revision = revisions[instr]
-
-            try:
-                data = self.reader.get(uid, instr, _revision, dl=dl)
-                self.transforms[instr] = data[list(data)[0]].transform
-            except Exception as e:
-                print(f"Error reading {instr}: {e}")
-                raise e
-
-        self._set_geometries()
-
-    def _set_geometries(self):
-        for instr in self._instruments:
-            _transform = self.transforms[instr]
-            if "LineOfSightTransform" in str(_transform):
-                self.models[instr].set_los_transform(_transform)
+            self.transforms[instr] = transforms[instr]
+            if "LineOfSightTransform" in str(transforms[instr]):
+                self.models[instr].set_los_transform(transforms[instr])
             else:
-                self.models[instr].set_transect_transform(_transform)
+                self.models[instr].set_transect_transform(transforms[instr])
 
     def set_plasma(self, plasma: Plasma):
         """
@@ -181,14 +139,3 @@ class ModelReader:
             bckc[instrument] = self.get("", instrument)
 
         return bckc
-
-
-def example_modelreader():
-    modelreader = ModelReader("st40")
-    modelreader.set_phantom_geometry()
-    modelreader.set_plasma(example_plasma())
-
-    return modelreader
-
-
-# def modelreader_example_experiment():
