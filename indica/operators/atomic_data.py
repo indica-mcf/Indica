@@ -901,7 +901,7 @@ def default_atomic_data(
     return fract_abu, power_loss_tot, power_loss_sxr
 
 
-def default_profiles(n_rad:int = 100, rho_lin:bool=False):
+def default_profiles(n_rad: int = 100):
     """
     Set default plasma profiles to calculate atomic data
     """
