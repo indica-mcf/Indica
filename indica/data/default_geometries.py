@@ -8,47 +8,16 @@ PROJECT_PATH = Path(__file__).parent.parent
 GEOMETRIES_PATH = f"{PROJECT_PATH}/data/"
 
 
-def load_default_geometries(machine: str):
-    """
-    Load default geometries for specified machine
-
-    Parameters
-    ----------
-    machine
-        Machine name
-    pulse
-        Pulse number
-
-    Returns
-    -------
-    dictionary of instrument coordinate transforms
-    """
-
-    geometries_file = geometry_filename(machine)
-
-    return pickle.load(open(geometries_file, "rb"))
-
-
 def write_default_geometries(
     machine: str,
     pulse: int,
     tstart: float = 0.01,
     tend: float = 0.1,
-    dl: float = 0.02,
+    dl: float = 0.005,
+    equilibrium_instrument:str = "efit",
 ):
     """
     Write geometries for specified machine to file for future use as defaults
-
-    Parameters
-    ----------
-    machine
-        Machine name
-    pulse
-        Pulse number
-
-    Returns
-    -------
-    dictionary of instrument coordinate transforms
     """
     if machine == "st40":
         _reader = ST40Reader(pulse, tstart, tend)
@@ -69,9 +38,23 @@ def write_default_geometries(
             print(f"Error reading {instr}: {e}")
 
     filename = geometry_filename(machine)
-    print(f"\n Writing geometry file to: {filename}. \n")
+    print(f"\n Writing geometry to: {filename}. \n")
     pickle.dump(transforms, open(filename, "wb"))
 
+    equil_data = _reader.get("", equilibrium_instrument, 0)
+    filename = equilibrium_filename(machine)
+    print(f"\n Writing equilibrium data to: {filename}. \n")
+    pickle.dump(equil_data, open(filename, "wb"))
+
+
+def load_default_geometries(machine: str):
+    return pickle.load(open(geometry_filename(machine), "rb"))
+
+def load_default_equilibrium_data(machine: str):
+    return pickle.load(open(equilibrium_filename(machine), "rb"))
 
 def geometry_filename(machine: str):
     return GEOMETRIES_PATH + f"{machine}_default_geometry_transforms.pkl"
+
+def equilibrium_filename(machine: str):
+    return GEOMETRIES_PATH + f"{machine}_default_equilibrium_data.pkl"
