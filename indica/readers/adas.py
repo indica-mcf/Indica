@@ -211,6 +211,7 @@ class ADASReader(BaseIO):
             # "provenance": self.create_provenance(filename, now),
             "element": element_name,
             "year": year,
+            "filename":filename,
         }
         return DataArray(
             10 ** (data - 6),
@@ -399,6 +400,7 @@ class ADASReader(BaseIO):
         attrs = {
             "long_name": long_name,
             "units": units,
+            "filename":filename,
             # "provenance": self.create_provenance(filename, now),
         }
 

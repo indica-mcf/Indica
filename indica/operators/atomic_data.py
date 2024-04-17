@@ -901,13 +901,13 @@ def default_atomic_data(
     return fract_abu, power_loss_tot, power_loss_sxr
 
 
-def default_profiles():
+def default_profiles(n_rad:int = 100, rho_lin:bool=False):
     """
     Set default plasma profiles to calculate atomic data
     """
     xend = 1.02
     rho_end = 1.01
-    rho = np.abs(np.linspace(rho_end, 0, 100) ** 1.8 - rho_end - 0.01)
+    rho = np.abs(np.linspace(rho_end, 0, n_rad) ** 1.8 - rho_end - 0.01)
 
     Te_prof = Profiles(
         datatype="electron_temperature",
