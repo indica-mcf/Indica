@@ -99,6 +99,7 @@ class HelikeSpectrometer(DiagnosticModel):
         self.pos_err_out: dict
         self.spectra: DataArray
 
+        self.Ti: DataArray
         self.Te: DataArray
         self.Ne: DataArray
         self.Nimp: DataArray
