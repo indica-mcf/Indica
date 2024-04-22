@@ -861,7 +861,7 @@ def interpolate_results(
 
 
 def default_atomic_data(
-    elements: List[str],
+    elements: Tuple[str, ...],
     Te: DataArray = None,
     Ne: DataArray = None,
     Nh: DataArray = None,
