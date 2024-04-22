@@ -32,6 +32,7 @@ from .numpy_typing import OnlyArray
 DATA_PATH = f"/home/{getuser()}/data/Indica/"
 FIG_PATH = f"/home/{getuser()}/figures/Indica/"
 
+
 def get_element_info(element: str) -> Tuple[int, float, str, str]:
     """
     Return periodic table information of specified element
@@ -364,8 +365,8 @@ def assign_datatype(
     data_array: DataArray,
     var_name: str,
 ):
-    long_name:str = ""
-    units:str = ""
+    long_name: str = ""
+    units: str = ""
     if var_name in DATATYPES:
         long_name, units = DATATYPES[var_name]
     else:

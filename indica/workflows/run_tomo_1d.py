@@ -5,17 +5,15 @@ import numpy as np
 from xarray import DataArray
 
 from indica.converters.time import convert_in_time_dt
-from indica.defaults.default_geometries import load_default_equilibrium
-from indica.defaults.default_geometries import load_default_transforms
+from indica.defaults.read_write_defaults import load_default_objects
 from indica.equilibrium import Equilibrium
-from indica.models.plasma import example_plasma
 from indica.operators import tomo_1D
 from indica.readers import ST40Reader
 from indica.readers.modelreader import ModelReader
 
 
 def example_tomo(
-    pulse: int,
+    pulse: int = 0,
     tstart: float = 0.02,
     tend: float = 0.1,
     dt: float = 0.01,
@@ -23,21 +21,18 @@ def example_tomo(
     instrument: str = "sxrc_xy2",
     reg_level_guess: float = 0.8,
     plot: bool = True,
-    phantom_data: bool = False,
 ):
     machine = "st40"
-    if phantom_data:
+    if pulse == 0:
         modelreader = ModelReader(machine, instruments=[instrument])
 
-        transforms = load_default_transforms(machine)
-        modelreader.set_geometry_transforms(transforms)
+        _transforms = load_default_objects(machine, "geometry")
+        _equilibrium = load_default_objects(machine, "equilibrium")
+        _plasma = load_default_objects(machine, "plasma")
 
-        equilibrium = load_default_equilibrium(machine)
-        tstart = equilibrium.t.min() + dt
-        tend = equilibrium.t.max() - dt
-        plasma = example_plasma("st40", tstart=tstart, tend=tend)
-        plasma.set_equilibrium(equilibrium)
-        modelreader.set_plasma(plasma)
+        modelreader.set_geometry_transforms(_transforms)
+        _plasma.set_equilibrium(_equilibrium)
+        modelreader.set_plasma(_plasma)
 
         data = modelreader.get("", instrument)
         brightness = data["brightness"]

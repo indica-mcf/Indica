@@ -13,12 +13,13 @@ from indica.readers import ST40Reader
 PROJECT_PATH = Path(__file__).parent.parent
 DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
 
+
 def save_default_objects(
     machine: str,
     pulse: int,
-    tstart: float = 0.01,
+    tstart: float = 0.02,
     tend: float = 0.1,
-    dt:float=0.01,
+    dt: float = 0.01,
     dl: float = 0.005,
     equilibrium_instrument: str = "efit",
 ):
@@ -26,7 +27,7 @@ def save_default_objects(
     Write geometries for specified machine to file for future use as defaults
     """
     if machine == "st40":
-        _reader = ST40Reader(pulse, tstart, tend)
+        _reader = ST40Reader(pulse, tstart - dt, tend + dt)
         _conf = ST40Conf()
     else:
         raise ValueError(f"Machine {machine} currently not supported")
