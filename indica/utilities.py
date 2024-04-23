@@ -1,6 +1,7 @@
 """Various miscellanious helper functions."""
 from copy import deepcopy
 from getpass import getuser
+import hashlib
 import inspect
 import os
 import string
@@ -25,12 +26,14 @@ from xarray.core.dataset import Dataset
 from xarray.core.variable import Variable
 
 from indica.datatypes import DATATYPES
+from indica.datatypes import UNITS
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
 from .numpy_typing import OnlyArray
 
 DATA_PATH = f"/home/{getuser()}/data/Indica/"
 FIG_PATH = f"/home/{getuser()}/figures/Indica/"
+CACHE_DIR = ".indica"
 
 
 def get_element_info(element: str) -> Tuple[int, float, str, str]:
@@ -365,12 +368,12 @@ def assign_datatype(
     data_array: DataArray,
     var_name: str,
 ):
-    long_name: str = ""
-    units: str = ""
-    if var_name in DATATYPES:
-        long_name, units = DATATYPES[var_name]
-    else:
-        print(f"{var_name} has no associated DATATYPE")
+    try:
+        long_name, units_key = DATATYPES[var_name]
+        units = UNITS[units_key]
+    except Exception:
+        raise Exception(f"\n Check DATATYPE and UNITS for {var_name}. \n")
+
     data_array.attrs["long_name"] = long_name
     data_array.attrs["units"] = units
 
@@ -563,3 +566,27 @@ def set_axis_sci(plot_object=None, axis: str = "y"):
         if plot_object is None:
             plot_object = plt
         plot_object.ticklabel_format(style="sci", axis=axis, scilimits=(0, 0))
+
+
+def hash_vals(**kwargs: Any) -> str:
+    """Produces an SHA256 hash from the key-value pairs passed as
+    arguments.
+
+    Parameters
+    ---------
+    kwargs
+        The data to use for the hash.
+
+    Returns
+    -------
+    str
+        A hexadecimal representation of the hash.
+    """
+    # TODO: include date/time in hash
+    hash_result = hashlib.sha256()
+    for key, val in kwargs.items():
+        hash_result.update(bytes(key, encoding="utf-8"))
+        hash_result.update(b":")
+        hash_result.update(bytes(str(val), encoding="utf-8"))
+        hash_result.update(b",")
+    return hash_result.hexdigest()

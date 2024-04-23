@@ -4,14 +4,13 @@ from typing import Dict
 import numpy as np
 import pytest
 
-from indica.equilibrium import fake_equilibrium
+from indica.defaults.read_write_defaults import load_default_objects
 from indica.models.bolometer_camera import example_run as bolo
 from indica.models.charge_exchange import example_run as cxrs
 from indica.models.diode_filters import example_run as diodes
 from indica.models.equilibrium_reconstruction import example_run as equil_recon
 from indica.models.helike_spectroscopy import example_run as helike
 from indica.models.interferometry import example_run as interf
-from indica.models.plasma import example_plasma
 from indica.models.thomson_scattering import example_run as ts
 
 
@@ -30,15 +29,12 @@ class TestModels:
     """Test that the model calls run without error"""
 
     def setup_class(self):
-        self.plasma = example_plasma()
-        machine_dims = self.plasma.machine_dimensions
-        equilibrium = fake_equilibrium(
-            tstart=self.plasma.tstart,
-            tend=self.plasma.tend,
-            dt=self.plasma.dt / 2.0,
-            machine_dims=machine_dims,
-        )
-        self.plasma.set_equilibrium(equilibrium)
+        machine = "st40"
+        equilibrium = load_default_objects(machine, "equilibrium")
+        _plasma = load_default_objects(machine, "plasma")
+        _plasma.set_equilibrium(equilibrium)
+
+        self.plasma = _plasma
         nt = np.size(self.plasma.t)
         tstart = self.plasma.tstart
         tend = self.plasma.tend

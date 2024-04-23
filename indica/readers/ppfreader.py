@@ -25,12 +25,11 @@ from sal.dataclass import Signal
 import scipy.constants as sc
 
 import indica.readers.surf_los as surf_los
+from indica.utilities import CACHE_DIR
 from .abstractreader import DataReader
-from .. import session
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
-CACHE_DIR = ".indica"
 SURF_PATH = Path(surf_los.__file__).parent.parent / "data/surf_los.dat"
 
 
@@ -67,9 +66,6 @@ class PPFReader(DataReader):
     default_error : float
         Relative uncertainty to use for diagnostics which do not provide a
         value themselves.
-    sess : session.Session
-        An object representing the session being run. Contains information
-        such as provenance data.
 
     Attributes
     ----------
@@ -162,14 +158,12 @@ class PPFReader(DataReader):
         tend: float,
         server: str = "https://sal.jet.uk",
         default_error: float = 0.05,
-        session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
         self.NAMESPACE: Tuple[str, str] = ("jet", server)
         super().__init__(
             tstart,
             tend,
-            session,
             pulse=pulse,
             server=server,
             default_error=default_error,
@@ -559,36 +553,6 @@ class PPFReader(DataReader):
 
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
-
-    # def _handle_kk3(self, key: str, revision: RevisionLike) -> DataArray:
-    #     """Produce :py:class:`xarray.DataArray` for electron temperature."""
-    #     uid, general_dat = self._get_signal("kk3_gen", revision)
-    #     channel_index = np.argwhere(general_dat.data[0, :] > 0)
-    #     f_chan = general_dat.data[15, channel_index]
-    #     nharm_chan = general_dat.data[11, channel_index]
-    #     uids = [uid]
-    #     temperatures = []
-    #     Btot = []
-
-    #     for i, f, nharm in zip(channel_index, f_chan, nharm_chan):
-    #         uid, signal = self._get_signal("{}{:02d}".format(key, i),
-    #                                        revision)
-    #         uids.append(uid)
-    #         temperatures.append(signal.data)
-    #         Btot.append(2 * np.pi, f * sc.m_e / (nharm * sc.e))
-
-    #     uncalibrated = Btot[general_dat.data[18, channel_index] != 0.0]
-    #     temps_array = np.array(temperatures)
-    #     coords = [("Btot", np.array(Btot)), ("t", signal.dimensions[0].data)]
-    #     meta = {"datatype": self.AVALABLE_DATA[key],
-    #             "error": DataArray(0.1*temps_array, coords)}
-    #     # TODO: Select correct time range
-    #     data = DataArray(temps_array, coords, name=key,
-    #                      attrs=meta)
-    #     drop = self._select_channels(uid, data, "Btot", uncalibrated)
-    #     data.attrs["provenance"] = self.create_provenance(key, revision,
-    #                                                       uids, drop)
-    #     return data.drop_sel({"Btot": drop})
 
     def _get_bad_channels(
         self, uid: str, instrument: str, quantity: str

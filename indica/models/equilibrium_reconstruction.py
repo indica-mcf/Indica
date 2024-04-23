@@ -34,7 +34,6 @@ class EquilibriumReconstruction(DiagnosticModel):
                 self.bckc[quant].attrs = {
                     "error": error,
                     "stdev": stdev,
-                    "provenance": str(self),
                 }
                 assign_datatype(self.bckc[quant], datatype)
             else:

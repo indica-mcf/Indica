@@ -1,20 +1,16 @@
-from indica.equilibrium import fake_equilibrium
+from indica.defaults.read_write_defaults import load_default_objects
 import indica.models.helike_spectroscopy as helike
 from indica.models.helike_spectroscopy import helike_transform_example
-from indica.models.plasma import example_plasma
 
 
 class TestHelike:
     def setup_class(self):
-        self.plasma = example_plasma()
-        machine_dims = self.plasma.machine_dimensions
-        equilibrium = fake_equilibrium(
-            tstart=self.plasma.tstart,
-            tend=self.plasma.tend,
-            dt=self.plasma.dt / 2.0,
-            machine_dims=machine_dims,
-        )
-        self.plasma.set_equilibrium(equilibrium)
+        machine = "st40"
+        equilibrium = load_default_objects(machine, "equilibrium")
+        _plasma = load_default_objects(machine, "plasma")
+        _plasma.set_equilibrium(equilibrium)
+
+        self.plasma = _plasma
         self.single_time_point = self.plasma.time_to_calculate[1]
         self.multiple_time_point = self.plasma.time_to_calculate
         self.multiple_channel_los_transform = helike_transform_example(nchannels=3)

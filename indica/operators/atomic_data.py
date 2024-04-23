@@ -16,7 +16,6 @@ from indica.readers.adas import ADASReader
 from indica.readers.adas import ADF11
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
-from .. import session
 from ..datatypes import DataType
 
 
@@ -37,9 +36,6 @@ class FractionalAbundance(Operator):
     ccd
         xarray.DataArray of charge exchange cross coupling coefficients of all relevant
         ionisation charges of given impurity element. (Optional)
-    sess
-        Object representing this session of calculations with the library.
-        Holds and communicates provenance information. (Optional)
 
     Attributes
     ----------
@@ -96,10 +92,8 @@ class FractionalAbundance(Operator):
         scd: DataArray,
         acd: DataArray,
         ccd: DataArray = None,
-        sess: session.Session = session.global_session,
     ):
         """Initialises FractionalAbundance class"""
-        super().__init__(sess)
         self.Ne = None
         self.Te = None
         self.Nh = None
@@ -557,9 +551,6 @@ class PowerLoss(Operator):
     prc
         xarray.DataArray of radiated power of charge exchange emission of all relevant
         ionisation charges of given impurity element. (Optional)
-    sess
-        Object representing this session of calculations with the library.
-        Holds and communicates provenance information. (Optional)
 
     Attributes
     ----------
@@ -604,9 +595,7 @@ class PowerLoss(Operator):
         plt: DataArray,
         prb: DataArray,
         prc: DataArray = None,
-        sess: session.Session = session.global_session,
     ):
-        super().__init__(sess)
         self.plt = plt
         self.prc = prc
         self.prb = prb

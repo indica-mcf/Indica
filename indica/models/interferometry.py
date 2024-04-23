@@ -43,7 +43,6 @@ class Interferometry(DiagnosticModel):
                     "transform": self.los_transform,
                     "error": error,
                     "stdev": stdev,
-                    "provenance": str(self),
                     "long_name": "Ne",
                     "units": "$m^{-2}$",
                 }

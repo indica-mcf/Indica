@@ -15,7 +15,6 @@ import numpy as np
 from .abstractreader import DataReader
 from .mdsutils import MDSUtils
 from .st40conf import ST40Conf
-from .. import session
 from ..numpy_typing import RevisionLike
 
 
@@ -36,9 +35,6 @@ class ST40Reader(DataReader):
     default_error : float
         Relative uncertainty to use for diagnostics which do not provide a
         value themselves.
-    sess : session.Session
-        An object representing the session being run. Contains information
-        such as provenance data.
 
     Attributes
     ----------
@@ -61,14 +57,12 @@ class ST40Reader(DataReader):
         server: str = "smaug",
         tree: str = "ST40",
         default_error: float = 0.05,
-        session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"st40:{server.replace('-', '_')}:{pulse}"
         self.NAMESPACE: Tuple[str, str] = ("st40", server)
         super().__init__(
             tstart,
             tend,
-            session,
             pulse=pulse,
             server=server,
             default_error=default_error,

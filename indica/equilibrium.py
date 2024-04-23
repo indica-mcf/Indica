@@ -1,14 +1,12 @@
 """Contains an abstract base class for reading equilibrium data for a pulse.
 """
 
-import datetime
 from typing import cast
 from typing import Dict
 from typing import Optional
 from typing import Tuple
 
 import numpy as np
-import prov.model as prov
 import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
@@ -17,7 +15,6 @@ from xarray import zeros_like
 
 from indica.converters.time import get_tlabels_dt
 from indica.utilities import check_time_present
-from . import session
 from .numpy_typing import LabeledArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
@@ -44,9 +41,6 @@ class Equilibrium:
     z_shift : float
         How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
         in the vertical coordinate.
-    sess : session.Session
-        An object representing the session being run. Contains information
-        such as provenance data.
     offset_picker: OffsetPicker
         A callback which determines by how much to offset the equilibrium data
         along the major radius. Allows the user to select this interactively.
@@ -58,10 +52,8 @@ class Equilibrium:
         equilibrium_data: Dict[str, DataArray],
         R_shift: float = 0.0,
         z_shift: float = 0.0,
-        sess: session.Session = session.global_session,
     ):
 
-        self._session = sess
         self.f = equilibrium_data["f"]
         self.t = equilibrium_data["f"].t
         self.faxs = equilibrium_data["faxs"]
@@ -117,25 +109,6 @@ class Equilibrium:
             np.arctan2(self.zmax - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
             np.arctan2(self.zmin - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
         ]
-
-        self.prov_id = session.hash_vals(
-            **equilibrium_data, R_offset=self.R_offset, z_offset=self.z_offset
-        )
-        self.provenance = sess.prov.entity(
-            self.prov_id,
-            {
-                prov.PROV_TYPE: "Equilibrium",
-                "R_offset": self.R_offset,
-                "z_offset": self.z_offset,
-            },
-        )
-        sess.prov.generation(
-            self.provenance, sess.session, time=datetime.datetime.now()
-        )
-        sess.prov.attribution(self.provenance, sess.agent)
-        for val in equilibrium_data.values():
-            if "provenance" in val.attrs:
-                self.provenance.wasDerivedFrom(val.attrs["provenance"])
 
     def Bfield(
         self,
