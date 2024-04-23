@@ -82,7 +82,6 @@ def save_default_objects(
     plasma.fract_abu = fract_abu
     plasma.power_loss_tot = power_loss_tot
     plasma.power_loss_sxr = power_loss_sxr
-    plasma.build_atomic_data()
 
     # Assign profiles to time-points
     update_profiles = PlasmaProfiles(plasma)
@@ -154,11 +153,16 @@ def load_default_objects(machine: str, identifier: str = "geometry"):
 The following file does not exist:
 {_file}
 
-Create your defaults file by running the following:
+Create your defaults file:
+    python indica/defaults/read_write_defaults.py
 
-write_default_geometries("st40", 11419,
-                         tstart = 0.01,tend = 0.1,dl = 0.005,
-                         equilibrium_instrument = "efit")
+or, to choose specific kwargs (e.g. machine or pulse):
+    save_default_objects("st40", 11419)
+
 ************************************************************
             """
         raise Exception(to_print)
+
+
+if __name__ == "__main__":
+    save_default_objects("st40", 11419)
