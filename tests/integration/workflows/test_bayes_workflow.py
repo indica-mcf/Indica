@@ -9,11 +9,10 @@ from indica.workflows.bayes_workflow import OptimiserEmceeSettings
 from indica.workflows.bayes_workflow import PlasmaContext
 from indica.workflows.bayes_workflow import PlasmaSettings
 from indica.workflows.bayes_workflow import ReaderSettings
-from indica.models.plasma import fake_equilibrium_data
+from indica.equilibrium import fake_equilibrium
 from unittest.mock import MagicMock
 
 config = dict(
-    pulse = 11089,
     tstart = 0.05,
     tend = 0.10,
     dt = 0.01,
@@ -22,14 +21,14 @@ config = dict(
 
 class TestBayesWorkflow:
     def setup_class(self):
-        self.equilibrium = fake_equilibrium_data(**config)
+        self.equilibrium = fake_equilibrium(**config)
         return
 
     def test_mockdata_initialises(self):
 
         reader_settings = ReaderSettings()
         data_context = MockData(
-            pulse=11089,
+            pulse=None,
             diagnostics=DEFAULT_DIAG_NAMES,
             reader_settings=reader_settings,
             **config
@@ -62,15 +61,15 @@ class TestBayesWorkflow:
         model_context.init_models()
 
     def test_optimiser_context_initialises(self):
-        optimiser_settings = OptimiserEmceeSettings()
+        optimiser_settings = OptimiserEmceeSettings(param_names=MagicMock(), priors=MagicMock())
         optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
 
     def test_bayes_workflow_initialises(self):
-        bayes_settings = BayesBBSettings
+        # bayes_settings = MagicMock()
         workflow = BayesWorkflow(
             **config,
-            blackbox_settings=bayes_settings,
+            blackbox_settings=MagicMock(),
             data_context=MagicMock(),
             optimiser_context=MagicMock(),
             plasma_context=MagicMock(),
