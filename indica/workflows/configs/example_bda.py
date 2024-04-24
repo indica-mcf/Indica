@@ -26,11 +26,11 @@ param_names = [
 ]
 
 plasma_settings = dict(
-        main_ion="h",
-        impurities=("ar", "c"),
-        impurity_concentration=(0.001, 0.005),
-        n_rad=20,
-    )
+    main_ion="h",
+    impurities=("ar", "c"),
+    impurity_concentration=(0.001, 0.005),
+    n_rad=20,
+)
 
 phantom = False
 set_ts = True,
@@ -47,12 +47,12 @@ starting_samples = 10
 iterations = 10
 nwalkers = 15
 stopping_criteria_factor = 0.005
-sample_method="high_density"
-stopping_criteria="mode"
-burn_frac=0.20
+sample_method = "random"
+stopping_criteria = "mode"
+burn_frac = 0.20
 
-mds_write = False
-best = True
+mds_write = True
+best = False
 plot = False
 run = "RUN01"
 run_info = "Example run"
