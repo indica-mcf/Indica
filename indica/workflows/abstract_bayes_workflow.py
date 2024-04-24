@@ -48,7 +48,7 @@ class AbstractBayesWorkflow(ABC):
             "GIT_ID": f"{git_id}",
             "USER": f"{getpass.getuser()}",
             "SETTINGS": "CONFIG GOES HERE",
-            "DATATIME": datetime.utcnow().__str__()
+            "DATETIME": datetime.utcnow().__str__()
 
         }
         # TODO fix workflow
