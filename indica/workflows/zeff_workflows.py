@@ -77,12 +77,12 @@ def calculate_zeff(
         machine = "st40"
         transforms = load_default_objects(machine, "geometry")
         equilibrium = load_default_objects(machine, "equilibrium")
-        _plasma = load_default_objects(machine, "plasma")
+        plasma = load_default_objects(machine, "plasma")
 
         _reader = ModelReader(machine, instruments=["pi", "ts"])
         _reader.set_geometry_transforms(transforms)
-        _plasma.set_equilibrium(equilibrium)
-        _reader.set_plasma(_plasma)
+        plasma.set_equilibrium(equilibrium)
+        _reader.set_plasma(plasma)
         binned_data = _reader()
         fit_R_shift = False
 
