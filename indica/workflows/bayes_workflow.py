@@ -473,8 +473,8 @@ class PlasmaContext:
     def map_profiles_to_midplane(self, blobs):
         nchan = len(self.plasma.R_midplane)
         chan = np.arange(nchan)
-        R = xr.DataArray(self.plasma.R_midplane, coords=[("channel", chan)])
-        z = xr.DataArray(self.plasma.z_midplane, coords=[("channel", chan)])
+        R = xr.DataArray(self.plasma.R_midplane.values, coords=[("channel", chan)])
+        z = xr.DataArray(self.plasma.z_midplane.values, coords=[("channel", chan)])
 
         rho = self.plasma.equilibrium.rho.interp(t=self.plasma.t, R=R, z=z).drop_vars(
             ["R", "z"]
