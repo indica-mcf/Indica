@@ -92,6 +92,7 @@ class AbstractBayesWorkflow(ABC):
         }
         result["MODEL_DATA"]["SAMPLE_IDX"] = np.arange(0,
                 self.opt_samples["post_sample"].shape[1]
+
         )
 
         result["PHANTOMS"] = {
@@ -109,6 +110,7 @@ class AbstractBayesWorkflow(ABC):
             "P": self.plasma_context.phantom_profiles["pressure_tot"],
 
         }
+
 
         result["PROFILES"] = {
             "PSI_NORM": {
@@ -171,7 +173,6 @@ class AbstractBayesWorkflow(ABC):
                 "PFAST_ERR": self.midplane_blobs["pressure_fast"].std(dim="index"),
                 "ZEFF_ERR": self.midplane_blobs["zeff"].sum("element").std(dim="index"),
                 "MEANZ_ERR": self.midplane_blobs["meanz"].median(dim="index"),
-
             },
         }
 
@@ -240,7 +241,6 @@ class AbstractBayesWorkflow(ABC):
             "NNEUTR0_ERR": self.blobs["neutral_density"].sel(rho_poloidal=0, method="nearest").std(dim="index"),
             "NNEUTRB_ERR": self.blobs["neutral_density"].sel(rho_poloidal=1, method="nearest").std(dim="index"),
         }
-
         return result
 
     def save_pickle(self, result, filepath):

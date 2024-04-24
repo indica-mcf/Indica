@@ -11,18 +11,86 @@ from urllib.request import pathname2url
 from urllib.request import urlretrieve
 
 import numpy as np
-import prov.model as prov
 from xarray import DataArray
 
 from .. import session
 from ..abstractio import BaseIO
-from ..datatypes import ADF11_GENERAL_DATATYPES
-from ..datatypes import ADF15_GENERAL_DATATYPES
-from ..datatypes import ELEMENTS
+from ..datatypes import DATATYPES
 
 # TODO: Evaluate this location
 DEFAULT_PATH = Path("")
 CACHE_DIR = ".indica"
+
+ADF11: dict = {
+    "h": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+        "pls": "15",
+        "prs": "15",
+    },
+    "he": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+        "pls": "15",
+        "prs": "15",
+    },
+    "c": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+        "pls": "15",
+        "prs": "15",
+    },
+    "ar": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+    "ne": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+        "pls": "15",
+        "prs": "15",
+    },
+    "mo": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+    },
+    "w": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+}
 
 
 class ADASReader(BaseIO):
@@ -102,7 +170,7 @@ class ADASReader(BaseIO):
         filename = Path(file_component) / f"{file_component}_{element.lower()}.dat"
         with self._get_file("adf11", filename) as f:
             header = f.readline().split()
-            z = int(header[0])
+            # z = int(header[0])
             nd = int(header[1])
             nt = int(header[2])
             zmin = int(header[3]) - 1
@@ -135,34 +203,22 @@ class ADASReader(BaseIO):
                 if new_date > date:
                     date = new_date
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
-        gen_type = ADF11_GENERAL_DATATYPES[quantity]
-        spec_type = element_name
-        try:
-            assert (
-                z
-                == [value[0] for value in ELEMENTS.values() if value[2] == spec_type][0]
-            )
-        except AssertionError:
-            raise AssertionError(
-                "There is a mismatch between atomic number(z)\
-                and element name(element_name) imported from the ADF11 file."
-            )
-        name = f"{spec_type}_{gen_type}"
+        long_name, units = DATATYPES["pec"]
         attrs = {
-            "datatype": (gen_type, spec_type),
+            "long_name": long_name,
+            "units": units,
             "date": date,
-            "provenance": self.create_provenance(filename, now),
-            "element_symbol": element,
+            # "provenance": self.create_provenance(filename, now),
+            "element": element_name,
             "year": year,
         }
         return DataArray(
             10 ** (data - 6),
             coords=[
-                ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
+                ("ion_charge", np.arange(zmin, zmax + 1, dtype=int)),
                 ("electron_temperature", 10 ** (temperatures)),
                 ("electron_density", 10 ** (densities + 6)),
             ],
-            name=name,
             attrs=attrs,
         )
 
@@ -248,7 +304,6 @@ class ADASReader(BaseIO):
 
             return transition_type, match
 
-        now = datetime.datetime.now()
         file_component = build_file_component(year, element)
         filename = Path(pathname2url(file_component)) / pathname2url(
             f"{file_component}_{filetype.lower()}]"
@@ -340,13 +395,11 @@ class ADASReader(BaseIO):
                 transition_tmp = format_transition[transition_type](m)
                 transition.append(transition_tmp)
                 line = f.readline().strip().lower()
-
-        gen_type = ADF15_GENERAL_DATATYPES[filetype]
-        spec_type = element
-        name = f"{spec_type}_{gen_type}"
+        long_name, units = DATATYPES["pec"]
         attrs = {
-            "datatype": (gen_type, spec_type),
-            "provenance": self.create_provenance(filename, now),
+            "long_name": long_name,
+            "units": units,
+            # "provenance": self.create_provenance(filename, now),
         }
 
         coords = [
@@ -358,7 +411,6 @@ class ADASReader(BaseIO):
         pecs = DataArray(
             data * 10**-6,
             coords=coords,
-            name=name,
             attrs=attrs,
         )
 
@@ -371,35 +423,35 @@ class ADASReader(BaseIO):
 
         return pecs
 
-    def create_provenance(
-        self, filename: Path, start_time: datetime.datetime
-    ) -> prov.ProvEntity:
-        """Create a provenance entity for the given ADAS file.
-
-        Note that this method just creates the provenance data
-        appropriate for the arguments it has been provided with. It
-        does not check that these arguments are actually valid and
-        that the provenance corresponds to actually existing data.
-
-        """
-        end_time = datetime.datetime.now()
-        entity = self.session.prov.entity(
-            session.hash_vals(filename=filename, start_time=start_time)
-        )
-        activity = self.session.prov.activity(
-            session.hash_vals(agent=self.prov_id, date=start_time),
-            start_time,
-            end_time,
-            {prov.PROV_TYPE: "ReadData"},
-        )
-        self.session.prov.association(activity, self.agent)
-        self.session.prov.association(activity, self.session.agent)
-        self.session.prov.communication(activity, self.session.session)
-        self.session.prov.derivation(entity, f"{self.namespace}:{filename}", activity)
-        self.session.prov.generation(entity, activity, end_time)
-        self.session.prov.attribution(entity, self.agent)
-        self.session.prov.attribution(entity, self.session.agent)
-        return entity
+    # def create_provenance(
+    #     self, filename: Path, start_time: datetime.datetime
+    # ) -> prov.ProvEntity:
+    #     """Create a provenance entity for the given ADAS file.
+    #
+    #     Note that this method just creates the provenance data
+    #     appropriate for the arguments it has been provided with. It
+    #     does not check that these arguments are actually valid and
+    #     that the provenance corresponds to actually existing data.
+    #
+    #     """
+    #     end_time = datetime.datetime.now()
+    #     entity = self.session.prov.entity(
+    #         session.hash_vals(filename=filename, start_time=start_time)
+    #     )
+    #     activity = self.session.prov.activity(
+    #         session.hash_vals(agent=self.prov_id, date=start_time),
+    #         start_time,
+    #         end_time,
+    #         {prov.PROV_TYPE: "ReadData"},
+    #     )
+    #     self.session.prov.association(activity, self.agent)
+    #     self.session.prov.association(activity, self.session.agent)
+    #     self.session.prov.communication(activity, self.session.session)
+    #     self.session.prov.derivation(entity, f"{self.namespace}:{filename}", activity)
+    #     self.session.prov.generation(entity, activity, end_time)
+    #     self.session.prov.attribution(entity, self.agent)
+    #     self.session.prov.attribution(entity, self.session.agent)
+    #     return entity
 
     def _get_file(self, dataclass: str, filename: Union[str, Path]) -> TextIO:
         """Retrieves an ADAS file, downloading it from OpenADAS if

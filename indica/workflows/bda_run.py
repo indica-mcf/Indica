@@ -1,6 +1,5 @@
 import importlib
 import sys
-
 from indica.workflows.bayes_workflow import BayesBBSettings
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.bayes_workflow import DEFAULT_PRIORS
@@ -14,7 +13,6 @@ from indica.workflows.bayes_workflow import PhantomData
 from indica.workflows.bayes_workflow import PlasmaContext
 from indica.workflows.bayes_workflow import PlasmaSettings
 from indica.workflows.bayes_workflow import ReaderSettings
-
 
 def bda_run(
     pulse=None,
@@ -95,6 +93,7 @@ def bda_run(
     data_context.read_data()
 
     plasma_settings = PlasmaSettings(**plasma_settings
+
     )
     plasma_context = PlasmaContext(
         plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS
@@ -136,6 +135,7 @@ def bda_run(
         starting_samples=starting_samples,
         burn_frac=burn_frac,
         stopping_criteria=stopping_criteria,
+
         stopping_criteria_factor=stopping_criteria_factor,
         stopping_criteria_debug=True,
         priors=bayes_settings.priors,

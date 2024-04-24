@@ -40,6 +40,7 @@ class Equilibrium:
     R_shift : float
         How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
         on the major radius.
+        TODO: this and z_shift should be time-dependent...
     z_shift : float
         How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
         in the vertical coordinate.
@@ -90,8 +91,8 @@ class Equilibrium:
         self.rho = rho
         self.t = self.rho.t
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
-            self.psin = equilibrium_data["psin"]
-            dpsin = self.psin[1] - self.psin[0]
+            psin = equilibrium_data["vjac"].rho_poloidal ** 2
+            dpsin = psin[1] - psin[0]
             self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
             self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
         elif "volume" in equilibrium_data and "area" in equilibrium_data:
@@ -160,7 +161,7 @@ class Equilibrium:
         Returns
         -------
         Br, Bz, Bt
-            Magnetic field components at the given location and times.
+            Magnetic field components at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -229,7 +230,7 @@ class Equilibrium:
         Returns
         -------
         Btot
-            Total magnetic field strength at the given location and times.
+            Total magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -257,7 +258,7 @@ class Equilibrium:
         Returns
         -------
         Br
-            Radial magnetic field strength at the given location and times.
+            Radial magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -281,7 +282,7 @@ class Equilibrium:
         Returns
         -------
         Bz
-            Vertical magnetic field strength at the given location and times.
+            Vertical magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -309,7 +310,7 @@ class Equilibrium:
         Returns
         -------
         Bt
-            Toroidal magnetic field strength at the given location and times.
+            Toroidal magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -337,7 +338,7 @@ class Equilibrium:
         Returns
         -------
         Bp
-            Poloidal magnetic field strength at the given location and times.
+            Poloidal magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -879,9 +880,9 @@ def fake_equilibrium_data(
         machine_dims = MACHINE_DIMS
 
     get_tlabels_dt(tstart, tend, dt)
-    times = np.arange(tstart, tend + dt, dt)
+    time = np.arange(tstart, tend + dt, dt)
 
-    # ntime = times.size
+    # ntime = time.size
     Btot_factor = None
 
     result = {}
@@ -895,19 +896,19 @@ def fake_equilibrium_data(
     attrs: dict = {}
 
     result["rmag"] = DataArray(
-        r_centre + tfuncs(times), coords=[("t", times)], name="rmag", attrs=attrs
+        r_centre + tfuncs(time), coords=[("t", time)], name="rmag", attrs=attrs
     )
     result["rmag"].attrs["datatype"] = ("major_rad", "mag_axis")
 
     result["zmag"] = DataArray(
-        z_centre + tfuncs(times), coords=[("t", times)], name="zmag", attrs=attrs
+        z_centre + tfuncs(time), coords=[("t", time)], name="zmag", attrs=attrs
     )
     result["zmag"].attrs["datatype"] = ("z", "mag_axis")
 
     fmin = 0.1
     result["faxs"] = DataArray(
-        fmin + np.abs(tfuncs(times)),
-        {"t": times, "R": result["rmag"], "z": result["zmag"]},
+        fmin + np.abs(tfuncs(time)),
+        {"t": time, "R": result["rmag"], "z": result["zmag"]},
         ["t"],
         name="faxs",
         attrs=attrs,
@@ -921,7 +922,7 @@ def fake_equilibrium_data(
                 np.abs(machine_dims[0][1] - result["rmag"]),
             ),
         ),
-        coords=[("t", times)],
+        coords=[("t", time)],
     )
 
     if Btot_factor is None:
@@ -932,13 +933,13 @@ def fake_equilibrium_data(
                     np.abs(machine_dims[1][1] - result["zmag"].data),
                 ),
             ),
-            coords=[("t", times)],
+            coords=[("t", time)],
         )
         n_exp = 0.5
         fmax = 5.0
         result["fbnd"] = DataArray(
-            fmax - np.abs(tfuncs(times)),
-            coords=[("t", times)],
+            fmax - np.abs(tfuncs(time)),
+            coords=[("t", time)],
             name="fbnd",
             attrs=attrs,
         )
@@ -950,7 +951,7 @@ def fake_equilibrium_data(
             np.vectorize(lambda axs, diff: axs + 0.03 * diff)(
                 result["faxs"], fdiff_max.values
             ),
-            coords=[("t", times)],
+            coords=[("t", time)],
             name="fbnd",
             attrs=attrs,
         )
@@ -984,8 +985,8 @@ def fake_equilibrium_data(
     ftor_min = 0.1
     ftor_max = 5.0
     result["ftor"] = DataArray(
-        np.outer(1 + tfuncs(times), monotonic_series(ftor_min, ftor_max, nspace)),
-        coords=[("t", times), ("rho_poloidal", rho1d)],
+        np.outer(1 + tfuncs(time), monotonic_series(ftor_min, ftor_max, nspace)),
+        coords=[("t", time), ("rho_poloidal", rho1d)],
         name="ftor",
         attrs=attrs,
     )
@@ -1043,7 +1044,7 @@ def fake_equilibrium_data(
     if Btot_factor is None:
         f_min = 0.1
         f_max = 5.0
-        time_vals = tfuncs(times)
+        time_vals = tfuncs(time)
         space_vals = monotonic_series(f_min, f_max, nspace)
         f_raw = np.outer(abs(1 + time_vals), space_vals)
     else:
@@ -1057,9 +1058,11 @@ def fake_equilibrium_data(
         f_raw[:, 0] = Btot_factor
 
     result["f"] = DataArray(
-        f_raw, coords=[("t", times), ("rho_poloidal", rho1d)], name="f", attrs=attrs
+        f_raw, coords=[("t", time), ("rho_poloidal", rho1d)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
+
+    # TODO: RMJO and RMJI not calculated correctly...
     result["rmjo"] = (result["rmag"] + a_coeff * psin_data**n_exp).assign_attrs(
         **attrs
     )

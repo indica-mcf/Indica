@@ -1,5 +1,6 @@
 from indica.workflows.bayes_workflow import BayesBBSettings
-from indica.workflows.bayes_workflow import BayesWorkflow, DEFAULT_DIAG_NAMES
+from indica.workflows.bayes_workflow import BayesWorkflow
+from indica.workflows.bayes_workflow import DEFAULT_DIAG_NAMES
 from indica.workflows.bayes_workflow import DEFAULT_PROFILE_PARAMS
 from indica.workflows.bayes_workflow import EmceeOptimiser
 from indica.workflows.bayes_workflow import MockData
@@ -74,6 +75,7 @@ class TestBayesWorkflow:
             optimiser_context=MagicMock(),
             plasma_context=MagicMock(),
             model_context=MagicMock(),
+
         )
 
 

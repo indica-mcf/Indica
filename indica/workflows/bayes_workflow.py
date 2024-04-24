@@ -43,6 +43,7 @@ from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import does_tree_exist
 import standard_utility as util
 
+
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
     "Ne_prof.y0": 5e19,
@@ -399,6 +400,7 @@ class PlasmaContext:
     def return_plasma_attrs(self):
         plasma_attributes = {}
         for plasma_key in self.plasma_attribute_names:
+
             if hasattr(self.plasma, plasma_key):
                 plasma_attributes[plasma_key] = getattr(self.plasma, plasma_key).sel(
                     t=self.plasma.time_to_calculate
@@ -443,6 +445,7 @@ class PlasmaContext:
             reader.equilibrium,
             quant,
             pulse,
+
             split=split,
         )
         fit, _ = gpr_fit_ts(
@@ -462,6 +465,7 @@ class PlasmaContext:
         te_fit, te_data = self.fit_ts_profile(data_context.pulse, data_context.tstart, data_context.tend, data_context.dt, quant="te", split=split, R_shift=R_shift)
         ne_fit *= 1e19
         te_fit *= 1e3
+
 
         self.plasma.electron_density.loc[dict()] = ne_fit.interp(rho=self.plasma.rho)
         self.plasma.electron_temperature.loc[dict()] = te_fit.interp(
@@ -487,6 +491,7 @@ class PlasmaContext:
             midplane_profiles[profile] = midplane_profiles[profile].swap_dims(
                 {"channel": "R"}
             )
+
         return midplane_profiles
 
 
@@ -502,6 +507,7 @@ class ModelSettings:
         }
     )
     call_kwargs: dict = field(default_factory=lambda: {"xrcs": {"pixel_offset": 0.0}})
+
 
 
 @dataclass
@@ -1157,7 +1163,6 @@ class BayesWorkflow(AbstractBayesWorkflow):
             )
         if plot:
             plot_bayes_result(filepath=filepath)
-
         return
 
 

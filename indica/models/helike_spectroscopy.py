@@ -5,13 +5,13 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters.line_of_sight import LineOfSightTransform
-from indica.datatypes import ELEMENTS
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_run as example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.readers.marchuk import MARCHUKReader
+from indica.utilities import get_element_info
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
 
@@ -66,7 +66,7 @@ class HelikeSpectrometer(DiagnosticModel):
         self.name = name
         self.instrument_method = instrument_method
         self.element: str = element
-        z_elem, a_elem, name_elem = ELEMENTS[element]
+        z_elem, a_elem, name_elem, _ = get_element_info(element)
         self.ion_charge: int = z_elem - 2  # He-like
         self.ion_mass: float = a_elem
         self.etendue = etendue
@@ -134,13 +134,13 @@ class HelikeSpectrometer(DiagnosticModel):
         _Nimp = self.Nimp.sel(element=element, )
         _Fz = self.Fz[element]
         transition_matrix = xr.concat([
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge - 1, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge - 1, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge - 1, ),
-            self.Ne * _Nimp * _Fz.sel(ion_charges=charge + 1, ),
-            self.Nh * _Nimp * _Fz.sel(ion_charges=charge + 1, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge - 1, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge - 1, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge - 1, ),
+            self.Ne * _Nimp * _Fz.sel(ion_charge=charge + 1, ),
+            self.Nh * _Nimp * _Fz.sel(ion_charge=charge + 1, ),
         ], "type").assign_coords(
             type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr", ])
         # fmt: on
@@ -597,7 +597,7 @@ def helike_transform_example(nchannels):
 def example_run(
     pulse: int = None, plasma=None, plot=False, moment_analysis: bool = False, **kwargs
 ):
-    # TODO: LOS sometimes crossing bad EFIT reconstruction
+    # TODO: LOS sometime crossing bad EFIT reconstruction
     if plasma is None:
         plasma = example_plasma(
             pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,), n_rad=10

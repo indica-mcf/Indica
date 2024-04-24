@@ -1,6 +1,5 @@
 """Provides an abstract interface for coordinate conversion.
 """
-
 from abc import ABC
 from abc import abstractmethod
 import itertools
@@ -14,6 +13,7 @@ from matplotlib import cm
 from matplotlib import rcParams
 import matplotlib.pylab as plt
 import numpy as np
+import xarray as xr
 from xarray import DataArray
 from xarray import zeros_like
 
@@ -449,8 +449,12 @@ class CoordinateTransform(ABC):
         self.rho = rho
         self.theta = theta
         if "los_position" in self.rho.dims:
-            self.impact_rho = self.rho.mean("beamlet").sel(
+            rho_mean = self.rho.mean("beamlet")
+            self.impact_rho = rho_mean.sel(
                 los_position=self.impact_parameter.index.los_position
+            )
+            self.los_length = (xr.where(np.isfinite(rho_mean), 1, 0) * self.dl).sum(
+                "los_position"
             )
 
         return rho, theta

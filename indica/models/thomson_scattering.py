@@ -101,10 +101,22 @@ class ThomsonScattering(DiagnosticModel):
             t=self.t,
             calc_rho=calc_rho,
         )
+        Ne_at_channels = Ne_at_channels.assign_coords(
+            R=("channel", self.transect_transform.R)
+        )
+        Ne_at_channels = Ne_at_channels.assign_coords(
+            z=("channel", self.transect_transform.z)
+        )
         Te_at_channels = self.transect_transform.map_profile_to_rho(
             Te,
             t=self.t,
             calc_rho=calc_rho,
+        )
+        Te_at_channels = Te_at_channels.assign_coords(
+            R=("channel", self.transect_transform.R)
+        )
+        Te_at_channels = Te_at_channels.assign_coords(
+            z=("channel", self.transect_transform.z)
         )
 
         self.Ne_at_channels = Ne_at_channels
@@ -136,7 +148,7 @@ def example_run(
     plot=False,
 ):
 
-    # TODO: LOS sometimes crossing bad EFIT reconstruction and crashing...
+    # TODO: LOS sometime crossing bad EFIT reconstruction and crashing...
 
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
