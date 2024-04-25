@@ -1,8 +1,7 @@
 from abc import ABC
 from abc import abstractmethod
 
-from indica.converters.line_of_sight import LineOfSightTransform
-from indica.converters.transect import TransectCoordinates
+from indica.converters import CoordinateTransform
 from indica.models.plasma import Plasma
 
 
@@ -10,28 +9,37 @@ class DiagnosticModel(ABC):
     name: str
     bckc: dict
     plasma: Plasma
-    los_transform: LineOfSightTransform
-    transect_transform: TransectCoordinates
+    transform: CoordinateTransform
 
     plasma = None
 
-    def set_los_transform(self, los_transform: LineOfSightTransform):
+    def set_transform(self, transform: CoordinateTransform):
         """
-        Line-of-sight coordinate transform
+        Line-of-sight or Transect coordinate transform
         """
-        self.los_transform = los_transform
-
-    def set_transect_transform(self, transect_transform: TransectCoordinates):
-        """
-        Transect coordinate transform
-        """
-        self.transect_transform = transect_transform
+        if "LineOfSight" in str(transform):
+            self.los_transform = transform
+        elif "Transect" in str(transform):
+            self.transect_transform = transform
+        elif "Trivial" in str(transform):
+            self.trivial_transform = transform
+        else:
+            self._transform = transform
+            print(f"{str(transform)} not recognized.")
 
     def set_plasma(self, plasma: Plasma):
         """
         Assign Plasma class to use for computation of forward model
         """
         self.plasma = plasma
+
+    def set_parameters(self, **kwargs):
+        """
+        Set any model kwargs
+        """
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
     @abstractmethod
     def _build_bckc_dictionary(self):

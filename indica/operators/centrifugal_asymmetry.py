@@ -5,7 +5,7 @@ import numpy as np
 from xarray import DataArray
 
 from indica.equilibrium import Equilibrium
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.utilities import format_dataarray
@@ -83,7 +83,17 @@ def centrifugal_asymmetry_2d_map(
 
 def example_run(plot: bool = False):
 
+    from indica.equilibrium import fake_equilibrium
+
     plasma = example_plasma()
+    machine_dims = plasma.machine_dimensions
+    equilibrium = fake_equilibrium(
+        tstart=plasma.tstart,
+        tend=plasma.tend,
+        dt=plasma.dt / 2.0,
+        machine_dims=machine_dims,
+    )
+    plasma.set_equilibrium(equilibrium)
 
     asymmetry_parameter = centrifugal_asymmetry_parameter(
         plasma.ion_density,

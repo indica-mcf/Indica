@@ -52,7 +52,7 @@ PARAMETER_LIMITS: dict = {
 def profile_scans_pca(
     parameter_limits: dict = None,
     scans: int = 100,
-    datatype: tuple = ("temperature", "electron"),
+    datatype: str = "electron_temperature",
     rho: LabeledArray = np.linspace(0, 1.0, 41),
     plot: bool = True,
     save_fig: bool = False,
@@ -63,9 +63,8 @@ def profile_scans_pca(
 
     set_plot_rcparams("profiles")
 
-    quantity = f"{datatype[1]}_{datatype[0]}"
     if parameter_limits is None:
-        parameter_limits = PARAMETER_LIMITS[quantity]
+        parameter_limits = PARAMETER_LIMITS[datatype]
 
     profiler = Profiles(datatype=datatype, xspl=rho)
 
@@ -103,10 +102,10 @@ def profile_scans_pca(
                 color=cols[i],
             )
         plt.title("")
-        if quantity == "thermal_neutral_density":
+        if datatype == "thermal_neutral_density":
             plt.yscale("log")
         set_axis_sci()
-        save_figure(fig_path, f"{quantity}_uniform_scan", save_fig=save_fig)
+        save_figure(fig_path, f"{datatype}_uniform_scan", save_fig=save_fig)
 
         for k in parameter_keys:
             counts, bins = np.histogram(getattr(profile_scans, k))
@@ -118,10 +117,10 @@ def profile_scans_pca(
 
 
 def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
-    Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
-    Ne = Profiles(datatype=("density", "electron"), xspl=rho)
-    Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
-    Vrot = Profiles(datatype=("rotation", "toroidal"), xspl=rho)
+    Te = Profiles(datatype="electron_temperature", xspl=rho)
+    Ne = Profiles(datatype="electron_density", xspl=rho)
+    Nimp = Profiles(datatype="impurity_density", xspl=rho)
+    Vrot = Profiles(datatype="toroidal_rotation", xspl=rho)
 
     Te_list = {}
     Ti_list = {}
@@ -141,7 +140,7 @@ def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
 
     # Broad Ti profile without/with Te as reference
     Ti = deepcopy(Te)
-    Ti.datatype = ("temperature", "ion")
+    Ti.datatype = "ion_temperature"
     Ti.y0 = 7.0e3
     Ti()
     Ti_list["broad"] = deepcopy(Ti)
@@ -160,7 +159,7 @@ def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
 
     # Peaked Ti profile without/with Te as reference
     Ti = deepcopy(Te)
-    Ti.datatype = ("temperature", "ion")
+    Ti.datatype = "ion_temperature"
     Ti.y0 = 5.0e3
     Ti()
     Ti_list["peaked"] = deepcopy(Ti)

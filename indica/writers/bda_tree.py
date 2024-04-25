@@ -4,8 +4,11 @@ import sys
 
 from MDSplus import Connection
 import numpy as np
-import standard_utility as util
 
+try:
+    import standard_utility as util
+except ModuleNotFoundError:
+    print("\n ** StandardUtility not installed \n **")
 
 BDA_NODES = {
     "TIME": ("NUMERIC", "time vector of optimisation, s"),
