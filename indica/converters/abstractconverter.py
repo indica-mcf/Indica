@@ -126,6 +126,8 @@ class CoordinateTransform(ABC):
         """
         if not hasattr(self, "equilibrium") or force:
             self.equilibrium = equilibrium
+            if hasattr(self, "rho"):
+                delattr(self, "rho")
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
 

@@ -1,17 +1,18 @@
 from copy import deepcopy
 
-import matplotlib.cm as cm
+from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.utilities import assign_datatype
 
 
 class BremsstrahlungDiode(DiagnosticModel):
@@ -56,6 +57,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         instrument_method
             Name of indica reader method to read experimental diagnostic data
         """
+        self.los_transform: LineOfSightTransform
         self.name = name
         self.filter_wavelength = filter_wavelength
         self.filter_fwhm = filter_fwhm
@@ -149,14 +151,12 @@ class BremsstrahlungDiode(DiagnosticModel):
                 error = xr.full_like(self.bckc[quantity], 0.0)
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
-                    "datatype": datatype,
                     "transform": self.los_transform,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
-                    "long_name": "Brightness",
-                    "units": "W m^{-2}",
                 }
+                assign_datatype(self.bckc[quantity], datatype)
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -243,7 +243,17 @@ def example_run(
     pulse: int = None, nchannels: int = 12, plasma=None, plot: bool = False
 ):
     if plasma is None:
+        from indica.equilibrium import fake_equilibrium
+
         plasma = example_plasma(pulse=pulse)
+        machine_dims = plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=plasma.tstart,
+            tend=plasma.tend,
+            dt=plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        plasma.set_equilibrium(equilibrium)
 
     # Create new interferometers diagnostics
     diagnostic_name = "diode_brems"
@@ -263,7 +273,7 @@ def example_run(
     model = BremsstrahlungDiode(
         diagnostic_name,
     )
-    model.set_los_transform(los_transform)
+    model.set_transform(los_transform)
     model.set_plasma(plasma)
     bckc = model()
 

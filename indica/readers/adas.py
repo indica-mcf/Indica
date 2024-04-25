@@ -13,13 +13,12 @@ from urllib.request import urlretrieve
 import numpy as np
 from xarray import DataArray
 
-from .. import session
+from indica.utilities import assign_datatype
+from indica.utilities import CACHE_DIR
 from ..abstractio import BaseIO
-from ..datatypes import DATATYPES
 
 # TODO: Evaluate this location
 DEFAULT_PATH = Path("")
-CACHE_DIR = ".indica"
 
 ADF11: dict = {
     "h": {
@@ -42,7 +41,27 @@ ADF11: dict = {
         "pls": "15",
         "prs": "15",
     },
+    "li": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
     "c": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "96",
+        "plt": "96",
+        "prb": "96",
+        "prc": "96",
+        "pls": "15",
+        "prs": "15",
+    },
+    "ne": {
         "scd": "96",
         "acd": "96",
         "ccd": "96",
@@ -56,19 +75,29 @@ ADF11: dict = {
         "scd": "89",
         "acd": "89",
         "ccd": "89",
-        "plt": "89",
+        "plt": "42",
         "prb": "89",
         "prc": "89",
         "pls": "15",
         "prs": "15",
     },
-    "ne": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
+    "kr": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "42",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+    "xe": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "42",
+        "prb": "89",
+        "prc": "89",
         "pls": "15",
         "prs": "15",
     },
@@ -84,7 +113,7 @@ ADF11: dict = {
         "scd": "89",
         "acd": "89",
         "ccd": "89",
-        "plt": "89",
+        "plt": "42",
         "prb": "89",
         "prc": "89",
         "pls": "15",
@@ -102,42 +131,20 @@ class ADASReader(BaseIO):
         Location from which relative paths should be evaluated.
         Default is to download files from OpenADAS, storing them
         in your home directory for later use.
-    session: session.Session
-        An object representing the session being run. Contains information
-        such as provenance data.
-
     """
 
     def __init__(
         self,
         path: Union[str, Path] = DEFAULT_PATH,
-        sess: session.Session = session.global_session,
     ):
         path = Path(path)
-        self.session = sess
         self.openadas = path == DEFAULT_PATH
         if path == DEFAULT_PATH:
             self.namespace = "openadas"
-            self.session.prov.add_namespace(
-                self.namespace, "https://open.adas.ac.uk/detail/adf11/"
-            )
             self.path = Path.home() / CACHE_DIR / "adas"
         else:
-            self.path = path
             self.namespace = "localadas"
-            self.session.prov.add_namespace(
-                self.namespace, "file:/" + str(self.path.resolve())
-            )
-        self.prov_id = session.hash_vals(path=self.path)
-        self.agent = self.session.prov.agent(self.prov_id)
-        self.session.prov.delegation(self.session.agent, self.agent)
-        self.entity = self.session.prov.entity(
-            self.prov_id, {"path": str(self.path.resolve())}
-        )
-        self.session.prov.generation(
-            self.entity, self.session.session, time=datetime.datetime.now()
-        )
-        self.session.prov.attribution(self.entity, self.session.agent)
+            self.path = path
 
     def close(self):
         """Closes connections to database/files. For this class it does not
@@ -203,16 +210,13 @@ class ADASReader(BaseIO):
                 if new_date > date:
                     date = new_date
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
-        long_name, units = DATATYPES["pec"]
         attrs = {
-            "long_name": long_name,
-            "units": units,
             "date": date,
-            # "provenance": self.create_provenance(filename, now),
             "element": element_name,
             "year": year,
+            "filename": filename,
         }
-        return DataArray(
+        _adf11 = DataArray(
             10 ** (data - 6),
             coords=[
                 ("ion_charge", np.arange(zmin, zmax + 1, dtype=int)),
@@ -221,6 +225,8 @@ class ADASReader(BaseIO):
             ],
             attrs=attrs,
         )
+        assign_datatype(_adf11, quantity)
+        return _adf11
 
     def get_adf15(
         self,
@@ -395,11 +401,8 @@ class ADASReader(BaseIO):
                 transition_tmp = format_transition[transition_type](m)
                 transition.append(transition_tmp)
                 line = f.readline().strip().lower()
-        long_name, units = DATATYPES["pec"]
         attrs = {
-            "long_name": long_name,
-            "units": units,
-            # "provenance": self.create_provenance(filename, now),
+            "filename": filename,
         }
 
         coords = [
@@ -421,37 +424,8 @@ class ADASReader(BaseIO):
         )  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
         pecs = pecs.assign_coords(type=("index", ttype))  # (excit, recomb, cx)
 
+        assign_datatype(pecs, "pec")
         return pecs
-
-    # def create_provenance(
-    #     self, filename: Path, start_time: datetime.datetime
-    # ) -> prov.ProvEntity:
-    #     """Create a provenance entity for the given ADAS file.
-    #
-    #     Note that this method just creates the provenance data
-    #     appropriate for the arguments it has been provided with. It
-    #     does not check that these arguments are actually valid and
-    #     that the provenance corresponds to actually existing data.
-    #
-    #     """
-    #     end_time = datetime.datetime.now()
-    #     entity = self.session.prov.entity(
-    #         session.hash_vals(filename=filename, start_time=start_time)
-    #     )
-    #     activity = self.session.prov.activity(
-    #         session.hash_vals(agent=self.prov_id, date=start_time),
-    #         start_time,
-    #         end_time,
-    #         {prov.PROV_TYPE: "ReadData"},
-    #     )
-    #     self.session.prov.association(activity, self.agent)
-    #     self.session.prov.association(activity, self.session.agent)
-    #     self.session.prov.communication(activity, self.session.session)
-    #     self.session.prov.derivation(entity, f"{self.namespace}:{filename}", activity)
-    #     self.session.prov.generation(entity, activity, end_time)
-    #     self.session.prov.attribution(entity, self.agent)
-    #     self.session.prov.attribution(entity, self.session.agent)
-    #     return entity
 
     def _get_file(self, dataclass: str, filename: Union[str, Path]) -> TextIO:
         """Retrieves an ADAS file, downloading it from OpenADAS if

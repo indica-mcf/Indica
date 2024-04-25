@@ -6,13 +6,14 @@ from scipy.interpolate import CubicSpline
 import xarray as xr
 from xarray import DataArray
 
-UNITS = {"density": "$m^{-3}$", "temperature": "eV", "rotation": "rad/s"}
+from indica.utilities import format_coord
+from indica.utilities import format_dataarray
 
 
 class Profiles:
     def __init__(
         self,
-        datatype: tuple = ("temperature", "electron"),
+        datatype: str = "electron_temperature",
         xend: float = 1.05,
         xspl: np.ndarray = None,
         coord="poloidal",
@@ -29,6 +30,14 @@ class Profiles:
             normalised radial grid [0, 1]  on which profile is to be built
 
         """
+        self.y0: float
+        self.y1: float
+        self.yend: float
+        self.peaking: float
+        self.wcenter: float
+        self.wped: float
+        self.parameters: dict = {}
+
         self.xend = xend
         self.coord = f"rho_{coord}"
         self.x = np.linspace(0, 1, 15) ** 0.7
@@ -45,13 +54,6 @@ class Profiles:
             "wped",
             "peaking",
         ]
-
-        self.y0: float
-        self.y1: float
-        self.yend: float
-        self.peaking: float
-        self.wcenter: float
-        self.wped: float
 
         if parameters is None:
             parameters = get_defaults(datatype)
@@ -182,21 +184,15 @@ class Profiles:
             "clamped",
             False,
         )
-        yspl = self.cubicspline(self.xspl)
+        _yspl = self.cubicspline(self.xspl)
+
+        coords = [(self.coord, format_coord(self.xspl, self.coord))]
+        yspl = format_dataarray(_yspl, self.datatype, coords=coords)
+        self.yspl = yspl
 
         if debug:
             plt.plot(self.xspl, yspl, label="spline")
             plt.legend()
-
-        yspl = DataArray(yspl, coords=[(self.coord, self.xspl)])
-        attrs = {"datatype": self.datatype}
-        if self.datatype[0] in UNITS.keys():
-            attrs["units"] = UNITS[self.datatype[0]]
-        long_name = self.datatype[1][0].upper() + self.datatype[1][1:]
-        attrs["long_name"] = f"{long_name} {self.datatype[0]}"
-        yspl.attrs = attrs
-
-        self.yspl = yspl
 
         return yspl
 
@@ -207,8 +203,7 @@ class Profiles:
         self.yspl.plot()
 
 
-def get_defaults(datatype: tuple) -> dict:
-    identifier = f"{datatype[1]}_{datatype[0]}"
+def get_defaults(datatype: str) -> dict:
     parameters = {
         "electron_density": {  # (m**-3)
             "y0": 5.0e19,
@@ -261,21 +256,22 @@ def get_defaults(datatype: tuple) -> dict:
         },
     }
 
-    if identifier not in parameters.keys():
+    if datatype not in parameters.keys():
+        _datatype = "temperature_electron"
         print(
-            f"\n Profile {identifier} not available "
-            f"\n Using 'temperature_electron' as default \n"
+            f"\n Profile {datatype} not available "
+            f"\n Using '{_datatype}' as default \n"
         )
-        identifier = "temperature_electron"
+        datatype = _datatype
 
-    return parameters[identifier]
+    return parameters[datatype]
 
 
 def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
-    Te = Profiles(datatype=("temperature", "electron"), xspl=rho)
-    Ne = Profiles(datatype=("density", "electron"), xspl=rho)
-    Nimp = Profiles(datatype=("density", "impurity"), xspl=rho)
-    Vrot = Profiles(datatype=("rotation", "toroidal"), xspl=rho)
+    Te = Profiles(datatype="electron_temperature", xspl=rho)
+    Ne = Profiles(datatype="electron_density", xspl=rho)
+    Nimp = Profiles(datatype="impurity_density", xspl=rho)
+    Vrot = Profiles(datatype="toroidal_rotation", xspl=rho)
 
     Te_list = {}
     Ti_list = {}

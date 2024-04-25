@@ -8,7 +8,6 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
-import indica.models.bolometer_camera as bolo
 from indica.numpy_typing import ArrayLike
 from indica.numpy_typing import LabeledArray
 import indica.operators.centrifugal_asymmetry as centrifugal_asymmetry
@@ -219,9 +218,10 @@ class InvertPoloidalAsymmetry:
 
 
 def example_run(asymmetric_profile: bool = True):
+    from indica.examples.example_diagnostic_models import example_bolometer
 
     plasma, ion_density_2d = centrifugal_asymmetry.example_run()
-    _, model, _ = bolo.example_run()
+    _, model, _ = example_bolometer()
 
     ar_density_2d = ion_density_2d.sel(element="ar")
     ne_density_2d = plasma.electron_density.interp(

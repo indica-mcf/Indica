@@ -3,7 +3,7 @@ import matplotlib.cm as cm
 import numpy as np
 
 from indica.converters import LineOfSightTransform
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.readers.read_st40 import ReadST40
 
 

@@ -12,11 +12,10 @@ from typing import Tuple
 from typing import TYPE_CHECKING
 from typing import Union
 
-import prov.model as prov
 from xarray import DataArray
 from xarray import Dataset
 
-from .. import session
+from indica.utilities import hash_vals
 from ..datatypes import DatasetType
 from ..datatypes import DataType
 
@@ -45,12 +44,8 @@ class Operator(ABC):
 
     Parameters
     ----------
-    sess: session.Session
-        An object representing the session being run. Contains information
-        such as provenance data.
     kwargs: Any
-        Any other arguments which should be recorded in the PROV entity for
-        the reader.
+        Any other arguments which should be recorded.
 
     Attributes
     ----------
@@ -60,42 +55,14 @@ class Operator(ABC):
         given by the final element of the list.
     RETURN_TYPES: ClassVar[List[DataType]]
         Ordered list of the types of data returned by the operator.
-    prov_id: str
-        The hash used to identify this object in provenance documents.
-    agent: prov.model.ProvAgent
-        An agent representing this object in provenance documents.
-        DataArray objects can be attributed to it.
-    entity: prov.model.ProvEntity
-        An entity representing this object in provenance documents. It is used
-        to provide information on the object's own provenance.
-
     """
 
     ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = []
 
-    def __init__(self, sess: session.Session = session.global_session, **kwargs: Any):
-        """Creates a provenance entity/agent for the operator object. Also
-        checks arguments and results are of valid datatypes. Should be
-        called by initialisers in subclasses.
-
-        """
-        self._session = sess
-        # TODO: also include library version and, ideally, version of
-        # relevent dependency in the hash
-        self.prov_id = session.hash_vals(
-            operator_type=self.__class__.__name__, **kwargs
-        )
-        self.agent = self._session.prov.agent(self.prov_id)
-        self._session.prov.actedOnBehalfOf(self.agent, self._session.agent)
-        self.entity = self._session.prov.entity(self.prov_id, kwargs)
-        self._session.prov.generation(
-            self.entity, self._session.session, time=datetime.datetime.now()
-        )
-        self._session.prov.attribution(self.entity, self._session.agent)
-        self._input_provenance: List[prov.ProvEntity] = []
-        self._prov_count = 0
+    def __init__(self, **kwargs: Any):
+        """Creates a provenance - currently not very elaborate."""
+        self.prov_id = hash_vals(operator_type=self.__class__.__name__, **kwargs)
         self._end_time: datetime.datetime
-        self.activity: prov.ProvActivity
 
     def _ellipsis_type(self, arg: Data) -> DataType:
         """Given the argument corresponding to the penultimate argument type,
@@ -112,8 +79,6 @@ class Operator(ABC):
     def validate_arguments(self, *args: Data):
         """Checks that arguments to the operator are of the expected types.
 
-        Also gathers provenance information for use later.
-
         Parameters
         ----------
         args
@@ -121,9 +86,6 @@ class Operator(ABC):
 
         """
         self._start_time = datetime.datetime.now()
-        self._input_provenance = [
-            arg.attrs["provenance"] for arg in args if "provenance" in arg.attrs
-        ]
         arg_len = len(args)
         expected_len = len(self.ARGUMENT_TYPES)
         if expected_len > 0 and self.ARGUMENT_TYPES[-1] == Ellipsis:
@@ -205,80 +167,6 @@ class Operator(ABC):
             "{} does not implement a "
             "'return_types' method.".format(self.__class__.__name__)
         )
-
-    def assign_provenance(self, data: Union[DataArray, Dataset]) -> prov.ProvEntity:
-        """Create and assign a provenance entity to the argument. This argument
-        should be one of the results of the operator.
-
-        This should only be called after
-        :py:meth:`validate_arguments`, as it relies on that routine to
-        collect information about the inputs to the operator. It
-        should not be called until after all calculations are
-        finished, as the first call will be used to determine the
-        end-time of the calculation.
-
-        Returns
-        -------
-        :
-            A provenance entity for the newly calculated data.
-
-        """
-        # TODO: Generate multiple pieces of PROV data for multiple return values
-        if self._prov_count == 0:
-            self.end_time = datetime.datetime.now()
-            activity_id = session.hash_vals(agent=self.prov_id, date=self.end_time)
-            self.activity = self._session.prov.activity(
-                activity_id,
-                self._start_time,
-                self.end_time,
-                {prov.PROV_TYPE: "Calculation"},
-            )
-            self.activity.wasAssociatedWith(self._session.agent)
-            self.activity.wasAssociatedWith(self.agent)
-            self.activity.wasInformedBy(self._session.session)
-            for arg in self._input_provenance:
-                self.activity.used(arg)
-        entity_id = session.hash_vals(
-            creator=self.prov_id,
-            date=self.end_time,
-            result_number=self._prov_count,
-            **{
-                "arg" + str(i): p.identifier
-                for i, p in enumerate(self._input_provenance)
-            }
-        )
-        self._prov_count += 1
-        if isinstance(data, Dataset):
-            entity = self._session.prov.collection(
-                entity_id, {prov.PROV_TYPE: "Dataset"}
-            )
-            for array in data.data_vars.values():
-                if "provenance" not in array.attrs:
-                    print("Creating provenenace")
-                    self.assign_provenance(array)
-                entity.hadMember(array.attrs["provenance"])
-        else:
-            entity = self._session.prov.entity(
-                entity_id,
-                {
-                    prov.PROV_TYPE: "DataArray",
-                },
-            )
-        entity.wasGeneratedBy(self.activity, self.end_time)
-        entity.wasAttributedTo(self._session.agent)
-        entity.wasAttributedTo(self.agent)
-        for arg in self._input_provenance:
-            entity.wasDerivedFrom(arg)
-        if isinstance(data, Dataset):
-            data.attrs["provenance"] = entity
-        else:
-            data.attrs["partial_provenance"] = entity
-            if data.indica.equilibrium:
-                data.indica._update_prov_for_equilibrium(
-                    data.attrs["transform"].equilibrium
-                )
-            else:
-                data.attrs["provenance"] = entity
 
     @abstractmethod
     def __call__(self, *args: DataArray) -> Union[DataArray, Dataset]:

@@ -1,14 +1,15 @@
-import matplotlib.cm as cm
+from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.transect import TransectCoordinates
+from indica.converters import TransectCoordinates
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.utilities import assign_datatype
 
 
 class ChargeExchange(DiagnosticModel):
@@ -22,6 +23,7 @@ class ChargeExchange(DiagnosticModel):
         element: str = "c",
         instrument_method="get_charge_exchange",
     ):
+        self.transect_transform: TransectCoordinates
         self.name = name
         self.element = element
         self.instrument_method = instrument_method
@@ -35,13 +37,9 @@ class ChargeExchange(DiagnosticModel):
             if quant == "vtor":
                 quantity = quant
                 self.bckc[quantity] = self.Vtor_at_channels
-                long_name = "Toroidal rotation"
-                units = "rad/s"
             elif quant == "ti":
                 quantity = quant
                 self.bckc[quantity] = self.Ti_at_channels
-                long_name = "Ion temperature"
-                units = "eV"
             elif quant == "spectra":
                 # Placeholder
                 continue
@@ -55,14 +53,12 @@ class ChargeExchange(DiagnosticModel):
             error = xr.full_like(self.bckc[quantity], 0.0)
             stdev = xr.full_like(self.bckc[quantity], 0.0)
             self.bckc[quantity].attrs = {
-                "datatype": datatype,
                 "transform": self.transect_transform,
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
-                "long_name": long_name,
-                "units": units,
             }
+            assign_datatype(self.bckc[quantity], datatype)
 
     def __call__(
         self,
@@ -144,7 +140,17 @@ def example_run(
     # TODO: LOS sometimes crossing bad EFIT reconstruction
 
     if plasma is None:
+        from indica.equilibrium import fake_equilibrium
+
         plasma = example_plasma(pulse=pulse)
+        machine_dims = plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=plasma.tstart,
+            tend=plasma.tend,
+            dt=plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        plasma.set_equilibrium(equilibrium)
 
     # Create new interferometers diagnostics
     transect_transform = pi_transform_example(5)
@@ -152,7 +158,7 @@ def example_run(
     model = ChargeExchange(
         diagnostic_name,
     )
-    model.set_transect_transform(transect_transform)
+    model.set_transform(transect_transform)
     model.set_plasma(plasma)
 
     bckc = model()

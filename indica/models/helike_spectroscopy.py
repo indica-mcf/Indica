@@ -4,13 +4,14 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.readers.marchuk import MARCHUKReader
+from indica.utilities import assign_datatype
 from indica.utilities import get_element_info
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
@@ -56,6 +57,7 @@ class HelikeSpectrometer(DiagnosticModel):
             String identifier for the spectrometer
 
         """
+        self.los_transform: LineOfSightTransform
         if window_lim is None:
             window_lim = [0.394, 0.401]
         if window_masks is None:
@@ -98,6 +100,7 @@ class HelikeSpectrometer(DiagnosticModel):
         self.pos_err_out: dict
         self.spectra: DataArray
 
+        self.Ti: DataArray
         self.Te: DataArray
         self.Ne: DataArray
         self.Nimp: DataArray
@@ -328,8 +331,6 @@ class HelikeSpectrometer(DiagnosticModel):
         self.bckc = {}
         if "spectra" in self.quantities and hasattr(self, "measured_spectra"):
             self.bckc["spectra"] = self.measured_spectra
-            self.bckc["spectra"].attrs["long_name"] = "Spectra"
-            self.bckc["spectra"].attrs["units"] = "a.u."
 
         if self.moment_analysis:
             for quantity in self.quantities:
@@ -352,21 +353,7 @@ class HelikeSpectrometer(DiagnosticModel):
                     continue
 
                 self.bckc[quantity].attrs["emiss"] = self.line_emission[line]
-                self.bckc[quantity].attrs["datatype"] = datatype
-                if "te" in quantity:
-                    long_name = "Te"
-                    units = "eV"
-                elif "ti" in quantity:
-                    long_name = "Ti"
-                    units = "eV"
-                elif "int" in quantity:
-                    long_name = "Line intensity"
-                    units = "a.u."
-                else:
-                    long_name = ""
-                    units = ""
-                self.bckc[quantity].attrs["long_name"] = long_name
-                self.bckc[quantity].attrs["units"] = units
+                assign_datatype(self.bckc[quantity], datatype)
 
                 if line in self.pos.keys():
                     self.bckc[quantity].attrs["pos"] = self.pos[line]
@@ -484,13 +471,15 @@ class HelikeSpectrometer(DiagnosticModel):
     def plot(self):
         set_plot_rcparams("profiles")
 
-        self.los_transform.plot()
+        self.los_transform.plot(np.mean(self.t))
 
         plt.figure()
         channels = self.los_transform.x1
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.plasma.t), dtype=float))
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
         if "spectra" in self.bckc.keys():
-            spectra = self.bckc["spectra"].sel(channel=np.median(channels))
+            spectra = self.bckc["spectra"]
+            if "channel" in spectra.dims:
+                spectra = spectra.sel(channel=np.median(channels))
             for i, t in enumerate(np.array(self.t, ndmin=1)):
                 plt.plot(
                     spectra.wavelength,
@@ -611,7 +600,7 @@ def example_run(
         diagnostic_name,
         window_masks=[],
     )
-    model.set_los_transform(los_transform)
+    model.set_transform(los_transform)
     model.set_plasma(plasma)
 
     bckc = model(moment_analysis=moment_analysis, **kwargs)

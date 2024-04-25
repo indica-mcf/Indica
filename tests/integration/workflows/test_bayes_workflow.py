@@ -16,10 +16,10 @@ class TestBayesWorkflow:
     def setup_class(self):
         self.diagnostics = ["cxff_tws_c", "cxff_pi"]
         self.opt_params = [
-            "Ti_prof.y0",
-            # "Ti_prof.peaking",
-            # "Ti_prof.wped",
-            # "Ti_prof.wcenter",
+            "ion_temperature.y0",
+            # "ion_temperature.peaking",
+            # "ion_temperature.wped",
+            # "ion_temperature.wcenter",
         ]
         self.opt_quant = ["cxff_tws_c.ti", "cxff_pi.ti"]
 

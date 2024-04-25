@@ -8,7 +8,7 @@ indica.egg-info/
 dist/
 htmlcov/
 .dir-locals.el
-*.pkl
+#*.pkl
 indica/git_version
 .vscode/
 !tests/unit/readers/ppf_samples.pkl

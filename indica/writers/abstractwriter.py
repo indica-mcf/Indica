@@ -4,7 +4,6 @@ from abc import abstractmethod
 from typing import Dict
 from typing import Union
 
-from prov.model import ProvDocument
 from xarray import DataArray
 from xarray import Dataset
 
@@ -41,9 +40,6 @@ class DataWriter(BaseIO):
           from which it can be recreated. These serialisations will be stored
           in a dictionary attribute for the Dataset as a whole, with each
           DataArray holding the key for its corresponding transform.
-        - The PROV attributes will be replaced by the ID for that entity. The
-          complete PROV data for the session will be passed to low-level
-          writing routines as a separate argument.
         - Datatypes will be serialised as JSON
         - All data will have an ``equilibrium`` attribute, which provides an
           identifier for the equilibrium data (passed to the low-level writer
@@ -68,7 +64,6 @@ class DataWriter(BaseIO):
         name: str,
         data: Dataset,
         equilibria: Dict[str, Equilibrium],
-        prov: ProvDocument,
     ):
         """Perform the low-level writing of data to disk/database. It takes a
         single Dataset, with attributes reformatted as described in the

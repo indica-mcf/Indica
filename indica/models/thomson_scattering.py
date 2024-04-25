@@ -4,11 +4,12 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.transect import TransectCoordinates
+from indica.converters import TransectCoordinates
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.utilities import assign_datatype
 
 
 class ThomsonScattering(DiagnosticModel):
@@ -21,7 +22,7 @@ class ThomsonScattering(DiagnosticModel):
         name: str,
         instrument_method="get_thomson_scattering",
     ):
-
+        self.transect_transform: TransectCoordinates
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -34,13 +35,9 @@ class ThomsonScattering(DiagnosticModel):
             if quant == "ne":
                 quantity = quant
                 self.bckc[quantity] = self.Ne_at_channels
-                long_name = "Ne"
-                units = "$m^{-3}$"
             elif quant == "te":
                 quantity = quant
                 self.bckc[quantity] = self.Te_at_channels
-                long_name = "Te"
-                units = "eV"
             elif quant == "chi2":
                 # Placeholder
                 continue
@@ -51,14 +48,12 @@ class ThomsonScattering(DiagnosticModel):
             error = xr.full_like(self.bckc[quantity], 0.0)
             stdev = xr.full_like(self.bckc[quantity], 0.0)
             self.bckc[quantity].attrs = {
-                "datatype": datatype,
                 "transform": self.transect_transform,
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
-                "long_name": long_name,
-                "units": units,
             }
+            assign_datatype(self.bckc[quantity], datatype)
 
     def __call__(
         self,
@@ -126,6 +121,45 @@ class ThomsonScattering(DiagnosticModel):
 
         return self.bckc
 
+    def plot(self):
+        if len(self.bckc) == 0:
+            print("No model results to plot")
+            return
+
+        # Back-calculated profiles
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, np.size(self.t), dtype=float))
+        plt.figure()
+        for i, t in enumerate(self.t):
+            Ne = self.bckc["ne"].sel(t=t, method="nearest")
+            rho = Ne.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(
+                rho,
+                Ne,
+                color=cols_time[i],
+                marker="o",
+                alpha=0.7,
+                label=f"t={t:1.2f} s",
+            )
+        plt.xlabel("Channel")
+        plt.ylabel("Measured electron density (m^-3)")
+        plt.legend()
+
+        plt.figure()
+        for i, t in enumerate(self.t):
+            Te = self.bckc["te"].sel(t=t, method="nearest")
+            rho = Te.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(
+                rho,
+                Te,
+                color=cols_time[i],
+                marker="o",
+                alpha=0.7,
+                label=f"t={t:1.2f} s",
+            )
+        plt.xlabel("Channel")
+        plt.ylabel("Measured electron temperature (eV)")
+        plt.legend()
+
 
 def ts_transform_example(nchannels):
     x_positions = np.linspace(0.2, 0.8, nchannels)
@@ -151,14 +185,24 @@ def example_run(
     # TODO: LOS sometime crossing bad EFIT reconstruction and crashing...
 
     if plasma is None:
+        from indica.equilibrium import fake_equilibrium
+
         plasma = example_plasma(pulse=pulse)
+        machine_dims = plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=plasma.tstart,
+            tend=plasma.tend,
+            dt=plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        plasma.set_equilibrium(equilibrium)
 
     transect_transform = ts_transform_example(11)
     transect_transform.set_equilibrium(plasma.equilibrium)
     model = ThomsonScattering(
         diagnostic_name,
     )
-    model.set_transect_transform(transect_transform)
+    model.set_transform(transect_transform)
     model.set_plasma(plasma)
 
     bckc = model()

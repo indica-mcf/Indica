@@ -6,14 +6,8 @@ are defined to provide additional functionality to
 objects. These accessors group methods under the namespace
 ``indica``. E.g.::
 
-  data_array.indica.remap_like(array2)
-  data_array.indica.check_datatype(("temperature", "electron"))
-  dataset.indica.check_datatype(("electron", {"T": "temperature",
-                                              "n": "number_density"}))
-
 """
 
-import datetime
 from itertools import filterfalse
 from numbers import Number
 from typing import Any
@@ -28,7 +22,6 @@ from typing import Tuple
 from typing import Union
 
 import numpy as np
-import prov.model as prov
 from scipy.interpolate import CloughTocher2DInterpolator
 from scipy.interpolate import interp1d
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -36,16 +29,11 @@ from scipy.interpolate import RectBivariateSpline
 import xarray as xr
 from xarray.core.utils import either_dict_or_kwargs
 
-from . import session
 from .converters import CoordinateTransform
 from .converters.abstractconverter import Coordinates
-from .datatypes import ArrayType
-from .datatypes import DatasetType
 from .equilibrium import Equilibrium
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
-from .numpy_typing import OnlyArray
-from .numpy_typing import XarrayGeneric
 
 
 def _convert_coords(
@@ -101,33 +89,6 @@ def _convert_coords(
     return array.coords[transform.x1_name], array.coords[transform.x2_name]
 
 
-def _inclusive_timeslice(
-    array: XarrayGeneric, t_start: float, t_end: float
-) -> XarrayGeneric:
-    """
-    Returns a view into `array` containing `t_start` and `t_end`.
-
-    Parameters
-    ----------
-    array
-        The DataArray or Dataset to slice
-    t_start
-        The smallest time value to be included
-    t_end
-        The largest time value to be included
-
-    Returns
-    -------
-    View of DataArray containing range t_start and t_end
-
-    """
-    low_index, high_index = array.t.searchsorted((t_start, t_end))
-    # isel(t=-1) gives last entry, ensure low_index isn't negative:
-    low_index = max(low_index - 1, 0)
-    high_index = high_index + 1
-    return array.isel(t=slice(low_index, high_index))
-
-
 @xr.register_dataarray_accessor("indica")
 class InDiCAArrayAccessor:
     """Class providing additional functionality to
@@ -137,21 +98,6 @@ class InDiCAArrayAccessor:
 
     def __init__(self, xarray_obj: xr.DataArray):
         self._obj = xarray_obj
-
-    def with_Rz_coords(self) -> xr.DataArray:
-        """Returns a DataArray containing this data plus the R-z coordinates
-        of the data.
-
-        Note: This method relies on default coordinates for conversion
-        to R-z being same as the coordinates used by the DataArray.
-
-        """
-        R, z, t = self._obj.attrs["transform"].convert_to_Rz()
-        new_dims = self._obj.dims[1:]
-        new_coords = {k: self._obj.coords[k] for k in new_dims}
-        R_da = xr.DataArray(R, dims=new_dims, coords=new_coords)
-        z_da = xr.DataArray(z, dims=new_dims, coords=new_coords)
-        return self._obj.assign_coords(R=R_da, z=z_da)
 
     def invert_interp(
         self,
@@ -745,84 +691,12 @@ class InDiCAArrayAccessor:
             transform = self._obj.attrs["transform"]
         return self.convert_coords(transform) + (self._obj.coords["t"],)
 
-    def remap_like(self, other: xr.DataArray) -> xr.DataArray:
-        """Remap and interpolate the data in this array onto a new coordinate
-        system.
-
-        Parameters
-        ----------
-        other
-            An array whose coordinate system will be mapped onto.
-
-        Returns
-        -------
-        :
-            An array representing the same data as this one, but interpolated
-            so that it is on the coordinate system of ``other``.
-
-        """
-        transform: CoordinateTransform = self._obj.attrs["transform"]
-        x1, x2, t = other.indica.get_coords(transform)
-        new_coords: Dict[Hashable, LabeledArray] = {}
-        if transform.x1_name in self._obj.dims:
-            new_coords[transform.x1_name] = x1
-        if transform.x2_name in self._obj.dims:
-            new_coords[transform.x2_name] = x2
-        result = self.interp2d(new_coords, method="linear") if new_coords else self._obj
-        if "t" in self._obj.dims:
-            result = result.interp(t=t, method="linear")
-        return result
-
-    def check_datatype(self, data_type: ArrayType) -> Tuple[bool, Optional[str]]:
-        """Checks that the data type of this :py:class:`xarray.DataArray`
-        matches the argument.
-
-        Parameters
-        ----------
-        data_type
-            The datatype to check this array against.
-
-        Returns
-        -------
-        status
-            Whether the datatype of this array matches the argument.
-        message
-            If ``status == False``, an explaination of why.
-
-        """
-        pass
-
-    def _update_prov_for_equilibrium(
-        self,
-        value: Equilibrium,
-        start_time: datetime.datetime = datetime.datetime.now(),
-    ):
-        """Set the provenance of this object to include the new equilibrium value."""
-        partial_prov = self._obj.attrs["partial_provenance"]
-        hash_id = session.hash_vals(
-            data=partial_prov.identifier.localpart, equilibrium=value.prov_id
-        )
-        new_prov = value._session.prov.collection(hash_id)
-        new_prov.hadMember(partial_prov)
-        new_prov.hadMember(value.provenance)
-        self._obj.attrs["provenance"] = new_prov
-        end_time = datetime.datetime.now()
-        activity_id = session.hash_vals(agent=value._session.agent, date=end_time)
-        activity = value._session.prov.activity(
-            activity_id, start_time, end_time, {prov.PROV_TYPE: "SetEquilibrium"}
-        )
-        activity.wasAssociatedWith(value._session.agent)
-        activity.wasInformedBy(value._session.session)
-        new_prov.wasGeneratedBy(activity, end_time)
-        new_prov.wasAttributedTo(value._session.agent)
-
     @property
     def equilibrium(self) -> Optional[Equilibrium]:
         """The equilibrium object currently used by this DataArray (or, more
         accurately, by its
         :py:class:`~indica.converters.CoordinateTransform`
-        object). When setting or deleting this porperty, ensures
-        provenance will be updated accordingly.
+        object).
 
         """
         if "transform" in self._obj.attrs:
@@ -834,17 +708,12 @@ class InDiCAArrayAccessor:
     def equilibrium(self, value: Equilibrium):
         if value == self.equilibrium:
             return
-        start_time = datetime.datetime.now()
         self._obj.attrs["transform"].set_equilibrium(value)
-        if "partial_provenance" in self._obj.attrs:
-            self._update_prov_for_equilibrium(value, start_time)
 
     @equilibrium.deleter
     def equilibrium(self):
         if hasattr(self._obj.attrs["transform"], "equilibrium"):
             del self._obj.attrs["transform"].equilibrium
-            if "provenance" in self._obj.attrs:
-                self._obj.attrs["provenance"] = self._obj.attrs["partial_provenance"]
 
     @property
     def with_ignored_data(self) -> xr.DataArray:
@@ -882,90 +751,6 @@ class InDiCAArrayAccessor:
                 )
             )
         return None
-
-    def ignore_data(self, labels: OnlyArray, dimension: str) -> xr.DataArray:
-        """Create a copy of this array which masks the specified data.
-
-        Parameters
-        ----------
-        labels
-            The channel labels for which data should be ignored.
-        dimension
-            The name of the dimension the labels are along
-
-        Returns
-        -------
-        :
-            A copy of this object, but with data for the specified labels
-            along the specified dimension marked as NaN.
-
-        """
-        if len(labels) == 0:
-            return self._obj
-        ddim = self.drop_dim
-        if ddim and ddim != dimension:
-            raise ValueError(
-                f"Can not not ignore data along dimension {dimension}; channels "
-                f"have already been ignored in dimension {ddim}."
-            )
-        elif dimension not in self._obj.dims:
-            raise ValueError(f"Dimension {dimension} not present in data array.")
-        if ddim:
-            unique_labels = list(
-                filter(
-                    lambda l: l not in self._obj.attrs["dropped"].coords[dimension],
-                    labels,
-                )
-            )
-        else:
-            # mypy doesn't understand conditionals apparently.
-            unique_labels = labels  # type: ignore
-        if len(unique_labels) == 0:
-            return self._obj
-        result = self._obj.copy()
-        result.loc[{dimension: unique_labels}] = float("nan")
-        result.attrs["dropped"] = self._obj.loc[{dimension: unique_labels}]
-        if "error" in result.attrs:
-            result.attrs["error"] = result.attrs["error"].copy()
-        result.attrs["dropped"].attrs = {}
-        if "dropped" in self._obj.attrs:
-            result.attrs["dropped"] = xr.concat(
-                [self._obj.attrs["dropped"], result.attrs["dropped"]], dim=dimension
-            )
-        if "error" in self._obj.attrs:
-            result.attrs["error"].loc[{dimension: unique_labels}] = float("nan")
-            result.attrs["dropped"].attrs["error"] = self._obj.attrs["error"].loc[
-                {dimension: unique_labels}
-            ]
-            result.attrs["dropped"].attrs["error"].attrs = {}
-            if "dropped" in self._obj.attrs:
-                result.attrs["dropped"].attrs["error"] = xr.concat(
-                    [
-                        self._obj.attrs["dropped"].attrs["error"],
-                        result.attrs["dropped"].attrs["error"],
-                    ],
-                    dim=dimension,
-                )
-        return result
-
-    def inclusive_timeslice(self, t_start: float, t_end: float) -> xr.DataArray:
-        """
-        Returns a view into this :py:class:`xarray.DataArray` containing
-        `t_start` and `t_end`.
-
-        Parameters
-        ----------
-        t_start
-            The smallest time value to be included
-        t_end
-            The largest time value to be included
-
-        Returns
-        -------
-        View of DataArray containing range t_start and t_end
-
-        """
-        return _inclusive_timeslice(self._obj, t_start, t_end)
 
 
 @xr.register_dataset_accessor("indica")
@@ -1024,208 +809,3 @@ class InDiCADatasetAccessor:
         if transform is None:
             transform = self._obj.attrs["transform"]
         return self.convert_coords(transform) + (self._obj.coords["t"],)
-
-    def attach(
-        self,
-        key: str,
-        array: xr.DataArray,
-        overwrite: bool = False,
-        sess: session.Session = session.global_session,
-    ):
-        """Adds an additional :py:class:`xarray.DataArray` to this
-        :py:class:`xarray.Dataset`. This dataset must be used for
-        aggregating data with the same specific datatype (see
-        :py:data:`SPECIFIC_DATATYPES`).
-
-        It will update the metadata (datatype and provenance) to
-        ensure the new DataArray is correctly included. If there is
-        already an item with that key then it will raise an exception
-        (unless the value is the same). This behaviour can be
-        overridden with the `overwrite` argument.
-
-        This function will fail if the specific datatyp for ``array``
-        differs from that for this Dataset. It will also fail if the
-        dimensions of ``array`` differ from those of the Dataset.
-
-        Parameters
-        ----------
-        key
-            The label which will map to the new data
-        array
-            The data to be added to this :py:class:`xarray.Dataset`
-        overwrite
-            If ``True`` and ``key`` already exists in this Dataset then
-            overwrite the old value. Otherwise raise an error.
-        sess
-            An object representing the session being run. Contains information
-            such as provenance data.
-
-        """
-        start_time = datetime.datetime.now()
-        if key in self._obj.data_vars and not overwrite:
-            raise ValueError(
-                f"Dataset already contains a variable associated with key '{key}'."
-            )
-        if key in self._obj.coords:
-            raise ValueError(f"Key '{key}' corresponds to a coordinate in the dataset.")
-        if (
-            array.attrs["transform"]
-            != next(iter(self._obj.data_vars.values())).attrs["transform"]
-        ):
-            raise ValueError(
-                "The array's transform object differs from that of the dataset."
-            )
-        expected_dt = next(iter(self._obj.data_vars.values())).attrs["datatype"][1]
-        actual_dt = array.attrs["datatype"][1]
-        if actual_dt != expected_dt:
-            raise ValueError(
-                f"Array's specific datatype ('{actual_dt}') differs from dataset's "
-                f"('{expected_dt}')."
-            )
-        self._obj[key] = array
-        old_prov = self._obj.attrs["provenance"]
-        array_prov = array.attrs["provenance"]
-        hash_id = session.hash_vals(
-            dataset=old_prov.identifier.localpart, array=array_prov.identifier.localpart
-        )
-        new_prov = sess.prov.collection(hash_id)
-        for data in self._obj.data_vars.values():
-            new_prov.hadMember(data.attrs["provenance"])
-        self._obj.attrs["provenance"] = new_prov
-        end_time = datetime.datetime.now()
-        activity_id = session.hash_vals(agent=sess.agent, date=end_time)
-        activity = sess.prov.activity(
-            activity_id, start_time, end_time, {prov.PROV_TYPE: "AddToDataset"}
-        )
-        activity.wasAssociatedWith(sess.agent)
-        activity.wasInformedBy(sess.session)
-        new_prov.wasGeneratedBy(activity, end_time)
-        new_prov.wasAttributedTo(sess.agent)
-        new_prov.wasDerivedFrom(old_prov)
-        new_prov.wasDerivedFrom(array_prov)
-        activity.used(old_prov)
-        activity.used(array_prov)
-
-    @property
-    def datatype(self) -> DatasetType:
-        """A structure describing the data contained within this Dataset."""
-        return (
-            next(iter(self._obj.data_vars.values())).attrs["datatype"][1],
-            {str(k): v.attrs["datatype"][0] for k, v in self._obj.data_vars.items()},
-        )
-
-    def check_datatype(self, datatype: DatasetType) -> Tuple[bool, Optional[str]]:
-        """
-        Checks that the data type of this :py:class:`xarray.DataArray`
-        matches the argument.
-
-        This checks that all of the key/value pairs present in
-        ``datatype`` match those in this Dataset. It will still return
-        ``True`` even if there are _additional_ members of this
-        dataset not included in ``datatype``.
-
-        Parameters
-        ----------
-        datatype
-            The datatype to check this Dataset against.
-
-        Returns
-        -------
-        status
-            Whether the datatype of this array matches the argument.
-        message
-            If ``status == False``, an explanation of why.
-
-        """
-        pass
-
-    def inclusive_timeslice(self, t_start: float, t_end: float) -> xr.Dataset:
-        """
-        Returns a view into this :py:class:`xarray.Dataset` containing
-        `t_start` and `t_end`.
-
-        Parameters
-        ----------
-        t_start
-            The smallest time value to be included
-        t_end
-            The largest time value to be included
-
-        Returns
-        -------
-        View of Dataset containing range t_start and t_end
-
-        """
-        return _inclusive_timeslice(self._obj, t_start, t_end)
-
-
-def aggregate(
-    sess: session.Session = session.global_session, **kwargs: xr.DataArray
-) -> xr.Dataset:
-    """Combines the key-value pairs in ``kwargs`` into a Dataset,
-    performing various checks.
-
-    In order for this to succeed, the following must hold:
-
-    - All arguments must have the same specific datatype (see
-      :py:data:`SPECIFIC_DATATYPES`).
-    - All arguments must use the same coordinate system (though not all of
-      them need to use all of the coordinates).
-    - All arguments must use the same :py:class`CoordinateTransform` object
-    - All arguments need to store data on the same grid (always the case for datasets)
-
-    In addition to performing these checks, this function will create
-    the correct provenance.
-
-    .. warning::
-        This should not be used for assembling results of an
-        :py:class:`~indica.operators.Operator`, as it will not provide the
-        necessary derivation provenance.
-
-    Parameters
-    ----------
-    sess
-        An object representing the session being run. Contains information
-        such as provenance data.
-    kwargs
-        The DataArrays to be combined into a dataset.
-
-    """
-    if len(kwargs) == 0:
-        raise ValueError("Can not create empty dataset.")
-    start_time = datetime.datetime.now()
-    first_key = next(iter(kwargs))
-    first_val = kwargs[first_key]
-    specific_type = first_val.attrs["datatype"][1]
-    for k, v in kwargs.items():
-        dt = v.attrs["datatype"]
-        if dt[1] != specific_type:
-            raise ValueError(
-                f"Item '{k}' has specific datatype '{dt}', which differs from "
-                f" that of item '{first_key}' ('{specific_type}')"
-            )
-        if v.attrs["transform"] != first_val.attrs["transform"]:
-            raise ValueError(
-                f"Item '{k}' has different transform class than item '{first_key}'"
-            )
-    dataset = xr.Dataset(
-        cast(Dict[Hashable, xr.DataArray], kwargs),
-        attrs={"transform": first_val.attrs["transform"]},
-    )
-    hash_id = session.hash_vals(
-        **{k: v.attrs["provenance"].identifier.localpart for k, v in kwargs.items()},
-    )
-    new_prov = sess.prov.collection(hash_id)
-    for data in kwargs.values():
-        new_prov.hadMember(data.attrs["provenance"])
-    dataset.attrs["provenance"] = new_prov
-    end_time = datetime.datetime.now()
-    activity_id = session.hash_vals(agent=sess.agent, date=end_time)
-    activity = sess.prov.activity(
-        activity_id, start_time, end_time, {prov.PROV_TYPE: "CreateDataset"}
-    )
-    activity.wasAssociatedWith(sess.agent)
-    activity.wasInformedBy(sess.session)
-    new_prov.wasGeneratedBy(activity, end_time)
-    new_prov.wasAttributedTo(sess.agent)
-    return dataset

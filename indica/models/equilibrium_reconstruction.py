@@ -2,8 +2,9 @@ import matplotlib.pyplot as plt
 import xarray as xr
 
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.utilities import assign_datatype
 from indica.utilities import check_time_present
 
 
@@ -31,13 +32,10 @@ class EquilibriumReconstruction(DiagnosticModel):
                 error = xr.full_like(self.bckc[quant], 0.0)
                 stdev = xr.full_like(self.bckc[quant], 0.0)
                 self.bckc[quant].attrs = {
-                    "datatype": datatype,
                     "error": error,
                     "stdev": stdev,
-                    "provenance": str(self),
-                    "long_name": "Wp",
-                    "units": "J",
                 }
+                assign_datatype(self.bckc[quant], datatype)
             else:
                 # print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -73,7 +71,17 @@ def example_run(
     t=None,
 ):
     if plasma is None:
+        from indica.equilibrium import fake_equilibrium
+
         plasma = example_plasma()
+        machine_dims = plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=plasma.tstart,
+            tend=plasma.tend,
+            dt=plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        plasma.set_equilibrium(equilibrium)
 
     model = EquilibriumReconstruction(diagnostic_name)
     model.set_plasma(plasma)
