@@ -1,6 +1,7 @@
 from copy import deepcopy
 from functools import lru_cache
 import hashlib
+from pathlib import Path
 import pickle
 from typing import Callable
 from typing import List
@@ -934,7 +935,6 @@ def example_plasma(
     load_from_pkl: bool = True,
     **kwargs,
 ):
-    from pathlib import Path
 
     default_plasma_file = (
         f"{Path(__file__).parent.parent}/data/{machine}_default_plasma_phantom.pkl"

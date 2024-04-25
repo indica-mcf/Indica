@@ -25,27 +25,27 @@ class TestHelike:
     def test_helike_moment_runs_with_multiple_LOS(
         self,
     ):
-        self.model.set_los_transform(self.multiple_channel_los_transform)
+        self.model.set_transform(self.multiple_channel_los_transform)
         bckc = self.model(calc_spectra=False, moment_analysis=True)
         assert bckc
 
     def test_helike_moment_runs_with_single_LOS(
         self,
     ):
-        self.model.set_los_transform(self.single_channel_los_transform)
+        self.model.set_transform(self.single_channel_los_transform)
         bckc = self.model(calc_spectra=False, moment_analysis=True)
         assert bckc
 
     def test_helike_spectra_with_multiple_LOS(
         self,
     ):
-        self.model.set_los_transform(self.multiple_channel_los_transform)
+        self.model.set_transform(self.multiple_channel_los_transform)
         bckc = self.model(calc_spectra=True, moment_analysis=False)
         assert bckc
 
     def test_helike_spectra_with_single_LOS(
         self,
     ):
-        self.model.set_los_transform(self.single_channel_los_transform)
+        self.model.set_transform(self.single_channel_los_transform)
         bckc = self.model(calc_spectra=True, moment_analysis=False)
         assert bckc

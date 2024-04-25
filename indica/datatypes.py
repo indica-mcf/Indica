@@ -57,6 +57,7 @@ UNITS: Dict[str, str] = {
 
 DATATYPES: Dict[str, Tuple[str, str]] = {
     "index": ("Index", "none"),
+    "arbitrary_index": ("Index", "none"),
     "t": ("Time", "time"),
     "channel": ("Channel", "number"),
     "wavelength": ("Wavelength", "wavelength"),

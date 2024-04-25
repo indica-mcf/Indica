@@ -32,21 +32,21 @@ def save_default_objects(
     else:
         raise ValueError(f"Machine {machine} currently not supported")
 
-    plasma_file = get_filename_deafult_objects(machine)["plasma"]
-    equilibrium_file = get_filename_deafult_objects(machine)["equilibrium"]
-    geometry_file = get_filename_deafult_objects(machine)["geometry"]
+    plasma_file = get_filename_default_objects(machine)["plasma"]
+    equilibrium_file = get_filename_default_objects(machine)["equilibrium"]
+    geometry_file = get_filename_default_objects(machine)["geometry"]
 
     # Diagnostic geometry transform objects
     transforms: dict = {}
     for instr in _conf.INSTRUMENT_METHODS.keys():
         try:
             data = _reader.get("", instr, 0, dl=dl)
+            if hasattr(data[list(data)[0]], "transform"):
+                _transform = data[list(data)[0]].transform
+                transforms[instr] = _transform
         except Exception as e:
             print(f"Error reading {instr}: {e}")
 
-        if hasattr(data[list(data)[0]], "transform"):
-            _transform = data[list(data)[0]].transform
-            transforms[instr] = _transform
     print(f"\n Writing geometry to: {geometry_file}. \n")
     pickle.dump(transforms, open(geometry_file, "wb"))
 
@@ -122,7 +122,7 @@ def save_default_objects(
     return plasma
 
 
-def get_filename_deafult_objects(machine: str):
+def get_filename_default_objects(machine: str):
     _files = {}
     _files["geometry"] = (
         DEFAULTS_PATH + f"{machine}_default_geometry_transform_objects.pkl"
@@ -142,7 +142,7 @@ def load_default_objects(machine: str, identifier: str = "geometry"):
     machine - e.g. "st40"
     identifier - "geometry" or "equilibrium" or "plasma"
     """
-    _file = get_filename_deafult_objects(machine)[identifier]
+    _file = get_filename_default_objects(machine)[identifier]
 
     try:
         return pickle.load(open(_file, "rb"))

@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.transect import TransectCoordinates
+from indica.converters import TransectCoordinates
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
@@ -22,7 +22,7 @@ class ThomsonScattering(DiagnosticModel):
         name: str,
         instrument_method="get_thomson_scattering",
     ):
-
+        self.transect_transform: TransectCoordinates
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -121,6 +121,45 @@ class ThomsonScattering(DiagnosticModel):
 
         return self.bckc
 
+    def plot(self):
+        if len(self.bckc) == 0:
+            print("No model results to plot")
+            return
+
+        # Back-calculated profiles
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, np.size(self.t), dtype=float))
+        plt.figure()
+        for i, t in enumerate(self.t):
+            Ne = self.bckc["ne"].sel(t=t, method="nearest")
+            rho = Ne.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(
+                rho,
+                Ne,
+                color=cols_time[i],
+                marker="o",
+                alpha=0.7,
+                label=f"t={t:1.2f} s",
+            )
+        plt.xlabel("Channel")
+        plt.ylabel("Measured electron density (m^-3)")
+        plt.legend()
+
+        plt.figure()
+        for i, t in enumerate(self.t):
+            Te = self.bckc["te"].sel(t=t, method="nearest")
+            rho = Te.transform.rho.sel(t=t, method="nearest")
+            plt.scatter(
+                rho,
+                Te,
+                color=cols_time[i],
+                marker="o",
+                alpha=0.7,
+                label=f"t={t:1.2f} s",
+            )
+        plt.xlabel("Channel")
+        plt.ylabel("Measured electron temperature (eV)")
+        plt.legend()
+
 
 def ts_transform_example(nchannels):
     x_positions = np.linspace(0.2, 0.8, nchannels)
@@ -163,7 +202,7 @@ def example_run(
     model = ThomsonScattering(
         diagnostic_name,
     )
-    model.set_transect_transform(transect_transform)
+    model.set_transform(transect_transform)
     model.set_plasma(plasma)
 
     bckc = model()

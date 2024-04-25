@@ -4,7 +4,7 @@
 
 class ST40Conf:
     def __init__(self):
-        self.READER = "indica.readers.ST40Reader"
+        self.READER = "indica.ST40Reader"
         self.MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
         self.INSTRUMENT_METHODS = {
             "efit": "get_equilibrium",
@@ -27,15 +27,7 @@ class ST40Conf:
             "sxr_mid4": "get_radiation",
             "blom_xy1": "get_radiation",
             "astra": "get_astra",
-            # "nirh1": "get_interferometry",
-            # "nirh1_bin": "get_interferometry",
-            # "smmh1": "get_interferometry",
-            # "sxr_diode_1": "get_diode_filters",
-            # "sxr_diode_2": "get_diode_filters",
-            # "sxr_diode_3": "get_diode_filters",
-            # "sxr_diode_4": "get_diode_filters",
         }
-
         self.UIDS_MDS = {
             "xrcs": "sxr",
         }

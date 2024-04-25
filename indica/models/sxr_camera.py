@@ -4,9 +4,8 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
@@ -22,7 +21,7 @@ class SXRcamera(DiagnosticModel):
         name: str,
         instrument_method="get_radiation",
     ):
-
+        self.los_transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -116,18 +115,13 @@ class SXRcamera(DiagnosticModel):
 
         return self.bckc
 
-    def plot(self, tplot: float = None):
+    def plot(self):
         if len(self.bckc) == 0:
             print("No model results to plot")
             return
 
-        if tplot is not None:
-            tplot = float(self.t.sel(t=tplot, method="nearest"))
-        else:
-            tplot = float(self.t.sel(t=self.t.mean(), method="nearest"))
-
         # Line-of-sight information
-        self.los_transform.plot(tplot)
+        self.los_transform.plot(self.t.mean())
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
@@ -152,63 +146,3 @@ class SXRcamera(DiagnosticModel):
         plt.xlabel("rho")
         plt.ylabel("Local radiated power (W/m^3)")
         plt.legend()
-
-
-def example_run(
-    pulse: int = None,
-    diagnostic_name: str = "sxr_Rz",
-    origin: LabeledArray = None,
-    direction: LabeledArray = None,
-    plasma=None,
-    plot=False,
-    nchannels: int = 11,
-):
-
-    if plasma is None:
-        from indica.equilibrium import fake_equilibrium
-
-        plasma = example_plasma(pulse=pulse)
-        machine_dims = plasma.machine_dimensions
-        equilibrium = fake_equilibrium(
-            tstart=plasma.tstart,
-            tend=plasma.tend,
-            dt=plasma.dt / 2.0,
-            machine_dims=machine_dims,
-        )
-        plasma.set_equilibrium(equilibrium)
-
-    # return plasma
-    # Create new interferometers diagnostics
-    if origin is None or direction is None:
-        los_end = np.full((nchannels, 3), 0.0)
-        los_end[:, 0] = 0.17
-        los_end[:, 1] = 0.0
-        los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
-        los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
-        origin = los_start
-        direction = los_end - los_start
-
-    los_transform = LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        name=diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
-        passes=1,
-    )
-    los_transform.set_equilibrium(plasma.equilibrium)
-    model = SXRcamera(
-        diagnostic_name,
-    )
-    model.set_los_transform(los_transform)
-    model.set_plasma(plasma)
-
-    bckc = model()
-
-    if plot:
-        model.plot()
-
-    return plasma, model, bckc

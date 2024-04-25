@@ -4,7 +4,8 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters import LineOfSightTransform
+from indica.equilibrium import fake_equilibrium
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
@@ -23,7 +24,7 @@ class Bolometer(DiagnosticModel):
         name: str,
         instrument_method="get_radiation",
     ):
-
+        self.los_transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -80,7 +81,7 @@ class Bolometer(DiagnosticModel):
         """
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
+                t = self.plasma.t.sel(t=self.plasma.time_to_calculate)
             Ne = self.plasma.electron_density.interp(t=t)
             _Lz = self.plasma.lz_tot
             Lz = {}
@@ -117,23 +118,18 @@ class Bolometer(DiagnosticModel):
 
         return self.bckc
 
-    def plot(self, tplot: float = None, nplot: int = 1):
+    def plot(self, nplot: int = 1):
         if len(self.bckc) == 0:
             print("No model results to plot")
             return
 
-        if tplot is not None:
-            tplot = float(self.t.sel(t=tplot, method="nearest"))
-        else:
-            tplot = float(self.t.sel(t=self.t.mean(), method="nearest"))
-
         # Line-of-sight information
-        self.los_transform.plot(tplot)
+        self.los_transform.plot(np.mean(self.t))
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
         plt.figure()
-        for i, t in enumerate(self.t.values):
+        for i, t in enumerate(np.array(self.t)):
             if i % nplot:
                 continue
 
@@ -158,7 +154,7 @@ class Bolometer(DiagnosticModel):
 
         # Local emissivity profiles
         plt.figure()
-        for i, t in enumerate(self.t.values):
+        for i, t in enumerate(np.array(self.t)):
             if i % nplot:
                 continue
             plt.plot(
@@ -185,8 +181,6 @@ def example_run(
 ):
 
     if plasma is None:
-        from indica.equilibrium import fake_equilibrium
-
         plasma = example_plasma(pulse=pulse)
         machine_dims = plasma.machine_dimensions
         equilibrium = fake_equilibrium(
@@ -233,13 +227,13 @@ def example_run(
     model = Bolometer(
         diagnostic_name,
     )
-    model.set_los_transform(los_transform)
+    model.set_transform(los_transform)
     model.set_plasma(plasma)
 
     bckc = model(sum_beamlets=False)
 
     if plot:
-        model.plot(tplot=tplot)
+        model.plot()
 
     return plasma, model, bckc
 

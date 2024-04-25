@@ -545,7 +545,7 @@ class ModelContext:
                 self.models[diag] = Interferometry(
                     name=diag, **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_los_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
 
             elif diag == "efit":
                 self.models[diag] = EquilibriumReconstruction(
@@ -557,28 +557,28 @@ class ModelContext:
                 self.models[diag] = ChargeExchange(
                     name=diag, **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_transect_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
 
             elif diag == "cxff_tws_c":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
                 self.models[diag] = ChargeExchange(
                     name=diag, **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_transect_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
 
             elif diag == "ts":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
                 self.models[diag] = ThomsonScattering(
                     name=diag, **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_transect_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
 
             elif diag == "xrcs":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
                 self.models[diag] = HelikeSpectrometer(
                     name="xrcs", **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_los_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
             else:
                 raise ValueError(f"{diag} not implemented in ModelHandler.setup_models")
 

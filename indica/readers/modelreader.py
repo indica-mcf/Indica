@@ -87,10 +87,7 @@ class ModelReader:
                 raise ValueError(f"{instr} not available in default_geometries file")
 
             self.transforms[instr] = transforms[instr]
-            if "LineOfSightTransform" in str(transforms[instr]):
-                self.models[instr].set_los_transform(transforms[instr])
-            else:
-                self.models[instr].set_transect_transform(transforms[instr])
+            self.models[instr].set_transform(transforms[instr])
 
     def set_plasma(self, plasma: Plasma):
         """

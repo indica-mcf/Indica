@@ -197,12 +197,7 @@ def initialize_diagnostic_models(
             models[instrument] = DIAGNOSTIC_MODELS[instrument](instrument)
 
             transform = data[list(data)[0]].transform
-            if type(transform) is LineOfSightTransform:
-                models[instrument].set_los_transform(transform)
-            elif type(transform) is TransectCoordinates:
-                models[instrument].set_transect_transform(transform)
-            else:
-                raise ValueError("Transform not recognized...")
+            models[instrument].set_transform(transform)
 
     if "xrcs" in models.keys():
         models["xrcs"].calibration = 0.2e-16

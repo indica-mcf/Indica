@@ -1,12 +1,12 @@
 from copy import deepcopy
 
-import matplotlib.cm as cm
+from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
@@ -57,6 +57,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         instrument_method
             Name of indica reader method to read experimental diagnostic data
         """
+        self.los_transform: LineOfSightTransform
         self.name = name
         self.filter_wavelength = filter_wavelength
         self.filter_fwhm = filter_fwhm
@@ -272,7 +273,7 @@ def example_run(
     model = BremsstrahlungDiode(
         diagnostic_name,
     )
-    model.set_los_transform(los_transform)
+    model.set_transform(los_transform)
     model.set_plasma(plasma)
     bckc = model()
 

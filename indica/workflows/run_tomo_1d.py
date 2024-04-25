@@ -18,7 +18,7 @@ def example_tomo(
     tend: float = 0.1,
     dt: float = 0.01,
     dl: float = 0.02,
-    instrument: str = "sxrc_xy2",
+    instrument: str = "sxrc_xy1",
     reg_level_guess: float = 0.8,
     plot: bool = True,
 ):

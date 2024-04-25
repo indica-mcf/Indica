@@ -1,10 +1,10 @@
-import matplotlib.cm as cm
+from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.transect import TransectCoordinates
+from indica.converters import TransectCoordinates
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
@@ -23,6 +23,7 @@ class ChargeExchange(DiagnosticModel):
         element: str = "c",
         instrument_method="get_charge_exchange",
     ):
+        self.transect_transform: TransectCoordinates
         self.name = name
         self.element = element
         self.instrument_method = instrument_method
@@ -157,7 +158,7 @@ def example_run(
     model = ChargeExchange(
         diagnostic_name,
     )
-    model.set_transect_transform(transect_transform)
+    model.set_transform(transect_transform)
     model.set_plasma(plasma)
 
     bckc = model()
