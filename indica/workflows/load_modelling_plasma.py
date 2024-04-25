@@ -7,8 +7,6 @@ from MDSplus.mdsExceptions import TreeNODATA
 import numpy as np
 import xarray as xr
 
-from indica.converters.line_of_sight import LineOfSightTransform
-from indica.converters.transect import TransectCoordinates
 from indica.equilibrium import Equilibrium
 from indica.models.bolometer_camera import Bolometer
 from indica.models.charge_exchange import ChargeExchange
