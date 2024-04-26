@@ -23,7 +23,6 @@ config = dict(
 class TestBayesWorkflow:
     def setup_class(self):
         self.equilibrium = fake_equilibrium(**config)
-        return
 
     def test_mockdata_initialises(self):
 

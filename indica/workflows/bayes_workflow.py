@@ -32,6 +32,7 @@ from indica.models.helike_spectroscopy import HelikeSpectrometer
 from indica.models.interferometry import Interferometry
 from indica.models.interferometry import smmh1_transform_example
 from indica.models.plasma import Plasma
+from indica.models.plasma import PlasmaProfiles
 from indica.models.thomson_scattering import ThomsonScattering
 from indica.models.thomson_scattering import ts_transform_example
 from indica.operators.gpr_fit import gpr_fit_ts
@@ -46,87 +47,94 @@ import standard_utility as util
 
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
-    "Ne_prof.y0": 5e19,
-    "Ne_prof.y1": 2e18,
-    "Ne_prof.yend": 1e18,
-    "Ne_prof.wped": 3,
-    "Ne_prof.wcenter": 0.3,
-    "Ne_prof.peaking": 1.2,
-    # "Niz1_prof.y0": 1e17,
-    # "Niz1_prof.y1": 1e15,
-    # "Niz1_prof.yend": 1e15,
-    # "Niz1_prof.wcenter": 0.3,
-    # "Niz1_prof.wped": 3,
-    # "Niz1_prof.peaking": 2,
-    "Nh_prof.y0": 1e14,
-    "Nh_prof.y1": 5e15,
-    "Nh_prof.yend": 5e15,
-    "Nh_prof.wcenter": 0.01,
-    "Nh_prof.wped": 18,
-    "Nh_prof.peaking": 1,
-    "Te_prof.y0": 3000,
-    "Te_prof.y1": 50,
-    "Te_prof.yend": 10,
-    "Te_prof.wcenter": 0.2,
-    "Te_prof.wped": 3,
-    "Te_prof.peaking": 1.5,
-    "Ti_prof.y0": 6000,
-    "Ti_prof.y1": 50,
-    "Ti_prof.yend": 10,
-    "Ti_prof.wcenter": 0.2,
-    "Ti_prof.wped": 3,
-    "Ti_prof.peaking": 1.5,
+    "electron_density.y0": 5e19,
+    "electron_density.y1": 2e18,
+    "electron_density.yend": 1e18,
+    "electron_density.wped": 3,
+    "electron_density.wcenter": 0.3,
+    "electron_density.peaking": 1.2,
+    # "impurity_density:ar.y0": 1e17,
+    # "impurity_density:ar.y1": 1e15,
+    # "impurity_density:ar.yend": 1e15,
+    # "impurity_density:ar.wcenter": 0.3,
+    # "impurity_density:ar.wped": 3,
+    # "impurity_density:ar.peaking": 2,
+    "electron_temperature.y0": 3000,
+    "electron_temperature.y1": 50,
+    "electron_temperature.yend": 10,
+    "electron_temperature.wcenter": 0.2,
+    "electron_temperature.wped": 3,
+    "electron_temperature.peaking": 1.5,
+    "ion_temperature.y0": 6000,
+    "ion_temperature.y1": 50,
+    "ion_temperature.yend": 10,
+    "ion_temperature.wcenter": 0.2,
+    "ion_temperature.wped": 3,
+    "ion_temperature.peaking": 1.5,
+    "neutral_density.y0": 1e14,
+    "neutral_density.y1": 5e15,
+    "neutral_density.yend": 5e15,
+    "neutral_density.wcenter": 0.01,
+    "neutral_density.wped": 18,
+    "neutral_density.peaking": 1,
 }
 
+
 DEFAULT_PRIORS = {
-    "Ne_prof.y0": get_uniform(2e19, 4e20),
-    "Ne_prof.y1": get_uniform(1e18, 2e19),
-    "Ne_prof.y0/Ne_prof.y1": lambda x1, x2: np.where((x1 > x2 * 2), 1, 0),
-    "Ne_prof.wped": loguniform(2, 20),
-    "Ne_prof.wcenter": get_uniform(0.2, 0.4),
-    "Ne_prof.peaking": get_uniform(1, 4),
-    "Niz1_prof.y0": loguniform(2e15, 5e17),
-    "Niz1_prof.y1": loguniform(1e14, 1e16),
-    "Ne_prof.y0/Niz1_prof.y0": lambda x1, x2: np.where(
+    "electron_density.y0": get_uniform(2e19, 4e20),
+    "electron_density.y1": get_uniform(1e18, 2e19),
+    "electron_density.y0/electron_density.y1": lambda x1, x2: np.where(
+        (x1 > x2 * 2), 1, 0
+    ),
+    "electron_density.wped": loguniform(2, 20),
+    "electron_density.wcenter": get_uniform(0.2, 0.4),
+    "electron_density.peaking": get_uniform(1, 4),
+    "impurity_density:ar.y0": loguniform(2e15, 1e18),
+    "impurity_density:ar.y1": loguniform(1e14, 1e16),
+    "electron_density.y0/impurity_density:ar.y0": lambda x1, x2: np.where(
         (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
     ),
-    "Niz1_prof.y0/Niz1_prof.y1": lambda x1, x2: np.where((x1 > x2), 1, 0),
-    "Niz1_prof.wped": get_uniform(2, 6),
-    "Niz1_prof.wcenter": get_uniform(0.2, 0.4),
-    "Niz1_prof.peaking": get_uniform(1, 6),
-    "Niz1_prof.peaking/Ne_prof.peaking": lambda x1, x2: np.where(
+    "impurity_density:ar.y0/impurity_density:ar.y1": lambda x1, x2: np.where(
+        (x1 > x2), 1, 0
+    ),
+    "impurity_density:ar.wped": get_uniform(2, 6),
+    "impurity_density:ar.wcenter": get_uniform(0.2, 0.4),
+    "impurity_density:ar.peaking": get_uniform(1, 6),
+    "impurity_density:ar.peaking/electron_density.peaking": lambda x1, x2: np.where(
         (x1 > x2), 1, 0
     ),  # impurity always more peaked
-    "Te_prof.y0": get_uniform(1000, 5000),
-    "Te_prof.wped": get_uniform(1, 6),
-    "Te_prof.wcenter": get_uniform(0.2, 0.4),
-    "Te_prof.peaking": get_uniform(1, 4),
-    # "Ti_prof.y0/Te_prof.y0": lambda x1, x2: np.where(x1 > x2, 1, 0),  # hot ion mode
-    "Ti_prof.y0": get_uniform(1000, 10000),
-    "Ti_prof.wped": get_uniform(1, 6),
-    "Ti_prof.wcenter": get_uniform(0.2, 0.4),
-    "Ti_prof.peaking": get_uniform(1, 6),
+    "electron_temperature.y0": get_uniform(1000, 5000),
+    "electron_temperature.wped": get_uniform(1, 6),
+    "electron_temperature.wcenter": get_uniform(0.2, 0.4),
+    "electron_temperature.peaking": get_uniform(1, 4),
+    # "ion_temperature.y0/electron_temperature.y0": lambda x1, x2: np.where(
+    #     x1 > x2, 1, 0
+    # ),  # hot ion mode
+    "ion_temperature.y0": get_uniform(1000, 10000),
+    "ion_temperature.wped": get_uniform(1, 6),
+    "ion_temperature.wcenter": get_uniform(0.2, 0.4),
+    "ion_temperature.peaking": get_uniform(1, 6),
 }
 
 OPTIMISED_PARAMS = [
-    "Ne_prof.y1",
-    "Ne_prof.y0",
-    "Ne_prof.peaking",
-    # "Ne_prof.wcenter",
-    "Ne_prof.wped",
-    # "Niz1_prof.y1",
-    "Niz1_prof.y0",
-    # "Niz1_prof.wcenter",
-    # "Niz1_prof.wped",
-    "Niz1_prof.peaking",
-    "Te_prof.y0",
-    "Te_prof.wped",
-    "Te_prof.wcenter",
-    "Te_prof.peaking",
-    "Ti_prof.y0",
-    "Ti_prof.wped",
-    "Ti_prof.wcenter",
-    "Ti_prof.peaking",
+    "electron_density.y1",
+    "electron_density.y0",
+    "electron_density.peaking",
+    # "electron_density.wcenter",
+    "electron_density.wped",
+    # "impurity_density:ar.y1",
+    "impurity_density:ar.y0",
+    # "impurity_density:ar.wcenter",
+    # "impurity_density:ar.wped",
+    "impurity_density:ar.peaking",
+    "electron_temperature.y0",
+    "electron_temperature.wped",
+    "electron_temperature.wcenter",
+    "electron_temperature.peaking",
+    "ion_temperature.y0",
+    "ion_temperature.wped",
+    "ion_temperature.wcenter",
+    "ion_temperature.peaking",
 ]
 OPTIMISED_QUANTITY = [
     "xrcs.spectra",
@@ -163,24 +171,24 @@ FAST_OPT_QUANTITY = [
 ]
 
 FAST_OPT_PARAMS = [
-    # "Ne_prof.y1",
-    "Ne_prof.y0",
-    # "Ne_prof.peaking",
-    # "Ne_prof.wcenter",
-    # "Ne_prof.wped",
-    # "Niz1_prof.y1",
-    # "Niz1_prof.y0",
-    # "Niz1_prof.wcenter",
-    # "Niz1_prof.wped",
-    # "Niz1_prof.peaking",
-    "Te_prof.y0",
-    # "Te_prof.wped",
-    # "Te_prof.wcenter",
-    # "Te_prof.peaking",
-    "Ti_prof.y0",
-    # "Ti_prof.wped",
-    # "Ti_prof.wcenter",
-    # "Ti_prof.peaking",
+    # "electron_density.y1",
+    "electron_density.y0",
+    # "electron_density.peaking",
+    # "electron_density.wcenter",
+    # "electron_density.wped",
+    # "impurity_density:ar.y1",
+    # "impurity_density:ar.y0",
+    # "impurity_density:ar.wcenter",
+    # "impurity_density:ar.wped",
+    # "impurity_density:ar.peaking",
+    "electron_temperature.y0",
+    # "electron_temperature.wped",
+    # "electron_temperature.wcenter",
+    # "electron_temperature.peaking",
+    "ion_temperature.y0",
+    # "ion_temperature.wped",
+    # "ion_temperature.wcenter",
+    # "ion_temperature.peaking",
 ]
 
 
@@ -380,16 +388,17 @@ class PlasmaContext:
             full_run=False,
             n_rad=self.plasma_settings.n_rad,
         )
+        self.plasma_profiles = PlasmaProfiles(self.plasma)
 
         self.plasma.set_equilibrium(equilibrium)
         self.update_profiles(self.profile_params)
-        self.plasma.build_atomic_data(calc_power_loss=False)
+        self.plasma.build_atomic_data()
 
     def update_profiles(self, params: dict):
         if not hasattr(self, "plasma"):
             raise ValueError("plasma not initialised")
 
-        self.plasma.update_profiles(params)
+        self.plasma_profiles(params)
 
     def time_iterator(self):
         print("resetting time iterator")
@@ -562,7 +571,7 @@ class ModelContext:
                 self.models[diag] = Interferometry(
                     name=diag, **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_los_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
 
             elif diag == "efit":
                 self.models[diag] = EquilibriumReconstruction(
@@ -574,28 +583,28 @@ class ModelContext:
                 self.models[diag] = ChargeExchange(
                     name=diag, **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_transect_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
 
             elif diag == "cxff_tws_c":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
                 self.models[diag] = ChargeExchange(
                     name=diag, **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_transect_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
 
             elif diag == "ts":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
                 self.models[diag] = ThomsonScattering(
                     name=diag, **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_transect_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
 
             elif diag == "xrcs":
                 self.transforms[diag].set_equilibrium(self.equilibrium, force=True)
                 self.models[diag] = HelikeSpectrometer(
                     name="xrcs", **self.model_settings.init_kwargs[diag]
                 )
-                self.models[diag].set_los_transform(self.transforms[diag])
+                self.models[diag].set_transform(self.transforms[diag])
             else:
                 raise ValueError(f"{diag} not implemented in ModelHandler.setup_models")
 
@@ -1189,20 +1198,20 @@ if __name__ == "__main__":
         # "ts.ne",
     ]
     opt_params = [
-        # "Ne_prof.y0",
-        # "Ne_prof.peaking",
-        # "Te_prof.y0",
-        # "Te_prof.peaking",
-        # "Te_prof.wped",
-        # "Te_prof.wcenter",
-        "Ti_prof.y0",
-        # "Ti_prof.peaking",
-        "Ti_prof.wped",
-        "Ti_prof.wcenter",
-        # "Niz1_prof.y0",
-        # "Niz1_prof.peaking",
-        # "Niz1_prof.wcenter",
-        # "Niz1_prof.wped",
+        # "electron_density.y0",
+        # "electron_density.peaking",
+        # "electron_temperature.y0",
+        # "electron_temperature.peaking",
+        # "electron_temperature.wped",
+        # "electron_temperature.wcenter",
+        "ion_temperature.y0",
+        # "ion_temperature.peaking",
+        "ion_temperature.wped",
+        "ion_temperature.wcenter",
+        # "impurity_density:ar.y0",
+        # "impurity_density:ar.peaking",
+        # "impurity_density:ar.wcenter",
+        # "impurity_density:ar.wped",
     ]
 
     # BlackBoxSettings

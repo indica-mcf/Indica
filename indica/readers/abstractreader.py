@@ -1,7 +1,6 @@
 """Experimental design for reading data from disk/database.
 """
 
-import datetime
 from typing import Any
 from typing import Dict
 from typing import List
@@ -19,8 +18,6 @@ from indica.datatypes import ArrayType
 from indica.numpy_typing import OnlyArray
 from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.session import hash_vals
-from indica.session import Session
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 
@@ -58,21 +55,12 @@ class DataReader(BaseIO):
 
     Attributes
     ----------
-    agent: prov.model.ProvAgent
-        An agent representing this object in provenance documents.
-        DataArray objects can be attributed to it.
     INSTRUMENT_METHODS: Dict[str, str]
         Mapping between instrument (DDA in JET) names and method to use to assemble that
         data. Implementation-specific.
-    entity: prov.model.ProvEntity
-        An entity representing this object in provenance documents. It is used
-        to provide information on the object's own provenance.
     NAMESPACE: Classvar[Tuple[str, str]]
-        The abbreviation and full URL for the PROV namespace of the database
+        The abbreviation and full URL for the namespace of the database
         the class reads from.
-    prov_id: str
-        The hash used to identify this object in provenance documents.
-
     """
 
     INSTRUMENT_METHODS: Dict[str, str] = {}
@@ -86,12 +74,9 @@ class DataReader(BaseIO):
         self,
         tstart: float,
         tend: float,
-        sess: Session,
         **kwargs: Any,
     ):
-        """Creates a provenance entity/agent for the reader object. Also
-        checks valid datatypes have been specified for the available
-        data. This should be called by constructors on subtypes.
+        """This should be called by constructors on subtypes.
 
         Parameters
         ----------
@@ -99,30 +84,14 @@ class DataReader(BaseIO):
             Start of time range for which to get data.
         tend
             End of time range for which to get data.
-        sess
-            An object representing the session being run. Contains information
-            such as provenance data.
         kwargs
-            Any other arguments which should be recorded in the PROV entity for
-            the reader.
+            Any other arguments which should be recorded for the reader.
 
         """
         self._reader_cache_id: str
         self._tstart = tstart
         self._tend = tend
         self._start_time = None
-        self.session = sess
-        self.session.prov.add_namespace(self.NAMESPACE[0], self.NAMESPACE[1])
-        prov_attrs: Dict[str, Any] = dict(tstart=tstart, tend=tend, **kwargs)
-        self.prov_id = hash_vals(reader_type=self.__class__.__name__, **prov_attrs)
-        self.agent = self.session.prov.agent(self.prov_id)
-        self.session.prov.actedOnBehalfOf(self.agent, self.session.agent)
-        # TODO: Properly namespace the attributes on this entity.
-        self.entity = self.session.prov.entity(self.prov_id, prov_attrs)
-        self.session.prov.generation(
-            self.entity, self.session.session, time=datetime.datetime.now()
-        )
-        self.session.prov.attribution(self.entity, self.session.agent)
 
     def get(
         self,
@@ -170,8 +139,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+        **kwargs,
     ) -> Dict[str, DataArray]:
         """
         Reads data based on Thomson Scattering.
@@ -314,8 +282,8 @@ class DataReader(BaseIO):
         database_results["spectra_error"] = database_results["spectra"] * 0.0
 
         los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
+            database_results["location"][has_data, :],
+            database_results["direction"][has_data, :],
             instrument,
             database_results["machine_dims"],
             dl,
@@ -348,6 +316,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        dl: float = None,
     ) -> Dict[str, Any]:
         """
         Gets raw data for CXRS diagnostic from the database
@@ -363,6 +332,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
+        **kwargs,
     ) -> Dict[str, DataArray]:
         """
         Reads equilibrium data
@@ -767,8 +737,7 @@ class DataReader(BaseIO):
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+        **kwargs,
     ) -> Dict[str, DataArray]:
         """
         Reads ASTRA data
@@ -868,76 +837,6 @@ class DataReader(BaseIO):
             "{} does not implement a '_get_spectroscopy' "
             "method.".format(self.__class__.__name__)
         )
-
-    # def create_provenance(
-    #     self,
-    #     diagnostic: str,
-    #     uid: str,
-    #     instrument: str,
-    #     revision: RevisionLike,
-    #     quantity: str,
-    #     data_objects: Iterable[str],
-    # ) -> prov.ProvEntity:
-    #     """Create a provenance entity for the given set of data. This should
-    #     be attached as metadata.
-    #
-    #     Note that this method just creates the provenance data
-    #     appropriate for the arguments it has been provided with. It
-    #     does not check that these arguments are actually valid and
-    #     that the provenance corresponds to actually existing data.
-    #
-    #     Parameters
-    #     ----------
-    #     data_objects
-    #         Identifiers for the database entries or files which the data was
-    #         read from.
-    #
-    #     Returns
-    #     -------
-    #     :
-    #         A provenance entity for the newly read-in data.
-    #     """
-    #     end_time = datetime.datetime.now()
-    #     entity_id = hash_vals(
-    #         creator=self.prov_id,
-    #         diagnostic=diagnostic,
-    #         uid=uid,
-    #         instrument=instrument,
-    #         revision=revision,
-    #         quantity=quantity,
-    #         date=end_time,
-    #     )
-    #     attrs = {
-    #         prov.PROV_TYPE: "DataArray",
-    #         prov.PROV_VALUE: ",".join(
-    #             str(s) for s in self.available_quantities(instrument)[quantity]
-    #         ),
-    #         "uid": uid,
-    #         "instrument": instrument,
-    #         "diagnostic": diagnostic,
-    #         "revision": revision,
-    #         "quantity": quantity,
-    #     }
-    #     activity_id = hash_vals(agent=self.prov_id, date=end_time)
-    #     activity = self.session.prov.activity(
-    #         activity_id,
-    #         self._start_time,
-    #         end_time,
-    #         {prov.PROV_TYPE: "ReadData"},
-    #     )
-    #     activity.wasAssociatedWith(self.session.agent)
-    #     activity.wasAssociatedWith(self.agent)
-    #     activity.wasInformedBy(self.session.session)
-    #     entity = self.session.prov.entity(entity_id, attrs)
-    #     entity.wasGeneratedBy(activity, end_time)
-    #     entity.wasAttributedTo(self.session.agent)
-    #     entity.wasAttributedTo(self.agent)
-    #     for data in data_objects:
-    #         # TODO: Find some way to avoid duplicate records
-    #         data_entity = self.session.prov.entity(self.NAMESPACE[0] + ":" + data)
-    #         entity.wasDerivedFrom(data_entity)
-    #         activity.used(data_entity)
-    #         return entity
 
     def available_quantities(self, instrument) -> dict:
         """Return the quantities which can be read for the specified

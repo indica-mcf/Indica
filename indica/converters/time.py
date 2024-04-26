@@ -5,15 +5,6 @@ import numpy as np
 from xarray import DataArray
 
 
-def strip_provenance(arr: DataArray):
-    """
-    Remove provenance information from a DataArray if present.
-    """
-    if "provenance" in arr.attrs:
-        del arr.attrs["partial_provenance"]
-        del arr.attrs["provenance"]
-
-
 def convert_in_time(
     tstart: float,
     tend: float,
@@ -124,8 +115,6 @@ def interpolate_to_time_labels(
             )
         interpolated.attrs["dropped"] = dropped
 
-    strip_provenance(interpolated)
-
     return interpolated
 
 
@@ -199,10 +188,6 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
             averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
             stdev = np.sqrt(stdev**2)
             averaged.attrs["dropped"].attrs["stdev"] = stdev.rename(t_bins="t")
-
-    if "provenance" in data.attrs:
-        del averaged.attrs["partial_provenance"]
-        del averaged.attrs["provenance"]
 
     return averaged.rename(t_bins="t")
 

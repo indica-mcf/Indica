@@ -72,7 +72,7 @@ def plot_profile(
         plt.yscale("log")
 
     plt.xlabel("Rho poloidal")
-    plt.ylabel(f"{profile.datatype[0].capitalize()} [{profile.units}]")
+    # plt.ylabel(f"{profile.datatype[0].capitalize()} [{profile.units}]")
     if filename:
         plt.savefig(figheader + f"{filename}{filetype}")
     else:
@@ -208,7 +208,7 @@ def histograms(data, diag_data, filename):
         for i in idx_high:
             patches[i].set_facecolor("red")
 
-        axs[idx].set_xlabel(f"{key} ({data[key].datatype[0]})")
+        # axs[idx].set_xlabel(f"{key} ({data[key].datatype[0]})")
 
         axs[idx].axvline(
             x=diag_data[key].sel(t=data[key].t).values,
