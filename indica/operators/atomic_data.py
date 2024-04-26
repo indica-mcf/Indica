@@ -908,7 +908,7 @@ def default_profiles(n_rad: int = 100):
     Ne_prof = Profiles(datatype="electron_density", xspl=rho, xend=xend)
     Ne = Ne_prof()
     Nh_prof = Profiles(
-        datatype="thermal_neutral_density",
+        datatype="neutral_density",
         xspl=rho,
         xend=xend,
     )
