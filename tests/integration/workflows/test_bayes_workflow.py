@@ -1,4 +1,4 @@
-from indica.workflows.bayes_workflow import BayesBBSettings
+from indica.defaults.read_write_defaults import load_default_objects
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.bayes_workflow import DEFAULT_DIAG_NAMES
 from indica.workflows.bayes_workflow import DEFAULT_PROFILE_PARAMS
@@ -10,7 +10,6 @@ from indica.workflows.bayes_workflow import OptimiserEmceeSettings
 from indica.workflows.bayes_workflow import PlasmaContext
 from indica.workflows.bayes_workflow import PlasmaSettings
 from indica.workflows.bayes_workflow import ReaderSettings
-from indica.equilibrium import fake_equilibrium
 from unittest.mock import MagicMock
 
 config = dict(
@@ -22,7 +21,9 @@ config = dict(
 
 class TestBayesWorkflow:
     def setup_class(self):
-        self.equilibrium = fake_equilibrium(**config)
+        self.plasma = load_default_objects("st40", "plasma")
+        self.equilibrium = load_default_objects("st40", "equilibrium")
+        self.plasma.set_equilibrium(self.equilibrium)
 
     def test_mockdata_initialises(self):
 
