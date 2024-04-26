@@ -6,10 +6,11 @@ from indica.workflows.bayes_workflow import DEFAULT_PRIORS
 from indica.workflows.bayes_workflow import DEFAULT_PROFILE_PARAMS
 from indica.workflows.bayes_workflow import EmceeOptimiser
 from indica.workflows.bayes_workflow import ExpData
+from indica.workflows.bayes_workflow import MockData
+from indica.workflows.bayes_workflow import PhantomData
 from indica.workflows.bayes_workflow import ModelContext
 from indica.workflows.bayes_workflow import ModelSettings
 from indica.workflows.bayes_workflow import OptimiserEmceeSettings
-from indica.workflows.bayes_workflow import PhantomData
 from indica.workflows.bayes_workflow import PlasmaContext
 from indica.workflows.bayes_workflow import PlasmaSettings
 from indica.workflows.bayes_workflow import ReaderSettings
@@ -21,6 +22,7 @@ def bda_run(
     param_names=None,
     opt_quantity=None,
     phantom=False,
+    mock=False,
     best=True,
     tstart=0.02,
     tend=0.05,
@@ -81,8 +83,8 @@ def bda_run(
             dt=dt,
             reader_settings=data_settings,
         )
-    else:
-        data_context = ExpData(
+    elif mock:
+        data_context = MockData(
             pulse=pulse,
             diagnostics=diagnostics,
             tstart=tstart,
@@ -90,11 +92,18 @@ def bda_run(
             dt=dt,
             reader_settings=data_settings,
         )
+    else:
+        data_context = ExpData(
+        pulse=pulse,
+        diagnostics=diagnostics,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        reader_settings=data_settings,)
+
     data_context.read_data()
 
-    plasma_settings = PlasmaSettings(**plasma_settings
-
-    )
+    plasma_settings = PlasmaSettings(**plasma_settings)
     plasma_context = PlasmaContext(
         plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS
     )
