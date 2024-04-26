@@ -180,7 +180,6 @@ class HelikeSpectrometer(DiagnosticModel):
         Background Noise
 
         """
-        element = self.element
         _spectra = ph.doppler_broaden(
             self.window[self.window > 0].wavelength,
             self.intensity,

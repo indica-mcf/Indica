@@ -1,7 +1,8 @@
 import sys
+from unittest.mock import MagicMock
+
 from MDSplus import Connection
 import numpy as np
-from unittest.mock import MagicMock
 
 try:
     import standard_utility as util
@@ -17,16 +18,19 @@ BDA_NODES = {
         "GIT_ID": ("TEXT", "Commit ID used for run"),
         "USER": ("TEXT", "Username of script runner"),
         "DATETIME": ("TEXT", "UTC datetime code was run"),
-        "WORKFLOW": {
-
-        }
+        "WORKFLOW": {},
     },
     "PROFILES": {
         "PSI_NORM": {
-            "RHOP": ("NUMERIC", "Rho Poloidal - Square root of normalised poloidal flux"),
-            "RHOT": ("SIGNAL", "Rho Toroidal - Square root of normalised toroidal flux"),
+            "RHOP": (
+                "NUMERIC",
+                "Rho Poloidal - Square root of normalised poloidal flux",
+            ),
+            "RHOT": (
+                "SIGNAL",
+                "Rho Toroidal - Square root of normalised toroidal flux",
+            ),
             "VOLUME": ("SIGNAL", "Volume inside magnetic surface"),
-
             "NE": ("SIGNAL", "Electron density"),
             "NI": ("SIGNAL", "Ion density"),
             "TE": ("SIGNAL", "Electron temperature"),
@@ -38,7 +42,6 @@ BDA_NODES = {
             "PTH": ("SIGNAL", "Thermal particle pressure"),
             "PFAST": ("SIGNAL", "Fast particle pressure"),
             "P": ("SIGNAL", "Total pressure"),
-
             "NE_ERR": ("SIGNAL", "Electron density error"),
             "NI_ERR": ("SIGNAL", "Ion density error"),
             "TE_ERR": ("SIGNAL", "Electron temperature error"),
@@ -54,7 +57,6 @@ BDA_NODES = {
         "R_MIDPLANE": {
             "RPOS": ("NUMERIC", "Major radius position of profile"),
             "ZPOS": ("NUMERIC", "Z position of profile"),
-
             "NE": ("SIGNAL", "Electron density"),
             "NI": ("SIGNAL", "Ion density"),
             "TE": ("SIGNAL", "Electron temperature"),
@@ -66,7 +68,6 @@ BDA_NODES = {
             "PTH": ("SIGNAL", "Thermal particle pressure"),
             "PFAST": ("SIGNAL", "Fast particle pressure"),
             "P": ("SIGNAL", "Total pressure"),
-
             "NE_ERR": ("SIGNAL", "Electron density error"),
             "NI_ERR": ("SIGNAL", "Ion density error"),
             "TE_ERR": ("SIGNAL", "Electron temperature error"),
@@ -94,7 +95,6 @@ BDA_NODES = {
         "PTH": ("SIGNAL", "Thermal particle pressure"),
         "PFAST": ("SIGNAL", "Fast particle pressure"),
         "P": ("SIGNAL", "Total pressure"),
-
         "NE_ERR": ("SIGNAL", "Electron density error"),
         "NI_ERR": ("SIGNAL", "Ion density error"),
         "TE_ERR": ("SIGNAL", "Electron temperature error"),
@@ -118,7 +118,6 @@ BDA_NODES = {
         "WP": ("SIGNAL", "Total stored energy"),
         "WTH": ("SIGNAL", "Thermal component of stored energy"),
         "ZEFF_AVG": ("SIGNAL", "Average Zeff along midplane"),
-
         "NE0_ERR": ("SIGNAL", "Central electron density error"),
         "NI0_ERR": ("SIGNAL", "Central ion density error"),
         "TE0_ERR": ("SIGNAL", "Central electron temperature error"),
@@ -128,7 +127,6 @@ BDA_NODES = {
         "WP_ERR": ("SIGNAL", "Total stored energy error"),
         "WTH_ERR": ("SIGNAL", "Thermal component of stored energy error"),
         "ZEFF_AVG_ERR": ("SIGNAL", "Average Zeff along midplane error"),
-
     },
     "PHANTOM": {
         "FLAG": ("TEXT", "True if phantom profiles used"),
@@ -237,6 +235,7 @@ def create_nodes(
     )
     return node_info
 
+
 def check_to_overwrite_run(
     pulseNo,
     which_run,
@@ -289,6 +288,7 @@ def query_yes_no(
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
+
 def write_nodes(pulse_to_write, result, node_info, debug=False):
     util.standard_fn_MDSplus.make_ST40_subtree("BDA", pulse_to_write)
     util.StandardNodeWriting(
@@ -298,6 +298,7 @@ def write_nodes(pulse_to_write, result, node_info, debug=False):
         data_to_write=result,
         debug=debug,
     )
+
 
 if __name__ == "__main__":
 
@@ -310,13 +311,3 @@ if __name__ == "__main__":
     else:
         mode = "NEW"
     create_nodes(pulse_to_write=pulse, mode=mode, run=run, best=True)
-
-    # tree = "bda"
-    # mds_node_info = util.GetNodeInformation(node_information_type="MDSplus",
-    #                                         tree=tree, pulse_number=pulse, base_node_to_read=f"{run}",
-    #                                         ).get()
-    #
-    # util.node_information.generate_csv_from_node_information.generate_csv_from_node_information(mds_node_info,
-    #                                                                                             filename="bda",
-    #                                                                                             save_directory="",
-    #                                                                                             )

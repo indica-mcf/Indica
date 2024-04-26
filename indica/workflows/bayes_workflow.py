@@ -40,7 +40,9 @@ from indica.operators.gpr_fit import post_process_ts
 from indica.readers.read_st40 import ReadST40
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
-from indica.writers.bda_tree import create_nodes, write_nodes, does_tree_exist
+from indica.writers.bda_tree import create_nodes
+from indica.writers.bda_tree import does_tree_exist
+from indica.writers.bda_tree import write_nodes
 
 
 # global configurations
@@ -336,34 +338,40 @@ class PlasmaContext:
     plasma_settings: PlasmaSettings
     profile_params: dict = field(default_factory=lambda: DEFAULT_PROFILE_PARAMS)
 
-    plasma_attribute_names: list = field(default_factory=lambda:[
-        "electron_temperature",
-        "electron_density",
-        "ion_temperature",
-        "ion_density",
-        "impurity_density",
-        "fast_density",
-        "pressure_fast",
-        "neutral_density",
-        "zeff",
-        "meanz",
-        "wp",
-        "wth",
-        "pressure_tot",
-        "pressure_th",])
-    plasma_profile_names: list = field(default_factory=lambda: [
-        "electron_temperature",
-        "electron_density",
-        "ion_temperature",
-        "ion_density",
-        "impurity_density",
-        "fast_density",
-        "pressure_fast",
-        "neutral_density",
-        "zeff",
-        "meanz",
-        "pressure_tot",
-        "pressure_th", ])
+    plasma_attribute_names: list = field(
+        default_factory=lambda: [
+            "electron_temperature",
+            "electron_density",
+            "ion_temperature",
+            "ion_density",
+            "impurity_density",
+            "fast_density",
+            "pressure_fast",
+            "neutral_density",
+            "zeff",
+            "meanz",
+            "wp",
+            "wth",
+            "pressure_tot",
+            "pressure_th",
+        ]
+    )
+    plasma_profile_names: list = field(
+        default_factory=lambda: [
+            "electron_temperature",
+            "electron_density",
+            "ion_temperature",
+            "ion_density",
+            "impurity_density",
+            "fast_density",
+            "pressure_fast",
+            "neutral_density",
+            "zeff",
+            "meanz",
+            "pressure_tot",
+            "pressure_th",
+        ]
+    )
 
     """
     set profiles / profiler
@@ -435,11 +443,13 @@ class PlasmaContext:
             }
         self.phantom_profiles = phantom_profiles
 
-    def fit_ts_profile(self, pulse, tstart, tend, dt, split="LFS", quant="ne", R_shift=0.0):
+    def fit_ts_profile(
+        self, pulse, tstart, tend, dt, split="LFS", quant="ne", R_shift=0.0
+    ):
 
         # Temp hack for setting TS data
 
-        reader = ReadST40(pulse=pulse, tstart=tstart, tend= tend, dt=dt)
+        reader = ReadST40(pulse=pulse, tstart=tstart, tend=tend, dt=dt)
         reader(["ts", "efit"], R_shift=R_shift)
 
         kernel = 1.0 * kernels.RationalQuadratic(
@@ -451,7 +461,6 @@ class PlasmaContext:
             reader.equilibrium,
             quant,
             pulse,
-
             split=split,
         )
         fit, _ = gpr_fit_ts(
@@ -467,11 +476,26 @@ class PlasmaContext:
 
     def set_ts_profiles(self, data_context, split="LFS", R_shift=0.0):
 
-        ne_fit, ne_data = self.fit_ts_profile(data_context.pulse, data_context.tstart, data_context.tend, data_context.dt, quant="ne", split=split, R_shift=R_shift)
-        te_fit, te_data = self.fit_ts_profile(data_context.pulse, data_context.tstart, data_context.tend, data_context.dt, quant="te", split=split, R_shift=R_shift)
+        ne_fit, ne_data = self.fit_ts_profile(
+            data_context.pulse,
+            data_context.tstart,
+            data_context.tend,
+            data_context.dt,
+            quant="ne",
+            split=split,
+            R_shift=R_shift,
+        )
+        te_fit, te_data = self.fit_ts_profile(
+            data_context.pulse,
+            data_context.tstart,
+            data_context.tend,
+            data_context.dt,
+            quant="te",
+            split=split,
+            R_shift=R_shift,
+        )
         ne_fit *= 1e19
         te_fit *= 1e3
-
 
         self.plasma.electron_density.loc[dict()] = ne_fit.interp(rho=self.plasma.rho)
         self.plasma.electron_temperature.loc[dict()] = te_fit.interp(
@@ -513,7 +537,6 @@ class ModelSettings:
         }
     )
     call_kwargs: dict = field(default_factory=lambda: {"xrcs": {"pixel_offset": 0.0}})
-
 
 
 @dataclass
@@ -768,7 +791,8 @@ class ExpData(DataContext):
 
         if "cxff_pi.ti" in opt_data.keys():
             opt_data["cxff_pi.ti"] = opt_data["cxff_pi.ti"].where(
-                (opt_data["cxff_pi.ti"].channel > 2) & (opt_data["cxff_pi.ti"].channel < 5)
+                (opt_data["cxff_pi.ti"].channel > 2)
+                & (opt_data["cxff_pi.ti"].channel < 5)
             )
 
         self.opt_data = opt_data

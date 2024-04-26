@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 from indica.defaults.read_write_defaults import load_default_objects
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.bayes_workflow import DEFAULT_DIAG_NAMES
@@ -10,12 +12,11 @@ from indica.workflows.bayes_workflow import OptimiserEmceeSettings
 from indica.workflows.bayes_workflow import PlasmaContext
 from indica.workflows.bayes_workflow import PlasmaSettings
 from indica.workflows.bayes_workflow import ReaderSettings
-from unittest.mock import MagicMock
 
 config = dict(
-    tstart = 0.05,
-    tend = 0.10,
-    dt = 0.01,
+    tstart=0.05,
+    tend=0.10,
+    dt=0.01,
 )
 
 
@@ -32,7 +33,7 @@ class TestBayesWorkflow:
             pulse=None,
             diagnostics=DEFAULT_DIAG_NAMES,
             reader_settings=reader_settings,
-            **config
+            **config,
         )
         data_context.read_data()
 
@@ -42,10 +43,10 @@ class TestBayesWorkflow:
             plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS
         )
         plasma_context.init_plasma(
-            self.equilibrium, **config,
+            self.equilibrium,
+            **config,
         )
         plasma_context.save_phantom_profiles(phantoms=True)
-
 
     def test_model_context_initialises(self):
 
@@ -62,20 +63,20 @@ class TestBayesWorkflow:
         model_context.init_models()
 
     def test_optimiser_context_initialises(self):
-        optimiser_settings = OptimiserEmceeSettings(param_names=MagicMock(), priors=MagicMock())
-        optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
-
+        optimiser_settings = OptimiserEmceeSettings(
+            param_names=MagicMock(), priors=MagicMock()
+        )
+        EmceeOptimiser(optimiser_settings=optimiser_settings)
 
     def test_bayes_workflow_initialises(self):
         # bayes_settings = MagicMock()
-        workflow = BayesWorkflow(
+        BayesWorkflow(
             **config,
             blackbox_settings=MagicMock(),
             data_context=MagicMock(),
             optimiser_context=MagicMock(),
             plasma_context=MagicMock(),
             model_context=MagicMock(),
-
         )
 
 

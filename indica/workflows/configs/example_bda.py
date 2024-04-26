@@ -1,3 +1,5 @@
+from typing import Dict
+
 pulse = 11089
 pulse_to_write = 43000000
 
@@ -26,7 +28,6 @@ param_names = [
 ]
 
 
-
 plasma_settings = dict(
     main_ion="h",
     impurities=("ar", "c"),
@@ -35,13 +36,13 @@ plasma_settings = dict(
 )
 
 phantom = False
-set_ts = True,
+set_ts = (True,)
 ts_split = ""
 ts_R_shift = 0.02
-profile_params_to_update = {}
-model_init = {}
-revisions = {}
-filters = {}
+profile_params_to_update: Dict = {}
+model_init: Dict = {}
+revisions: Dict = {}
+filters: Dict = {}
 tstart = 0.05
 tend = 0.06
 dt = 0.01

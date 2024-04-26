@@ -454,7 +454,6 @@ class Plasma:
     def fz(self):
         return self.Fz()
 
-
     def calc_fz(self):
         for elem in self.elements:
             for t in np.array(self.time_to_calculate, ndmin=1):
@@ -819,11 +818,12 @@ class TrackDependecies:
             else:
                 print(type(dependency))
                 raise NotImplementedError(
-                    "Hashing implemented for xr.DataArray, np.ndarray and Dict[xr.DataArray] only"
+                    "Hashing implemented for xr.DataArray, np.ndarray"
                 )
 
         hashable = tuple((self.numpyhash(dependency),) for dependency in _dependencies)
         return hash(hashable)
+
 
 class CachedCalculation(TrackDependecies):
     def __init__(self, operator: Callable, dependencies: list, verbose: bool = False):

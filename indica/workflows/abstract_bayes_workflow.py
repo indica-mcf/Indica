@@ -1,11 +1,11 @@
 from abc import ABC
 from abc import abstractmethod
+from datetime import datetime
 import getpass
 from pathlib import Path
 import pickle
 
 import git
-from datetime import datetime
 import numpy as np
 
 
@@ -48,8 +48,7 @@ class AbstractBayesWorkflow(ABC):
             "GIT_ID": f"{git_id}",
             "USER": f"{getpass.getuser()}",
             "SETTINGS": "CONFIG GOES HERE",
-            "DATETIME": datetime.utcnow().__str__()
-
+            "DATETIME": datetime.utcnow().__str__(),
         }
         # TODO fix workflow
         result["INPUT"]["WORKFLOW"] = {
@@ -90,9 +89,8 @@ class AbstractBayesWorkflow(ABC):
             }
             for diag_name in self.blackbox_settings.diagnostics
         }
-        result["MODEL_DATA"]["SAMPLE_IDX"] = np.arange(0,
-                self.opt_samples["post_sample"].shape[1]
-
+        result["MODEL_DATA"]["SAMPLE_IDX"] = np.arange(
+            0, self.opt_samples["post_sample"].shape[1]
         )
 
         result["PHANTOMS"] = {
@@ -108,9 +106,7 @@ class AbstractBayesWorkflow(ABC):
             "PTH": self.plasma_context.phantom_profiles["pressure_th"],
             "PFAST": self.plasma_context.phantom_profiles["pressure_fast"],
             "P": self.plasma_context.phantom_profiles["pressure_tot"],
-
         }
-
 
         result["PROFILES"] = {
             "PSI_NORM": {
@@ -119,7 +115,6 @@ class AbstractBayesWorkflow(ABC):
                     t=self.plasma_context.plasma.t
                 ),
                 "VOLUME": self.plasma_context.plasma.volume,
-
                 "NE": self.blobs["electron_density"].median(dim="index"),
                 "NI": self.blobs["ion_density"].median(dim="index"),
                 "TE": self.blobs["electron_temperature"].median(dim="index"),
@@ -131,7 +126,6 @@ class AbstractBayesWorkflow(ABC):
                 "PFAST": self.blobs["pressure_fast"].median(dim="index"),
                 "ZEFF": self.blobs["zeff"].sum("element").median(dim="index"),
                 "MEANZ": self.blobs["meanz"].median(dim="index"),
-
                 "NE_ERR": self.blobs["electron_density"].std(dim="index"),
                 "NI_ERR": self.blobs["ion_density"].std(dim="index"),
                 "TE_ERR": self.blobs["electron_temperature"].std(dim="index"),
@@ -143,13 +137,10 @@ class AbstractBayesWorkflow(ABC):
                 "PFAST_ERR": self.blobs["pressure_fast"].std(dim="index"),
                 "ZEFF_ERR": self.blobs["zeff"].sum("element").std(dim="index"),
                 "MEANZ_ERR": self.blobs["meanz"].std(dim="index"),
-
             },
-
             "R_MIDPLANE": {
                 "RPOS": self.midplane_blobs["electron_temperature"].R,
                 "ZPOS": self.midplane_blobs["electron_temperature"].z,
-
                 "NE": self.midplane_blobs["electron_density"].median(dim="index"),
                 "NI": self.midplane_blobs["ion_density"].median(dim="index"),
                 "TE": self.midplane_blobs["electron_temperature"].median(dim="index"),
@@ -161,7 +152,6 @@ class AbstractBayesWorkflow(ABC):
                 "PFAST": self.midplane_blobs["pressure_fast"].median(dim="index"),
                 "ZEFF": self.midplane_blobs["zeff"].sum("element").median(dim="index"),
                 "MEANZ": self.midplane_blobs["meanz"].median(dim="index"),
-
                 "NE_ERR": self.midplane_blobs["electron_density"].std(dim="index"),
                 "NI_ERR": self.midplane_blobs["ion_density"].std(dim="index"),
                 "TE_ERR": self.midplane_blobs["electron_temperature"].std(dim="index"),
@@ -177,9 +167,7 @@ class AbstractBayesWorkflow(ABC):
         }
 
         result["PROFILE_STAT"] = {
-            "SAMPLE_IDX": np.arange(0,
-                self.opt_samples["post_sample"].shape[1]
-            ),
+            "SAMPLE_IDX": np.arange(0, self.opt_samples["post_sample"].shape[1]),
             "RHOP": self.plasma_context.plasma.rho,
             "NE": self.blobs["electron_density"],
             "NI": self.blobs["ion_density"],
@@ -214,32 +202,47 @@ class AbstractBayesWorkflow(ABC):
             "NE0": self.blobs["electron_density"]
             .sel(rho_poloidal=0, method="nearest")
             .median(dim="index"),
-            "NI0": self.blobs["ion_density"]  # TODO: where to concat the impurity_density onto this
+            "NI0": self.blobs[
+                "ion_density"
+            ]  # TODO: where to concat the impurity_density onto this
             .sel(rho_poloidal=0, method="nearest")
             .median(dim="index"),
             "WP": self.blobs["wp"].median(dim="index"),
             "WTH": self.blobs["wth"].median(dim="index"),
-            "ZEFF_AVG": self.midplane_blobs["zeff"].sum(dim="element").median(dim="index").mean(dim="R"),
-            "NNEUTR0": self.blobs["neutral_density"].sel(rho_poloidal=0, method="nearest").median(dim="index"),
-            "NNEUTRB": self.blobs["neutral_density"].sel(rho_poloidal=1, method="nearest").median(dim="index"),
-
+            "ZEFF_AVG": self.midplane_blobs["zeff"]
+            .sum(dim="element")
+            .median(dim="index")
+            .mean(dim="R"),
+            "NNEUTR0": self.blobs["neutral_density"]
+            .sel(rho_poloidal=0, method="nearest")
+            .median(dim="index"),
+            "NNEUTRB": self.blobs["neutral_density"]
+            .sel(rho_poloidal=1, method="nearest")
+            .median(dim="index"),
             "TI0_ERR": self.blobs["ion_temperature"]
-                .sel(rho_poloidal=0, method="nearest")
-                .std(dim="index"),
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="index"),
             "TE0_ERR": self.blobs["electron_temperature"]
-                .sel(rho_poloidal=0, method="nearest")
-                .std(dim="index"),
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="index"),
             "NE0_ERR": self.blobs["electron_density"]
-                .sel(rho_poloidal=0, method="nearest")
-                .std(dim="index"),
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="index"),
             "NI0_ERR": self.blobs["ion_density"]
-                .sel(rho_poloidal=0, method="nearest")
-                .std(dim="index"),
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="index"),
             "WTH_ERR": self.blobs["wth"].std(dim="index"),
             "WP_ERR": self.blobs["wp"].std(dim="index"),
-            "ZEFF_AVG_ERR": self.midplane_blobs["zeff"].sum(dim="element").std(dim="index").mean(dim="R"),
-            "NNEUTR0_ERR": self.blobs["neutral_density"].sel(rho_poloidal=0, method="nearest").std(dim="index"),
-            "NNEUTRB_ERR": self.blobs["neutral_density"].sel(rho_poloidal=1, method="nearest").std(dim="index"),
+            "ZEFF_AVG_ERR": self.midplane_blobs["zeff"]
+            .sum(dim="element")
+            .std(dim="index")
+            .mean(dim="R"),
+            "NNEUTR0_ERR": self.blobs["neutral_density"]
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="index"),
+            "NNEUTRB_ERR": self.blobs["neutral_density"]
+            .sel(rho_poloidal=1, method="nearest")
+            .std(dim="index"),
         }
         return result
 

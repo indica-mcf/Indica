@@ -1,5 +1,6 @@
 import importlib
 import sys
+
 from indica.workflows.bayes_workflow import BayesBBSettings
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.bayes_workflow import DEFAULT_PRIORS
@@ -7,17 +8,18 @@ from indica.workflows.bayes_workflow import DEFAULT_PROFILE_PARAMS
 from indica.workflows.bayes_workflow import EmceeOptimiser
 from indica.workflows.bayes_workflow import ExpData
 from indica.workflows.bayes_workflow import MockData
-from indica.workflows.bayes_workflow import PhantomData
 from indica.workflows.bayes_workflow import ModelContext
 from indica.workflows.bayes_workflow import ModelSettings
 from indica.workflows.bayes_workflow import OptimiserEmceeSettings
+from indica.workflows.bayes_workflow import PhantomData
 from indica.workflows.bayes_workflow import PlasmaContext
 from indica.workflows.bayes_workflow import PlasmaSettings
 from indica.workflows.bayes_workflow import ReaderSettings
 
+
 def bda_run(
     pulse=None,
-    pulse_to_write = None,
+    pulse_to_write=None,
     diagnostics=None,
     param_names=None,
     opt_quantity=None,
@@ -29,7 +31,7 @@ def bda_run(
     dt=0.01,
     revisions=None,
     filters=None,
-    starting_samples = 100,
+    starting_samples=100,
     iterations=500,
     nwalkers=50,
     stopping_criteria_factor=0.002,
@@ -94,12 +96,13 @@ def bda_run(
         )
     else:
         data_context = ExpData(
-        pulse=pulse,
-        diagnostics=diagnostics,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        reader_settings=data_settings,)
+            pulse=pulse,
+            diagnostics=diagnostics,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            reader_settings=data_settings,
+        )
 
     data_context.read_data()
 
@@ -144,7 +147,6 @@ def bda_run(
         starting_samples=starting_samples,
         burn_frac=burn_frac,
         stopping_criteria=stopping_criteria,
-
         stopping_criteria_factor=stopping_criteria_factor,
         stopping_criteria_debug=True,
         priors=bayes_settings.priors,

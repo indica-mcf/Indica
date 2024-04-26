@@ -1,3 +1,5 @@
+from typing import Dict
+
 pulse = 11089
 pulse_to_write = 43000000
 
@@ -26,21 +28,21 @@ param_names = [
 ]
 
 plasma_settings = dict(
-        main_ion="h",
-        impurities=("ar", "c"),
-        impurity_concentration=(0.001, 0.005),
-        n_rad=10,
-    )
+    main_ion="h",
+    impurities=("ar", "c"),
+    impurity_concentration=(0.001, 0.005),
+    n_rad=10,
+)
 
 phantom = False
 mock = True
 set_ts = False
 ts_split = ""
 ts_R_shift = 0.02
-profile_params_to_update = {}
-model_init = {}
-revisions = {}
-filters = {}
+profile_params_to_update: Dict = {}
+model_init: Dict = {}
+revisions: Dict = {}
+filters: Dict = {}
 tstart = 0.05
 tend = 0.06
 dt = 0.01
@@ -48,9 +50,9 @@ starting_samples = 10
 iterations = 5
 nwalkers = 5
 stopping_criteria_factor = 0.005
-sample_method="random"
-stopping_criteria="mode"
-burn_frac=0.00
+sample_method = "random"
+stopping_criteria = "mode"
+burn_frac = 0.00
 
 mds_write = False
 best = False

@@ -267,7 +267,6 @@ if __name__ == "__main__":
         "te",
         pulse,
         split="",
-
     )
     te_kernel = 1.0 * kernels.RationalQuadratic(
         alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.4, 0.7)
@@ -288,5 +287,4 @@ if __name__ == "__main__":
         virtual_symmetry=True,
         kernel=te_kernel,
         save_fig=True,
-
     )
