@@ -177,7 +177,7 @@ class Plasma:
             data2d, "electron_density", coords2d, make_copy=True
         )
         self.neutral_density = format_dataarray(
-            data2d, "thermal_neutral_density", coords2d, make_copy=True
+            data2d, "neutral_density", coords2d, make_copy=True
         )
         self.tau = format_dataarray(data2d, "residence_time", coords2d, make_copy=True)
         self.ion_temperature = format_dataarray(
@@ -861,7 +861,7 @@ class PlasmaProfiles:
             "electron_temperature",
             "ion_temperature",
             "electron_density",
-            "thermal_neutral_density",
+            "neutral_density",
             "toroidal_rotation",
         ]
         profilers: dict = {}
