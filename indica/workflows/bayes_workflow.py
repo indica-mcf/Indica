@@ -22,8 +22,8 @@ import xarray as xr
 from indica.bayesblackbox import BayesBlackBox
 from indica.bayesblackbox import get_uniform
 from indica.bayesblackbox import ln_prior
+from indica.defaults.read_write_defaults import load_default_objects
 from indica.equilibrium import Equilibrium
-from indica.equilibrium import fake_equilibrium
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.charge_exchange import pi_transform_example
 from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
@@ -40,9 +40,7 @@ from indica.operators.gpr_fit import post_process_ts
 from indica.readers.read_st40 import ReadST40
 from indica.workflows.abstract_bayes_workflow import AbstractBayesWorkflow
 from indica.workflows.bayes_plots import plot_bayes_result
-from indica.writers.bda_tree import create_nodes
-from indica.writers.bda_tree import does_tree_exist
-import standard_utility as util
+from indica.writers.bda_tree import create_nodes, write_nodes, does_tree_exist
 
 
 # global configurations
@@ -53,12 +51,12 @@ DEFAULT_PROFILE_PARAMS = {
     "electron_density.wped": 3,
     "electron_density.wcenter": 0.3,
     "electron_density.peaking": 1.2,
-    # "impurity_density:ar.y0": 1e17,
-    # "impurity_density:ar.y1": 1e15,
-    # "impurity_density:ar.yend": 1e15,
-    # "impurity_density:ar.wcenter": 0.3,
-    # "impurity_density:ar.wped": 3,
-    # "impurity_density:ar.peaking": 2,
+    "impurity_density:ar.y0": 1e17,
+    "impurity_density:ar.y1": 1e15,
+    "impurity_density:ar.yend": 1e15,
+    "impurity_density:ar.wcenter": 0.3,
+    "impurity_density:ar.wped": 3,
+    "impurity_density:ar.peaking": 2,
     "electron_temperature.y0": 3000,
     "electron_temperature.y1": 50,
     "electron_temperature.yend": 10,
@@ -114,6 +112,7 @@ DEFAULT_PRIORS = {
     "ion_temperature.wped": get_uniform(1, 6),
     "ion_temperature.wcenter": get_uniform(0.2, 0.4),
     "ion_temperature.peaking": get_uniform(1, 6),
+    # TODO: add thermal neutral density
 }
 
 OPTIMISED_PARAMS = [
@@ -826,17 +825,15 @@ class MockData(PhantomData):
 
     def read_data(self):
         print("Reading mock equilibrium / transforms")
-        self.equilibrium = fake_equilibrium(
-            self.tstart,
-            self.tend,
-            self.dt,
-        )
+        self.equilibrium = load_default_objects("st40", "equilibrium")
+
         missing_transforms = list(
             set(self.diagnostics).difference(self.diagnostic_transforms.keys())
         )
         if missing_transforms:
             raise ValueError(f"Missing transforms: {missing_transforms}")
 
+        # self.transforms = load_default_objects("st40", "geometry")
         self.transforms = self.diagnostic_transforms
         self.binned_data: dict = {}
         self.raw_data: dict = {}
@@ -1158,16 +1155,8 @@ class BayesWorkflow(AbstractBayesWorkflow):
                 diagnostic_quantities=self.blackbox_settings.opt_quantity,
                 mode=mode,
             )
+            write_nodes(pulse_to_write, result, self.node_structure)
 
-            util.standard_fn_MDSplus.make_ST40_subtree("BDA", pulse_to_write)
-
-            util.StandardNodeWriting(
-                pulse_number=pulse_to_write,  # pulse number for which data should be written
-                dict_node_info=self.node_structure,  # node information file
-                nodes_to_write=[],  # selective nodes to be written
-                data_to_write=self.result,
-                debug=False,
-            )
         if plot:
             plot_bayes_result(filepath=filepath)
         return
