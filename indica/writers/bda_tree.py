@@ -1,10 +1,12 @@
 import sys
 from MDSplus import Connection
 import numpy as np
+from unittest.mock import MagicMock
 
 try:
     import standard_utility as util
-except ModuleNotFoundError:
+except ImportError:
+    util = MagicMock
     print("\n ** StandardUtility not installed \n **")
 
 BDA_NODES = {
@@ -287,6 +289,15 @@ def query_yes_no(
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
+def write_nodes(pulse_to_write, result, node_info, debug=False):
+    util.standard_fn_MDSplus.make_ST40_subtree("BDA", pulse_to_write)
+    util.StandardNodeWriting(
+        pulse_number=pulse_to_write,  # pulse number for which data should be written
+        dict_node_info=node_info,  # node information file
+        nodes_to_write=[],  # selective nodes to be written
+        data_to_write=result,
+        debug=debug,
+    )
 
 if __name__ == "__main__":
 
