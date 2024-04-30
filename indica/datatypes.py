@@ -74,6 +74,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "fast_ion_density": ("$N_{fast}$", "density"),
     "impurity_density": ("$N_{imp}$", "density"),
     "thermal_neutral_density": ("$N_{neutrals, th}$", "density"),
+    "neutral_density": ("$N_{neutrals}$", "density"),
     "electron_density_integrated": (r"$\int N_e$ dl", "density_integrated"),
     "electron_temperature": ("$T_e$", "temperature"),
     "ion_temperature": ("$T_i$", "temperature"),

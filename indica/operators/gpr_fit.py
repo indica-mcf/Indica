@@ -243,26 +243,22 @@ def gpr_fit_ts(
 
 
 if __name__ == "__main__":
-    pulse = 11224  # 11089
+    pulse = 11418
     tstart = 0.03
-    tend = 0.12
+    tend = 0.15
     dt = 0.01
-    save_fig = False
-    plot = True
-    split = ""
-
     st40 = ReadST40(pulse, tstart, tend, dt)
-    st40(instruments=["ts", "efit"], set_equilibrium=True)
+    st40(instruments=["ts", "efit"], R_shift=0.00)
 
     ne_data = post_process_ts(
         st40.binned_data,
         st40.equilibrium,
         "ne",
         pulse,
-        split=split,
+        split="",
     )
     ne_kernel = 1.0 * kernels.RationalQuadratic(
-        alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.4, 0.7)
+        alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.3, 0.7)
     ) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
 
     te_data = post_process_ts(
@@ -270,7 +266,7 @@ if __name__ == "__main__":
         st40.equilibrium,
         "te",
         pulse,
-        split=split,
+        split="",
     )
     te_kernel = 1.0 * kernels.RationalQuadratic(
         alpha_bounds=(0.1, 1.0), length_scale_bounds=(0.4, 0.7)
@@ -282,8 +278,7 @@ if __name__ == "__main__":
         virtual_obs=True,
         virtual_symmetry=True,
         kernel=ne_kernel,
-        save_fig=save_fig,
-        plot=plot,
+        save_fig=True,
     )
     gpr_fit_ts(
         data=te_data,
@@ -291,6 +286,5 @@ if __name__ == "__main__":
         virtual_obs=True,
         virtual_symmetry=True,
         kernel=te_kernel,
-        save_fig=save_fig,
-        plot=plot,
+        save_fig=True,
     )

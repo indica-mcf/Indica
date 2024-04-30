@@ -22,8 +22,8 @@ import xarray as xr
 from indica.bayesblackbox import BayesBlackBox
 from indica.bayesblackbox import get_uniform
 from indica.bayesblackbox import ln_prior
+from indica.defaults.read_write_defaults import load_default_objects
 from indica.equilibrium import Equilibrium
-from indica.equilibrium import fake_equilibrium
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.charge_exchange import pi_transform_example
 from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
@@ -44,6 +44,7 @@ from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import does_tree_exist
 from indica.writers.bda_tree import write_nodes
 
+
 # global configurations
 DEFAULT_PROFILE_PARAMS = {
     "electron_density.y0": 5e19,
@@ -52,12 +53,12 @@ DEFAULT_PROFILE_PARAMS = {
     "electron_density.wped": 3,
     "electron_density.wcenter": 0.3,
     "electron_density.peaking": 1.2,
-    # "impurity_density:ar.y0": 1e17,
-    # "impurity_density:ar.y1": 1e15,
-    # "impurity_density:ar.yend": 1e15,
-    # "impurity_density:ar.wcenter": 0.3,
-    # "impurity_density:ar.wped": 3,
-    # "impurity_density:ar.peaking": 2,
+    "impurity_density:ar.y0": 1e17,
+    "impurity_density:ar.y1": 1e15,
+    "impurity_density:ar.yend": 1e15,
+    "impurity_density:ar.wcenter": 0.3,
+    "impurity_density:ar.wped": 3,
+    "impurity_density:ar.peaking": 2,
     "electron_temperature.y0": 3000,
     "electron_temperature.y1": 50,
     "electron_temperature.yend": 10,
@@ -70,7 +71,14 @@ DEFAULT_PROFILE_PARAMS = {
     "ion_temperature.wcenter": 0.2,
     "ion_temperature.wped": 3,
     "ion_temperature.peaking": 1.5,
+    "neutral_density.y0": 1e14,
+    "neutral_density.y1": 5e15,
+    "neutral_density.yend": 5e15,
+    "neutral_density.wcenter": 0.01,
+    "neutral_density.wped": 18,
+    "neutral_density.peaking": 1,
 }
+
 
 DEFAULT_PRIORS = {
     "electron_density.y0": get_uniform(2e19, 4e20),
@@ -106,6 +114,7 @@ DEFAULT_PRIORS = {
     "ion_temperature.wped": get_uniform(1, 6),
     "ion_temperature.wcenter": get_uniform(0.2, 0.4),
     "ion_temperature.peaking": get_uniform(1, 6),
+    # TODO: add thermal neutral density
 }
 
 OPTIMISED_PARAMS = [
@@ -329,6 +338,41 @@ class PlasmaContext:
     plasma_settings: PlasmaSettings
     profile_params: dict = field(default_factory=lambda: DEFAULT_PROFILE_PARAMS)
 
+    plasma_attribute_names: list = field(
+        default_factory=lambda: [
+            "electron_temperature",
+            "electron_density",
+            "ion_temperature",
+            "ion_density",
+            "impurity_density",
+            "fast_density",
+            "pressure_fast",
+            "neutral_density",
+            "zeff",
+            "meanz",
+            "wp",
+            "wth",
+            "pressure_tot",
+            "pressure_th",
+        ]
+    )
+    plasma_profile_names: list = field(
+        default_factory=lambda: [
+            "electron_temperature",
+            "electron_density",
+            "ion_temperature",
+            "ion_density",
+            "impurity_density",
+            "fast_density",
+            "pressure_fast",
+            "neutral_density",
+            "zeff",
+            "meanz",
+            "pressure_tot",
+            "pressure_th",
+        ]
+    )
+
     """
     set profiles / profiler
     """
@@ -368,22 +412,9 @@ class PlasmaContext:
         return iter(self.plasma.t)
 
     def return_plasma_attrs(self):
-        PLASMA_ATTRIBUTES = [
-            "electron_temperature",
-            "electron_density",
-            "ion_temperature",
-            "ion_density",
-            "impurity_density",
-            "fast_density",
-            "neutral_density",
-            "zeff",
-            "wp",
-            "wth",
-            "ptot",
-            "pth",
-        ]
         plasma_attributes = {}
-        for plasma_key in PLASMA_ATTRIBUTES:
+        for plasma_key in self.plasma_attribute_names:
+
             if hasattr(self.plasma, plasma_key):
                 plasma_attributes[plasma_key] = getattr(self.plasma, plasma_key).sel(
                     t=self.plasma.time_to_calculate
@@ -394,15 +425,7 @@ class PlasmaContext:
 
     def save_phantom_profiles(self, kinetic_profiles=None, phantoms=None):
         if kinetic_profiles is None:
-            kinetic_profiles = [
-                "electron_density",
-                "impurity_density",
-                "electron_temperature",
-                "ion_temperature",
-                "ion_density",
-                "fast_density",
-                "neutral_density",
-            ]
+            kinetic_profiles = self.plasma_attribute_names
         if phantoms:
             phantom_profiles = {
                 profile_key: getattr(self.plasma, profile_key)
@@ -420,16 +443,24 @@ class PlasmaContext:
             }
         self.phantom_profiles = phantom_profiles
 
-    def fit_ts_profile(self, data_context, split="LFS", quant="ne"):
+    def fit_ts_profile(
+        self, pulse, tstart, tend, dt, split="LFS", quant="ne", R_shift=0.0
+    ):
+
+        # Temp hack for setting TS data
+
+        reader = ReadST40(pulse=pulse, tstart=tstart, tend=tend, dt=dt)
+        reader(["ts", "efit"], R_shift=R_shift)
+
         kernel = 1.0 * kernels.RationalQuadratic(
-            alpha_bounds=(0.5, 1.0), length_scale_bounds=(0.4, 0.7)
+            alpha_bounds=(0.5, 1.0), length_scale_bounds=(0.3, 0.7)
         ) + kernels.WhiteKernel(noise_level_bounds=(0.01, 10))
 
         processed_data = post_process_ts(
-            deepcopy(data_context.binned_data),
-            data_context.equilibrium,
+            deepcopy(reader.binned_data),
+            reader.equilibrium,
             quant,
-            data_context.pulse,
+            pulse,
             split=split,
         )
         fit, _ = gpr_fit_ts(
@@ -441,12 +472,30 @@ class PlasmaContext:
             save_fig=True,
         )
         fit = xr.where(fit < 0, 1e-10, fit)
-        return fit
+        return fit, processed_data
 
-    def set_ts_profiles(self, data_context, split="LFS"):
+    def set_ts_profiles(self, data_context, split="LFS", R_shift=0.0):
 
-        ne_fit = self.fit_ts_profile(data_context, quant="ne", split=split) * 1e19
-        te_fit = self.fit_ts_profile(data_context, quant="te", split=split) * 1e3
+        ne_fit, ne_data = self.fit_ts_profile(
+            data_context.pulse,
+            data_context.tstart,
+            data_context.tend,
+            data_context.dt,
+            quant="ne",
+            split=split,
+            R_shift=R_shift,
+        )
+        te_fit, te_data = self.fit_ts_profile(
+            data_context.pulse,
+            data_context.tstart,
+            data_context.tend,
+            data_context.dt,
+            quant="te",
+            split=split,
+            R_shift=R_shift,
+        )
+        ne_fit *= 1e19
+        te_fit *= 1e3
 
         self.plasma.electron_density.loc[dict()] = ne_fit.interp(rho=self.plasma.rho)
         self.plasma.electron_temperature.loc[dict()] = te_fit.interp(
@@ -454,25 +503,24 @@ class PlasmaContext:
         )
 
     def map_profiles_to_midplane(self, blobs):
-        kinetic_profiles = [
-            "electron_density",
-            "impurity_density",
-            "electron_temperature",
-            "ion_temperature",
-            "ion_density",
-            "fast_density",
-            "neutral_density",
-            "zeff",
-        ]
+        nchan = len(self.plasma.R_midplane)
+        chan = np.arange(nchan)
+        R = xr.DataArray(self.plasma.R_midplane.values, coords=[("channel", chan)])
+        z = xr.DataArray(self.plasma.z_midplane.values, coords=[("channel", chan)])
 
-        R = self.plasma.R_midplane
-        z = self.plasma.z_midplane
-        _rho = self.plasma.equilibrium.rho.interp(t=self.plasma.t).interp(R=R, z=z)
-        rho = _rho.swap_dims({"index": "R"}).drop_vars("index")
-
+        rho = self.plasma.equilibrium.rho.interp(t=self.plasma.t, R=R, z=z).drop_vars(
+            ["R", "z"]
+        )
         midplane_profiles = {}
-        for profile in kinetic_profiles:
-            midplane_profiles[profile] = blobs[profile].interp(rho_poloidal=rho)
+        for profile in self.plasma_profile_names:
+            midplane_profiles[profile] = (
+                blobs[profile].interp(rho_poloidal=rho).drop_vars("rho_poloidal")
+            )
+            midplane_profiles[profile]["R"] = R
+            midplane_profiles[profile]["z"] = z
+            midplane_profiles[profile] = midplane_profiles[profile].swap_dims(
+                {"channel": "R"}
+            )
 
         return midplane_profiles
 
@@ -488,7 +536,7 @@ class ModelSettings:
             },
         }
     )
-    call_kwargs: dict = field(default_factory=lambda: {"xrcs": {"pixel_offset": -4.0}})
+    call_kwargs: dict = field(default_factory=lambda: {"xrcs": {"pixel_offset": 0.0}})
 
 
 @dataclass
@@ -741,6 +789,12 @@ class ExpData(DataContext):
                 opt_data["cxff_tws_c.ti"].channel == 0
             )
 
+        if "cxff_pi.ti" in opt_data.keys():
+            opt_data["cxff_pi.ti"] = opt_data["cxff_pi.ti"].where(
+                (opt_data["cxff_pi.ti"].channel > 2)
+                & (opt_data["cxff_pi.ti"].channel < 5)
+            )
+
         self.opt_data = opt_data
 
 
@@ -795,17 +849,15 @@ class MockData(PhantomData):
 
     def read_data(self):
         print("Reading mock equilibrium / transforms")
-        self.equilibrium = fake_equilibrium(
-            self.tstart,
-            self.tend,
-            self.dt,
-        )
+        self.equilibrium = load_default_objects("st40", "equilibrium")
+
         missing_transforms = list(
             set(self.diagnostics).difference(self.diagnostic_transforms.keys())
         )
         if missing_transforms:
             raise ValueError(f"Missing transforms: {missing_transforms}")
 
+        # self.transforms = load_default_objects("st40", "geometry")
         self.transforms = self.diagnostic_transforms
         self.binned_data: dict = {}
         self.raw_data: dict = {}
@@ -1066,7 +1118,9 @@ class BayesWorkflow(AbstractBayesWorkflow):
         self,
         filepath="./results/test/",
         run="RUN01",
+        run_info="Default run",
         mds_write=False,
+        best=True,
         pulse_to_write=None,
         plot=False,
         **kwargs,
@@ -1108,12 +1162,10 @@ class BayesWorkflow(AbstractBayesWorkflow):
                 filepath=filepath,
             )
 
-        if plot:  # currently requires result with DataArrays
-            plot_bayes_result(self.result, filepath)
-
         self.result = dict_of_dataarray_to_numpy(self.result)
 
         if mds_write:
+            print("Writing to MDS+")
             tree_exists = does_tree_exist(pulse_to_write)
             if tree_exists:
                 mode = "EDIT"
@@ -1122,11 +1174,15 @@ class BayesWorkflow(AbstractBayesWorkflow):
 
             self.node_structure = create_nodes(
                 pulse_to_write=pulse_to_write,
+                best=best,
                 run=run,
                 diagnostic_quantities=self.blackbox_settings.opt_quantity,
                 mode=mode,
             )
-            write_nodes(pulse_to_write, self.node_structure, self.result)
+            write_nodes(pulse_to_write, result, self.node_structure)
+
+        if plot:
+            plot_bayes_result(filepath=filepath)
         return
 
 
@@ -1238,7 +1294,7 @@ if __name__ == "__main__":
     optimiser_settings = OptimiserEmceeSettings(
         param_names=bayes_settings.param_names,
         nwalkers=20,
-        iterations=1000,
+        iterations=100,
         sample_method="high_density",
         starting_samples=50,
         burn_frac=0.20,

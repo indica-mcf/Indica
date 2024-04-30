@@ -177,11 +177,11 @@ class Plasma:
             data2d, "electron_density", coords2d, make_copy=True
         )
         self.neutral_density = format_dataarray(
-            data2d, "thermal_neutral_density", coords2d, make_copy=True
+            data2d, "neutral_density", coords2d, make_copy=True
         )
         self.tau = format_dataarray(data2d, "residence_time", coords2d, make_copy=True)
         self.ion_temperature = format_dataarray(
-            data3d, "ion_temperature", coords3d, make_copy=True
+            data2d, "ion_temperature", coords2d, make_copy=True
         )
         self.toroidal_rotation = format_dataarray(
             data3d, "toroidal_rotation", coords3d, make_copy=True
@@ -802,7 +802,7 @@ class TrackDependecies:
         """
         Caching of dependencies
 
-        DataArray and dictionaries of DataArrays currently permitted
+        xr.DataArray, np.ndarray and dictionaries of xr.DataArrays currently permitted
 
         TODO: upgrade so other objects being tracked, e.g. Equilibrium
         """
@@ -811,13 +811,14 @@ class TrackDependecies:
             if type(dependency) == dict:
                 for data in dependency.values():
                     _dependencies.append(data.data)
-            elif type(dependency) == DataArray:
+            elif type(dependency) == xr.DataArray:
                 _dependencies.append(dependency.data)
+            elif type(dependency) == np.ndarray:
+                _dependencies.append(dependency)
             else:
-                help(dependency)
                 print(type(dependency))
                 raise NotImplementedError(
-                    "Hashing implemented for DataArray and Dict[DataArray] only"
+                    "Hashing implemented for xr.DataArray, np.ndarray"
                 )
 
         hashable = tuple((self.numpyhash(dependency),) for dependency in _dependencies)
@@ -832,7 +833,7 @@ class CachedCalculation(TrackDependecies):
     @lru_cache()
     def __call__(self):
         if self.verbose:
-            print("Recalculating")
+            print("Calculating")
         return deepcopy(self.operator())
 
 
@@ -860,7 +861,7 @@ class PlasmaProfiles:
             "electron_temperature",
             "ion_temperature",
             "electron_density",
-            "thermal_neutral_density",
+            "neutral_density",
             "toroidal_rotation",
         ]
         profilers: dict = {}
@@ -998,7 +999,7 @@ def example_plasma(
         update_profiles(parameters, t=t)
 
     if load_from_pkl and pulse is not None:
-        print(f"\n Caching phantom plasma class in {default_plasma_file} \n")
+        print(f"\n Saving phantom plasma class in {default_plasma_file} \n")
         pickle.dump(plasma, open(default_plasma_file, "wb"))
 
     return plasma
