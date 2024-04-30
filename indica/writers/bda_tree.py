@@ -1,194 +1,158 @@
-# Create trees from ppac standard utility tools
-
 import sys
+from unittest.mock import MagicMock
 
 from MDSplus import Connection
 import numpy as np
 
 try:
     import standard_utility as util
-except ModuleNotFoundError:
+except ImportError:
+    util = MagicMock
     print("\n ** StandardUtility not installed \n **")
 
 BDA_NODES = {
-    "TIME": ("NUMERIC", "time vector of optimisation, s"),
+    "TIME": ("NUMERIC", "Time vector of optimisation"),
+    "ELEMENT": ("TEXT", "Element names of ion species"),
     "INPUT": {
-        "BURN_FRAC": ("NUMERIC", "Burn in fraction for chains"),
-        "ITER": ("NUMERIC", "Maximum iterations of optimiser"),
-        "PARAM_NAMES": ("TEXT", "Names of parameters optimised"),
-        "OPT_QUANTITY": ("TEXT", "Names of quantities optimised"),
-        "MODEL_KWARGS": ("TEXT", "Model key word arguments"),
-        # "OPT_KWARGS": ("TEXT", "Optimiser key word arguments"),
-        "PULSE": ("NUMERIC", "Pulse number"),
-        "TSTART": ("NUMERIC", "Start of time vector, s"),
-        "TEND": ("NUMERIC", "End of time vector, s"),
-        "DT": ("NUMERIC", "Distance between time points, s"),
-        "IMPURITIES": ("TEXT", "Names of impurity elements"),
-        "MAIN_ION": ("TEXT", "Name of main ion"),
-    },
-    "METADATA": {
-        "GITCOMMIT": ("TEXT", "Commit ID used for run"),
-        "USER": ("TEXT", "Username of owner"),
-        "EQUIL": ("TEXT", "Equilibrium used"),
+        "SETTINGS": ("TEXT", "Settings in config file"),
+        "GIT_ID": ("TEXT", "Commit ID used for run"),
+        "USER": ("TEXT", "Username of script runner"),
+        "DATETIME": ("TEXT", "UTC datetime code was run"),
+        "WORKFLOW": {},
     },
     "PROFILES": {
         "PSI_NORM": {
-            "RHOP": ("NUMERIC", "Radial vector, Sqrt of normalised poloidal flux"),
-            "RHOT": ("SIGNAL", "Radial vector, toroidal flux"),
-            "NE": ("SIGNAL", "Electron density, m^-3"),
-            "NI": ("SIGNAL", "Ion density, m^-3"),
-            "TE": ("SIGNAL", "Electron temperature, eV"),
-            "TI": ("SIGNAL", "Ion temperature of main ion, eV"),
-            "TIZ1": ("SIGNAL", "Ion temperature of impurity Z1, eV"),
-            "TIZ2": ("SIGNAL", "Ion temperature of impurity Z2, eV"),
-            "TIZ3": ("SIGNAL", "Ion temperature of impurity Z3, eV"),
-            "NIZ1": ("SIGNAL", "Density of impurity Z1, m^-3"),
-            "NIZ2": ("SIGNAL", "Density of impurity Z2, m^-3"),
-            "NIZ3": ("SIGNAL", "Density of impurity Z3, m^-3"),
-            "NNEUTR": ("SIGNAL", "Density of neutral main ion, m^-3"),
-            "NFAST": ("SIGNAL", "Density of fast ion, m^-3"),
-            "ZI": ("SIGNAL", "Average charge of main ion, "),
-            "ZIM1": ("SIGNAL", "Average charge of impurity IMP1, "),
-            "ZIM2": ("SIGNAL", "Average charge of impurity IMP2, "),
-            "ZIM3": ("SIGNAL", "Average charge of impurity IMP3, "),
-            "ZEFF": ("SIGNAL", "Effective charge, "),
-            "P": ("SIGNAL", "Pressure,Pa"),
-            "VOLUME": ("SIGNAL", "Volume inside magnetic surface,m^3"),
-            "NE_ERR": ("SIGNAL", "Electron density error, m^-3"),
-            "NI_ERR": ("SIGNAL", "Ion density error, m^-3"),
-            "TE_ERR": ("SIGNAL", "Electron temperature error, eV"),
-            "TI_ERR": ("SIGNAL", "Ion temperature of main ion error, eV"),
-            "TIZ1_ERR": ("SIGNAL", "Ion temperature of impurity Z1 error, eV"),
-            "TIZ2_ERR": ("SIGNAL", "Ion temperature of impurity Z2 error, eV"),
-            "TIZ3_ERR": ("SIGNAL", "Ion temperature of impurity Z3 error, eV"),
-            "NIZ1_ERR": ("SIGNAL", "Density of impurity Z1 error, m^-3"),
-            "NIZ2_ERR": ("SIGNAL", "Density of impurity Z2 error, m^-3"),
-            "NIZ3_ERR": ("SIGNAL", "Density of impurity Z3 error, m^-3"),
-            "NNEUTR_ERR": ("SIGNAL", "Density of neutral main ion error, m^-3"),
-            "NFAST_ERR": ("SIGNAL", "Density of fast ion error, m^-3"),
-            "ZI_ERR": ("SIGNAL", "Average charge of main ion error, "),
-            "ZIM1_ERR": ("SIGNAL", "Average charge of impurity IMP1 error, "),
-            "ZIM2_ERR": ("SIGNAL", "Average charge of impurity IMP2 error, "),
-            "ZIM3_ERR": ("SIGNAL", "Averagnodese charge of impurity IMP3 error, "),
-            "ZEFF_ERR": ("SIGNAL", "Effective charge error, "),
+            "RHOP": (
+                "NUMERIC",
+                "Rho Poloidal - Square root of normalised poloidal flux",
+            ),
+            "RHOT": (
+                "SIGNAL",
+                "Rho Toroidal - Square root of normalised toroidal flux",
+            ),
+            "VOLUME": ("SIGNAL", "Volume inside magnetic surface"),
+            "NE": ("SIGNAL", "Electron density"),
+            "NI": ("SIGNAL", "Ion density"),
+            "TE": ("SIGNAL", "Electron temperature"),
+            "TI": ("SIGNAL", "Ion temperature"),
+            "NNEUTR": ("SIGNAL", "Thermal neutral density"),
+            "NFAST": ("SIGNAL", "Fast ion density"),
+            "ZEFF": ("SIGNAL", "Effective charge"),
+            "MEANZ": ("SIGNAL", "Average ionic charge"),
+            "PTH": ("SIGNAL", "Thermal particle pressure"),
+            "PFAST": ("SIGNAL", "Fast particle pressure"),
+            "P": ("SIGNAL", "Total pressure"),
+            "NE_ERR": ("SIGNAL", "Electron density error"),
+            "NI_ERR": ("SIGNAL", "Ion density error"),
+            "TE_ERR": ("SIGNAL", "Electron temperature error"),
+            "TI_ERR": ("SIGNAL", "Ion temperature error"),
+            "NNEUTR_ERR": ("SIGNAL", "Thermal neutral density error"),
+            "NFAST_ERR": ("SIGNAL", "Fast ion density error"),
+            "ZEFF_ERR": ("SIGNAL", "Effective charge error"),
+            "MEANZ_ERR": ("SIGNAL", "Average ionic charge error"),
+            "PTH_ERR": ("SIGNAL", "Thermal particle pressure error"),
+            "PFAST_ERR": ("SIGNAL", "Fast particle pressure error"),
+            "P_ERR": ("SIGNAL", "Total pressure error"),
         },
         "R_MIDPLANE": {
-            "RPOS": ("NUMERIC", "Major radius position of measurement, m"),
-            "ZPOS": ("NUMERIC", "Z position of measurement, m"),
-            "NE": ("SIGNAL", "Electron density, m^-3"),
-            "NI": ("SIGNAL", "Ion density, m^-3"),
-            "TE": ("SIGNAL", "Electron temperature, eV"),
-            "TI": ("SIGNAL", "Ion temperature of main ion, eV"),
-            "TIZ1": ("SIGNAL", "Ion temperature of impurity Z1, eV"),
-            "TIZ2": ("SIGNAL", "Ion temperature of impurity Z2, eV"),
-            "TIZ3": ("SIGNAL", "Ion temperature of impurity Z3, eV"),
-            "NIZ1": ("SIGNAL", "Density of impurity Z1, m^-3"),
-            "NIZ2": ("SIGNAL", "Density of impurity Z2, m^-3"),
-            "NIZ3": ("SIGNAL", "Density of impurity Z3, m^-3"),
-            "NNEUTR": ("SIGNAL", "Density of neutral main ion, m^-3"),
-            "NFAST": ("SIGNAL", "Density of fast ion, m^-3"),
-            "ZI": ("SIGNAL", "Average charge of main ion, "),
-            "ZIM1": ("SIGNAL", "Average charge of impurity IMP1, "),
-            "ZIM2": ("SIGNAL", "Average charge of impurity IMP2, "),
-            "ZIM3": ("SIGNAL", "Average charge of impurity IMP3, "),
-            "ZEFF": ("SIGNAL", "Effective charge, "),
-            "P": ("SIGNAL", "Pressure,Pa"),
-            "VOLUME": ("SIGNAL", "Volume inside magnetic surface,m^3"),
-            "NE_ERR": ("SIGNAL", "Electron density error, m^-3"),
-            "NI_ERR": ("SIGNAL", "Ion density error, m^-3"),
-            "TE_ERR": ("SIGNAL", "Electron temperature error, eV"),
-            "TI_ERR": ("SIGNAL", "Ion temperature of main ion error, eV"),
-            "TIZ1_ERR": ("SIGNAL", "Ion temperature of impurity Z1 error, eV"),
-            "TIZ2_ERR": ("SIGNAL", "Ion temperature of impurity Z2 error, eV"),
-            "TIZ3_ERR": ("SIGNAL", "Ion temperature of impurity Z3 error, eV"),
-            "NIZ1_ERR": ("SIGNAL", "Density of impurity Z1 error, m^-3"),
-            "NIZ2_ERR": ("SIGNAL", "Density of impurity Z2 error, m^-3"),
-            "NIZ3_ERR": ("SIGNAL", "Density of impurity Z3 error, m^-3"),
-            "NNEUTR_ERR": ("SIGNAL", "Density of neutral main ion error, m^-3"),
-            "NFAST_ERR": ("SIGNAL", "Density of fast ion error, m^-3"),
-            "ZI_ERR": ("SIGNAL", "Average charge of main ion error, "),
-            "ZIM1_ERR": ("SIGNAL", "Average charge of impurity IMP1 error, "),
-            "ZIM2_ERR": ("SIGNAL", "Average charge of impurity IMP2 error, "),
-            "ZIM3_ERR": ("SIGNAL", "Average charge of impurity IMP3 error, "),
-            "ZEFF_ERR": ("SIGNAL", "Effective charge error, "),
+            "RPOS": ("NUMERIC", "Major radius position of profile"),
+            "ZPOS": ("NUMERIC", "Z position of profile"),
+            "NE": ("SIGNAL", "Electron density"),
+            "NI": ("SIGNAL", "Ion density"),
+            "TE": ("SIGNAL", "Electron temperature"),
+            "TI": ("SIGNAL", "Ion temperature"),
+            "NNEUTR": ("SIGNAL", "Thermal neutral density"),
+            "NFAST": ("SIGNAL", "Fast ion density"),
+            "MEANZ": ("SIGNAL", "Average ionic charge"),
+            "ZEFF": ("SIGNAL", "Effective charge"),
+            "PTH": ("SIGNAL", "Thermal particle pressure"),
+            "PFAST": ("SIGNAL", "Fast particle pressure"),
+            "P": ("SIGNAL", "Total pressure"),
+            "NE_ERR": ("SIGNAL", "Electron density error"),
+            "NI_ERR": ("SIGNAL", "Ion density error"),
+            "TE_ERR": ("SIGNAL", "Electron temperature error"),
+            "TI_ERR": ("SIGNAL", "Ion temperature error"),
+            "NNEUTR_ERR": ("SIGNAL", "Thermal neutral density error"),
+            "NFAST_ERR": ("SIGNAL", "Fast ion density error"),
+            "ZEFF_ERR": ("SIGNAL", "Effective charge error"),
+            "MEANZ_ERR": ("SIGNAL", "Average ionic charge error"),
+            "PTH_ERR": ("SIGNAL", "Thermal particle pressure error"),
+            "PFAST_ERR": ("SIGNAL", "Fast particle pressure error"),
+            "P_ERR": ("SIGNAL", "Total pressure error"),
         },
     },
     "PROFILE_STAT": {
         "SAMPLE_IDX": ("NUMERIC", "Index of the optimisation samples"),
-        "RHOP": ("NUMERIC", "Radial vector, Sqrt of normalised poloidal flux"),
-        "NE": ("SIGNAL", "Electron density, m^-3"),
-        "NI": ("SIGNAL", "Ion density, m^-3"),
-        "TE": ("SIGNAL", "Electron temperature, eV"),
-        "TI": ("SIGNAL", "Ion temperature of main ion, eV"),
-        "TIZ1": ("SIGNAL", "Ion temperature of impurity IMP1, eV"),
-        "TIZ2": ("SIGNAL", "Ion temperature of impurity IMP2, eV"),
-        "TIZ3": ("SIGNAL", "Ion temperature of impurity IMP3, eV"),
-        "NIZ1": ("SIGNAL", "Density of impurity IMP1, m^-3"),
-        "NIZ2": ("SIGNAL", "Density of impurity IMP2, m^-3"),
-        "NIZ3": ("SIGNAL", "Density of impurity IMP3, m^-3"),
-        "NNEUTR": ("SIGNAL", "Density of neutral main ion, m^-3"),
-        "NFAST": ("SIGNAL", "Density of fast ions, m^-3"),
-        "ZI": ("SIGNAL", "Average charge of main ion, "),
-        "ZIM1": ("SIGNAL", "Average charge of impurity IMP1, "),
-        "ZIM2": ("SIGNAL", "Average charge of impurity IMP2, "),
-        "ZIM3": ("SIGNAL", "Average charge of impurity IMP3, "),
-        "ZEFF": ("SIGNAL", "Effective charge, "),
-        "P": ("SIGNAL", "Pressure,Pa"),
-        "VOLUME": ("SIGNAL", "Volume inside magnetic surface, m^3"),
+        "RHOP": ("NUMERIC", "Rho Poloidal - Square root of normalised poloidal flux"),
+        "NE": ("SIGNAL", "Electron density"),
+        "NI": ("SIGNAL", "Ion density"),
+        "TE": ("SIGNAL", "Electron temperature"),
+        "TI": ("SIGNAL", "Ion temperature"),
+        "NNEUTR": ("SIGNAL", "Thermal neutral density"),
+        "NFAST": ("SIGNAL", "Fast ion density"),
+        "ZEFF": ("SIGNAL", "Effective charge"),
+        "MEANZ": ("SIGNAL", "Average ionic charge"),
+        "PTH": ("SIGNAL", "Thermal particle pressure"),
+        "PFAST": ("SIGNAL", "Fast particle pressure"),
+        "P": ("SIGNAL", "Total pressure"),
+        "NE_ERR": ("SIGNAL", "Electron density error"),
+        "NI_ERR": ("SIGNAL", "Ion density error"),
+        "TE_ERR": ("SIGNAL", "Electron temperature error"),
+        "TI_ERR": ("SIGNAL", "Ion temperature error"),
+        "NNEUTR_ERR": ("SIGNAL", "Thermal neutral density error"),
+        "NFAST_ERR": ("SIGNAL", "Fast ion density error"),
+        "ZEFF_ERR": ("SIGNAL", "Effective charge error"),
+        "MEANZ_ERR": ("SIGNAL", "Average ionic charge"),
+        "PTH_ERR": ("SIGNAL", "Thermal particle pressure error"),
+        "PFAST_ERR": ("SIGNAL", "Fast particle pressure error"),
+        "P_ERR": ("SIGNAL", "Total pressure error"),
     },
     "GLOBAL": {
-        "NE0": ("SIGNAL", "Central electron density, m^-3"),
-        "NI0": ("SIGNAL", "Central ion density, m^-3"),
-        "TE0": ("SIGNAL", "Central electron temperature, eV"),
-        "TI0": ("SIGNAL", "Central ion temperature of main ion, eV"),
-        "TI0Z1": ("SIGNAL", "Central ion temperature of impurity Z1, eV"),
-        "TI0Z2": ("SIGNAL", "Central ion temperature of impurity Z2, eV"),
-        "TI0Z3": ("SIGNAL", "Central ion temperature of impurity Z3, eV"),
-        "NI0Z1": ("SIGNAL", "Central density of impurity Z1, m^-3"),
-        "NI0Z2": ("SIGNAL", "Central density of impurity Z2, m^-3"),
-        "NI0Z3": ("SIGNAL", "Central density of impurity Z3, m^-3"),
-        "NE0_ERR": ("SIGNAL", "Central electron density error, m^-3"),
-        "NI0_ERR": ("SIGNAL", "Central ion density error, m^-3"),
-        "TE0_ERR": ("SIGNAL", "Central electron temperature error, eV"),
-        "TI0_ERR": ("SIGNAL", "Central ion temperature of main ion error, eV"),
-        "TI0Z1_ERR": ("SIGNAL", "Central ion temperature of impurity Z1 error, eV"),
-        "TI0Z2_ERR": ("SIGNAL", "Central ion temperature of impurity Z2 error, eV"),
-        "TI0Z3_ERR": ("SIGNAL", "Central ion temperature of impurity Z3 error, eV"),
-        "NI0Z1_ERR": ("SIGNAL", "Central density of impurity Z1 error, m^-3"),
-        "NI0Z2_ERR": ("SIGNAL", "Central density of impurity Z2 error, m^-3"),
-        "NI0Z3_ERR": ("SIGNAL", "Central density of impurity Z3 error, m^-3"),
-        "WP": ("SIGNAL", "Stored energy, J"),
-        "WTH": ("SIGNAL", "Thermal component of stored energy, J"),
-        "PTOT": ("SIGNAL", "Total pressure, Pa"),
-        "PTH": ("SIGNAL", "Thermal pressure, Pa"),
-        "WP_ERR": ("SIGNAL", "Stored energy error, J"),
-        "WTH_ERR": ("SIGNAL", "Thermal component of stored energy error, J"),
-        "PTOT_ERR": ("SIGNAL", "Total pressure error, Pa"),
-        "PTH_ERR": ("SIGNAL", "Thermal pressure error, Pa"),
+        "VOLUME": ("SIGNAL", "Plasma volume"),
+        "NE0": ("SIGNAL", "Central electron density"),
+        "NI0": ("SIGNAL", "Central ion density"),
+        "TE0": ("SIGNAL", "Central electron temperature"),
+        "TI0": ("SIGNAL", "Central ion temperature"),
+        "NNEUTR0": ("SIGNAL", "Central neutral density"),
+        "NNEUTRB": ("SIGNAL", "Boundary neutral density"),
+        "WP": ("SIGNAL", "Total stored energy"),
+        "WTH": ("SIGNAL", "Thermal component of stored energy"),
+        "ZEFF_AVG": ("SIGNAL", "Average Zeff along midplane"),
+        "NE0_ERR": ("SIGNAL", "Central electron density error"),
+        "NI0_ERR": ("SIGNAL", "Central ion density error"),
+        "TE0_ERR": ("SIGNAL", "Central electron temperature error"),
+        "TI0_ERR": ("SIGNAL", "Central ion temperature error"),
+        "NNEUTR0_ERR": ("SIGNAL", "Central neutral density error"),
+        "NNEUTRB_ERR": ("SIGNAL", "Boundary neutral density error"),
+        "WP_ERR": ("SIGNAL", "Total stored energy error"),
+        "WTH_ERR": ("SIGNAL", "Thermal component of stored energy error"),
+        "ZEFF_AVG_ERR": ("SIGNAL", "Average Zeff along midplane error"),
     },
-    "PHANTOMS": {
-        "FLAG": ("TEXT", "True if phantoms used"),
-        "RHO_POLOIDAL": (
+    "PHANTOM": {
+        "FLAG": ("TEXT", "True if phantom profiles used"),
+        "RHOP": (
             "NUMERIC",
-            "Radial vector, Sqrt of normalised poloidal flux",
+            "Rho Poloidal - Square root of normalised poloidal flux",
         ),
-        "NE": ("SIGNAL", "Electron density, m^-3"),
-        "NI": ("SIGNAL", "Ion density, m^-3"),
-        "TE": ("SIGNAL", "Electron temperature, eV"),
-        "TI": ("SIGNAL", "Ion temperature of main ion, eV"),
-        "TIZ1": ("SIGNAL", "Ion temperature of impurity Z1 , eV"),
-        "TIZ2": ("SIGNAL", "Ion temperature of impurity Z2, eV"),
-        "TIZ3": ("SIGNAL", "Ion temperature of impurity Z3, eV"),
-        "NIZ1": ("SIGNAL", "Impurity density of Z1, m^-3"),
-        "NIZ2": ("SIGNAL", "Impurity density of Z2, m^-3"),
-        "NIZ3": ("SIGNAL", "Impurity density of Z3, m^-3"),
+        "NE": ("SIGNAL", "Electron density"),
+        "NI": ("SIGNAL", "Ion density"),
+        "TE": ("SIGNAL", "Electron temperature"),
+        "TI": ("SIGNAL", "Ion temperature"),
+        "NNEUTR": ("SIGNAL", "Thermal neutral density"),
+        "NFAST": ("SIGNAL", "Fast ion density"),
+        "ZEFF": ("SIGNAL", "Effective charge"),
+        "MEANZ": ("SIGNAL", "Average ionic charge"),
+        "PTH": ("SIGNAL", "Thermal particle pressure"),
+        "PFAST": ("SIGNAL", "Fast particle pressure"),
+        "P": ("SIGNAL", "Total pressure"),
     },
     "OPTIMISATION": {
-        "ACCEPT_FRAC": ("NUMERIC", "Fraction of samples accepted by optimiser"),
-        "AUTO_CORR": ("NUMERIC", "Auto-correlation"),
-        "POST_SAMPLE": ("NUMERIC", "Posterior probability samples"),
-        "PRIOR_SAMPLE": ("NUMERIC", "Prior samples"),
-        "GELMAN_RUBIN": ("NUMERIC", "Gelmin-Rubin convergence diagnostic"),
+        "ACCEPT_FRAC": ("NUMERIC", "Fraction of samples accepted during optimisation"),
+        "AUTO_CORR": ("NUMERIC", "Auto-correlation time traces"),
+        "POST_SAMPLE": ("NUMERIC", "Samples of posterior probability"),
+        "PRIOR_SAMPLE": ("NUMERIC", "Samples of prior probability"),
+        "PARAM_NAMES": ("TEXT", "Optimised parameter names")
+        # "GELMAN_RUBIN": ("NUMERIC", "Gelmin-Rubin convergence diagnostic"),
     },
 }
 
@@ -203,6 +167,7 @@ DIAGNOSTIC_QUANTITY = [
 def create_nodes(
     pulse_to_write=43000000,
     run="RUN01",
+    run_info="Default run",
     best=True,
     diagnostic_quantities=DIAGNOSTIC_QUANTITY,
     mode="EDIT",
@@ -243,15 +208,15 @@ def create_nodes(
     bda_nodes["DIAG_DATA"] = diag_nodes
     bda_nodes["INPUT"]["WORKFLOW"] = workflow_nodes
 
-    tree = "ST40"
-    script_name = "BDA"
-    script_info = "Bayesian Diagnostic Analysis"
+    tree = "BDA"
+    script_name = ""
+    script_info = ""
 
     node_info = util.GetNodeInformation(
         script=None,
         node_information_type="json",
         run_name=run,
-        run_info=run,
+        run_info=run_info,
         script_name=script_name,
         script_info=script_info,
         root_node=None,
@@ -269,16 +234,6 @@ def create_nodes(
         link_BEST_to_run=best,
     )
     return node_info
-
-
-def write_nodes(pulse, node_info, data):
-    util.StandardNodeWriting(
-        pulse_number=pulse,  # pulse number for which data should be written
-        dict_node_info=node_info,  # node information file
-        nodes_to_write=[],  # selective nodes to be written
-        data_to_write=data,
-        debug=False,
-    )
 
 
 def check_to_overwrite_run(
@@ -334,6 +289,17 @@ def query_yes_no(
             sys.stdout.write("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
 
 
+def write_nodes(pulse_to_write, result, node_info, debug=False):
+    util.standard_fn_MDSplus.make_ST40_subtree("BDA", pulse_to_write)
+    util.StandardNodeWriting(
+        pulse_number=pulse_to_write,  # pulse number for which data should be written
+        dict_node_info=node_info,  # node information file
+        nodes_to_write=[],  # selective nodes to be written
+        data_to_write=result,
+        debug=debug,
+    )
+
+
 if __name__ == "__main__":
 
     pulse = 43000000
@@ -344,4 +310,4 @@ if __name__ == "__main__":
         mode = "EDIT"
     else:
         mode = "NEW"
-    create_nodes(pulse_to_write=pulse, mode=mode, run=run)
+    create_nodes(pulse_to_write=pulse, mode=mode, run=run, best=True)

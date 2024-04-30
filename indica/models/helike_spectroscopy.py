@@ -180,13 +180,12 @@ class HelikeSpectrometer(DiagnosticModel):
         Background Noise
 
         """
-        element = self.element
         _spectra = ph.doppler_broaden(
             self.window[self.window > 0].wavelength,
             self.intensity,
             self.intensity.wavelength,
             self.ion_mass,
-            self.Ti.sel(element=element),
+            self.Ti,
         )
         _spectra = _spectra.sum("line_name")
         # extend spectra to same coords as self.window.wavelength with NaNs
@@ -305,7 +304,7 @@ class HelikeSpectrometer(DiagnosticModel):
             ) / emission_sum
 
             Ti_along_los = self.los_transform.map_profile_to_los(
-                self.Ti.sel(element=self.element), t=emission.t
+                self.Ti, t=emission.t
             ).sel(channel=channels)
             measured_Ti[line] = (emission_los * Ti_along_los).sum(
                 "los_position", skipna=True

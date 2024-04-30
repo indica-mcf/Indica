@@ -221,7 +221,7 @@ def get_defaults(datatype: str) -> dict:
             "wcenter": 0.4,
             "wped": 6,
         },
-        "thermal_neutral_density": {  # (m**-3)
+        "neutral_density": {  # (m**-3)
             "y0": 1.0e13,
             "y1": 1.0e15,
             "yend": 1.0e15,
