@@ -10,7 +10,7 @@ from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 
 
-class Profiles:
+class ProfilesGauss:
     def __init__(
         self,
         datatype: str = "electron_temperature",
@@ -20,7 +20,7 @@ class Profiles:
         parameters: dict = None,
     ):
         """
-        Class to build general profiles
+        Class to build general gaussian profiles
 
         Parameters
         ----------

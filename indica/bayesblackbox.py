@@ -1,9 +1,9 @@
 from copy import deepcopy
 import warnings
+from typing import Callable
 
 from flatdict import FlatDict
 import numpy as np
-from scipy.stats import uniform
 
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
@@ -11,11 +11,6 @@ warnings.simplefilter("ignore", category=FutureWarning)
 
 def gaussian(x, mean, sigma):
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-1 / 2 * ((x - mean) / sigma) ** 2)
-
-
-def get_uniform(lower, upper):
-    # Less confusing parameterisation of scipy.stats uniform
-    return uniform(loc=lower, scale=upper - lower)
 
 
 def ln_prior(priors: dict, parameters: dict):
@@ -73,18 +68,15 @@ class BayesBlackBox:
         data: dict,
         quant_to_optimise: list,
         priors: dict,
-        plasma_context=None,
-        model_context=None,
-        percent_error: float = 0.10,
+        build_bckc: Callable,
+        plasma_profiler=None,
     ):
         self.data = data
         self.quant_to_optimise = quant_to_optimise
         self.priors = priors
 
-        self.plasma_context = plasma_context
-        self.model_context = model_context
-
-        self.percent_error = percent_error
+        self.plasma_profiler = plasma_profiler
+        self.build_bckc = build_bckc
 
         missing_data = list(set(quant_to_optimise).difference(data.keys()))
         if missing_data:  # gives list of keys in quant_to_optimise but not data
@@ -92,16 +84,12 @@ class BayesBlackBox:
 
     def ln_likelihood(self):
         ln_likelihood = 0
+        time_coord = self.plasma_profiler.plasma.time_to_calculate
+
         for key in self.quant_to_optimise:
-            time_coord = self.plasma_context.plasma.time_to_calculate
             model_data = self.bckc[key]
             exp_data = self.data[key].sel(t=time_coord)
-            exp_error = exp_data * self.percent_error
-
-            if hasattr(self.data[key], "error"):
-                if (self.data[key].error != 0).any():
-                    # TODO: Some models have an error of 0 given
-                    exp_error = self.data[key].error.sel(t=time_coord)
+            exp_error = self.data[key].error.sel(t=time_coord)
 
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
             # treat channel as key dim which isn't averaged like other dims
@@ -133,11 +121,11 @@ class BayesBlackBox:
         if _ln_prior == -np.inf:  # Don't call models if outside priors
             return -np.inf, {}
 
-        self.plasma_context.update_profiles(parameters)
-        plasma_attributes = self.plasma_context.return_plasma_attrs()
+        self.plasma_profiler(parameters)
+        plasma_attributes = self.plasma_profiler.return_plasma_attributes()
 
         self.bckc = FlatDict(
-            self.model_context._build_bckc(parameters, **kwargs), "."
+            self.build_bckc(parameters, **kwargs), "."
         )  # model calls
 
         _ln_likelihood = self.ln_likelihood()  # compare results to data
