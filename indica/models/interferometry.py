@@ -6,7 +6,7 @@ from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_plasma
+from indica.defaults.load_defaults import load_default_objects
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
@@ -114,7 +114,7 @@ def example_run(pulse: int = None, plasma=None, plot=False):
     if plasma is None:
         from indica.equilibrium import fake_equilibrium
 
-        plasma = example_plasma(pulse=pulse)
+        plasma = load_default_objects("st40", "plasma")
         machine_dims = plasma.machine_dimensions
         equilibrium = fake_equilibrium(
             tstart=plasma.tstart,

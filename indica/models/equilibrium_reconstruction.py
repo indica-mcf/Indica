@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_plasma
+from indica.defaults.load_defaults import load_default_objects
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
 from indica.utilities import check_time_present
@@ -73,7 +73,7 @@ def example_run(
     if plasma is None:
         from indica.equilibrium import fake_equilibrium
 
-        plasma = example_plasma()
+        plasma = load_default_objects("st40", "plasma")
         machine_dims = plasma.machine_dimensions
         equilibrium = fake_equilibrium(
             tstart=plasma.tstart,

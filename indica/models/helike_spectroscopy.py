@@ -6,7 +6,7 @@ from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_plasma
+from indica.defaults.load_defaults import load_default_objects
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
@@ -32,6 +32,7 @@ class HelikeSpectrometer(DiagnosticModel):
     Data and methods to model XRCS spectrometer measurements
 
     TODO: calibration and Etendue to be correctly included
+    TODO: move window to call instead of init
     """
 
     def __init__(
@@ -587,9 +588,7 @@ def example_run(
 ):
     # TODO: LOS sometime crossing bad EFIT reconstruction
     if plasma is None:
-        plasma = example_plasma(
-            pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,), n_rad=10
-        )
+        plasma = load_default_objects("st40", "plasma")
         # plasma.time_to_calculate = plasma.t[3:5]
         # Create new diagnostic
     diagnostic_name = "xrcs"

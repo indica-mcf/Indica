@@ -3,6 +3,7 @@ import pickle
 
 import numpy as np
 
+from indica.defaults.load_defaults import get_filename_default_objects
 from indica.equilibrium import Equilibrium
 from indica.models import Plasma
 from indica.workflows.plasma_profiles import PlasmaProfiles

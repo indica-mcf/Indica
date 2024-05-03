@@ -1,7 +1,6 @@
 from copy import deepcopy
 from functools import lru_cache
 import hashlib
-from pathlib import Path
 import pickle
 from typing import Callable
 from typing import List
@@ -17,7 +16,6 @@ from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import default_atomic_data
 import indica.physics as ph
-from indica.profiles_gauss import Profiles as ProfilesGauss
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
@@ -103,11 +101,6 @@ class Plasma:
         """
         Initialize all class attributes
         """
-
-        self.optimisation: dict = {}
-        self.forward_models: dict = {}
-        self.power_loss_sxr: dict = {}
-        self.power_loss_tot: dict = {}
 
         # Machine attributes
         R0, R1 = self.machine_dimensions[0]
@@ -835,175 +828,3 @@ class CachedCalculation(TrackDependecies):
         if self.verbose:
             print("Calculating")
         return deepcopy(self.operator())
-
-
-class PlasmaProfiles:
-    def __init__(self, plasma: Plasma, profiler_object: Callable = ProfilesGauss):
-        """
-        Interface a Profiler class with a Plasma object to generate plasma profiles
-        and update them.
-
-        Parameters
-        ----------
-        plasma
-            Plasma object
-        profiler
-            Object to generate profiles
-
-        TODO: currently testing keys == datatypes e.g. "electron_temperature" instead of
-              "Te_prof" so that profiler key = plasma attribute.
-        """
-        self.plasma = plasma
-        impurities = plasma.impurities
-
-        # Ion_temperature and toroidal_rotation currently taken as equal for all ion
-        profile_datatypes = [
-            "electron_temperature",
-            "ion_temperature",
-            "electron_density",
-            "neutral_density",
-            "toroidal_rotation",
-        ]
-        profilers: dict = {}
-        for profile_datatype in profile_datatypes:
-            profilers[profile_datatype] = profiler_object(
-                datatype=profile_datatype, xspl=plasma.rho
-            )
-        # Impurities have separate profilers identified by datatype:element, e.g.
-        # impurity_density:c or impurity_density:ar
-        profile_datatype = "impurity_density"
-        for element in impurities:
-            profilers[f"{profile_datatype}:{element}"] = profiler_object(
-                datatype=profile_datatype, xspl=plasma.rho
-            )
-        self.profilers = profilers
-
-    def __call__(self, parameters: dict, t: float = None):
-        """
-        Set parameters of desired profilers and assign to plasma class profiles
-
-        Parameters
-        ----------
-        parameters
-            Flat dictionary of {"datatype.parameter":value} with:
-            - datatype in profiler_dict.keys()
-            - parameter in profiler.profile_parameters.keys().
-            Special case for impurity density:
-                {"datatype:element.parameter":value}
-        """
-        plasma = self.plasma
-        profilers = self.profilers
-        _profiles_to_update: list = []
-
-        # Set all parameters for all profilers
-        for identifier, value in parameters.items():
-            profile_datatype, parameter = identifier.split(".")
-
-            if profile_datatype not in profilers.keys():
-                raise ValueError(f"No profiler available for {profile_datatype}")
-            if not hasattr(profilers[profile_datatype], parameter):
-                raise ValueError(
-                    f"No parameter {parameter} available for {profile_datatype}"
-                )
-            setattr(profilers[profile_datatype], parameter, value)
-            _profiles_to_update.append(profile_datatype)
-
-        if t is None:
-            t = plasma.time_to_calculate
-
-        # Update only desired profiles, distinguish case of impurity_density
-        profiles_to_update = np.unique(_profiles_to_update)
-        for profile_datatype in profiles_to_update:
-            profiler_output = profilers[profile_datatype]()
-            if "impurity_density" in profile_datatype:
-                datatype, element = profile_datatype.split(":")
-                getattr(plasma, datatype).loc[
-                    dict(t=t, element=element)
-                ] = profiler_output
-            else:
-                datatype = profile_datatype
-                getattr(plasma, datatype).loc[dict(t=t)] = profiler_output
-
-
-def example_plasma(
-    machine: str = "st40",
-    pulse: int = None,
-    tstart=0.02,
-    tend=0.1,
-    dt=0.01,
-    main_ion="h",
-    impurities: Tuple[str, ...] = ("c", "ar", "he"),
-    load_from_pkl: bool = True,
-    **kwargs,
-):
-
-    default_plasma_file = (
-        f"{Path(__file__).parent.parent}/data/{machine}_default_plasma_phantom.pkl"
-    )
-
-    if load_from_pkl and pulse is not None:
-        try:
-            print(f"\n Loading phantom plasma class from {default_plasma_file}. \n")
-            return pickle.load(open(default_plasma_file, "rb"))
-        except FileNotFoundError:
-            print(
-                f"\n\n No phantom plasma class file {default_plasma_file}. \n"
-                f" Building it and saving to file. \n\n"
-            )
-
-    # TODO: swap all profiles to new version!
-
-    plasma = Plasma(
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        main_ion=main_ion,
-        impurities=impurities,
-        **kwargs,
-    )
-    plasma.build_atomic_data()
-
-    update_profiles = PlasmaProfiles(plasma)
-
-    # Assign profiles to time-points
-    nt = len(plasma.t)
-    ne_peaking = np.linspace(1, 2, nt)
-    te_peaking = np.linspace(1, 2, nt)
-    _y0 = update_profiles.profilers["toroidal_rotation"].y0
-    vrot0 = np.linspace(
-        _y0 * 1.1,
-        _y0 * 2.5,
-        nt,
-    )
-    vrot_peaking = np.linspace(1, 2, nt)
-
-    _y0 = update_profiles.profilers["ion_temperature"].y0
-    ti0 = np.linspace(_y0 * 1.1, _y0 * 2.5, nt)
-
-    _y0 = update_profiles.profilers[f"impurity_density:{impurities[0]}"].y0
-    nimp_y0 = _y0 * 5 * np.linspace(1, 8, nt)
-    nimp_peaking = np.linspace(1, 5, nt)
-    nimp_wcenter = np.linspace(0.4, 0.1, nt)
-    for i, t in enumerate(plasma.t):
-        parameters = {
-            "electron_temperature.peaking": te_peaking[i],
-            "ion_temperature.peaking": te_peaking[i],
-            "ion_temperature.y0": ti0[i],
-            "toroidal_rotation.peaking": vrot_peaking[i],
-            "toroidal_rotation.y0": vrot0[i],
-            "electron_density.peaking": ne_peaking[i],
-            "impurity_density:ar.peaking": nimp_peaking[i],
-            "impurity_density:ar.y0": nimp_y0[i],
-            "impurity_density:ar.wcenter": nimp_wcenter[i],
-        }
-        update_profiles(parameters, t=t)
-
-    if load_from_pkl and pulse is not None:
-        print(f"\n Saving phantom plasma class in {default_plasma_file} \n")
-        pickle.dump(plasma, open(default_plasma_file, "wb"))
-
-    return plasma
-
-
-if __name__ == "__main__":
-    example_plasma()
