@@ -187,10 +187,10 @@ def _parse_kj34(
     """
     PIXEL_WIDTH = 0.00099
     indices = np.arange(-17, 18)
-    rstart = []
-    rend = []
-    zstart = []
-    zend = []
+    xloc = []
+    xdir = []
+    zloc = []
+    zdir = []
     for line in data:
         (
             label,
@@ -212,17 +212,17 @@ def _parse_kj34(
             theta = np.radians(float(theta_chip)) + int(gamma) * np.arctan2(
                 indices * PIXEL_WIDTH, f
             )
-            rstart.append(rs)
-            zstart.append(zs)
-            rend.append(rs + np.cos(theta))
-            zend.append(zs + np.sin(theta))
-    rstart = np.concatenate(rstart)  # type: ignore
-    rend = np.concatenate(rend)
-    zstart = np.concatenate(zstart)  # type: ignore
-    zend = np.concatenate(zend)
-    Tstart = np.zeros_like(rstart, dtype=float)
-    Tend = np.zeros_like(rend, dtype=float)
-    return rstart, rend, zstart, zend, Tstart, Tend  # type: ignore
+            xloc.append(rs)
+            zloc.append(zs)
+            xdir.append(np.cos(theta))
+            zdir.append(np.sin(theta))
+    xloc = np.concatenate(xloc)  # type: ignore
+    xdir = np.concatenate(xdir)
+    zloc = np.concatenate(zloc)  # type: ignore
+    zdir = np.concatenate(zdir)
+    yloc = np.zeros_like(xloc, dtype=float)
+    ydir = np.zeros_like(xdir, dtype=float)
+    return xloc, xdir, zloc, zdir, yloc, ydir  # type: ignore
 
 
 SURF_PARSERS = {
