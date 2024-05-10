@@ -516,13 +516,12 @@ class PPFReader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
         for q in quantities:
-            qtime = q + "_times"
             records = [SURF_PATH.name]
             if instrument == "bolo":
                 qval, qpath = self._get_signal(uid, instrument, q, revision)
                 records.append(qpath)
-                results["length"][q] = qval.dimensions[1].length
-                results[qtime] = qval.dimensions[0].data
+                results["length"] = qval.dimensions[1].length
+                results["times"] = qval.dimensions[0].data
                 results[q] = qval.data
                 channels: Union[List[int], slice] = slice(None, None)
             else:
@@ -538,8 +537,8 @@ class PPFReader(DataReader):
                     records.append(q_path)
                     luminosities.append(qval.data)
                     channels.append(i - 1)
-                    if qtime not in results:
-                        results[qtime] = qval.dimensions[0].data
+                    if "times" not in results:
+                        results["times"] = qval.dimensions[0].data
                 if len(channels) == 0:
                     # TODO: Try getting information on the INSTRUMENT (DDA in JET),
                     #  to determine if the failure is actually due to requesting
@@ -549,20 +548,18 @@ class PPFReader(DataReader):
                         f"{revision:d}"
                     )
                     raise PPFError(f"No channels available for {instrument}/{q}.")
-                results["length"][q] = len(channels)
+                results["length"] = len(channels)
                 results[q] = np.array(luminosities).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
             xstart, xend, zstart, zend, ystart, yend = surf_los.read_surf_los(
                 SURF_PATH, self.pulse, instrument.lower() + "/" + q.lower()
             )
-            results[q + "_xstart"] = xstart[channels]
-            results[q + "_xstop"] = xend[channels]
-            results[q + "_zstart"] = zstart[channels]
-            results[q + "_zstop"] = zend[channels]
-            results[q + "_ystart"] = ystart[channels]
-            results[q + "_ystop"] = yend[channels]
+            location = np.asarray([xstart, ystart, zstart])
+            direction = np.asarray([xend, yend, zend]) - location
 
+        results["location"] = location.transpose()
+        results["direction"] = direction.transpose()
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
@@ -584,17 +581,18 @@ class PPFReader(DataReader):
             los, l_path = self._get_signal(uid, los_instrument, "los" + q[-1], revision)
             if "times" not in results:
                 results["times"] = qval.dimensions[0].data
-            results["length"][q] = 1
+            results["length"] = 1
             results[q] = qval.data
             results[q + "_error"] = 0.0 * results[q]
-            results[q + "_xstart"] = np.array([los.data[1] / 1000])
-            results[q + "_xstop"] = np.array([los.data[4] / 1000])
-            results[q + "_zstart"] = np.array([los.data[2] / 1000])
-            results[q + "_zstop"] = np.array([los.data[5] / 1000])
-            results[q + "_ystart"] = np.zeros_like(results[q + "_xstart"])
-            results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
+            location = np.asarray([[(los.data[1] / 1000)], [0], [(los.data[2] / 1000)]])
+            direction = (
+                np.asarray([[(los.data[4] / 1000)], [0], [(los.data[5] / 1000)]])
+                - location
+            )
             results[q + "_records"] = [q_path, l_path]
 
+        results["location"] = location.transpose()
+        results["direction"] = direction.transpose()
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
