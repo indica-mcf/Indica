@@ -11,9 +11,9 @@ import xarray as xr
 from indica.bayesblackbox import BayesBlackBox
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.workflows.data_context import DataContext
-from indica.workflows.model_context import ModelContext
+from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.optimiser_context import EmceeOptimiser
-from indica.workflows.plasma_profiles import PlasmaProfiles
+from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import does_tree_exist
 from indica.writers.bda_tree import write_nodes
@@ -69,20 +69,20 @@ class BayesWorkflow:
         self,
         blackbox_settings: BayesBBSettings,
         data_context: DataContext,
-        plasma_profiler: PlasmaProfiles,
-        model_context: ModelContext,
+        plasma_profiler: PlasmaProfiler,
+        ModelCoordinator: ModelCoordinator,
         optimiser_context: EmceeOptimiser,
     ):
         self.blackbox_settings = blackbox_settings
         self.data_context = data_context
         self.plasma_profiler = plasma_profiler
-        self.model_context = model_context
+        self.model_coordinator = ModelCoordinator
         self.optimiser_context = optimiser_context
 
         self.blackbox = BayesBlackBox(
             data=self.data_context.opt_data,
             plasma_profiler=self.plasma_profiler,
-            build_bckc=self.model_context.build_bckc,
+            build_bckc=self.model_coordinator.__call__,
             quant_to_optimise=self.blackbox_settings.opt_quantity,
             priors=self.blackbox_settings.priors,
         )

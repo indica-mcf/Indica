@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+import numpy as np
 from typing import Optional, Callable
 import flatdict
 
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.models.charge_exchange import pi_transform_example
 from indica.models.helike_spectroscopy import helike_transform_example
 from indica.models.interferometry import smmh1_transform_example

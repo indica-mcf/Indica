@@ -161,6 +161,6 @@ if __name__ == "__main__":
     gauss_profilers = initialise_gauss_profilers(DEFAULT_PROFILE_PARAMS, xspl=plasma.rho)
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=gauss_profilers)
 
-    plasma_profiler(parameters={"electron_density.y0": 2e19, "electron_density.y1":1e19, "electron_density.yend":1e19})
+    plasma_profiler(parameters={"electron_density.y0": 10e19, "electron_density.y1":1e19, "electron_density.yend":1e19})
     plasma_profiler.profilers["electron_density"].plot()
     plt.show()
