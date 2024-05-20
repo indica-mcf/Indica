@@ -30,6 +30,7 @@ INSTRUMENTS: list = [
     "ts",
     "pi",
     "tws_c",
+    "ppts",
 ]
 
 FILTER_LIMITS = {
@@ -46,6 +47,7 @@ FILTER_LIMITS = {
     "sxrc_xy2": {"brightness": (0, np.inf)},
     "blom_xy1": {"brightness": (0, np.inf)},
     "ts": {"te": (0, np.inf), "ne": (0, np.inf)},
+    "ppts": {"te_rho": (1, np.inf), "ne_rho": (1, np.inf), "te_R": (1, np.inf), "ne_R": (1, np.inf)},
     "pi": {"spectra": (0, np.inf)},
     "tws_c": {"spectra": (0, np.inf)},
 }
@@ -141,25 +143,27 @@ class ReadST40:
 
     def bin_data_in_time(
         self,
-        instruments: list,
+        raw_data: dict,
         tstart: float = 0.02,
         tend: float = 0.1,
         dt: float = 0.01,
     ):
-        for instr in instruments:
+        binned_data = {}
+        for instr in raw_data.keys():
             if self.debug:
                 print(instr)
             binned_quantities = {}
-            for quant in self.raw_data[instr].keys():
+            for quant in raw_data[instr].keys():
                 if self.debug:
                     print(f"   {quant}")
-                data_quant = deepcopy(self.raw_data[instr][quant])
+                data_quant = deepcopy(raw_data[instr][quant])
 
                 if "t" in data_quant.coords:
                     data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
 
                 binned_quantities[quant] = data_quant
-            self.binned_data[instr] = binned_quantities
+            binned_data[instr] = binned_quantities
+        return binned_data
 
     def map_diagnostics(self, instruments: list, map_raw: bool = False):
         if len(self.binned_data) == 0:
@@ -186,23 +190,20 @@ class ReadST40:
                     else:
                         break
 
-    def filter_data(self, instruments: list):
-
-        if not hasattr(self, "binned_data"):
-            raise ValueError(
-                "Bin data before filtering. No action permitted on raw data structure!"
-            )
-
-        for instr in instruments:
-            if instr not in FILTER_LIMITS.keys():
+    def filter_data(self, data: dict):
+        filtered_data = {}
+        for instrument, quantities in data.items():
+            if instrument not in FILTER_LIMITS.keys():
+                print(f"no data filter for {instrument}")
                 continue
 
-            quantities = list(self.binned_data[instr])
-            filter_general(
-                self.binned_data[instr],
-                quantities,
-                limits=FILTER_LIMITS[instr],
-            )
+            filtered_data[instrument] = {}
+            for quantity_name, quantity in quantities.items():
+                if quantity_name not in FILTER_LIMITS[instrument]:
+                    continue
+                limits = FILTER_LIMITS[instrument][quantity_name]
+                filtered_data[instrument][quantity_name] = filter_general(quantity, limits = limits)
+            return filtered_data
 
     def filter_ts(self, chi2_limit: float = 3.0):
         if "ts" not in self.binned_data.keys():
@@ -364,22 +365,19 @@ class ReadST40:
 
         instruments = list(self.raw_data)
 
-        print_like("Binning in time")
-        self.bin_data_in_time(instruments, tstart=tstart, tend=tend, dt=dt)
         print_like("Filtering")
-        self.filter_data(instruments)
+        self.filtered_data = self.filter_data(self.raw_data)
+        print_like("Binning in time")
+        self.binned_data = self.bin_data_in_time(self.filtered_data, tstart=tstart, tend=tend, dt=dt)
         self.filter_ts(chi2_limit=chi2_limit)
         if map_diagnostics or map_raw:
             print_like("Mapping to equilibrium")
             self.map_diagnostics(instruments, map_raw=map_raw)
 
 
-def filter_general(data: DataArray, quantities: list, limits: dict):
-    for quantity in quantities:
-        if quantity in limits.keys():
-            lim = limits[quantity]
-            attrs = data[quantity].attrs
-            condition = (data[quantity] >= lim[0]) * (data[quantity] < lim[1])
-            filtered = xr.where(condition, data[quantity], np.nan)
-            filtered.attrs = attrs
-            data[quantity] = filtered
+def filter_general(data: DataArray, limits: tuple):
+    attrs = data.attrs
+    condition = (data >= limits[0]) * (data < limits[1])
+    filtered = xr.where(condition, data, np.nan)
+    filtered.attrs = attrs
+    return filtered

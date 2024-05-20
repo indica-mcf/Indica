@@ -27,6 +27,7 @@ class ST40Conf:
             "sxr_mid4": "get_radiation",
             "blom_xy1": "get_radiation",
             "astra": "get_astra",
+            "ppts": "get_ppts",
         }
         self.UIDS_MDS = {
             "xrcs": "sxr",
@@ -143,6 +144,18 @@ class ST40Conf:
                 "pe": ".profiles:pe",
                 "chi2": ".profiles:chi2",
             },
+            "ppts": {
+                "ne_rho": ".profiles.psi_norm:ne",
+                "te_rho": ".profiles.psi_norm:te",
+                "pe_rho": ".profiles.psi_norm:pe",
+                "ne_R": ".profiles.r_midplane:ne",
+                "te_R": ".profiles.r_midplane:te",
+                "pe_R": ".profiles.r_midplane:pe",
+                "ne_data": ".profiles.inputs:ne",
+                "te_data": ".profiles.inputs:te",
+                "pe_data": ".profiles.inputs:pe",
+            },
+
             "astra": {
                 "f": ".profiles.psi_norm:fpol",
                 "faxs": ".global:faxs",

@@ -23,12 +23,12 @@ from indica.utilities import format_dataarray
 
 
 def instatiate_line_of_sight(
-    location: OnlyArray,
-    direction: OnlyArray,
-    instrument: str,
-    machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]],
-    dl: float,
-    passes: int,
+        location: OnlyArray,
+        direction: OnlyArray,
+        instrument: str,
+        machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]],
+        dl: float,
+        passes: int,
 ) -> LineOfSightTransform:
     return LineOfSightTransform(
         location[:, 0],
@@ -71,10 +71,10 @@ class DataReader(BaseIO):
     NAMESPACE: Tuple[str, str] = ("experiment", "server")
 
     def __init__(
-        self,
-        tstart: float,
-        tend: float,
-        **kwargs: Any,
+            self,
+            tstart: float,
+            tend: float,
+            **kwargs: Any,
     ):
         """This should be called by constructors on subtypes.
 
@@ -94,12 +94,12 @@ class DataReader(BaseIO):
         self._start_time = None
 
     def get(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike = 0,
-        quantities: Set[str] = set(),
-        **kwargs,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike = 0,
+            quantities: Set[str] = set(),
+            **kwargs,
     ) -> Dict[str, DataArray]:
         """Reads data for the requested instrument. In general this will be
         the method you want to use when reading.
@@ -134,12 +134,12 @@ class DataReader(BaseIO):
         return method(uid, instrument, revision, quantities, **kwargs)
 
     def get_thomson_scattering(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        **kwargs,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            **kwargs,
     ) -> Dict[str, DataArray]:
         """
         Reads data based on Thomson Scattering.
@@ -171,11 +171,11 @@ class DataReader(BaseIO):
         return data
 
     def _get_thomson_scattering(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Gets raw data for Thomson scattering from the database
@@ -185,14 +185,62 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
+    def get_ppts(self,
+                 uid: str,
+                 instrument: str,
+                 revision: RevisionLike,
+                 quantities: Set[str],
+                 ) -> Dict[str, Any]:
+        database_results = self._get_ppts(
+            uid, instrument, revision, quantities
+        )
+        data = {}
+        database_results["channel"] = np.arange(database_results["length"])
+
+        for quantity in quantities:
+            if "_R" in quantity:
+                dims = ["t", "R_midplane"]
+            elif "_rho" in quantity:
+                dims = ["t", "rho_poloidal"]
+            elif "_data" in quantity:
+                dims = ["t", "channel"]
+            else:
+                raise ValueError(f"Unknown quantity: {quantity}")
+
+            data[quantity] = self.assign_dataarray(
+                instrument,
+                quantity,
+                database_results,
+                dims,
+                transform=None,
+            )
+
+        return data
+
+
+    def _get_ppts(
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """
+        Gets raw data for CXRS diagnostic from the database
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a '_get_ppts' "
+            "method."
+        )
+
     def get_charge_exchange(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            dl: float = 0.005,
+            passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads Charge-exchange-spectroscopy data
@@ -241,11 +289,11 @@ class DataReader(BaseIO):
         return data
 
     def _get_charge_exchange(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Gets raw data for CXRS diagnostic from the database
@@ -256,13 +304,13 @@ class DataReader(BaseIO):
         )
 
     def get_spectrometer(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            dl: float = 0.005,
+            passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads spectroscopy data
@@ -311,12 +359,12 @@ class DataReader(BaseIO):
         return data
 
     def _get_spectrometer(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = None,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            dl: float = None,
     ) -> Dict[str, Any]:
         """
         Gets raw data for CXRS diagnostic from the database
@@ -327,12 +375,12 @@ class DataReader(BaseIO):
         )
 
     def get_equilibrium(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        **kwargs,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            **kwargs,
     ) -> Dict[str, DataArray]:
         """
         Reads equilibrium data
@@ -396,11 +444,11 @@ class DataReader(BaseIO):
         return data
 
     def _get_equilibrium(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Gets raw data for equilibrium from the database
@@ -411,22 +459,22 @@ class DataReader(BaseIO):
         )
 
     def get_cyclotron_emissions(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            dl: float = 0.005,
+            passes: int = 1,
     ) -> Dict[str, DataArray]:
         raise NotImplementedError("Needs to be reimplemented")
 
     def _get_cyclotron_emissions(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Gets raw data for electron cyclotron emission diagnostic data from the database.
@@ -437,13 +485,13 @@ class DataReader(BaseIO):
         )
 
     def get_radiation(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            dl: float = 0.005,
+            passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads data from radiation diagnostics e.g. bolometry and SXR
@@ -480,11 +528,11 @@ class DataReader(BaseIO):
         return data
 
     def _get_radiation(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Gets raw data for radiation diagnostics from the database
@@ -495,13 +543,13 @@ class DataReader(BaseIO):
         )
 
     def get_bremsstrahlung_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            dl: float = 0.005,
+            passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads spectroscopic measurements of effective charge
@@ -538,11 +586,11 @@ class DataReader(BaseIO):
         return data
 
     def _get_bremsstrahlung_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Gets raw spectroscopic data for effective charge from the database
@@ -553,13 +601,13 @@ class DataReader(BaseIO):
         )
 
     def get_helike_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            dl: float = 0.005,
+            passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads spectroscopic measurements of He-like emission
@@ -601,11 +649,11 @@ class DataReader(BaseIO):
         return data
 
     def _get_helike_spectroscopy(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Reads spectroscopic measurements of He-like emission data from database
@@ -616,13 +664,13 @@ class DataReader(BaseIO):
         )
 
     def get_diode_filters(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            dl: float = 0.005,
+            passes: int = 1,
     ) -> Dict[str, DataArray]:
         """
         Reads filtered radiation diodes
@@ -660,11 +708,11 @@ class DataReader(BaseIO):
         return data
 
     def _get_diode_filters(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Reads filtered radiation diodes data from database
@@ -675,13 +723,13 @@ class DataReader(BaseIO):
         )
 
     def get_interferometry(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 2,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            dl: float = 0.005,
+            passes: int = 2,
     ) -> Dict[str, DataArray]:
         """
         Reads interferometer diagnostic data
@@ -717,11 +765,11 @@ class DataReader(BaseIO):
         return data
 
     def _get_interferometry(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Reads interferometer diagnostic data from database
@@ -732,12 +780,12 @@ class DataReader(BaseIO):
         )
 
     def get_astra(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        **kwargs,
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+            **kwargs,
     ) -> Dict[str, DataArray]:
         """
         Reads ASTRA data
@@ -824,11 +872,11 @@ class DataReader(BaseIO):
         return data
 
     def _get_astra(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         Reads ASTRA data from database
@@ -849,13 +897,13 @@ class DataReader(BaseIO):
             return self._AVAILABLE_QUANTITIES[self.INSTRUMENT_METHODS[instrument]]
 
     def assign_dataarray(
-        self,
-        instrument: str,
-        quantity: str,
-        database_results: Dict[str, DataArray],
-        dims: List[str],
-        transform=None,
-        include_error: bool = True,
+            self,
+            instrument: str,
+            quantity: str,
+            database_results: Dict[str, DataArray],
+            dims: List[str],
+            transform=None,
+            include_error: bool = True,
     ) -> DataArray:
         """
 
