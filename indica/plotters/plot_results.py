@@ -40,7 +40,7 @@ def read_modelling_runs(
     code_reader = ReadST40(pulse, tstart, tend, dt=dt, tree=code)
     for run in runs:
         code_raw_data[run] = code_reader.get_raw_data("", code, run)
-        code_binned_data[run] = code_reader.bin_data_in_time([code], tstart, tend, dt)
+        code_binned_data[run] = code_reader.bin_data_in_time(code_reader.raw_data, tstart, tend, dt)
 
     return code_raw_data, code_binned_data
 
