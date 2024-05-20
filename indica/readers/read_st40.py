@@ -50,8 +50,10 @@ FILTER_LIMITS = {
     "ppts": {
         "te_rho": (1, np.inf),
         "ne_rho": (1, np.inf),
+        "pe_rho": (1, np.inf),
         "te_R": (1, np.inf),
         "ne_R": (1, np.inf),
+        "pe_R": (1, np.inf),
     },
     "pi": {"spectra": (0, np.inf)},
     "tws_c": {"spectra": (0, np.inf)},
@@ -59,6 +61,7 @@ FILTER_LIMITS = {
 
 LINESTYLES = {
     "ts": "solid",
+    "ppts": "dashed",
     "cxff_pi": "solid",
     "cxff_tws_c": "dashed",
     "cxqf_tws_c": "dotted",
@@ -67,6 +70,7 @@ LINESTYLES = {
 }
 MARKERS = {
     "ts": "o",
+    "ppts": "x",
     "cxff_pi": "s",
     "cxff_tws_c": "*",
     "cxqf_tws_c": "x",
@@ -196,7 +200,7 @@ class ReadST40:
                         break
 
     def filter_data(self, data: dict):
-        filtered_data = {}
+        filtered_data: dict = {}
         for instrument, quantities in data.items():
             if instrument not in FILTER_LIMITS.keys():
                 print(f"no data filter for {instrument}")
