@@ -2,7 +2,6 @@
 #       quantities have corresponding DATATYPE
 
 
-
 class ST40Conf:
     def __init__(self):
         self.READER = "indica.ST40Reader"
@@ -156,7 +155,6 @@ class ST40Conf:
                 "te_data": ".profiles.inputs:te",
                 "pe_data": ".profiles.inputs:pe",
             },
-
             "astra": {
                 "f": ".profiles.psi_norm:fpol",
                 "faxs": ".global:faxs",

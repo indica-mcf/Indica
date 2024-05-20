@@ -51,13 +51,13 @@ class ST40Reader(DataReader):
     """
 
     def __init__(
-            self,
-            pulse: int,
-            tstart: float,
-            tend: float,
-            server: str = "smaug",
-            tree: str = "ST40",
-            default_error: float = 0.05,
+        self,
+        pulse: int,
+        tstart: float,
+        tend: float,
+        server: str = "smaug",
+        tree: str = "ST40",
+        default_error: float = 0.05,
     ):
         self._reader_cache_id = f"st40:{server.replace('-', '_')}:{pulse}"
         self.NAMESPACE: Tuple[str, str] = ("st40", server)
@@ -86,11 +86,11 @@ class ST40Reader(DataReader):
         self._get_revision = self.mdsutils.get_best_revision
 
     def _get_equilibrium(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for plasma equilibrium."""
 
@@ -141,11 +141,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_astra(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch data from ASTRA run."""
 
@@ -195,11 +195,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_radiation(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch data from SXR cameras."""
 
@@ -254,11 +254,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_helike_spectroscopy(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
@@ -319,11 +319,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_charge_exchange(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
@@ -415,12 +415,12 @@ class ST40Reader(DataReader):
         return results
 
     def _get_spectrometer(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
-            dl: float = None,
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+        dl: float = None,
     ) -> Dict[str, Any]:
 
         if len(uid) == 0 and instrument in self.UIDS_MDS:
@@ -482,11 +482,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_diode_filters(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         TODO: labels are np.bytes_ type...is this correct?
@@ -547,11 +547,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_interferometry(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """
         TODO: SMMH 2023 launcher/receiver cross plasma on different poloidal paths!
@@ -622,7 +622,7 @@ class ST40Reader(DataReader):
                     self.QUANTITIES_MDS[instrument][q] + "_syserr",
                     revision,
                 )
-                results[q + "_error"] = np.sqrt(qval_err ** 2 + qval_syserr ** 2)
+                results[q + "_error"] = np.sqrt(qval_err**2 + qval_syserr**2)
                 results[q + "_error" + "_records"] = [q_path_err, q_path_err]
             except TreeNNF:
                 results[q + "_error"] = results[q + "_error"]
@@ -635,11 +635,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_thomson_scattering(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
         """Fetch raw data for electron temperature or number density
         calculated from Thomson scattering.
@@ -702,29 +702,40 @@ class ST40Reader(DataReader):
 
         return results
 
-    def _get_ppts(self,
-                  uid: str,
-                  instrument: str,
-                  revision: RevisionLike,
-                  quantities: Set[str],
-                  ) -> Dict[str, Any]:
+    def _get_ppts(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
             "length": {},
-            "revision": self._get_revision(uid, instrument)
+            "revision": self._get_revision(uid, instrument),
         }
         revision = results["revision"]
 
         time, time_path = self._get_signal(uid, instrument, ":time", revision)
         rshift, _ = self._get_signal(uid, instrument, ".global:rshift", revision)
         rhop, _ = self._get_signal(uid, instrument, ".profiles.psi_norm:rhop", revision)
-        rpos, _ = self._get_signal(uid, instrument, ".profiles.r_midplane:rpos", revision)
-        zpos, _ = self._get_signal(uid, instrument, ".profiles.r_midplane:rpos", revision)
+        rpos, _ = self._get_signal(
+            uid, instrument, ".profiles.r_midplane:rpos", revision
+        )
+        zpos, _ = self._get_signal(
+            uid, instrument, ".profiles.r_midplane:rpos", revision
+        )
         zpos *= 0  # TODO fix path when data is present
 
-        rhop_data, _ = self._get_signal(uid, instrument, ".profiles.inputs:rhop", revision)
-        rpos_data, _ = self._get_signal(uid, instrument, ".profiles.inputs:rpos", revision)
-        zpos_data, _ = self._get_signal(uid, instrument, ".profiles.inputs:zpos", revision)
+        rhop_data, _ = self._get_signal(
+            uid, instrument, ".profiles.inputs:rhop", revision
+        )
+        rpos_data, _ = self._get_signal(
+            uid, instrument, ".profiles.inputs:rpos", revision
+        )
+        zpos_data, _ = self._get_signal(
+            uid, instrument, ".profiles.inputs:zpos", revision
+        )
 
         results["rho_poloidal"] = rhop
         results["R_midplane"] = rpos

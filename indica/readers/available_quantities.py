@@ -37,7 +37,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "ti_z": "ion_temperature",
         "spectra": "spectra",
     },
-
     "get_ppts": {
         "ne_rho": "electron_density",
         "te_rho": "electron_temperature",
@@ -49,7 +48,6 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "te_data": "electron_temperature",
         "pe_data": "electron_pressure",
     },
-
     "get_diode_filters": {
         "brightness": "brightness",
     },

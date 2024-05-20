@@ -47,7 +47,12 @@ FILTER_LIMITS = {
     "sxrc_xy2": {"brightness": (0, np.inf)},
     "blom_xy1": {"brightness": (0, np.inf)},
     "ts": {"te": (0, np.inf), "ne": (0, np.inf)},
-    "ppts": {"te_rho": (1, np.inf), "ne_rho": (1, np.inf), "te_R": (1, np.inf), "ne_R": (1, np.inf)},
+    "ppts": {
+        "te_rho": (1, np.inf),
+        "ne_rho": (1, np.inf),
+        "te_R": (1, np.inf),
+        "ne_R": (1, np.inf),
+    },
     "pi": {"spectra": (0, np.inf)},
     "tws_c": {"spectra": (0, np.inf)},
 }
@@ -200,10 +205,14 @@ class ReadST40:
             filtered_data[instrument] = {}
             for quantity_name, quantity in quantities.items():
                 if quantity_name not in FILTER_LIMITS[instrument]:
-                    filtered_data[instrument][quantity_name] = deepcopy(data[instrument][quantity_name])
+                    filtered_data[instrument][quantity_name] = deepcopy(
+                        data[instrument][quantity_name]
+                    )
                     continue
                 limits = FILTER_LIMITS[instrument][quantity_name]
-                filtered_data[instrument][quantity_name] = filter_general(quantity, limits = limits)
+                filtered_data[instrument][quantity_name] = filter_general(
+                    quantity, limits=limits
+                )
             return filtered_data
 
     def filter_ts(self, chi2_limit: float = 3.0):
@@ -218,7 +227,6 @@ class ReadST40:
             filtered = xr.where(condition, self.binned_data["ts"][quantity], np.nan)
             filtered.attrs = attrs
             self.binned_data["ts"][quantity] = filtered
-
 
     # def add_mhd(self):
     #     t_slice = slice(self.tstart, self.tend)
@@ -370,7 +378,9 @@ class ReadST40:
         print_like("Filtering")
         self.filtered_data = self.filter_data(self.raw_data)
         print_like("Binning in time")
-        self.binned_data = self.bin_data_in_time(self.filtered_data, tstart=tstart, tend=tend, dt=dt)
+        self.binned_data = self.bin_data_in_time(
+            self.filtered_data, tstart=tstart, tend=tend, dt=dt
+        )
         self.filter_ts(chi2_limit=chi2_limit)
         if map_diagnostics or map_raw:
             print_like("Mapping to equilibrium")
