@@ -159,7 +159,9 @@ def read_modelling_runs(
     for run in runs:
         try:
             code_raw_data[run] = code_reader.get_raw_data("", code, run)
-            code_binned_data[run] = code_reader.bin_data_in_time(code_reader.raw_data, tstart, tend, dt)
+            code_binned_data[run] = code_reader.bin_data_in_time(
+                code_reader.raw_data, tstart, tend, dt
+            )
         except TreeNODATA:
             print(f"   no data for {run}")
 
