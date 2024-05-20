@@ -200,6 +200,7 @@ class ReadST40:
             filtered_data[instrument] = {}
             for quantity_name, quantity in quantities.items():
                 if quantity_name not in FILTER_LIMITS[instrument]:
+                    filtered_data[instrument][quantity_name] = deepcopy(data[instrument][quantity_name])
                     continue
                 limits = FILTER_LIMITS[instrument][quantity_name]
                 filtered_data[instrument][quantity_name] = filter_general(quantity, limits = limits)
