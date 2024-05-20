@@ -22,6 +22,7 @@ from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 
 
+
 def instatiate_line_of_sight(
         location: OnlyArray,
         direction: OnlyArray,

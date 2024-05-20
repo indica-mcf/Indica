@@ -2,6 +2,7 @@
 #       quantities have corresponding DATATYPE
 
 
+
 class ST40Conf:
     def __init__(self):
         self.READER = "indica.ST40Reader"

@@ -219,6 +219,7 @@ class ReadST40:
             filtered.attrs = attrs
             self.binned_data["ts"][quantity] = filtered
 
+
     # def add_mhd(self):
     #     t_slice = slice(self.tstart, self.tend)
     #     rev = 0
