@@ -362,17 +362,12 @@ class ReadST40:
         self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
         for instrument in instruments:
             print(f"Reading {instrument}")
-            try:
-                self.get_raw_data(
-                    "",
-                    instrument,
-                    revisions[instrument],
-                    set_equilibrium=set_equilibrium,
-                )
-            except Exception as e:
-                print(f"Error reading {instrument}: {e}")
-                if debug:
-                    raise e
+            self.get_raw_data(
+                "",
+                instrument,
+                revisions[instrument],
+                set_equilibrium=set_equilibrium,
+            )
 
         if raw_only:
             return
