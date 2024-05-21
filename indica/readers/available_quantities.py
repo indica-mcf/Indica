@@ -47,6 +47,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "ne_data": "electron_density",
         "te_data": "electron_temperature",
         "pe_data": "electron_pressure",
+        "rshift": "major_radius_shift",
     },
     "get_diode_filters": {
         "brightness": "brightness",

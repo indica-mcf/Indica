@@ -192,10 +192,11 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
+
         database_results = self._get_ppts(uid, instrument, revision, quantities)
-        data = {}
         database_results["channel"] = np.arange(database_results["length"])
 
+        data = {}
         for quantity in quantities:
             if "_R" in quantity:
                 dims = ["t", "R_midplane"]
@@ -203,8 +204,11 @@ class DataReader(BaseIO):
                 dims = ["t", "rho_poloidal"]
             elif "_data" in quantity:
                 dims = ["t", "channel"]
+            elif "rshift" in quantity:
+                dims = ["t"]
             else:
                 raise ValueError(f"Unknown quantity: {quantity}")
+
 
             data[quantity] = self.assign_dataarray(
                 instrument,

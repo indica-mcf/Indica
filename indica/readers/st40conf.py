@@ -154,6 +154,7 @@ class ST40Conf:
                 "ne_data": ".profiles.inputs:ne",
                 "te_data": ".profiles.inputs:te",
                 "pe_data": ".profiles.inputs:pe",
+                "rshift": ".global:rshift",
             },
             "astra": {
                 "f": ".profiles.psi_norm:fpol",
