@@ -157,6 +157,7 @@ def test_ts(instrument_name: str = "ts"):
     data, database_results = run_reader_get_methods(instrument_name)
     check_transforms(instrument_name, data)
 
+
 def test_ppts(instrument_name: str = "ppts"):
     data, database_results = run_reader_get_methods(instrument_name)
     check_transforms(instrument_name, data)
