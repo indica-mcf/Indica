@@ -560,6 +560,8 @@ class Equilibrium:
             z_ax = self.zmag
             t = self.rho.coords["t"]
             z_x_point = self.zx
+            _z = _z.interp(t=t, kwargs={"fill_value": 0})
+            _R = _R.interp(t=t, kwargs={"fill_value": 0})
 
         # TODO: rho and theta dimensions not in the same order...
         rho = rho.interp(R=_R, z=_z)
