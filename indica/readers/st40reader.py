@@ -738,10 +738,10 @@ class ST40Reader(DataReader):
         )
 
         results["rho_poloidal"] = rhop
-        results["R_midplane"] = rpos
+        results["rpos"] = rpos
         results["zpos"] = zpos
         results["rho_poloidal_data"] = rhop_data
-        results["R_midplane_data"] = rpos_data
+        results["rpos_data"] = rpos_data
         results["zpos_data"] = zpos_data
 
         results["length"] = len(rpos_data)
