@@ -195,10 +195,17 @@ class DataReader(BaseIO):
 
         database_results = self._get_ppts(uid, instrument, revision, quantities)
         database_results["channel"] = np.arange(database_results["length"])
-        database_results["R_midplane"] = database_results["rpos"]  # necessary because of assign_dataarray...
+        database_results["R_midplane"] = database_results[
+            "rpos"
+        ]  # necessary because of assign_dataarray...
 
-        coords = [("t", database_results["t"]), ("channel", database_results["channel"])]
-        rho_poloidal_coords = xr.DataArray(database_results["rho_poloidal_data"], coords=coords)
+        coords = [
+            ("t", database_results["t"]),
+            ("channel", database_results["channel"]),
+        ]
+        rho_poloidal_coords = xr.DataArray(
+            database_results["rho_poloidal_data"], coords=coords
+        )
         rpos_coords = xr.DataArray(database_results["rpos_data"], coords=[coords[1]])
         zpos_coords = xr.DataArray(database_results["zpos_data"], coords=[coords[1]])
 
