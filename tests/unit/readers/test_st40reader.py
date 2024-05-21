@@ -18,6 +18,8 @@ INSTRUMENT_INFO: dict = {
     "cxff_tws_c": ("", "cxff_tws_c", 0, set()),
     "pi": ("", "pi", 0, set()),
     "tws_c": ("", "tws_c", 0, set()),
+    "ts": ("", "ts", 0, set()),
+    "ppts": ("", "ppts", 0, set()),
 }
 
 
@@ -147,5 +149,14 @@ def test_pi(instrument_name: str = "pi"):
 
 
 def test_tws_c(instrument_name: str = "tws_c"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+
+def test_ts(instrument_name: str = "ts"):
+    data, database_results = run_reader_get_methods(instrument_name)
+    check_transforms(instrument_name, data)
+
+def test_ppts(instrument_name: str = "ppts"):
     data, database_results = run_reader_get_methods(instrument_name)
     check_transforms(instrument_name, data)
