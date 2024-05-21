@@ -224,7 +224,7 @@ class DataReader(BaseIO):
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """
-        Gets raw data for CXRS diagnostic from the database
+        Gets raw data for PPTS analysis from the database
         """
         raise NotImplementedError(
             f"{self.__class__.__name__} does not implement a '_get_ppts' " "method."
