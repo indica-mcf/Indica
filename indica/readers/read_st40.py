@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Union
 
 from matplotlib import cm
 import matplotlib.pylab as plt
@@ -110,8 +111,8 @@ class ReadST40:
         self,
         instrument: str = "efit",
         revision: RevisionLike = 0,
-        R_shift: float = 0.0,
-        z_shift: float = 0.0,
+        R_shift: Union[DataArray, float] = 0.0,
+        z_shift: Union[DataArray, float] = 0.0,
     ):
 
         equilibrium_data = self.reader.get("", instrument, revision)
@@ -316,7 +317,7 @@ class ReadST40:
         tstart: float = None,
         tend: float = None,
         dt: float = None,
-        R_shift: float = 0.0,
+        R_shift: Union[DataArray, float] = 0.0,
         chi2_limit: float = 100.0,
         map_diagnostics: bool = False,
         raw_only: bool = False,
