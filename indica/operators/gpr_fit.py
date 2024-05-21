@@ -249,8 +249,13 @@ if __name__ == "__main__":
     dt = 0.01
     st40 = ReadST40(pulse, tstart, tend, dt)
     st40.get_equilibrium()
-    st40(instruments=["ts", "efit",], R_shift=xr.DataArray(data=0.02, coords=(st40.equilibrium.t,)))
-
+    st40(
+        instruments=[
+            "ts",
+            "efit",
+        ],
+        R_shift=xr.DataArray(data=0.02, coords=(st40.equilibrium.t,)),
+    )
 
     ne_data = post_process_ts(
         st40.binned_data,

@@ -37,10 +37,12 @@ class Equilibrium:
         of required quantities.
     R_shift
         How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
-        on the major radius. Either a float for all time slices or a DataArray with coord time
+        on the major radius. Either a float for all time slices or a DataArray
+        with coord time
     z_shift
         How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
-        in the vertical coordinate. Either a float for all time slices or a DataArray with coord time
+        in the vertical coordinate. Either a float for all time slices or a DataArray
+        with coord time
 
     """
 
