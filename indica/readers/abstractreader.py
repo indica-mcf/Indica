@@ -209,7 +209,6 @@ class DataReader(BaseIO):
             else:
                 raise ValueError(f"Unknown quantity: {quantity}")
 
-
             data[quantity] = self.assign_dataarray(
                 instrument,
                 quantity,
