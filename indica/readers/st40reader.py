@@ -3,6 +3,7 @@ reading MDS+ data produced by ST40.
 
 """
 
+
 from typing import Any
 from typing import Dict
 from typing import Set
@@ -699,6 +700,76 @@ class ST40Reader(DataReader):
         # results["location"] = location
         # results["direction"] = direction
 
+        return results
+
+    def _get_ppts(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        results: Dict[str, Any] = {
+            "length": {},
+            "revision": self._get_revision(uid, instrument),
+        }
+        revision = results["revision"]
+
+        time, time_path = self._get_signal(uid, instrument, ":time", revision)
+        rshift, _ = self._get_signal(uid, instrument, ".global:rshift", revision)
+        rhop, _ = self._get_signal(uid, instrument, ".profiles.psi_norm:rhop", revision)
+        rpos, _ = self._get_signal(
+            uid, instrument, ".profiles.r_midplane:rpos", revision
+        )
+        zpos, _ = self._get_signal(
+            uid, instrument, ".profiles.r_midplane:rpos", revision
+        )
+        zpos *= 0  # TODO fix path when data is present
+
+        rhop_data, _ = self._get_signal(
+            uid, instrument, ".profiles.inputs:rhop", revision
+        )
+        rpos_data, _ = self._get_signal(
+            uid, instrument, ".profiles.inputs:rpos", revision
+        )
+        zpos_data, _ = self._get_signal(
+            uid, instrument, ".profiles.inputs:zpos", revision
+        )
+
+        results["rho_poloidal"] = rhop
+        results["rpos"] = rpos
+        results["zpos"] = zpos
+        results["rho_poloidal_data"] = rhop_data
+        results["rpos_data"] = rpos_data
+        results["zpos_data"] = zpos_data
+
+        results["length"] = len(rpos_data)
+        results["rshift"] = rshift
+        results["t"] = time
+
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q],
+                revision,
+            )
+            try:
+                qval_err, q_path_err = self._get_signal(
+                    uid,
+                    instrument,
+                    self.QUANTITIES_MDS[instrument][q] + "_err",
+                    revision,
+                )
+            except TreeNNF:
+                qval_err = np.full_like(qval, 0.0)
+
+            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+
+            results[q + "_records"] = q_path
+            results[q] = qval
+            results[f"{q}_error"] = qval_err
         return results
 
     def close(self):

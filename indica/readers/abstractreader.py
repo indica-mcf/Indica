@@ -185,6 +185,78 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
+    def get_ppts(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        database_results = self._get_ppts(uid, instrument, revision, quantities)
+        database_results["channel"] = np.arange(database_results["length"])
+        database_results["R_midplane"] = database_results[
+            "rpos"
+        ]  # necessary because of assign_dataarray...
+
+        coords = [
+            ("t", database_results["t"]),
+            ("channel", database_results["channel"]),
+        ]
+        rho_poloidal_coords = xr.DataArray(
+            database_results["rho_poloidal_data"], coords=coords
+        )
+        rho_poloidal_coords = rho_poloidal_coords.sel(t=slice(self._tstart, self._tend))
+
+        rpos_coords = xr.DataArray(database_results["rpos_data"], coords=[coords[1]])
+        zpos_coords = xr.DataArray(database_results["zpos_data"], coords=[coords[1]])
+
+        data = {}
+        for quantity in quantities:
+            if "_R" in quantity:
+                dims = ["t", "R_midplane"]
+            elif "_rho" in quantity:
+                dims = ["t", "rho_poloidal"]
+            elif "_data" in quantity:
+                dims = ["t", "channel"]
+            elif "rshift" in quantity:
+                dims = ["t"]
+            else:
+                raise ValueError(f"Unknown quantity: {quantity}")
+
+            data[quantity] = self.assign_dataarray(
+                instrument,
+                quantity,
+                database_results,
+                dims,
+                transform=None,
+            )
+            if "_data" in quantity:
+                data[quantity] = data[quantity].assign_coords(
+                    rho_poloidal=(("t", "channel"), rho_poloidal_coords)
+                )
+                data[quantity] = data[quantity].assign_coords(
+                    zpos=("channel", zpos_coords)
+                )
+                data[quantity] = data[quantity].assign_coords(
+                    rpos=("channel", rpos_coords)
+                )
+        return data
+
+    def _get_ppts(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """
+        Gets raw data for PPTS analysis from the database
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a '_get_ppts' " "method."
+        )
+
     def get_charge_exchange(
         self,
         uid: str,
