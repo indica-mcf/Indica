@@ -1,6 +1,4 @@
 import pickle
-from dataclasses import dataclass
-from dataclasses import field
 from datetime import datetime
 import getpass
 from pathlib import Path
@@ -14,6 +12,7 @@ from indica.workflows.data_context import DataContext
 from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.optimiser_context import EmceeOptimiser
 from indica.workflows.plasma_profiler import PlasmaProfiler
+from indica.workflows.priors import PriorManager
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import does_tree_exist
 from indica.writers.bda_tree import write_nodes
@@ -32,64 +31,36 @@ def dict_of_dataarray_to_numpy(dict_of_dataarray):
     return dict_of_dataarray
 
 
-@dataclass
-class BayesBBSettings:
-    diagnostics: list = field(default_factory=lambda: [])
-    param_names: list = field(default_factory=lambda: [])
-    opt_quantity: list = field(default_factory=lambda: [])
-    priors: dict = field(default_factory=lambda: [])
-
-    """
-    TODO: default methods / getter + setters
-          print warning if using default values
-    """
-
-    def __post_init__(self):
-        missing_quantities = [
-            quant
-            for quant in self.opt_quantity
-            if quant.split(".")[0] not in self.diagnostics
-        ]
-        if missing_quantities:
-            raise ValueError(f"{missing_quantities} missing the relevant diagnostic")
-
-        # check all priors are defined
-        for name in self.param_names:
-            if name in self.priors.keys():
-                if hasattr(self.priors[name], "rvs"):
-                    continue
-                else:
-                    raise TypeError(f"prior object {name} missing rvs method")
-            else:
-                raise ValueError(f"Missing prior for {name}")
-
-
 class BayesWorkflow:
     def __init__(
         self,
-        blackbox_settings: BayesBBSettings,
+        quant_to_optimise: list,
+
         data_context: DataContext,
         plasma_profiler: PlasmaProfiler,
-        ModelCoordinator: ModelCoordinator,
+        prior_manager: PriorManager,
+        model_coordinator: ModelCoordinator,
         optimiser_context: EmceeOptimiser,
     ):
-        self.blackbox_settings = blackbox_settings
+        self.quant_to_optimise = quant_to_optimise
         self.data_context = data_context
         self.plasma_profiler = plasma_profiler
-        self.model_coordinator = ModelCoordinator
+        self.prior_manager = prior_manager
+        self.model_coordinator = model_coordinator
         self.optimiser_context = optimiser_context
 
         self.blackbox = BayesBlackBox(
-            data=self.data_context.opt_data,
-            plasma_profiler=self.plasma_profiler,
-            build_bckc=self.model_coordinator.__call__,
-            quant_to_optimise=self.blackbox_settings.opt_quantity,
-            priors=self.blackbox_settings.priors,
-        )
+            data = self.data_context.opt_data,
+            quant_to_optimise=quant_to_optimise,
+            prior_manager=self.prior_manager,
+            plasma_profiler = self.plasma_profiler,
+            build_bckc = self.model_coordinator.__call__,
+            )
 
         self.optimiser_context.init_optimiser(
-            self.blackbox.ln_posterior,
-        )
+            self.blackbox.ln_posterior
+            )
+
     def _build_inputs_dict(self):
         """
 
@@ -101,7 +72,7 @@ class BayesWorkflow:
         """
 
         result = {}
-        quant_list = [item.split(".") for item in self.blackbox_settings.opt_quantity]
+        quant_list = [item.split(".") for item in self.quant_to_optimise]
 
         result["ELEMENT"] = self.plasma_profiler.plasma.elements
         result["TIME"] = self.plasma_profiler.plasma.t
@@ -142,7 +113,7 @@ class BayesWorkflow:
         self,
     ):
         result = {}
-        quant_list = [item.split(".") for item in self.blackbox_settings.opt_quantity]
+        quant_list = [item.split(".") for item in self.quant_to_optimise]
 
         result["MODEL_DATA"] = {
             diag_name.upper(): {
@@ -377,7 +348,7 @@ class BayesWorkflow:
                 pulse_to_write=pulse_to_write,
                 best=best,
                 run=run,
-                diagnostic_quantities=self.blackbox_settings.opt_quantity,
+                diagnostic_quantities=self.quant_to_optimise,
                 mode=mode,
             )
             write_nodes(pulse_to_write, result, self.node_structure)

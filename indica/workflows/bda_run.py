@@ -1,20 +1,17 @@
 import importlib
 import sys
 
-from indica.workflows.bayes_workflow import BayesBBSettings
+from indica.models import Plasma
 from indica.workflows.bayes_workflow import BayesWorkflow
-from indica.workflows.bayes_workflow import DEFAULT_PRIORS
-from indica.workflows.bayes_workflow import DEFAULT_PROFILE_PARAMS
+from indica.workflows.optimiser_context import OptimiserEmceeSettings
+from indica.workflows.priors import PriorManager
+from indica.workflows.plasma_profiler import PlasmaProfiler, initialise_gauss_profilers
+from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.bayes_workflow import EmceeOptimiser
-from indica.workflows.bayes_workflow import ExpData
-from indica.workflows.bayes_workflow import MockData
-from indica.workflows.bayes_workflow import ModelContext
-from indica.workflows.bayes_workflow import ModelSettings
-from indica.workflows.bayes_workflow import OptimiserEmceeSettings
-from indica.workflows.bayes_workflow import PhantomData
-from indica.workflows.bayes_workflow import PlasmaContext
-from indica.workflows.bayes_workflow import PlasmaSettings
-from indica.workflows.bayes_workflow import ReaderSettings
+from indica.workflows.data_context import ExpData
+from indica.workflows.data_context import MockData
+from indica.workflows.data_context import PhantomData
+
 
 
 def bda_run(
@@ -44,8 +41,6 @@ def bda_run(
     run_info="Default run",
     dirname=None,
     set_ts=False,
-    ts_split="LFS",
-    ts_R_shift=0,
     profile_params_to_update=None,
     model_init=None,
     plasma_settings=None,
@@ -68,14 +63,7 @@ def bda_run(
     if dirname is None:
         dirname = f"{pulse}.{run}"
 
-    bayes_settings = BayesBBSettings(
-        diagnostics=diagnostics,
-        param_names=param_names,
-        opt_quantity=opt_quantity,
-        priors=DEFAULT_PRIORS,
-    )
-
-    data_settings = ReaderSettings(filters=filters, revisions=revisions)
+    data_settings = {}
     if phantom:
         data_context = PhantomData(
             pulse=pulse,
@@ -106,28 +94,26 @@ def bda_run(
 
     data_context.read_data()
 
-    plasma_settings = PlasmaSettings(**plasma_settings)
-    plasma_context = PlasmaContext(
-        plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS
-    )
-    if profile_params_to_update:
-        plasma_context.profile_params.update(profile_params_to_update)
+    plasma = Plasma(**plasma_settings, tstart=tstart, tend=tend, dt=dt, equilibrium=data_context.equilibrium)
+    profilers = initialise_gauss_profilers(xspl = plasma.rho)
+    plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
 
-    plasma_context.init_plasma(
-        data_context.equilibrium, tstart=tstart, tend=tend, dt=dt
-    )
-
-    plasma_context.save_phantom_profiles(phantoms=data_context.phantoms)
+    plasma_profiler(profile_params_to_update)
+    plasma_profiler.save_phantoms(phantoms=data_context.phantoms)
 
     if set_ts:
-        plasma_context.set_ts_profiles(data_context, split=ts_split, R_shift=ts_R_shift)
+        _profs = data_context.binned_data["ppts"]
+        plasma_profiler.set_profiles({"electron_density": _profs["ne_rho"],
+                                      "electron_temperature": _profs["te_rho"],
+                                      })
+
 
     model_settings = ModelSettings()
     model_settings.init_kwargs.update(model_init)
 
-    model_context = ModelContext(
+    model_coordinator = ModelCoordinator(
         diagnostics=diagnostics,
-        plasma_context=plasma_context,
+        plasma=plasma,
         equilibrium=data_context.equilibrium,
         transforms=data_context.transforms,
         model_settings=model_settings,
@@ -140,7 +126,7 @@ def bda_run(
     )
 
     optimiser_settings = OptimiserEmceeSettings(
-        param_names=bayes_settings.param_names,
+        param_names=param_names,
         nwalkers=nwalkers,
         iterations=iterations,
         sample_method=sample_method,
@@ -149,19 +135,17 @@ def bda_run(
         stopping_criteria=stopping_criteria,
         stopping_criteria_factor=stopping_criteria_factor,
         stopping_criteria_debug=True,
-        priors=bayes_settings.priors,
+        prior_manager=prior_manager,
     )
+
     optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings)
 
     workflow = BayesWorkflow(
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        blackbox_settings=bayes_settings,
+        quant_to_optimise=None,
         data_context=data_context,
         optimiser_context=optimiser_context,
-        plasma_context=plasma_context,
-        model_context=model_context,
+        plasma_profiler=plasma_profiler,
+        model_coordinator=model_coordinator,
     )
 
     workflow(

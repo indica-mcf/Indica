@@ -1,8 +1,9 @@
-import flatdict
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.profilers import ProfilerGauss, Profiler
 from indica.models.plasma import Plasma
+
+import flatdict
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,6 +46,7 @@ DEFAULT_PROFILE_PARAMS = {
     "toroidal_rotation.wcenter": 0.35,
     "toroidal_rotation.wped": 3,
 }
+
 PLASMA_ATTRIBUTE_NAMES = [
             "electron_temperature",
             "electron_density",
@@ -62,9 +64,11 @@ PLASMA_ATTRIBUTE_NAMES = [
             "pressure_th",
 ]
 
-def initialise_gauss_profilers(profile_params: dict, xspl: np.ndarray):
-    # considering whether profilers should be a dataclass or named tuple rather than bare dictionary
 
+def initialise_gauss_profilers(xspl: np.ndarray, profile_params=None,):
+    # considering whether profilers should be a dataclass or named tuple rather than bare dictionary
+    if profile_params is None:
+        profile_params = DEFAULT_PROFILE_PARAMS
     flat_profile_params = flatdict.FlatDict(profile_params, ".")
     profile_names = flat_profile_params.as_dict().keys()
 
@@ -74,7 +78,6 @@ def initialise_gauss_profilers(profile_params: dict, xspl: np.ndarray):
                  for profile_name in profile_names}
 
     return profilers
-
 
 
 class PlasmaProfiler:
@@ -158,7 +161,7 @@ class PlasmaProfiler:
 if __name__ == "__main__":
 
     plasma = load_default_objects("st40", "plasma")
-    gauss_profilers = initialise_gauss_profilers(DEFAULT_PROFILE_PARAMS, xspl=plasma.rho)
+    gauss_profilers = initialise_gauss_profilers(profile_params=DEFAULT_PROFILE_PARAMS, xspl=plasma.rho)
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=gauss_profilers)
 
     plasma_profiler(parameters={"electron_density.y0": 10e19, "electron_density.y1":1e19, "electron_density.yend":1e19})
