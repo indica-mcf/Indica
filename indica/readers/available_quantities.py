@@ -4,6 +4,7 @@ Quantities that can be read with the current abstract reader implementation
 To each quantity is associated a datatype string corresponding to indica/datatypes.py
 """
 
+
 from typing import Dict
 
 AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
@@ -35,6 +36,18 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "ti_w": "ion_temperature",
         "ti_z": "ion_temperature",
         "spectra": "spectra",
+    },
+    "get_ppts": {
+        "ne_rho": "electron_density",
+        "te_rho": "electron_temperature",
+        "pe_rho": "electron_pressure",
+        "ne_R": "electron_density",
+        "te_R": "electron_temperature",
+        "pe_R": "electron_pressure",
+        "ne_data": "electron_density",
+        "te_data": "electron_temperature",
+        "pe_data": "electron_pressure",
+        "rshift": "major_radius_shift",
     },
     "get_diode_filters": {
         "brightness": "brightness",
