@@ -47,7 +47,7 @@ class Spline:
         The axis along which to interpolate.
     coord_transform : CoordinateTransform
         The transform describing the coordinate system used by `values`.
-    bounds : BoundaryType
+    bc_type : BoundaryType
         The boundary condition to pass to `:class:scipy.interpolate.CubicSpline`.
 
     """
@@ -57,7 +57,7 @@ class Spline:
         values: DataArray,
         dim: Hashable,
         coord_transform: CoordinateTransform,
-        bounds: BoundaryType = "clamped",
+        bc_type: BoundaryType = "not-a-knot",
     ):
         self.dim = dim
         self.spline_dims = tuple(d for d in values.dims if d != dim)
@@ -66,7 +66,7 @@ class Spline:
         }
         transpose_order = (self.dim,) + self.spline_dims
         self.spline = CubicSpline(
-            values.coords[dim], values.transpose(*transpose_order), 0, bounds, False
+            values.coords[dim], values.transpose(*transpose_order), 0, bc_type, False
         )
         self.transform = coord_transform
 
@@ -122,24 +122,22 @@ class SplineFit(Operator):
     upper_bound : ArrayLike
         The upper bounds to use for values at each not. May be either a
         scalar or an array of the same shape as ``knots``.
+    bc_type : BoundaryType
+        The boundary condition to pass to `:class:scipy.interpolate.CubicSpline`.
     sess : session.Session
         An object representing the session being run. Contains information
         such as provenance data.
+    general_datatype : GeneralDataType
+        The datatype for which the fitting is being performed.
 
     """
-
-    ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("norm_flux_pol", "plasma"),
-        ("time", "plasma"),
-        ("temperature", "electrons"),
-        ...,
-    ]
 
     def __init__(
         self,
         knots: ArrayLike = [0.0, 0.3, 0.6, 0.85, 0.95, 1.05],
         lower_bound: ArrayLike = -np.inf,
         upper_bound: ArrayLike = np.inf,
+        bc_type: BoundaryType = "not-a-knot",
         sess: session.Session = session.global_session,
     ):
         self.knots = coord_array(knots, "rho_poloidal")
@@ -153,8 +151,17 @@ class SplineFit(Operator):
             raise ValueError(
                 "lower_bound must be either a scalar or array of same size as knots"
             )
+        self.bc_type = bc_type
         self.spline: Spline
         self.spline_vals: DataArray
+
+        self.ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
+            ("norm_flux_pol", "plasma"),
+            ("time", "plasma"),
+            (None, None),
+            ...,
+        ]
+
         super().__init__(
             sess,
             knots=str(knots),
@@ -207,6 +214,8 @@ class SplineFit(Operator):
             interpolate results onto arbitrary coordinates.
 
         """
+        # Check all data* has same type
+        self.ARGUMENT_TYPES[-2] = data[0].attrs["datatype"]
         self.validate_arguments(rho, times, *data)
         n_knots = len(self.knots)
         flux_surfaces = FluxSurfaceCoordinates("poloidal")
@@ -258,7 +267,9 @@ class SplineFit(Operator):
         # For now just setting the interpolated values to 0.0
         def residuals(knotvals):
             self.spline_vals = knotvals_to_xarray(knotvals)
-            self.spline = Spline(self.spline_vals, "rho_poloidal", flux_surfaces)
+            self.spline = Spline(
+                self.spline_vals, "rho_poloidal", flux_surfaces, bc_type=self.bc_type
+            )
             start = 0
             resid = np.empty(rows)
             for d, g in zip(binned_data, good_channels):

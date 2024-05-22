@@ -1,12 +1,14 @@
 from unittest.mock import MagicMock
 
 import numpy as np
+import pytest
 from xarray import DataArray
 from xarray.testing import assert_allclose
 
 from indica.converters import FluxSurfaceCoordinates
 from indica.converters import TransectCoordinates
 from indica.converters import TrivialTransform
+from indica.operators.abstractoperator import OperatorError
 from indica.operators.spline_fit import Spline
 from indica.operators.spline_fit import SplineFit
 from indica.utilities import coord_array
@@ -97,3 +99,31 @@ def test_spline_fit():
     assert "provenance" in result.attrs
     assert "provenance" in spline_fit.attrs
     assert "provenance" in binned_input.attrs
+
+
+def test_inconsistent_datatypes():
+    """
+    Check error raised when data with different types provided
+    """
+    knot_locations = [0.0, 0.5, 0.8, 1.05]
+    fitter = SplineFit(knot_locations)
+
+    flux_coords = FluxSurfaceCoordinates("poloidal")
+    flux_coords.set_equilibrium(fake_equilib)
+
+    knot_vals = (
+        DataArray([1.0, 0.9, 0.6, 0.0], coords=[("rho_poloidal", knot_locations)])
+        + 0.05 * t_grid
+    )
+    expected_spline = Spline(knot_vals, "rho_poloidal", flux_coords)
+    input_vals = expected_spline(
+        coords, R_positions.coords["alpha"], 0.0, t_grid
+    ).assign_coords(alpha_z_offset=0)
+    input_vals.attrs["datatype"] = ("temperature", "electrons")
+
+    inconsistent_input = input_vals.copy(deep=True)
+    inconsistent_input.attrs["datatype"] = ("density", "electrons")
+
+    result_locations = coord_array(np.linspace(0, 1.05, 10), "rho_poloidal")
+    with pytest.raises(OperatorError):
+        fitter(result_locations, t_grid, input_vals, inconsistent_input)
