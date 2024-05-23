@@ -41,3 +41,5 @@ RevisionLike = typing.Union[str, int]
 Coordinates = Tuple[LabeledArray, LabeledArray]
 
 OptionalCoordinates = Tuple[Optional[LabeledArray], Optional[LabeledArray]]
+
+FloatOrDataArray = typing.Union[xarray.DataArray, float]
