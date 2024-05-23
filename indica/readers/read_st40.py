@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Callable
 
 from matplotlib import cm
 import matplotlib.pylab as plt
@@ -10,7 +11,6 @@ from indica.converters.time import convert_in_time_dt
 from indica.equilibrium import Equilibrium
 from indica.numpy_typing import RevisionLike
 from indica.readers import ST40Reader
-from indica.utilities import print_like
 
 INSTRUMENTS: list = [
     "efit",
@@ -62,8 +62,7 @@ FILTER_LIMITS = {
 FILTER_COORDS = {
     "cxff_pi": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "cxff_tws_c": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
-    "cxqf_tws_c": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
-    "xrcs": {"spectra": ("wavelength", (0, np.inf)), },
+    "xrcs": {"spectra": ("wavelength", (0.4, np.inf)), },
     "ts": {"te": ("channel", (0, np.inf)), "ne": ("channel", (0, np.inf))},
 }
 
@@ -258,7 +257,8 @@ class ReadST40:
             self,
             instruments: list = None,
             revisions: dict = None,
-            filters: dict = None,
+            filter_limits: dict = None,
+            filter_coords: dict = None,
             map_raw: bool = False,
             tstart: float = None,
             tend: float = None,
@@ -287,8 +287,10 @@ class ReadST40:
                 revisions[instr] = 0
         if "efit" not in revisions:
             revisions["efit"] = 0
-        if filters is None:
-            filters = FILTER_LIMITS
+        if filter_limits is None:
+            filter_limits = FILTER_LIMITS
+        if filter_coords is None:
+            filter_coords = FILTER_COORDS
 
         self.reset_data()
         self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
@@ -309,17 +311,20 @@ class ReadST40:
         if raw_only:
             return
 
-        print_like("Filtering")
-        self.filtered_data = filter_data(self.raw_data, filters=filters)
+        print("Filtering")
+        self.filtered_data = apply_filter(self.raw_data, filters=filter_limits,
+                                          filter_func=limit_condition, filter_func_name="limits")
+        self.filtered_data = apply_filter(self.filtered_data, filters=filter_coords,
+                                          filter_func=coord_condition, filter_func_name="co-ordinate")
 
-        print_like("Binning in time")
+        print("Binning in time")
         self.binned_data = bin_data_in_time(
             self.filtered_data, tstart=tstart, tend=tend, dt=dt
         )
 
         filter_ts(self.binned_data, chi2_limit=chi2_limit)
         if map_diagnostics or map_raw:
-            print_like("Mapping to equilibrium")
+            print("Mapping to equilibrium")
             instruments = list(self.raw_data)
             self.map_diagnostics(instruments, map_raw=map_raw)
 
@@ -334,11 +339,11 @@ def bin_data_in_time(
     binned_data = {}
     for instr in raw_data.keys():
         if debug:
-            print(instr)
+            print(f"instr: {instr}")
         binned_quantities = {}
         for quant in raw_data[instr].keys():
             if debug:
-                print(f"   {quant}")
+                print(f"quant: {quant}")
             data_quant = deepcopy(raw_data[instr][quant])
 
             if "t" in data_quant.coords:
@@ -349,11 +354,14 @@ def bin_data_in_time(
     return binned_data
 
 
-def filter_data(data: dict, filters: dict):
+def apply_filter(data: dict[dict[xr.DataArray]], filters: dict[dict[tuple]],
+                 filter_func: Callable, filter_func_name = "limits"):
+
     filtered_data: dict = {}
     for instrument, quantities in data.items():
         if instrument not in filters.keys():
-            print(f"no data filter for {instrument}")
+            print(f"no {filter_func_name} filter for {instrument}")
+            filtered_data[instrument] = deepcopy(data[instrument])
             continue
 
         filtered_data[instrument] = {}
@@ -363,19 +371,28 @@ def filter_data(data: dict, filters: dict):
                     data[instrument][quantity_name]
                 )
                 continue
-            limits = filters[instrument][quantity_name]
-            filtered_data[instrument][quantity_name] = filter_general(
-                quantity, limits=limits
+
+            filter_info = filters[instrument][quantity_name]
+            filtered_data[instrument][quantity_name] = filter_func(
+                quantity, filter_info
             )
-        return filtered_data
+    return filtered_data
 
 
-def filter_general(data: DataArray, limits: tuple):
-    attrs = data.attrs
+def limit_condition(data: DataArray, limits: tuple):
     condition = (data >= limits[0]) * (data < limits[1])
-    filtered = xr.where(condition, data, np.nan)
-    filtered.attrs = attrs
-    return filtered
+    filtered_data = xr.where(condition, data, np.nan)
+    filtered_data.attrs = data.attrs
+    return filtered_data
+
+
+def coord_condition(data: DataArray, coord_info: tuple):
+    coord_name: str = coord_info[0]
+    coord_slice: tuple = coord_info[1]
+    condition = (data.coords[coord_name] >= coord_slice[0]) * (data.coords[coord_name] < coord_slice[1])
+    filtered_data = xr.where(condition, data, np.nan)
+    filtered_data.attrs = data.attrs
+    return filtered_data
 
 
 def filter_ts(binned_data: dict, chi2_limit: float = 3.0):
