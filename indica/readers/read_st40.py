@@ -64,7 +64,7 @@ FILTER_COORDS: Dict[str, Dict[str, tuple]] = {
     "cxff_pi": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "cxff_tws_c": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "xrcs": {
-        "spectra": ("wavelength", (0.4, np.inf)),
+        "spectra": ("wavelength", (0.0, np.inf)),
     },
     "ts": {"te": ("channel", (0, np.inf)), "ne": ("channel", (0, np.inf))},
 }
