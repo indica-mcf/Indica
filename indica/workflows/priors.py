@@ -2,7 +2,7 @@ from scipy.stats import loguniform, uniform
 import numpy as np
 
 def get_uniform(lower, upper):
-    # Less confusing parameterisation of scipy.stats uniform
+    # Less confusing parametrisation of scipy.stats uniform
     return uniform(loc=lower, scale=upper - lower)
 
 
