@@ -1,5 +1,6 @@
 from copy import deepcopy
 from typing import Callable
+from typing import Dict
 
 from matplotlib import cm
 import matplotlib.pylab as plt
@@ -33,7 +34,7 @@ INSTRUMENTS: list = [
     "ppts",
 ]
 
-FILTER_LIMITS = {
+FILTER_LIMITS: Dict[str, Dict[str, tuple]] = {
     "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},
     "cxff_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
     "cxqf_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
@@ -59,10 +60,12 @@ FILTER_LIMITS = {
     "tws_c": {"spectra": (0, np.inf)},
 }
 
-FILTER_COORDS = {
+FILTER_COORDS: Dict[str, Dict[str, tuple]] = {
     "cxff_pi": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "cxff_tws_c": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
-    "xrcs": {"spectra": ("wavelength", (0.4, np.inf)), },
+    "xrcs": {
+        "spectra": ("wavelength", (0.4, np.inf)),
+    },
     "ts": {"te": ("channel", (0, np.inf)), "ne": ("channel", (0, np.inf))},
 }
 
@@ -96,12 +99,12 @@ XLABELS = {"rho": "Rho-poloidal", "R": "R (m)"}
 
 class ReadST40:
     def __init__(
-            self,
-            pulse: int,
-            tstart: float = 0.02,
-            tend: float = 0.1,
-            dt: float = 0.01,
-            tree="ST40",
+        self,
+        pulse: int,
+        tstart: float = 0.02,
+        tend: float = 0.1,
+        dt: float = 0.01,
+        tree="ST40",
     ):
         self.debug = False
         self.pulse = pulse
@@ -125,11 +128,11 @@ class ReadST40:
         self.binned_data = {}
 
     def get_equilibrium(
-            self,
-            instrument: str = "efit",
-            revision: RevisionLike = 0,
-            R_shift: float = 0.0,
-            z_shift: float = 0.0,
+        self,
+        instrument: str = "efit",
+        revision: RevisionLike = 0,
+        R_shift: float = 0.0,
+        z_shift: float = 0.0,
     ):
 
         equilibrium_data = self.reader.get("", instrument, revision)
@@ -137,11 +140,11 @@ class ReadST40:
         self.equilibrium = equilibrium
 
     def get_raw_data(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike = 0,
-            set_equilibrium: bool = False,
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike = 0,
+        set_equilibrium: bool = False,
     ):
         data = self.reader.get(uid, instrument, revision)
         for quant in data.keys():
@@ -183,17 +186,17 @@ class ReadST40:
                         break
 
     def plot_profile(
-            self,
-            instrument: str,
-            quantity: str,
-            tplot: list = None,
-            plot_raw: bool = False,
-            xcoord: str = "rho",
-            figure: bool = True,
-            xlim: tuple = (0, 1.1),
-            linestyle: str = None,
-            plot_error: bool = True,
-            **kwargs,
+        self,
+        instrument: str,
+        quantity: str,
+        tplot: list = None,
+        plot_raw: bool = False,
+        xcoord: str = "rho",
+        figure: bool = True,
+        xlim: tuple = (0, 1.1),
+        linestyle: str = None,
+        plot_error: bool = True,
+        **kwargs,
     ):
         R_offset = ""
         if np.abs(self.equilibrium.R_offset) > 0.01:
@@ -234,7 +237,7 @@ class ReadST40:
                     x,
                     y,
                     label=f"{data_type} {instrument.upper()} "
-                          f"{quantity} @ t={_t:1.3f} s",
+                    f"{quantity} @ t={_t:1.3f} s",
                     color=cols_time[it],
                     marker=MARKERS[instrument],
                     linestyle=linestyle,
@@ -254,21 +257,21 @@ class ReadST40:
         plt.legend()
 
     def __call__(
-            self,
-            instruments: list = None,
-            revisions: dict = None,
-            filter_limits: dict = None,
-            filter_coords: dict = None,
-            map_raw: bool = False,
-            tstart: float = None,
-            tend: float = None,
-            dt: float = None,
-            R_shift: float = 0.0,
-            chi2_limit: float = 100.0,
-            map_diagnostics: bool = False,
-            raw_only: bool = False,
-            debug: bool = False,
-            set_equilibrium: bool = False,
+        self,
+        instruments: list = None,
+        revisions: dict = None,
+        filter_limits: dict = None,
+        filter_coords: dict = None,
+        map_raw: bool = False,
+        tstart: float = None,
+        tend: float = None,
+        dt: float = None,
+        R_shift: float = 0.0,
+        chi2_limit: float = 100.0,
+        map_diagnostics: bool = False,
+        raw_only: bool = False,
+        debug: bool = False,
+        set_equilibrium: bool = False,
     ):
         self.debug = debug
 
@@ -312,10 +315,18 @@ class ReadST40:
             return
 
         print("Filtering")
-        self.filtered_data = apply_filter(self.raw_data, filters=filter_limits,
-                                          filter_func=limit_condition, filter_func_name="limits")
-        self.filtered_data = apply_filter(self.filtered_data, filters=filter_coords,
-                                          filter_func=coord_condition, filter_func_name="co-ordinate")
+        self.filtered_data = apply_filter(
+            self.raw_data,
+            filters=filter_limits,
+            filter_func=limit_condition,
+            filter_func_name="limits",
+        )
+        self.filtered_data = apply_filter(
+            self.filtered_data,
+            filters=filter_coords,
+            filter_func=coord_condition,
+            filter_func_name="co-ordinate",
+        )
 
         print("Binning in time")
         self.binned_data = bin_data_in_time(
@@ -330,11 +341,11 @@ class ReadST40:
 
 
 def bin_data_in_time(
-        raw_data: dict,
-        tstart: float = 0.02,
-        tend: float = 0.1,
-        dt: float = 0.01,
-        debug=False,
+    raw_data: Dict[str, Dict[str, xr.DataArray]],
+    tstart: float = 0.02,
+    tend: float = 0.1,
+    dt: float = 0.01,
+    debug=False,
 ):
     binned_data = {}
     for instr in raw_data.keys():
@@ -354,10 +365,14 @@ def bin_data_in_time(
     return binned_data
 
 
-def apply_filter(data: dict[dict[xr.DataArray]], filters: dict[dict[tuple]],
-                 filter_func: Callable, filter_func_name = "limits"):
+def apply_filter(
+    data: Dict[str, Dict[str, xr.DataArray]],
+    filters: Dict[str, Dict[str, tuple]],
+    filter_func: Callable,
+    filter_func_name="limits",
+):
 
-    filtered_data: dict = {}
+    filtered_data = {}
     for instrument, quantities in data.items():
         if instrument not in filters.keys():
             print(f"no {filter_func_name} filter for {instrument}")
@@ -389,7 +404,9 @@ def limit_condition(data: DataArray, limits: tuple):
 def coord_condition(data: DataArray, coord_info: tuple):
     coord_name: str = coord_info[0]
     coord_slice: tuple = coord_info[1]
-    condition = (data.coords[coord_name] >= coord_slice[0]) * (data.coords[coord_name] < coord_slice[1])
+    condition = (data.coords[coord_name] >= coord_slice[0]) * (
+        data.coords[coord_name] < coord_slice[1]
+    )
     filtered_data = xr.where(condition, data, np.nan)
     filtered_data.attrs = data.attrs
     return filtered_data
