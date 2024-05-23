@@ -15,7 +15,8 @@ from xarray import zeros_like
 
 from indica.converters.time import get_tlabels_dt
 from indica.utilities import check_time_present
-from .numpy_typing import LabeledArray, FloatOrDataArray
+from .numpy_typing import FloatOrDataArray
+from .numpy_typing import LabeledArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
@@ -550,16 +551,24 @@ class Equilibrium:
             z_ax = self.zmag
             t = self.rho.coords["t"]
             z_x_point = self.zx
-            _z = _z.interp(t=t, )
-            _R = _R.interp(t=t, )
+            _z = _z.interp(
+                t=t,
+            )
+            _R = _R.interp(
+                t=t,
+            )
         else:
             check_time_present(t, self.t)
             rho = self.rho.interp(t=t, method="nearest")
             R_ax = self.rmag.interp(t=t, method="nearest")
             z_ax = self.zmag.interp(t=t, method="nearest")
             z_x_point = self.zx.interp(t=t, method="nearest")
-            _z = _z.interp(t=t, )
-            _R = _R.interp(t=t, )
+            _z = _z.interp(
+                t=t,
+            )
+            _R = _R.interp(
+                t=t,
+            )
 
         # TODO: rho and theta dimensions not in the same order...
         rho = rho.interp(R=_R, z=_z)
