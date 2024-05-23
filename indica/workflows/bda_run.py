@@ -2,6 +2,7 @@ import importlib
 import sys
 
 from indica.models import Plasma
+from indica.readers.read_st40 import ReadST40
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.optimiser_context import OptimiserEmceeSettings
 from indica.workflows.priors import PriorManager
@@ -63,47 +64,59 @@ def bda_run(
     if dirname is None:
         dirname = f"{pulse}.{run}"
 
-    data_settings = {}
+    # data_settings = {}
     if phantom:
-        data_context = PhantomData(
-            pulse=pulse,
-            diagnostics=diagnostics,
-            tstart=tstart,
-            tend=tend,
-            dt=dt,
-            reader_settings=data_settings,
-        )
-    elif mock:
-        data_context = MockData(
-            pulse=pulse,
-            diagnostics=diagnostics,
-            tstart=tstart,
-            tend=tend,
-            dt=dt,
-            reader_settings=data_settings,
-        )
-    else:
-        data_context = ExpData(
-            pulse=pulse,
-            diagnostics=diagnostics,
-            tstart=tstart,
-            tend=tend,
-            dt=dt,
-            reader_settings=data_settings,
-        )
+        reader = ReadST40(pulse = pulse, tstart=tstart, tend=tend, dt=dt)
 
-    data_context.read_data()
+        # data_context = PhantomData(
+        #     pulse=pulse,
+        #     diagnostics=diagnostics,
+        #     tstart=tstart,
+        #     tend=tend,
+        #     dt=dt,
+        #     reader_settings=data_settings,
+        # )
+    elif mock:
+        reader = ModelCoordinator
+
+
+        # data_context = MockData(
+        #     pulse=pulse,
+        #     diagnostics=diagnostics,
+        #     tstart=tstart,
+        #     tend=tend,
+        #     dt=dt,
+        #     reader_settings=data_settings,
+        # )
+    else:
+
+        reader = ReadST40(pulse = pulse, tstart=tstart, tend=tend, dt=dt)
+
+        # data_context = ExpData(
+        #     pulse=pulse,
+        #     diagnostics=diagnostics,
+        #     tstart=tstart,
+        #     tend=tend,
+        #     dt=dt,
+        #     reader_settings=data_settings,
+        # )
+
+
+    reader()
 
     plasma = Plasma(**plasma_settings, tstart=tstart, tend=tend, dt=dt,)
-    plasma.set_equilibrium(equilibrium=data_context.equilibrium)
+    plasma.set_equilibrium(equilibrium=reader.equilibrium)
 
     profilers = initialise_gauss_profilers(xspl = plasma.rho)
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
 
     plasma_profiler(profile_params_to_update)
-    plasma_profiler.save_phantoms(phantoms=data_context.phantoms)
+    plasma_profiler.save_phantoms(phantom=phantom)
 
     if set_ts:
+        ppts_reader = ReadST40(pulse=pulse, tstart=tstart, tend=tend, dt=dt,)
+        ppts_reader(["ppts"])
+
         _profs = data_context.binned_data["ppts"]
         plasma_profiler.set_profiles({"electron_density": _profs["ne_rho"],
                                       "electron_temperature": _profs["te_rho"],
