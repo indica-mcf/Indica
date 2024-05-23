@@ -1,5 +1,4 @@
 from scipy.stats import loguniform, uniform
-from indica.bayesblackbox import ln_prior
 import numpy as np
 
 def get_uniform(lower, upper):
