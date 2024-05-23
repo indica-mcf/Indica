@@ -105,8 +105,7 @@ def calculate_zeff(
     )
     equilibrium = te_data.transform.equilibrium
 
-    # TODO: R_shift is time-dependent, but not in equilibrium!!!
-    equilibrium.R_offset = te_fit.R_shift.mean("t").values
+    # TODO: equilibrium must be re-instatiated so R_shift can be assigned!!!
 
     print("Interpolate spectra to TS time, and map it to equilibrium")
     if "spectra" in binned_data["pi"]:
@@ -287,8 +286,8 @@ def calculate_zeff_profile(
     error = filter_data.error.values
 
     los_transform = filter_data.transform
-    R = los_transform.R.mean("beamlet").values - los_transform.equilibrium.R_offset
-    z = los_transform.z.mean("beamlet").values - los_transform.equilibrium.z_offset
+    R = los_transform.R.mean("beamlet").values
+    z = los_transform.z.mean("beamlet").values
     has_data = [True] * filter_data.shape[1]
     rho_equil = los_transform.equilibrium.rho
 
