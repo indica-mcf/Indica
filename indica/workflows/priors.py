@@ -37,7 +37,6 @@ DEFAULT_PRIORS = {
     "neutral_density.wped": get_uniform(16, 17),
     "neutral_density.wcenter": get_uniform(0.2, 0.4),
     "neutral_density.peaking": get_uniform(1, 6),
-    # TODO: add thermal neutral density
 }
 
 DEFAULT_COND_PRIORS = {
@@ -79,6 +78,7 @@ class PriorManager:
 
     def ln_prior(self, parameters: dict):
         # refactor ln_prior to be generalisable / define interface between cond and regular priors
+        # Probably like: (tuple(param_names), lambda)
         return ln_prior(priors= {**self.prior_funcs, **self.cond_funcs}, parameters=parameters)
 
 
@@ -119,7 +119,7 @@ def sample_from_priors(param_names: list, priors: dict, size=10):
     samples = np.empty((param_names.__len__(), 0))
     while samples.size < param_names.__len__() * size:
         # Some mangling of dictionaries so _ln_prior works
-        # Increase size * n if too slow / looping too much
+        # Increase 'size * n' if too slow / looping too much
         new_sample = {name: priors[name].rvs(size=size * 2) for name in param_names}
         _ln_prior = ln_prior(priors, new_sample)
         # Convert from dictionary of arrays -> array,
