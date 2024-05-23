@@ -94,7 +94,9 @@ def bda_run(
 
     data_context.read_data()
 
-    plasma = Plasma(**plasma_settings, tstart=tstart, tend=tend, dt=dt, equilibrium=data_context.equilibrium)
+    plasma = Plasma(**plasma_settings, tstart=tstart, tend=tend, dt=dt,)
+    plasma.set_equilibrium(equilibrium=data_context.equilibrium)
+
     profilers = initialise_gauss_profilers(xspl = plasma.rho)
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
 

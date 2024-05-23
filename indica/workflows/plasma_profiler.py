@@ -97,6 +97,7 @@ class PlasmaProfiler:
         self.plasma = plasma
         self.profilers = profilers
         self.plasma_attribute_names = PLASMA_ATTRIBUTE_NAMES
+        self.phantoms = {}
 
     def set_profiles(self, profiles: dict[xr.DataArray], t: float = None):
         if t is None:
@@ -160,9 +161,9 @@ class PlasmaProfiler:
 
 if __name__ == "__main__":
 
-    plasma = load_default_objects("st40", "plasma")
-    gauss_profilers = initialise_gauss_profilers(profile_params=DEFAULT_PROFILE_PARAMS, xspl=plasma.rho)
-    plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=gauss_profilers)
+    example_plasma = load_default_objects("st40", "plasma")
+    gauss_profilers = initialise_gauss_profilers(profile_params=DEFAULT_PROFILE_PARAMS, xspl=example_plasma.rho)
+    plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=gauss_profilers)
 
     plasma_profiler(parameters={"electron_density.y0": 10e19, "electron_density.y1":1e19, "electron_density.yend":1e19})
     plasma_profiler.profilers["electron_density"].plot()
