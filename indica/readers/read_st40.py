@@ -1,4 +1,6 @@
 from copy import deepcopy
+from typing import Callable
+from typing import Dict
 
 from matplotlib import cm
 import matplotlib.pylab as plt
@@ -11,7 +13,6 @@ from indica.equilibrium import Equilibrium
 from indica.numpy_typing import FloatOrDataArray
 from indica.numpy_typing import RevisionLike
 from indica.readers import ST40Reader
-from indica.utilities import print_like
 
 INSTRUMENTS: list = [
     "efit",
@@ -34,7 +35,7 @@ INSTRUMENTS: list = [
     "ppts",
 ]
 
-FILTER_LIMITS = {
+FILTER_LIMITS: Dict[str, Dict[str, tuple]] = {
     "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},
     "cxff_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
     "cxqf_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
@@ -58,6 +59,15 @@ FILTER_LIMITS = {
     },
     "pi": {"spectra": (0, np.inf)},
     "tws_c": {"spectra": (0, np.inf)},
+}
+
+FILTER_COORDS: Dict[str, Dict[str, tuple]] = {
+    "cxff_pi": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
+    "cxff_tws_c": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
+    "xrcs": {
+        "spectra": ("wavelength", (0.0, np.inf)),
+    },
+    "ts": {"te": ("channel", (0, np.inf)), "ne": ("channel", (0, np.inf))},
 }
 
 LINESTYLES = {
@@ -151,30 +161,6 @@ class ReadST40:
 
         return data
 
-    def bin_data_in_time(
-        self,
-        raw_data: dict,
-        tstart: float = 0.02,
-        tend: float = 0.1,
-        dt: float = 0.01,
-    ):
-        binned_data = {}
-        for instr in raw_data.keys():
-            if self.debug:
-                print(instr)
-            binned_quantities = {}
-            for quant in raw_data[instr].keys():
-                if self.debug:
-                    print(f"   {quant}")
-                data_quant = deepcopy(raw_data[instr][quant])
-
-                if "t" in data_quant.coords:
-                    data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
-
-                binned_quantities[quant] = data_quant
-            binned_data[instr] = binned_quantities
-        return binned_data
-
     def map_diagnostics(self, instruments: list, map_raw: bool = False):
         if len(self.binned_data) == 0:
             raise ValueError("Bin data in time before remapping!")
@@ -199,58 +185,6 @@ class ReadST40:
                         transform.convert_to_rho_theta(t=data.t)
                     else:
                         break
-
-    def filter_data(self, data: dict):
-        filtered_data: dict = {}
-        for instrument, quantities in data.items():
-            if instrument not in FILTER_LIMITS.keys():
-                print(f"no data filter for {instrument}")
-                continue
-
-            filtered_data[instrument] = {}
-            for quantity_name, quantity in quantities.items():
-                if quantity_name not in FILTER_LIMITS[instrument]:
-                    filtered_data[instrument][quantity_name] = deepcopy(
-                        data[instrument][quantity_name]
-                    )
-                    continue
-                limits = FILTER_LIMITS[instrument][quantity_name]
-                filtered_data[instrument][quantity_name] = filter_general(
-                    quantity, limits=limits
-                )
-            return filtered_data
-
-    def filter_ts(self, chi2_limit: float = 3.0):
-        if "ts" not in self.binned_data.keys():
-            print("No TS data to filter")
-            return
-
-        # Filter out any radial point where the chi2 is above limit
-        condition = self.binned_data["ts"]["chi2"] < chi2_limit
-        for quantity in self.binned_data["ts"].keys():
-            attrs = self.binned_data["ts"][quantity].attrs
-            filtered = xr.where(condition, self.binned_data["ts"][quantity], np.nan)
-            filtered.attrs = attrs
-            self.binned_data["ts"][quantity] = filtered
-
-    # def add_mhd(self):
-    #     t_slice = slice(self.tstart, self.tend)
-    #     rev = 0
-    #
-    #     even, even_dims = self.reader._get_data(
-    #         "", "mhd_tor_mode", ".output.spectrogram:ampl_even", rev
-    #     )
-    #     odd, odd_dims = self.reader._get_data(
-    #         "", "mhd_tor_mode", ".output.spectrogram:ampl_odd", rev
-    #     )
-    #     try:
-    #         even = DataArray(even, coords=[("t", even_dims[0])]).sel(t=t_slice)
-    #         odd = DataArray(odd, coords=[("t", odd_dims[0])]).sel(t=t_slice)
-    #         self.raw_data["mhd"] = {}
-    #         self.raw_data["mhd"]["ampl_even_n"] = even
-    #         self.raw_data["mhd"]["ampl_odd_n"] = odd
-    #     except IndexError:
-    #         return
 
     def plot_profile(
         self,
@@ -325,9 +259,10 @@ class ReadST40:
 
     def __call__(
         self,
-        instruments: list = [],
+        instruments: list = None,
         revisions: dict = None,
-        filters: dict = None,
+        filter_limits: dict = None,
+        filter_coords: dict = None,
         map_raw: bool = False,
         tstart: float = None,
         tend: float = None,
@@ -340,7 +275,14 @@ class ReadST40:
         set_equilibrium: bool = False,
     ):
         self.debug = debug
-        if len(instruments) == 0:
+
+        if tstart is None:
+            tstart = self.tstart
+        if tend is None:
+            tend = self.tend
+        if dt is None:
+            dt = self.dt
+        if instruments is None:
             instruments = INSTRUMENTS
         if revisions is None:
             revisions = {instrument: 0 for instrument in instruments}
@@ -349,15 +291,10 @@ class ReadST40:
                 revisions[instr] = 0
         if "efit" not in revisions:
             revisions["efit"] = 0
-        if not filters:
-            # TODO: fix default behaviour if missing key
-            filters = FILTER_LIMITS
-        if tstart is None:
-            tstart = self.tstart
-        if tend is None:
-            tend = self.tend
-        if dt is None:
-            dt = self.dt
+        if filter_limits is None:
+            filter_limits = FILTER_LIMITS
+        if filter_coords is None:
+            filter_coords = FILTER_COORDS
 
         self.reset_data()
         self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
@@ -378,23 +315,113 @@ class ReadST40:
         if raw_only:
             return
 
-        instruments = list(self.raw_data)
+        print("Filtering")
+        self.filtered_data = apply_filter(
+            self.raw_data,
+            filters=filter_limits,
+            filter_func=limit_condition,
+            filter_func_name="limits",
+        )
+        self.filtered_data = apply_filter(
+            self.filtered_data,
+            filters=filter_coords,
+            filter_func=coord_condition,
+            filter_func_name="co-ordinate",
+        )
 
-        print_like("Filtering")
-        self.filtered_data = self.filter_data(self.raw_data)
-        print_like("Binning in time")
-        self.binned_data = self.bin_data_in_time(
+        print("Binning in time")
+        self.binned_data = bin_data_in_time(
             self.filtered_data, tstart=tstart, tend=tend, dt=dt
         )
-        self.filter_ts(chi2_limit=chi2_limit)
+
+        filter_ts(self.binned_data, chi2_limit=chi2_limit)
         if map_diagnostics or map_raw:
-            print_like("Mapping to equilibrium")
+            print("Mapping to equilibrium")
+            instruments = list(self.raw_data)
             self.map_diagnostics(instruments, map_raw=map_raw)
 
 
-def filter_general(data: DataArray, limits: tuple):
-    attrs = data.attrs
+def bin_data_in_time(
+    raw_data: Dict[str, Dict[str, xr.DataArray]],
+    tstart: float = 0.02,
+    tend: float = 0.1,
+    dt: float = 0.01,
+    debug=False,
+):
+    binned_data = {}
+    for instr in raw_data.keys():
+        if debug:
+            print(f"instr: {instr}")
+        binned_quantities = {}
+        for quant in raw_data[instr].keys():
+            if debug:
+                print(f"quant: {quant}")
+            data_quant = deepcopy(raw_data[instr][quant])
+
+            if "t" in data_quant.coords:
+                data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
+
+            binned_quantities[quant] = data_quant
+        binned_data[instr] = binned_quantities
+    return binned_data
+
+
+def apply_filter(
+    data: Dict[str, Dict[str, xr.DataArray]],
+    filters: Dict[str, Dict[str, tuple]],
+    filter_func: Callable,
+    filter_func_name="limits",
+):
+
+    filtered_data = {}
+    for instrument, quantities in data.items():
+        if instrument not in filters.keys():
+            print(f"no {filter_func_name} filter for {instrument}")
+            filtered_data[instrument] = deepcopy(data[instrument])
+            continue
+
+        filtered_data[instrument] = {}
+        for quantity_name, quantity in quantities.items():
+            if quantity_name not in filters[instrument]:
+                filtered_data[instrument][quantity_name] = deepcopy(
+                    data[instrument][quantity_name]
+                )
+                continue
+
+            filter_info = filters[instrument][quantity_name]
+            filtered_data[instrument][quantity_name] = filter_func(
+                quantity, filter_info
+            )
+    return filtered_data
+
+
+def limit_condition(data: DataArray, limits: tuple):
     condition = (data >= limits[0]) * (data < limits[1])
-    filtered = xr.where(condition, data, np.nan)
-    filtered.attrs = attrs
-    return filtered
+    filtered_data = xr.where(condition, data, np.nan)
+    filtered_data.attrs = data.attrs
+    return filtered_data
+
+
+def coord_condition(data: DataArray, coord_info: tuple):
+    coord_name: str = coord_info[0]
+    coord_slice: tuple = coord_info[1]
+    condition = (data.coords[coord_name] >= coord_slice[0]) * (
+        data.coords[coord_name] < coord_slice[1]
+    )
+    filtered_data = xr.where(condition, data, np.nan)
+    filtered_data.attrs = data.attrs
+    return filtered_data
+
+
+def filter_ts(binned_data: dict, chi2_limit: float = 3.0):
+    if "ts" not in binned_data.keys():
+        print("No TS data to filter")
+        return
+
+    # Filter out any radial point where the chi2 is above limit
+    condition = binned_data["ts"]["chi2"] < chi2_limit
+    for quantity in binned_data["ts"].keys():
+        attrs = binned_data["ts"][quantity].attrs
+        filtered = xr.where(condition, binned_data["ts"][quantity], np.nan)
+        filtered.attrs = attrs
+        binned_data["ts"][quantity] = filtered
