@@ -6,7 +6,8 @@ import pandas as pd
 import xarray as xr
 
 from indica.equilibrium import Equilibrium
-from indica.readers.read_st40 import ReadST40, bin_data_in_time
+from indica.readers.read_st40 import bin_data_in_time
+from indica.readers.read_st40 import ReadST40
 from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
@@ -40,9 +41,7 @@ def read_modelling_runs(
     code_reader = ReadST40(pulse, tstart, tend, dt=dt, tree=code)
     for run in runs:
         code_raw_data[run] = code_reader.get_raw_data("", code, run)
-        code_binned_data[run] = bin_data_in_time(
-            code_reader.raw_data, tstart, tend, dt
-        )
+        code_binned_data[run] = bin_data_in_time(code_reader.raw_data, tstart, tend, dt)
 
     return code_raw_data, code_binned_data
 

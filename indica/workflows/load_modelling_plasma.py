@@ -16,7 +16,8 @@ from indica.models.interferometry import Interferometry
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
-from indica.readers.read_st40 import ReadST40, bin_data_in_time
+from indica.readers.read_st40 import bin_data_in_time
+from indica.readers.read_st40 import ReadST40
 from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
