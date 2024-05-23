@@ -5,7 +5,6 @@ from typing import cast
 from typing import Dict
 from typing import Optional
 from typing import Tuple
-from typing import Union
 
 import numpy as np
 import xarray as xr
@@ -16,7 +15,7 @@ from xarray import zeros_like
 
 from indica.converters.time import get_tlabels_dt
 from indica.utilities import check_time_present
-from .numpy_typing import LabeledArray
+from .numpy_typing import LabeledArray, FloatOrDataArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
@@ -38,19 +37,19 @@ class Equilibrium:
     R_shift
         How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
         on the major radius. Either a float for all time slices or a DataArray
-        with coord time
+        with coord 't'
     z_shift
         How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
         in the vertical coordinate. Either a float for all time slices or a DataArray
-        with coord time
+        with coord 't'
 
     """
 
     def __init__(
         self,
         equilibrium_data: Dict[str, DataArray],
-        R_shift: Union[DataArray, float] = 0.0,
-        z_shift: Union[DataArray, float] = 0.0,
+        R_shift: FloatOrDataArray = 0.0,
+        z_shift: FloatOrDataArray = 0.0,
     ):
 
         self.f = equilibrium_data["f"]
@@ -70,11 +69,11 @@ class Equilibrium:
         self.psi = equilibrium_data["psi"]
 
         if isinstance(R_shift, float):
-            R_offset = xr.DataArray(np.full_like(self.t, R_shift), coords=(self.t,))
+            R_offset = xr.full_like(self.t, R_shift)
         else:
             R_offset = R_shift.interp(t=self.t, kwargs={"fill_value": 0})
         if isinstance(z_shift, float):
-            z_offset = xr.DataArray(np.full_like(self.t, z_shift), coords=(self.t,))
+            z_offset = xr.full_like(self.t, z_shift)
         else:
             z_offset = z_shift.interp(t=self.t, kwargs={"fill_value": 0})
 
@@ -545,23 +544,22 @@ class Equilibrium:
         _R = R + self.R_offset
         _z = z + self.z_offset
 
-        if t is not None:
-            check_time_present(t, self.t)
-            rho = self.rho.interp(t=t, method="nearest")
-            R_ax = self.rmag.interp(t=t, method="nearest")
-            z_ax = self.zmag.interp(t=t, method="nearest")
-            z_x_point = self.zx.interp(t=t, method="nearest")
-            _z = _z.interp(t=t, kwargs={"fill_value": 0})
-            _R = _R.interp(t=t, kwargs={"fill_value": 0})
-
-        else:
+        if t is None:
             rho = self.rho
             R_ax = self.rmag
             z_ax = self.zmag
             t = self.rho.coords["t"]
             z_x_point = self.zx
-            _z = _z.interp(t=t, kwargs={"fill_value": 0})
-            _R = _R.interp(t=t, kwargs={"fill_value": 0})
+            _z = _z.interp(t=t, )
+            _R = _R.interp(t=t, )
+        else:
+            check_time_present(t, self.t)
+            rho = self.rho.interp(t=t, method="nearest")
+            R_ax = self.rmag.interp(t=t, method="nearest")
+            z_ax = self.zmag.interp(t=t, method="nearest")
+            z_x_point = self.zx.interp(t=t, method="nearest")
+            _z = _z.interp(t=t, )
+            _R = _R.interp(t=t, )
 
         # TODO: rho and theta dimensions not in the same order...
         rho = rho.interp(R=_R, z=_z)

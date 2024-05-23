@@ -254,7 +254,7 @@ if __name__ == "__main__":
             "ts",
             "efit",
         ],
-        R_shift=xr.DataArray(data=0.02, coords=(st40.equilibrium.t,)),
+        R_shift=xr.full_like(st40.equilibrium.t, 0.02),
     )
 
     ne_data = post_process_ts(
