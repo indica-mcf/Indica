@@ -74,7 +74,7 @@ def convert_in_time_dt(
 
     tcoords = data.coords["t"]
     data_dt = tcoords[1] - tcoords[0]
-    if data_dt <= dt / 2:
+    if data_dt <= dt / 2 and tstart != tend:
         return bin_in_time_dt(tstart, tend, dt, data)
     else:
         return interpolate_in_time_dt(tstart, tend, dt, data, method=method)
@@ -363,7 +363,8 @@ def get_tlabels_dt(tstart: float, tend: float, dt: float):
         Time array
 
     """
-    tlabels = np.arange(tstart, tend + dt, dt)
+    _tlabels = np.arange(tstart, tend + dt, dt)
+    tlabels = _tlabels[np.where(_tlabels <= float(tend))[0]]
     return tlabels
 
 
