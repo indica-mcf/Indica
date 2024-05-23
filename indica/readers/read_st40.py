@@ -8,7 +8,8 @@ from xarray import DataArray
 
 from indica.converters.time import convert_in_time_dt
 from indica.equilibrium import Equilibrium
-from indica.numpy_typing import RevisionLike, FloatOrDataArray
+from indica.numpy_typing import FloatOrDataArray
+from indica.numpy_typing import RevisionLike
 from indica.readers import ST40Reader
 from indica.utilities import print_like
 
