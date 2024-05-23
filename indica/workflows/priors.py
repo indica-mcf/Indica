@@ -82,7 +82,7 @@ class PriorManager:
 
 
 
-def _ln_prior(priors: dict, parameters: dict):
+def ln_prior(priors: dict, parameters: dict):
     ln_prior = 0
     for prior_name, prior_func in priors.items():
         param_names_in_prior = [x for x in parameters.keys() if x in prior_name]
