@@ -51,7 +51,7 @@ class BayesBlackBox:
         self.build_bckc = build_bckc
 
         missing_data = list(set(quant_to_optimise).difference(data.keys()))
-        if missing_data:  # gives list of keys in quant_to_optimise but not data
+        if missing_data:
             raise ValueError(f"{missing_data} not found in data given")
 
     def ln_likelihood(self):
