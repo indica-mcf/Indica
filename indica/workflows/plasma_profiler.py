@@ -110,10 +110,10 @@ class PlasmaProfiler:
             else:
                 getattr(self.plasma, profile_name).loc[dict(t=t)] = profile
 
-    def save_phantoms(self, phantoms=False):
+    def save_phantoms(self, phantom=False):
         #  if phantoms return profiles otherwise return empty arrays
         phantom_profiles = self.plasma_attributes()
-        if not phantoms:
+        if not phantom:
             for key, value in phantom_profiles.items():
                 phantom_profiles[key] = value * 0
         return phantom_profiles
