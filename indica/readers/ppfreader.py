@@ -92,8 +92,11 @@ class PPFReader(DataReader):
         "eftp": "get_equilibrium",
         "kk3": "get_cyclotron_emissions",
         "ks3": "get_bremsstrahlung_spectroscopy",
-        "sxr": "get_radiation",
-        "bolo": "get_radiation",
+        "sxrh": "get_radiation",
+        "sxrv": "get_radiation",
+        "sxrt": "get_radiation",
+        "kb5h": "get_radiation",
+        "kb5v": "get_radiation",
         "kg10": "get_thomson_scattering",
         **{
             "cx{}m".format(val): "get_charge_exchange"
@@ -130,15 +133,11 @@ class PPFReader(DataReader):
             "psin": ("poloidal_flux", "normalised"),
         },
         "kg10": {"ne": ("number_density", "electron")},
-        "sxr": {
-            "h": ("luminous_flux", "sxr"),
-            "t": ("luminous_flux", "sxr"),
-            "v": ("luminous_flux", "sxr"),
-        },
-        "bolo": {
-            "kb5h": ("luminous_flux", "bolometric"),
-            "kb5v": ("luminous_flux", "bolometric"),
-        },
+        "sxrh": {"h": ("luminous_flux", "sxr")},
+        "sxrv": {"v": ("luminous_flux", "sxr")},
+        "sxrt": {"t": ("luminous_flux", "sxr")},
+        "kb5h": {"kb5h": ("luminous_flux", "bolometric")},
+        "kb5v": {"kb5v": ("luminous_flux", "bolometric")},
         "ks3": {
             "zefh": ("effective_charge", "plasma"),
             "zefv": ("effective_charge", "plasma"),
@@ -324,6 +323,8 @@ class PPFReader(DataReader):
 
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
+        results["x"] = np.zeros_like(results["R"])
+        results["y"] = np.zeros_like(results["R"])
         results["z"] = z.data[0, :]
         results["length"] = R.data.shape[1]
         results["element"] = [
@@ -343,13 +344,16 @@ class PPFReader(DataReader):
             results["angf_error"] = afhi.data - angf.data
             results["angf_records"] = paths + [a_path, e_path]
         if "conc" in quantities:
-            conc, c_path = self._get_signal(uid, instrument, "conc", revision)
-            cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
-            if results["times"] is None:
-                results["times"] = conc.dimensions[0].data
-            results["conc"] = conc.data
-            results["conc_error"] = cohi.data - conc.data
-            results["conc_records"] = paths + [c_path, e_path]
+            try:
+                conc, c_path = self._get_signal(uid, instrument, "conc", revision)
+                cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
+                if results["times"] is None:
+                    results["times"] = conc.dimensions[0].data
+                results["conc"] = conc.data
+                results["conc_error"] = cohi.data - conc.data
+                results["conc_records"] = paths + [c_path, e_path]
+            except NodeNotFound:
+                pass  # CONC not always produced for JET CXRS
         if "ti" in quantities:
             ti, t_path = self._get_signal(uid, instrument, "ti", revision)
             tihi, e_path = self._get_signal(uid, instrument, "tihi", revision)
@@ -359,6 +363,7 @@ class PPFReader(DataReader):
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
 
+        results["machine_dims"] = self.MACHINE_DIMS
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
@@ -515,6 +520,11 @@ class PPFReader(DataReader):
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
+        # HACK: Need a better solution eventually
+        if "sxr" in instrument:
+            instrument = "sxr"
+        elif "kb5" in instrument:
+            instrument = "bolo"
         for q in quantities:
             records = [SURF_PATH.name]
             if instrument == "bolo":
