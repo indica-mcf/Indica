@@ -91,7 +91,8 @@ class PPFReader(DataReader):
         "efit": "get_equilibrium",
         "eftp": "get_equilibrium",
         "kk3": "get_cyclotron_emissions",
-        "ks3": "get_bremsstrahlung_spectroscopy",
+        "ks3h": "get_bremsstrahlung_spectroscopy",
+        "ks3v": "get_bremsstrahlung_spectroscopy",
         "sxrh": "get_radiation",
         "sxrv": "get_radiation",
         "sxrt": "get_radiation",
@@ -138,10 +139,8 @@ class PPFReader(DataReader):
         "sxrt": {"t": ("luminous_flux", "sxr")},
         "kb5h": {"kb5h": ("luminous_flux", "bolometric")},
         "kb5v": {"kb5v": ("luminous_flux", "bolometric")},
-        "ks3": {
-            "zefh": ("effective_charge", "plasma"),
-            "zefv": ("effective_charge", "plasma"),
-        },
+        "ks3h": {"zefh": ("effective_charge", "plasma")},
+        "ks3v": {"zefv": ("effective_charge", "plasma")},
         **{
             "cx{}m".format(val): {
                 "angf": ("angular_freq", "ion"),
@@ -585,6 +584,8 @@ class PPFReader(DataReader):
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
+        if "ks3" in instrument:
+            instrument = "ks3"
         los_instrument = self._BREMSSTRAHLUNG_LOS[instrument]
         for q in quantities:
             qval, q_path = self._get_signal(uid, instrument, q, revision)
