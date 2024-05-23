@@ -8,6 +8,7 @@ from xarray import DataArray
 
 from indica.converters.time import convert_in_time_dt
 from indica.equilibrium import Equilibrium
+from indica.numpy_typing import FloatOrDataArray
 from indica.numpy_typing import RevisionLike
 from indica.readers import ST40Reader
 from indica.utilities import print_like
@@ -121,8 +122,8 @@ class ReadST40:
         self,
         instrument: str = "efit",
         revision: RevisionLike = 0,
-        R_shift: float = 0.0,
-        z_shift: float = 0.0,
+        R_shift: FloatOrDataArray = 0.0,
+        z_shift: FloatOrDataArray = 0.0,
     ):
 
         equilibrium_data = self.reader.get("", instrument, revision)
@@ -331,7 +332,7 @@ class ReadST40:
         tstart: float = None,
         tend: float = None,
         dt: float = None,
-        R_shift: float = 0.0,
+        R_shift: FloatOrDataArray = 0.0,
         chi2_limit: float = 100.0,
         map_diagnostics: bool = False,
         raw_only: bool = False,
