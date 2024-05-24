@@ -364,7 +364,7 @@ def get_tlabels_dt(tstart: float, tend: float, dt: float):
 
     """
     _tlabels = np.arange(tstart, tend + dt, dt)
-    tlabels = _tlabels[np.where(_tlabels <= float(tend))[0]]
+    tlabels = _tlabels[np.logical_or(_tlabels < tend, np.isclose(_tlabels, tend))]
     return tlabels
 
 
