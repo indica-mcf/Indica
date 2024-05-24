@@ -219,7 +219,7 @@ class DataReader(BaseIO):
                 dims = ["t", "rho_poloidal"]
             elif "_data" in quantity:
                 dims = ["t", "channel"]
-            elif "rshift" in quantity:
+            elif "R_shift" in quantity:
                 dims = ["t"]
             else:
                 raise ValueError(f"Unknown quantity: {quantity}")

@@ -129,7 +129,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "major_radius_boundary": ("$R_{boundary}$", "length"),
     "minor_radius": ("$r_{min}$", "length"),
     "minor_radius_boundary": ("a", "length"),
-    "major_radius_shift": ("rshift", "length"),
+    "major_radius_shift": ("$R_{shift}$", "length"),
     "plasma_current": ("$I_{P}$", "current"),
     "toroidal_field": ("$B_{T}$", "magnetic_field"),
     "poloidal_field": ("$B_{P}$", "magnetic_field"),
