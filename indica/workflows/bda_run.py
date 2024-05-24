@@ -9,10 +9,6 @@ from indica.workflows.priors import PriorManager
 from indica.workflows.plasma_profiler import PlasmaProfiler, initialise_gauss_profilers
 from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.bayes_workflow import EmceeOptimiser
-from indica.workflows.data_context import ExpData
-from indica.workflows.data_context import MockData
-from indica.workflows.data_context import PhantomData
-
 
 
 def bda_run(
@@ -67,40 +63,11 @@ def bda_run(
     # data_settings = {}
     if phantom:
         reader = ReadST40(pulse = pulse, tstart=tstart, tend=tend, dt=dt)
-
-        # data_context = PhantomData(
-        #     pulse=pulse,
-        #     diagnostics=diagnostics,
-        #     tstart=tstart,
-        #     tend=tend,
-        #     dt=dt,
-        #     reader_settings=data_settings,
-        # )
+        phantom_reader = ModelCoordinator(model_settings,  {"xrcs":HelikeSpectrometer}, tstart=tstart, tend=tend, dt=dt)
     elif mock:
-        reader = ModelCoordinator
-
-
-        # data_context = MockData(
-        #     pulse=pulse,
-        #     diagnostics=diagnostics,
-        #     tstart=tstart,
-        #     tend=tend,
-        #     dt=dt,
-        #     reader_settings=data_settings,
-        # )
+        reader = ModelCoordinator(model_settings,  {"xrcs":HelikeSpectrometer}, tstart=tstart, tend=tend, dt=dt)
     else:
-
         reader = ReadST40(pulse = pulse, tstart=tstart, tend=tend, dt=dt)
-
-        # data_context = ExpData(
-        #     pulse=pulse,
-        #     diagnostics=diagnostics,
-        #     tstart=tstart,
-        #     tend=tend,
-        #     dt=dt,
-        #     reader_settings=data_settings,
-        # )
-
 
     reader()
 
@@ -117,9 +84,10 @@ def bda_run(
         ppts_reader = ReadST40(pulse=pulse, tstart=tstart, tend=tend, dt=dt,)
         ppts_reader(["ppts"])
 
-        _profs = data_context.binned_data["ppts"]
-        plasma_profiler.set_profiles({"electron_density": _profs["ne_rho"],
-                                      "electron_temperature": _profs["te_rho"],
+        ppts_profs = ppts_reader.binned_data["ppts"]
+
+        plasma_profiler.set_profiles({"electron_density": ppts_profs["ne_rho"],
+                                      "electron_temperature": ppts_profs["te_rho"],
                                       })
 
 
@@ -129,8 +97,8 @@ def bda_run(
     model_coordinator = ModelCoordinator(
         diagnostics=diagnostics,
         plasma=plasma,
-        equilibrium=data_context.equilibrium,
-        transforms=data_context.transforms,
+        equilibrium=reader.equilibrium,
+        transforms=reader.transforms,
         model_settings=model_settings,
     )
     model_context.update_model_kwargs(data_context.binned_data)
@@ -139,6 +107,8 @@ def bda_run(
     data_context.process_data(
         model_context._build_bckc,
     )
+
+    prior_manager = PriorManager()
 
     optimiser_settings = OptimiserEmceeSettings(
         param_names=param_names,
@@ -157,7 +127,7 @@ def bda_run(
 
     workflow = BayesWorkflow(
         quant_to_optimise=None,
-        data_context=data_context,
+        opt_data=reader.binned_data,  # TODO: does this need to be flattened?
         optimiser_context=optimiser_context,
         plasma_profiler=plasma_profiler,
         model_coordinator=model_coordinator,

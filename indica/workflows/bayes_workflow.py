@@ -35,22 +35,21 @@ class BayesWorkflow:
     def __init__(
         self,
         quant_to_optimise: list,
-
-        data_context: DataContext,
+        opt_data: dict,
         plasma_profiler: PlasmaProfiler,
         prior_manager: PriorManager,
         model_coordinator: ModelCoordinator,
         optimiser_context: EmceeOptimiser,
     ):
         self.quant_to_optimise = quant_to_optimise
-        self.data_context = data_context
+        self.opt_data = opt_data
         self.plasma_profiler = plasma_profiler
         self.prior_manager = prior_manager
         self.model_coordinator = model_coordinator
         self.optimiser_context = optimiser_context
 
         self.blackbox = BayesBlackBox(
-            data = self.data_context.opt_data,
+            opt_data = self.opt_data,
             quant_to_optimise=quant_to_optimise,
             prior_manager=self.prior_manager,
             plasma_profiler = self.plasma_profiler,

@@ -11,6 +11,11 @@ from indica.models.interferometry import smmh1_transform_example
 from indica.models.thomson_scattering import ts_transform_example
 from indica.readers.read_st40 import ReadST40
 
+# TODO: This can all be removed in favour of the ModelCoordinator and ReadST40 classes
+#
+#
+#
+
 
 @dataclass
 class ReaderSettings:
