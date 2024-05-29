@@ -8,7 +8,6 @@ import xarray as xr
 
 from indica.bayesblackbox import BayesBlackBox
 from indica.workflows.bayes_plots import plot_bayes_result
-from indica.workflows.data_context import DataContext
 from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.optimiser_context import EmceeOptimiser
 from indica.workflows.plasma_profiler import PlasmaProfiler
