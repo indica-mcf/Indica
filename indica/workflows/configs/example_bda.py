@@ -3,7 +3,7 @@ from typing import Dict
 pulse = 11089
 pulse_to_write = 43000000
 
-diagnostics = ["xrcs", "cxff_tws_c", "ts", "efit"]
+diagnostics = ["xrcs", "cxff_tws_c", "ts", ]
 opt_quantity = ["xrcs.spectra", "cxff_tws_c.ti", "ts.ne", "ts.te"]
 
 param_names = [
@@ -30,15 +30,13 @@ param_names = [
 
 plasma_settings = dict(
     main_ion="h",
-    impurities=("ar", "c"),
-    impurity_concentration=(0.001, 0.005),
+    impurities=("ar",),
+    impurity_concentration=(0.001,),
     n_rad=20,
 )
 
 phantom = False
-set_ts = (True,)
-ts_split = ""
-ts_R_shift = 0.02
+set_ts = True
 profile_params_to_update: Dict = {}
 model_init: Dict = {}
 revisions: Dict = {}
