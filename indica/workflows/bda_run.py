@@ -85,8 +85,8 @@ def bda_run(
     if set_ts:
         # interp ppts profiles as some are empty
         ppts_profs = ppts_reader.binned_data["ppts"]
-        ne = ppts_profs["ne_rho"].interp(t=plasma.t)
-        te = ppts_profs["te_rho"].interp(t=plasma.t)
+        ne = ppts_profs["ne_rho"].interp(t=plasma.t, rho_poloidal=plasma.rho)
+        te = ppts_profs["te_rho"].interp(t=plasma.t, rho_poloidal=plasma.rho)
         plasma_profiler.set_profiles({"electron_density": ne,
                                       "electron_temperature": te,
                                       })
