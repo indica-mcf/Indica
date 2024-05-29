@@ -120,7 +120,7 @@ def bda_run(
     reader(diagnostics, filters=filters, revisions=revisions, R_shift=R_shift)
     plasma.set_equilibrium(equilibrium=reader.equilibrium)
 
-    # TODO: model kwargs
+    # TODO: model call kwargs
     # set up models
     # models = {diag: INSTRUMENT_MAPPING[diag] for diag in diagnostics}
     # model_coordinator = ModelCoordinator(
