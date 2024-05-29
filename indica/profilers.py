@@ -21,6 +21,8 @@ class Profiler(ABC):
     def __init__(self,
                  parameters: dict = None):
 
+        if parameters is None:
+            parameters = {}
         self.parameters = parameters
 
 
@@ -29,10 +31,7 @@ class Profiler(ABC):
         Set any of the shaping parameters
         """
         for k, v in kwargs.items():
-            if k in self.parameters:
-                setattr(self, k, v)
-            else:
-                raise ValueError(f"{k} attribute not found in profiler")
+            setattr(self, k, v)
 
     def get_parameters(self):
         """
@@ -75,13 +74,13 @@ class ProfilerGauss(Profiler):
             normalised radial grid [0, 1] on which profile is to be built
 
         """
+        super().__init__(parameters)
         self.y0: float = None
         self.y1: float = None
         self.yend: float = None
         self.peaking: float = None
         self.wcenter: float = None
         self.wped: float = None
-        self.parameters: dict = parameters
 
         self.xend = xend
         self.coord = f"rho_{coord}"
