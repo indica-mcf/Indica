@@ -6,7 +6,7 @@ import xarray as xr
 import pandas as pd
 import emcee
 from scipy.stats import describe
-from indica.bayesblackbox import ln_prior
+from indica.bayesblackbox import BayesBlackBox
 from indica.workflows.priors import sample_from_priors
 
 
