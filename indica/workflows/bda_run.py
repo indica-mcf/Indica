@@ -34,7 +34,8 @@ def bda_run(
     tend=0.05,
     dt=0.01,
     revisions=None,
-    filters=None,
+    filter_limits=None,
+    filter_coords=None,
     R_shift=0.0,
     apply_rshift=True,
     starting_samples=100,
@@ -55,8 +56,10 @@ def bda_run(
     plasma_settings=None,
     **kwargs,
 ):
-    if filters is None:
-        filters = {}
+    if filter_limits is None:
+        filter_limits = {}
+    if filter_coords is None:
+        filter_coords = {}
     if revisions is None:
         revisions = {}
     if model_init is None:
@@ -98,7 +101,8 @@ def bda_run(
     # different data methods TODO: abstract these to an interface
     if phantom:
         phantom_reader = ReadST40(pulse = pulse, tstart=tstart, tend=tend, dt=dt)
-        phantom_reader(diagnostics, filters=filters, revisions=revisions, R_shift=R_shift)
+        phantom_reader(diagnostics, filter_coords=filter_coords, filter_limits=filter_limits,
+                       revisions=revisions, R_shift=R_shift)
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in diagnostics}
         reader = ModelCoordinator(models, model_init, )
         reader.set_equilibrium(phantom_reader.equilibrium, )
@@ -117,7 +121,8 @@ def bda_run(
     else:
         reader = ReadST40(pulse = pulse, tstart=tstart, tend=tend, dt=dt,)
 
-    reader(diagnostics, filters=filters, revisions=revisions, R_shift=R_shift)
+    reader(diagnostics, filter_coords=filter_coords, filter_limits=filter_limits,  revisions=revisions,
+           R_shift=R_shift)
     plasma.set_equilibrium(equilibrium=reader.equilibrium)
 
     # TODO: model call kwargs
