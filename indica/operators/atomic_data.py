@@ -4,8 +4,10 @@ from typing import List
 from typing import Tuple
 from typing import Union
 
+import matplotlib.pylab as plt
 import numpy as np
 from numpy.core.numeric import zeros_like
+from pandas import DataFrame
 import scipy
 import xarray as xr
 from xarray import DataArray
@@ -13,6 +15,8 @@ from xarray import DataArray
 from indica.numpy_typing import LabeledArray
 from indica.readers.adas import ADASReader
 from indica.readers.adas import ADF11
+from indica.utilities import DATA_PATH
+from indica.utilities import set_plot_colors
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from ..datatypes import DataType
@@ -915,3 +919,125 @@ def default_profiles(n_rad: int = 20):
     Nh = Nh_prof()
     tau = None
     return Te, Ne, Nh, tau
+
+
+def cooling_factor_corona(
+    elements: List[str],
+    write_to_file: bool = False,
+    plot: bool = False,
+    new_figure: bool = True,
+    include_neutrals: bool = False,
+):
+    """
+    Initialises atomic data classes with default ADAS files and runs the
+    __call__ with default plasma parameters
+    """
+    tau = None
+    Ne_const = 5.0e19
+    Nh1 = 1.0e17
+    Nh0 = 1.0e12
+
+    fract_abu: dict = {}
+    power_loss_tot: dict = {}
+    atomic_data_files: dict = {}
+    cooling_factor: dict = {}
+    filenames = ""
+    files_to_read = ["scd", "acd", "ccd", "plt", "prb", "prc"]
+    Te_files = []
+
+    print("Read atomic data")
+    adas_reader = ADASReader()
+    for elem in elements:
+        atomic_data_files[elem] = {}
+        for file_type in files_to_read:
+            _atomic_data = adas_reader.get_adf11(
+                file_type, elem, ADF11[elem][file_type]
+            )
+            filenames += f"{_atomic_data.filename}"
+            Te_files.append(_atomic_data.electron_temperature)
+            atomic_data_files[elem][file_type] = _atomic_data
+
+    # Set Te so that max(Te) doesn't exceed the value available in all atomic-data files
+    _indx = np.argmin(np.array([np.max(_Te) for _Te in Te_files]))
+    _Te = Te_files[_indx]
+    nTe = np.size(_Te)
+    Te = DataArray(_Te.data, coords=[("index", np.arange(nTe))])
+    Ne = xr.full_like(Te, Ne_const)
+    Nh = xr.full_like(Te, 0.0)
+    if include_neutrals:
+        _Nh = np.array([Te.values[i] for i in np.arange(Te.size - 1, -1, -1)])
+        _Nh -= np.min(_Nh)
+        _Nh /= np.max(_Nh)
+        _Nh *= Nh1
+        _Nh += Nh0
+        Nh.values = _Nh
+
+    _to_write = {"Te": np.array(Te), "Ne": np.array(Ne), "Nh": np.array(Nh)}
+
+    print("Calculate fractional abundance and cooling factors")
+    for elem in elements:
+        print(f"  {elem}")
+        fract_abu[elem] = FractionalAbundance(
+            atomic_data_files[elem]["scd"],
+            atomic_data_files[elem]["acd"],
+            ccd=atomic_data_files[elem]["ccd"],
+        )
+        _fz = fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
+
+        power_loss_tot[elem] = PowerLoss(
+            atomic_data_files[elem]["plt"],
+            atomic_data_files[elem]["prb"],
+            prc=atomic_data_files[elem]["prc"],
+        )
+        _power_loss = power_loss_tot[elem](Te, _fz, Ne=Ne, Nh=Nh)
+
+        _cooling_factor: DataArray = _power_loss.sum("ion_charge")
+        _cooling_factor = (
+            _cooling_factor.assign_coords(electron_temperature=("index", Te))
+            .swap_dims({"index": "electron_temperature"})
+            .drop_vars("index")
+        )
+
+        cooling_factor[elem] = _cooling_factor
+        _to_write[elem] = np.array(_cooling_factor)
+
+    _to_write["atomic_data_files"] = filenames
+
+    if write_to_file:
+        if include_neutrals:
+            file_name = f"{DATA_PATH}corona_cooling_factors_Nh.csv"
+        else:
+            file_name = f"{DATA_PATH}corona_cooling_factors.csv"
+        print(f"Writing data to {file_name}")
+        df = DataFrame(_to_write)
+        df.to_csv(file_name)
+
+    if plot:
+        if new_figure:
+            plt.figure()
+        cmap, _ = set_plot_colors()
+        cols = cmap(np.linspace(0.75, 0.1, len(cooling_factor), dtype=float))
+
+        label = ""
+        marker = "o"
+        linestyle = "solid"
+        if include_neutrals:
+            marker = ""
+            linestyle = "dashed"
+
+        for i, elem in enumerate(elements):
+            if new_figure:
+                label = elem
+            cooling_factor[elem].plot(
+                label=label,
+                alpha=0.8,
+                marker=marker,
+                color=cols[i],
+                linestyle=linestyle,
+            )
+        if new_figure:
+            plt.xscale("log")
+            plt.yscale("log")
+            plt.legend()
+
+    return cooling_factor, _to_write, fract_abu
