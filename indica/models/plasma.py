@@ -94,6 +94,21 @@ class Plasma:
         Assign equilibrium object
         """
         self.equilibrium = equilibrium
+        self._volume.values = self.convert_in_time(
+            self.equilibrium.volume.interp(rho_poloidal=self.rho)
+        )
+        self._area.values = self.convert_in_time(
+            self.equilibrium.area.interp(rho_poloidal=self.rho)
+        )
+        self._rmjo.values = self.convert_in_time(
+            self.equilibrium.rmjo.interp(rho_poloidal=self.rho)
+        )
+        self._rmji.values = self.convert_in_time(
+            self.equilibrium.rmji.interp(rho_poloidal=self.rho)
+        )
+        self._rmag.values = self.convert_in_time(self.equilibrium.rmag)
+        self._zmag.values = self.convert_in_time(self.equilibrium.zmag)
+        self._rmin.values = (self._rmjo - self._rmji) / 2.0
 
     def set_adf11(self, adf11: dict):
         self.adf11 = adf11
@@ -194,21 +209,27 @@ class Plasma:
         )
 
         # Private variables for class property variables
-        self._rmag = format_dataarray(
+        self._rmag: DataArray = format_dataarray(
             data1d_time, "major_radius_magnetic_axis", coords1d_time, make_copy=True
         )
-        self._zmag = format_dataarray(
+        self._zmag: DataArray = format_dataarray(
             data1d_time, "z_magnetic_axis", coords1d_time, make_copy=True
         )
-        self._rmji = format_dataarray(
+        self._rmji: DataArray = format_dataarray(
             data2d, "major_radius_hfs", coords2d, make_copy=True
         )
-        self._rmjo = format_dataarray(
+        self._rmjo: DataArray = format_dataarray(
             data2d, "major_radius_lfs", coords2d, make_copy=True
         )
-        self._rmin = format_dataarray(data2d, "minor_radius", coords2d, make_copy=True)
-        self._volume = format_dataarray(data2d, "volume", coords2d, make_copy=True)
-        self._area = format_dataarray(data2d, "area", coords2d, make_copy=True)
+        self._rmin: DataArray = format_dataarray(
+            data2d, "minor_radius", coords2d, make_copy=True
+        )
+        self._volume: DataArray = format_dataarray(
+            data2d, "volume", coords2d, make_copy=True
+        )
+        self._area: DataArray = format_dataarray(
+            data2d, "area", coords2d, make_copy=True
+        )
         self._pressure_fast = format_dataarray(
             data2d, "total_fast_ion_pressure", coords2d, make_copy=True
         )
@@ -617,53 +638,31 @@ class Plasma:
 
     @property
     def volume(self):
-        if len(np.where(self._volume > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._volume.values = self.convert_in_time(
-                self.equilibrium.volume.interp(rho_poloidal=self.rho)
-            )
         return self._volume
 
     @property
     def area(self):
-        if len(np.where(self._area > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._area.values = self.convert_in_time(
-                self.equilibrium.area.interp(rho_poloidal=self.rho)
-            )
         return self._area
 
     @property
     def rmjo(self):
-        if len(np.where(self._rmjo > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._rmjo.values = self.convert_in_time(
-                self.equilibrium.rmjo.interp(rho_poloidal=self.rho)
-            )
         return self._rmjo
 
     @property
     def rmji(self):
-        if len(np.where(self._rmji > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._rmji.values = self.convert_in_time(
-                self.equilibrium.rmji.interp(rho_poloidal=self.rho)
-            )
         return self._rmji
 
     @property
     def rmag(self):
-        if len(np.where(self._rmag > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._rmag.values = self.convert_in_time(self.equilibrium.rmag)
         return self._rmag
 
     @property
     def zmag(self):
-        if len(np.where(self._zmag > 0)[0]) == 0 and hasattr(self, "equilibrium"):
-            self._zmag.values = self.convert_in_time(self.equilibrium.zmag)
         return self._zmag
 
     @property
     def rmin(self):
-        if len(np.where(self._rmin > 0)[0]) == 0:
-            self._rmin.values = (self.rmjo - self.rmji) / 2.0
-        return self._zmag
+        return self._rmin
 
     def set_impurity_concentration(
         self,
@@ -703,8 +702,8 @@ class Plasma:
             self.impurity_density.loc[dict(element=element, t=t)] = imp_dens.values
 
     def convert_in_time(self, value: DataArray, method="linear"):
-        binned = convert_in_time_dt(self.tstart, self.tend, self.dt, value).interp(
-            t=self.t, method=method
+        binned = convert_in_time_dt(
+            self.tstart, self.tend, self.dt, value, method=method
         )
 
         return binned

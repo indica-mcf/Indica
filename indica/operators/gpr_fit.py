@@ -243,12 +243,19 @@ def gpr_fit_ts(
 
 
 if __name__ == "__main__":
-    pulse = 11418
+    pulse = 11089
     tstart = 0.03
     tend = 0.15
     dt = 0.01
     st40 = ReadST40(pulse, tstart, tend, dt)
-    st40(instruments=["ts", "efit"], R_shift=0.00)
+    st40.get_equilibrium()
+    st40(
+        instruments=[
+            "ts",
+            "efit",
+        ],
+        R_shift=xr.full_like(st40.equilibrium.t, 0.02),
+    )
 
     ne_data = post_process_ts(
         st40.binned_data,
