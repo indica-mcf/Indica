@@ -738,14 +738,14 @@ class ST40Reader(DataReader):
         )
 
         results["rho_poloidal"] = rhop
-        results["rpos"] = rpos
-        results["zpos"] = zpos
+        results["R"] = rpos
+        results["z"] = zpos
         results["rho_poloidal_data"] = rhop_data
-        results["rpos_data"] = rpos_data
-        results["zpos_data"] = zpos_data
+        results["R_data"] = rpos_data
+        results["z_data"] = zpos_data
 
         results["length"] = len(rpos_data)
-        results["rshift"] = rshift
+        results["R_shift"] = rshift
         results["t"] = time
 
         for q in quantities:
