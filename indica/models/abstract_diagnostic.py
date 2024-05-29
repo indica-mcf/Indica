@@ -5,7 +5,7 @@ from indica.converters import CoordinateTransform
 from indica.models.plasma import Plasma
 
 
-class DiagnosticModel(ABC):
+class AbstractDiagnostic(ABC):
     name: str
     bckc: dict
     plasma: Plasma

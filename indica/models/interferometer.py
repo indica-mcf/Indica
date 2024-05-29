@@ -5,13 +5,13 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
-from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.defaults.load_defaults import load_default_objects
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
-class Interferometry(DiagnosticModel):
+class Interferometer(AbstractDiagnostic):
     """
     Object representing an interferometer diagnostics
     """
@@ -126,7 +126,7 @@ def example_run(pulse: int = None, plasma=None, plot=False):
 
     # Create new interferometers diagnostics
     diagnostic_name = "smmh1"
-    model = Interferometry(
+    model = Interferometer(
         diagnostic_name,
     )
     los_transform = smmh1_transform_example(3)

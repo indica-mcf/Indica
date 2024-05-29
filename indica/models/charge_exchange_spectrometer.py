@@ -12,7 +12,7 @@ from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
 
 
-class ChargeExchange(DiagnosticModel):
+class ChargeExchangeSpectrometer(DiagnosticModel):
     """
     Object representing a CXRS diagnostic
     """

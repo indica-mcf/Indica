@@ -6,7 +6,7 @@ from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
 from indica.equilibrium import fake_equilibrium
-from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.defaults.load_defaults import load_default_objects
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
@@ -14,7 +14,7 @@ from indica.utilities import assign_datatype
 from indica.utilities import set_axis_sci
 
 
-class Bolometer(DiagnosticModel):
+class Bolometer(AbstractDiagnostic):
     """
     Object representing a bolometer camera diagnostic
     """
