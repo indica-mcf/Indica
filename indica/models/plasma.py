@@ -84,6 +84,7 @@ class Plasma:
             print_like("Only rho_poloidal in input for the time being...")
             raise AssertionError
 
+        self.build_atomic_data()
         self.initialize_variables(n_rad, n_R, n_z)
 
         self.equilibrium: Equilibrium
