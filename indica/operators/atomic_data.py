@@ -11,13 +11,12 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.numpy_typing import LabeledArray
-from indica.profilers import ProfilerGauss
 from indica.readers.adas import ADASReader
 from indica.readers.adas import ADF11
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from ..datatypes import DataType
-
+from ..profilers import ProfilerGauss
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
@@ -88,10 +87,10 @@ class FractionalAbundance(Operator):
     ]
 
     def __init__(
-        self,
-        scd: DataArray,
-        acd: DataArray,
-        ccd: DataArray = None,
+            self,
+            scd: DataArray,
+            acd: DataArray,
+            ccd: DataArray = None,
     ):
         """Initialises FractionalAbundance class"""
         self.Ne = None
@@ -123,9 +122,9 @@ class FractionalAbundance(Operator):
         return (("fractional abundance", "impurity_element"),)
 
     def interpolate_rates(
-        self,
-        Ne: DataArray,
-        Te: DataArray,
+            self,
+            Ne: DataArray,
+            Te: DataArray,
     ):
         """Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
@@ -183,9 +182,9 @@ class FractionalAbundance(Operator):
         return scd_spec, acd_spec, ccd_spec, self.num_of_ion_charge
 
     def calc_ionisation_balance_matrix(
-        self,
-        Ne: DataArray,
-        Nh: DataArray = None,
+            self,
+            Ne: DataArray,
+            Nh: DataArray = None,
     ):
         """Calculates the ionisation balance matrix that defines the differential equation
         that defines the time evolution of the fractional abundance of all of the
@@ -231,7 +230,7 @@ class FractionalAbundance(Operator):
         ionisation_balance_matrix = np.zeros(dims)
 
         icharge = 0
-        ionisation_balance_matrix[icharge, icharge : icharge + 2] = np.array(
+        ionisation_balance_matrix[icharge, icharge: icharge + 2] = np.array(
             [
                 -Ne * scd[icharge],  # type: ignore
                 Ne * acd[icharge]
@@ -239,7 +238,7 @@ class FractionalAbundance(Operator):
             ]
         )
         for icharge in range(1, num_of_ion_charge - 1):
-            ionisation_balance_matrix[icharge, icharge - 1 : icharge + 2] = np.array(
+            ionisation_balance_matrix[icharge, icharge - 1: icharge + 2] = np.array(
                 [
                     Ne * scd[icharge - 1],
                     -Ne * (scd[icharge] + acd[icharge - 1])  # type: ignore
@@ -255,7 +254,7 @@ class FractionalAbundance(Operator):
                 ]
             )
         icharge = num_of_ion_charge - 1
-        ionisation_balance_matrix[icharge, icharge - 1 : icharge + 1] = np.array(
+        ionisation_balance_matrix[icharge, icharge - 1: icharge + 1] = np.array(
             [
                 Ne * scd[icharge - 1],
                 -Ne * (acd[icharge - 1])  # type: ignore
@@ -271,7 +270,7 @@ class FractionalAbundance(Operator):
         return ionisation_balance_matrix
 
     def calc_F_z_tinf(
-        self,
+            self,
     ):
         """Calculates the equilibrium fractional abundance of all ionisation charges,
         F_z(t=infinity) used for the final time evolution equation.
@@ -315,7 +314,7 @@ class FractionalAbundance(Operator):
         return np.real(F_z_tinf)
 
     def calc_eigen_vals_and_vecs(
-        self,
+            self,
     ):
         """Calculates the eigenvalues and eigenvectors of the ionisation balance
         matrix.
@@ -347,8 +346,8 @@ class FractionalAbundance(Operator):
         return eig_vals, eig_vecs
 
     def calc_eigen_coeffs(
-        self,
-        F_z_t0: DataArray = None,
+            self,
+            F_z_t0: DataArray = None,
     ):
         """Calculates the coefficients from the eigenvalues and eigenvectors for the
         time evolution equation.
@@ -458,9 +457,9 @@ class FractionalAbundance(Operator):
 
             for icharge in range(self.num_of_ion_charge):
                 F_z_t[:, ix1] += (
-                    self.eig_coeffs[icharge, ix1]
-                    * np.exp(self.eig_vals[icharge, ix1] * itau)
-                    * self.eig_vecs[:, icharge, ix1]
+                        self.eig_coeffs[icharge, ix1]
+                        * np.exp(self.eig_vals[icharge, ix1] * itau)
+                        * self.eig_vecs[:, icharge, ix1]
                 )
 
         F_z_t = np.abs(np.real(F_z_t))
@@ -474,13 +473,13 @@ class FractionalAbundance(Operator):
         return F_z_t
 
     def __call__(  # type: ignore
-        self,
-        Te: DataArray,
-        Ne: DataArray = None,
-        Nh: DataArray = None,
-        tau: LabeledArray = None,
-        F_z_t0: DataArray = None,
-        full_run: bool = False,
+            self,
+            Te: DataArray,
+            Ne: DataArray = None,
+            Nh: DataArray = None,
+            tau: LabeledArray = None,
+            F_z_t0: DataArray = None,
+            full_run: bool = False,
     ) -> DataArray:
         """Executes all functions in correct order to calculate the fractional
         abundance.
@@ -532,6 +531,10 @@ class FractionalAbundance(Operator):
 
             self.F_z_t = F_z_t
         else:
+
+            # TODO: FIX THIS (Nh is ignored!?!)
+            # Not too mention why does F_z_t have extra dims (which are dropped..) other than Te / Ne / Nh???
+
             F_z_t = interpolate_results(self.F_z_t, self.Te, Te)
 
         return F_z_t
@@ -591,10 +594,10 @@ class PowerLoss(Operator):
     ]
 
     def __init__(
-        self,
-        plt: DataArray,
-        prb: DataArray,
-        prc: DataArray = None,
+            self,
+            plt: DataArray,
+            prb: DataArray,
+            prc: DataArray = None,
     ):
         self.plt = plt
         self.prc = prc
@@ -630,9 +633,9 @@ class PowerLoss(Operator):
         return (("total_radiated power loss", "impurity_element"),)
 
     def interpolate_power(
-        self,
-        Ne: DataArray,
-        Te: DataArray,
+            self,
+            Ne: DataArray,
+            Te: DataArray,
     ):
         """Interpolates the various powers based on inputted Ne and Te.
 
@@ -682,10 +685,10 @@ class PowerLoss(Operator):
         return plt_spec, prc_spec, prb_spec, self.num_of_ion_charge
 
     def calculate_power_loss(
-        self,
-        Ne: DataArray,
-        F_z_t: DataArray,
-        Nh: DataArray = None,
+            self,
+            Ne: DataArray,
+            F_z_t: DataArray,
+            Nh: DataArray = None,
     ):
         """Calculates total radiated power of all ionisation charges of a given
         impurity element.
@@ -744,44 +747,44 @@ class PowerLoss(Operator):
         for ix1 in range(x1_coord.size):
             icharge = 0
             cooling_factor[icharge, ix1] = (
-                plt[icharge, ix1] * self.F_z_t[icharge, ix1]  # type: ignore
+                    plt[icharge, ix1] * self.F_z_t[icharge, ix1]  # type: ignore
             )
             for icharge in range(1, self.num_of_ion_charge - 1):
                 cooling_factor[icharge, ix1] = (
-                    plt[icharge, ix1]
-                    + (
-                        (Nh[ix1] / Ne[ix1]) * prc[icharge - 1, ix1]
-                        if (prc is not None) and (Nh is not None)
-                        else 0.0
-                    )
-                    + prb[icharge - 1, ix1]
-                ) * self.F_z_t[
-                    icharge, ix1
-                ]  # type: ignore
+                                                       plt[icharge, ix1]
+                                                       + (
+                                                           (Nh[ix1] / Ne[ix1]) * prc[icharge - 1, ix1]
+                                                           if (prc is not None) and (Nh is not None)
+                                                           else 0.0
+                                                       )
+                                                       + prb[icharge - 1, ix1]
+                                               ) * self.F_z_t[
+                                                   icharge, ix1
+                                               ]  # type: ignore
 
             icharge = self.num_of_ion_charge - 1
             cooling_factor[icharge, ix1] = (
-                (
-                    (Nh[ix1] / Ne[ix1]) * prc[icharge - 1, ix1]
-                    if (prc is not None) and (Nh is not None)
-                    else 0.0
-                )
-                + prb[icharge - 1, ix1]
-            ) * self.F_z_t[
-                icharge, ix1
-            ]  # type: ignore
+                                                   (
+                                                       (Nh[ix1] / Ne[ix1]) * prc[icharge - 1, ix1]
+                                                       if (prc is not None) and (Nh is not None)
+                                                       else 0.0
+                                                   )
+                                                   + prb[icharge - 1, ix1]
+                                           ) * self.F_z_t[
+                                               icharge, ix1
+                                           ]  # type: ignore
 
         self.cooling_factor = cooling_factor
 
         return cooling_factor
 
     def __call__(  # type: ignore
-        self,
-        Te: DataArray,
-        F_z_t: DataArray,
-        Ne: DataArray = None,
-        Nh: DataArray = None,
-        full_run: bool = False,
+            self,
+            Te: DataArray,
+            F_z_t: DataArray,
+            Ne: DataArray = None,
+            Nh: DataArray = None,
+            full_run: bool = False,
     ):
         """Executes all functions in correct order to calculate the total radiated
         power.
@@ -823,7 +826,7 @@ class PowerLoss(Operator):
 
 
 def interpolate_results(
-    data: DataArray, Te_data: DataArray, Te_interp: DataArray, method="cubic"
+        data: DataArray, Te_data: DataArray, Te_interp: DataArray, method="cubic"
 ):
     """
     Interpolate fractional abundance or cooling factor on electron
@@ -850,11 +853,11 @@ def interpolate_results(
 
 
 def default_atomic_data(
-    elements: Tuple[str, ...],
-    Te: DataArray = None,
-    Ne: DataArray = None,
-    Nh: DataArray = None,
-    tau: DataArray = None,
+        elements: Tuple[str, ...],
+        Te: DataArray = None,
+        Ne: DataArray = None,
+        Nh: DataArray = None,
+        tau: DataArray = None,
 ):
     """
     Initialises atomic data classes with default ADAS files and runs the
@@ -872,7 +875,7 @@ def default_atomic_data(
         ccd = adas_reader.get_adf11("ccd", elem, ADF11[elem]["ccd"])
         fract_abu[elem] = FractionalAbundance(scd, acd, ccd=ccd)
         F_z_t = fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
-
+        F_z_t = fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
         plt = adas_reader.get_adf11("plt", elem, ADF11[elem]["plt"])
         prb = adas_reader.get_adf11("prb", elem, ADF11[elem]["prb"])
         prc = adas_reader.get_adf11("prc", elem, ADF11[elem]["prc"])
@@ -890,29 +893,25 @@ def default_atomic_data(
     return fract_abu, power_loss_tot, power_loss_sxr
 
 
-def default_profiles(n_rad: int = 100):
+def default_profiles(n_rad: int = 20):
     """
     Set default plasma profiles to calculate atomic data
     """
     xend = 1.02
     rho_end = 1.01
     rho = np.abs(np.linspace(rho_end, 0, n_rad) ** 1.8 - rho_end - 0.01)
+    rho_coord = xr.DataArray(rho, coords={"rho_poloidal": rho}, dims="rho_poloidal").coords
+    Te = xr.DataArray(np.linspace(50, 10e3, n_rad), coords=rho_coord)
+    Ne = xr.DataArray(np.logspace(18, 21, n_rad), coords=rho_coord)
 
-    Te_prof = ProfilerGauss(
-        datatype="electron_temperature",
-        xspl=rho,
-        xend=xend,
-    )
-    Te_prof.y0 = 10.0e3
-    Te = Te_prof()
-    Ne_prof = ProfilerGauss(datatype="electron_density", xspl=rho, xend=xend)
-    Ne = Ne_prof()
-    Nh_prof = ProfilerGauss(
-        datatype="neutral_density",
-        xspl=rho,
-        xend=xend,
-    )
+    # TODO: fix FractionalAbundance so that it does 2d interp of Nh and Te
+    params = {"y0": 1e14,
+              "y1": 5e15,
+              "yend": 5e15,
+              "wcenter": 0.01,
+              "wped": 18,
+              "peaking": 1, }
+    Nh_prof = ProfilerGauss(datatype="neutral_density", xspl=rho, xend=xend, parameters=params)
     Nh = Nh_prof()
     tau = None
-
     return Te, Ne, Nh, tau
