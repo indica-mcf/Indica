@@ -17,6 +17,7 @@ from indica.converters.time import get_tlabels_dt
 from indica.utilities import check_time_present
 from .numpy_typing import FloatOrDataArray
 from .numpy_typing import LabeledArray
+from .numpy_typing import OnlyArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
@@ -521,8 +522,8 @@ class Equilibrium:
 
     def flux_coords(
         self,
-        R: LabeledArray,
-        z: LabeledArray,
+        R: OnlyArray,
+        z: OnlyArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
     ) -> Tuple[DataArray, DataArray, LabeledArray]:
