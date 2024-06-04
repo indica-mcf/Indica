@@ -117,8 +117,8 @@ class Equilibrium:
         else:
             raise ValueError("No volume or area information")
         if "rmji" and "rmjo" in equilibrium_data:
-            self.rmji = equilibrium_data["rmji"]
-            self.rmjo = equilibrium_data["rmjo"]
+            self.rmji = equilibrium_data["rmji"] - self.R_offset
+            self.rmjo = equilibrium_data["rmjo"] - self.R_offset
 
         self.Rmin = min(self.rho.coords["R"])
         self.Rmax = max(self.rho.coords["R"])
