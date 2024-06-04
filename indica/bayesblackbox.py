@@ -42,13 +42,13 @@ class BayesBlackBox:
         quant_to_optimise: list,
         prior_manager: PriorManager,
         build_bckc: Callable,
-        plasma_profiler = PlasmaProfiler,
+        plasma_profiler: PlasmaProfiler,
     ):
         self.opt_data = opt_data
         self.quant_to_optimise = quant_to_optimise
         self.prior_manager = prior_manager
-        self.plasma_profiler = plasma_profiler
         self.build_bckc = build_bckc
+        self.plasma_profiler = plasma_profiler
 
         missing_data = list(set(quant_to_optimise).difference(opt_data.keys()))
         if missing_data:
@@ -61,7 +61,7 @@ class BayesBlackBox:
         for key in self.quant_to_optimise:
             model_data = self.bckc[key]
             exp_data = self.opt_data[key].sel(t=time_coord)
-            exp_error = self.opt_data[key].error.sel(t=time_coord)
+            exp_error = exp_data.error
 
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
             # treat channel as key dim which isn't averaged like other dims
@@ -98,7 +98,7 @@ class BayesBlackBox:
         plasma_attributes = self.plasma_profiler.plasma_attributes()
 
         self.bckc = FlatDict(
-            self.build_bckc(parameters, **kwargs), "."
+            self.build_bckc(nested_kwargs = kwargs, **parameters), "."
         )  # model calls
 
         _ln_likelihood = self.ln_likelihood()  # compare results to data
