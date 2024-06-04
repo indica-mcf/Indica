@@ -53,6 +53,7 @@ class Equilibrium:
         z_shift: FloatOrDataArray = 0.0,
     ):
 
+        self.equilibrium_data = equilibrium_data
         self.f = equilibrium_data["f"]
         self.t = equilibrium_data["f"].t
         self.faxs = equilibrium_data["faxs"]
@@ -77,9 +78,20 @@ class Equilibrium:
             z_offset = xr.full_like(self.t, z_shift)
         else:
             z_offset = z_shift.interp(t=self.t, kwargs={"fill_value": 0})
-
         self.R_offset = R_offset
         self.z_offset = z_offset
+
+        R_new = self.psi.R + self.R_offset
+        z_new = self.psi.z + self.z_offset
+        self.psi = self.psi.interp(R=R_new, z=z_new)
+
+        self.faxs["R"] -= self.R_offset
+        self.faxs["z"] -= self.z_offset
+        self.rmag -= self.R_offset
+        self.rbnd -= self.R_offset
+        self.zmag -= self.z_offset
+        self.zbnd -= self.z_offset
+        self.zx -= self.z_offset
 
         # Including workaround in case faxs or fbnd had messy data
         rho: DataArray = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
