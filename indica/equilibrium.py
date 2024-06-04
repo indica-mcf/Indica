@@ -632,8 +632,8 @@ class Equilibrium:
         minor_rad, t = self.minor_radius(rho, theta, t, kind)
         R0 = self.rmag.interp(t=t, method="nearest")
         z0 = self.zmag.interp(t=t, method="nearest")
-        R = R0 - self.R_offset + minor_rad * np.cos(theta)
-        z = z0 - self.z_offset + minor_rad * np.sin(theta)
+        R = R0 + minor_rad * np.cos(theta)
+        z = z0 + minor_rad * np.sin(theta)
         return R, z, t
 
     def convert_flux_coords(
