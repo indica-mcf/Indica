@@ -161,29 +161,27 @@ class Equilibrium:
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        _R = R + self.R_offset
-        _z = z + self.z_offset
 
         if t is not None:
             check_time_present(t, self.t)
             psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
             f = self.f.interp(t=t, method="nearest", assume_sorted=True)
-            rho_, theta_, _ = self.flux_coords(_R, _z, t)
+            rho_, theta_, _ = self.flux_coords(R, z, t)
         else:
             t = self.rho.coords["t"]
             psi = self.psi
             f = self.f
-            rho_, theta_, _ = self.flux_coords(_R, _z)
+            rho_, theta_, _ = self.flux_coords(R, z)
 
-        dpsi_dR = psi.differentiate("R").interp(R=_R, z=_z)
+        dpsi_dR = psi.differentiate("R").interp(R=R, z=z)
         dpsi_dz = psi.differentiate("z").interp(
-            R=_R,
-            z=_z,
+            R=R,
+            z=z,
         )
-        b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
+        b_R = -(np.float64(1.0) / R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
         b_R = b_R.T
-        b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
+        b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
         b_z.name = "Vertical Magnetic Field (T)"
         b_z = b_z.T
         rho_ = where(
@@ -192,13 +190,13 @@ class Equilibrium:
 
         f = f.interp(rho_poloidal=rho_)
         f.name = self.f.name
-        b_T = f / _R
+        b_T = f / R
         b_T.name = "Toroidal Magnetic Field (T)"
 
         if full_Rz:
             _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rho.R
             _b_T = _b_T.drop(["z", "rho_poloidal"]).expand_dims(dim={"z": self.rho.z})
-            b_T = _b_T.interp(R=_R, z=_z)
+            b_T = _b_T.interp(R=R, z=z)
 
         return b_R, b_z, b_T, t
 
@@ -426,9 +424,9 @@ class Equilibrium:
             rmji = self.rmji.interp(t=t, method="nearest")
         rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
         try:
-            R = rmji.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmji.interp(rho_poloidal=rho, method="cubic")
         except ValueError:
-            R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic")
 
         return R, t
 
@@ -554,8 +552,6 @@ class Equilibrium:
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        _R = R + self.R_offset
-        _z = z + self.z_offset
 
         if t is None:
             rho = self.rho
@@ -563,10 +559,10 @@ class Equilibrium:
             z_ax = self.zmag
             t = self.rho.coords["t"]
             z_x_point = self.zx
-            _z = _z.interp(
+            _z = z.interp(
                 t=t,
             )
-            _R = _R.interp(
+            _R = R.interp(
                 t=t,
             )
         else:
@@ -575,10 +571,10 @@ class Equilibrium:
             R_ax = self.rmag.interp(t=t, method="nearest")
             z_ax = self.zmag.interp(t=t, method="nearest")
             z_x_point = self.zx.interp(t=t, method="nearest")
-            _z = _z.interp(
+            _z = z.interp(
                 t=t,
             )
-            _R = _R.interp(
+            _R = R.interp(
                 t=t,
             )
 
