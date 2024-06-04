@@ -58,7 +58,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
             String identifier for the spectrometer
 
         """
-        self.los_transform: LineOfSightTransform
+        self.transform: LineOfSightTransform
         if window_lim is None:
             window_lim = [0.394, 0.401]
         if window_masks is None:
@@ -213,7 +213,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         spectra = xr.concat([_spectra, empty], "wavelength")
         self.spectra = spectra
 
-        measured_spectra = self.los_transform.integrate_on_los(
+        measured_spectra = self.transform.integrate_on_los(
             self.spectra,
             t=self.spectra.t,
             calc_rho=calc_rho,
@@ -223,7 +223,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         )
         measured_spectra = xr.where(measured_spectra == 0, np.nan, measured_spectra)
         self.measured_spectra = measured_spectra.sortby("wavelength")
-        self.spectra_los = self.los_transform.along_los
+        self.spectra_los = self.transform.along_los
 
     def _moment_analysis(self):
         """
@@ -262,17 +262,17 @@ class HelikeSpectrometer(AbstractDiagnostic):
         measured_Ti = {}
         measured_Nimp = {}
         for line in self.line_emission.keys():
-            channels = self.los_transform.x1
-            if len(self.los_transform.x1) == 1:
-                channels = self.los_transform.x1[0]
+            channels = self.transform.x1
+            if len(self.transform.x1) == 1:
+                channels = self.transform.x1[0]
 
             emission = self.line_emission[line]
-            los_integral = self.los_transform.integrate_on_los(emission, t=emission.t)
-            emission_los = self.los_transform.along_los.sel(channel=channels).mean(
+            los_integral = self.transform.integrate_on_los(emission, t=emission.t)
+            emission_los = self.transform.along_los.sel(channel=channels).mean(
                 "beamlet"
             )
             emission_sum = emission_los.sum("los_position", skipna=True)
-            rho_los = self.los_transform.rho.sel(channel=channels)
+            rho_los = self.transform.rho.sel(channel=channels)
 
             rho_mean[line] = (emission_los * rho_los).sum(
                 "los_position", skipna=True
@@ -297,21 +297,21 @@ class HelikeSpectrometer(AbstractDiagnostic):
             measured_intensity[line] = los_integral
             emission_los[line] = emission_los
 
-            Te_along_los = self.los_transform.map_profile_to_los(
+            Te_along_los = self.transform.map_profile_to_los(
                 self.Te, t=emission.t
             ).sel(channel=channels)
             measured_Te[line] = (emission_los * Te_along_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
 
-            Ti_along_los = self.los_transform.map_profile_to_los(
+            Ti_along_los = self.transform.map_profile_to_los(
                 self.Ti, t=emission.t
             ).sel(channel=channels)
             measured_Ti[line] = (emission_los * Ti_along_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
 
-            Nimp_along_los = self.los_transform.map_profile_to_los(
+            Nimp_along_los = self.transform.map_profile_to_los(
                 self.Nimp.sel(element=self.element), t=emission.t
             ).sel(channel=channels)
             measured_Nimp[line] = (emission_los * Nimp_along_los).sum(
@@ -378,7 +378,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         t: LabeledArray = None,
         calc_rho: bool = False,
         moment_analysis: bool = False,
-        background: int = None,
+        background: float = None,
         pixel_offset: int = None,
         **kwargs,
     ):
@@ -437,9 +437,8 @@ class HelikeSpectrometer(AbstractDiagnostic):
             ):
                 raise ValueError("Give inputs or assign plasma class!")
 
-        if background is None:
-            if self.background is not None:
-                background = self.background.sel(t=t)
+        if background is None and self.background is not None:
+            background = self.background.sel(t=t)
 
         self.t = t
         self.Te = Te
@@ -471,10 +470,10 @@ class HelikeSpectrometer(AbstractDiagnostic):
     def plot(self):
         set_plot_rcparams("profiles")
 
-        self.los_transform.plot(np.mean(self.t))
+        self.transform.plot(np.mean(self.t))
 
         plt.figure()
-        channels = self.los_transform.x1
+        channels = self.transform.x1
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
         if "spectra" in self.bckc.keys():
             spectra = self.bckc["spectra"]
