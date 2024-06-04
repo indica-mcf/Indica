@@ -193,7 +193,7 @@ class Plasma:
             data2d, "ion_temperature", coords2d, make_copy=True
         )
         self.toroidal_rotation = format_dataarray(
-            data3d, "toroidal_rotation", coords3d, make_copy=True
+            data2d, "toroidal_rotation", coords2d, make_copy=True
         )
         self.impurity_density = format_dataarray(
             data3d_imp, "impurity_density", coords3d_imp, make_copy=True
