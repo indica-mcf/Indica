@@ -23,7 +23,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         element: str = "c",
         instrument_method="get_charge_exchange",
     ):
-        self.transect_transform: TransectCoordinates
+        self.transform: TransectCoordinates
         self.name = name
         self.element = element
         self.instrument_method = instrument_method
@@ -53,7 +53,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             error = xr.full_like(self.bckc[quantity], 0.0)
             stdev = xr.full_like(self.bckc[quantity], 0.0)
             self.bckc[quantity].attrs = {
-                "transform": self.transect_transform,
+                "transform": self.transform,
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
@@ -92,19 +92,14 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             if Ti is None or Vtor is None:
                 raise ValueError("Give inputs or assign plasma class!")
 
-        if "element" in Vtor.dims:
-            Vtor = Vtor.sel(element=self.element)
-        if "element" in Ti.dims:
-            Ti = Ti.sel(element=self.element)
-
         self.t = t
         self.Vtor = Vtor
         self.Ti = Ti
 
-        Ti_at_channels = self.transect_transform.map_profile_to_rho(
+        Ti_at_channels = self.transform.map_profile_to_rho(
             Ti, t=t, calc_rho=calc_rho
         )
-        Vtor_at_channels = self.transect_transform.map_profile_to_rho(
+        Vtor_at_channels = self.transform.map_profile_to_rho(
             Vtor, t=t, calc_rho=calc_rho
         )
 

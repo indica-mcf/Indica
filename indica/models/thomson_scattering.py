@@ -22,7 +22,7 @@ class ThomsonScattering(AbstractDiagnostic):
         name: str,
         instrument_method="get_thomson_scattering",
     ):
-        self.transect_transform: TransectCoordinates
+        self.transform: TransectCoordinates
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -48,7 +48,7 @@ class ThomsonScattering(AbstractDiagnostic):
             error = xr.full_like(self.bckc[quantity], 0.0)
             stdev = xr.full_like(self.bckc[quantity], 0.0)
             self.bckc[quantity].attrs = {
-                "transform": self.transect_transform,
+                "transform": self.transform,
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
@@ -91,27 +91,27 @@ class ThomsonScattering(AbstractDiagnostic):
         self.Ne = Ne
         self.Te = Te
 
-        Ne_at_channels = self.transect_transform.map_profile_to_rho(
+        Ne_at_channels = self.transform.map_profile_to_rho(
             Ne,
             t=self.t,
             calc_rho=calc_rho,
         )
         Ne_at_channels = Ne_at_channels.assign_coords(
-            R=("channel", self.transect_transform.R)
+            R=("channel", self.transform.R)
         )
         Ne_at_channels = Ne_at_channels.assign_coords(
-            z=("channel", self.transect_transform.z)
+            z=("channel", self.transform.z)
         )
-        Te_at_channels = self.transect_transform.map_profile_to_rho(
+        Te_at_channels = self.transform.map_profile_to_rho(
             Te,
             t=self.t,
             calc_rho=calc_rho,
         )
         Te_at_channels = Te_at_channels.assign_coords(
-            R=("channel", self.transect_transform.R)
+            R=("channel", self.transform.R)
         )
         Te_at_channels = Te_at_channels.assign_coords(
-            z=("channel", self.transect_transform.z)
+            z=("channel", self.transform.z)
         )
 
         self.Ne_at_channels = Ne_at_channels
