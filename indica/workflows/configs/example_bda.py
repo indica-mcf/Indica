@@ -4,7 +4,7 @@ pulse = 11089
 pulse_to_write = 43000000
 
 diagnostics = ["xrcs", "cxff_tws_c", "ts", ]
-opt_quantity = ["xrcs.spectra", "cxff_tws_c.ti", "ts.ne", "ts.te"]
+quant_to_optimise = ["xrcs.spectra", "cxff_tws_c.ti", "ts.ne", "ts.te"]
 
 param_names = [
     # "electron_density.y1",
@@ -35,14 +35,19 @@ plasma_settings = dict(
     n_rad=20,
 )
 
-phantom = False
+phantom = True
 set_ts = True
 profile_params_to_update: Dict = {}
-model_init: Dict = {}
-revisions: Dict = {}
-filters: Dict = {}
-tstart = 0.05
-tend = 0.06
+
+filter_coords: Dict = {"cxff_pi":
+                       {"ti": ("channel", (3, 5)), "vtor": ("channel", (3, 5))},
+                        "cxff_tws_c":
+                        {"ti": ("channel", (0, 1)), "vtor": ("channel", (0, 1))}
+                       }
+model_init: Dict = {"xrcs": {"window_masks": [slice(0.394, 0.396)]}}
+
+tstart = 0.04
+tend = 0.05
 dt = 0.01
 starting_samples = 10
 iterations = 10
