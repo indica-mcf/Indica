@@ -376,12 +376,12 @@ class Equilibrium:
             rmjo = self.rmjo
             t = self.rmjo.coords["t"]
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-            R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic")
         else:
             check_time_present(t, self.t)
             rmjo = self.rmjo.interp(t=t, method="nearest")
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-            R = rmjo.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmjo.interp(rho_poloidal=rho, method="cubic")
 
         return R, t
 
