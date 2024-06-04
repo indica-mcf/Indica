@@ -65,6 +65,28 @@ PLASMA_ATTRIBUTE_NAMES = [
 ]
 
 
+def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
+    R = plasma.R_midplane
+    z = plasma.z_midplane
+
+    midplane_profiles: dict = {}
+    for key, value in profiles.items():
+        if "rho_poloidal" not in value.dims:
+            continue
+        if not hasattr(plasma, key):
+            continue
+
+        midplane_profiles[key] = []
+        _rho, _, _ = plasma.equilibrium.flux_coords(R, z, plasma.t)
+        # _rho = plasma.equilibrium.rho.interp(t=plasma.t).interp(R=R, z=z)
+        # rho = _rho.swap_dims({"index": "R"}).drop_vars("index")
+
+        _prof_midplane = value.interp(rho_poloidal=_rho)
+        midplane_profiles[key] = xr.where(
+            np.isfinite(_prof_midplane), _prof_midplane, 0.0
+        )
+    return midplane_profiles
+
 def initialise_gauss_profilers(xspl: np.ndarray, profile_params=None,):
     # considering whether profilers should be a dataclass or named tuple rather than bare dictionary
     if profile_params is None:
@@ -97,7 +119,8 @@ class PlasmaProfiler:
         self.plasma = plasma
         self.profilers = profilers
         self.plasma_attribute_names = PLASMA_ATTRIBUTE_NAMES
-        self.phantoms = {}
+        self.phantom = None
+        self.phantom_profiles = None
 
     def set_profiles(self, profiles: dict[xr.DataArray], t: float = None):
         if t is None:
@@ -112,17 +135,19 @@ class PlasmaProfiler:
 
     def save_phantoms(self, phantom=False):
         #  if phantoms return profiles otherwise return empty arrays
+        self.phantom = phantom
         phantom_profiles = self.plasma_attributes()
         if not phantom:
             for key, value in phantom_profiles.items():
                 phantom_profiles[key] = value * 0
+        self.phantom_profiles = phantom_profiles
         return phantom_profiles
 
 
     def plasma_attributes(self):
         plasma_attributes = {}
         for attribute in self.plasma_attribute_names:
-            plasma_attributes[attribute] = getattr(self.plasma, attribute)
+            plasma_attributes[attribute] = getattr(self.plasma, attribute).sel(t=self.plasma.time_to_calculate)
         return plasma_attributes
 
 
@@ -151,8 +176,12 @@ class PlasmaProfiler:
             self.profilers[profile_name].set_parameters(**{profile_param_name: parameter})
             _profiles_to_update.append(profile_name)
 
-        # Update only desired profiles
-        profiles_to_update = list(set(_profiles_to_update))
+        # Update only desired profiles or if no parameters given update all
+        if _profiles_to_update:
+            profiles_to_update = list(set(_profiles_to_update))
+        else:
+            profiles_to_update = list(self.profilers.keys())
+
         updated_profiles = {profile_to_update: self.profilers[profile_to_update]()
                             for profile_to_update in profiles_to_update}
         self.set_profiles(updated_profiles)
@@ -165,6 +194,7 @@ if __name__ == "__main__":
     gauss_profilers = initialise_gauss_profilers(profile_params=DEFAULT_PROFILE_PARAMS, xspl=example_plasma.rho)
     plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=gauss_profilers)
 
-    plasma_profiler(parameters={"electron_density.y0": 10e19, "electron_density.y1":1e19, "electron_density.yend":1e19})
-    plasma_profiler.profilers["electron_density"].plot()
+    plasma_profiler(parameters={"electron_density.y0": 10e19, "electron_density.y1":1e19, "electron_density.yend":1e19,
+                                "ion_temperature.y0":1e3})
+    plasma_profiler.profilers["ion_temperature"].plot()
     plt.show()
