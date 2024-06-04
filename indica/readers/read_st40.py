@@ -371,12 +371,14 @@ def apply_filter(
     filters: Dict[str, Dict[str, tuple]],
     filter_func: Callable,
     filter_func_name="limits",
+    verbose = True,
 ):
 
     filtered_data = {}
     for instrument, quantities in data.items():
         if instrument not in filters.keys():
-            print(f"no {filter_func_name} filter for {instrument}")
+            if verbose:
+                print(f"no {filter_func_name} filter for {instrument}")
             filtered_data[instrument] = deepcopy(data[instrument])
             continue
 
