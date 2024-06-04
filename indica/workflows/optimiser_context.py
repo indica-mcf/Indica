@@ -7,7 +7,7 @@ import pandas as pd
 import emcee
 from scipy.stats import describe
 from indica.bayesblackbox import BayesBlackBox
-from indica.workflows.priors import sample_from_priors
+from indica.workflows.priors import sample_from_priors, PriorManager, sample_from_high_density_region
 
 
 def sample_with_moments(
@@ -109,7 +109,6 @@ def gelman_rubin(chain):
 @dataclass
 class OptimiserEmceeSettings:
     param_names: list
-    priors: dict
     iterations: int = 1000
     nwalkers: int = 50
     burn_frac: float = 0.20
@@ -142,9 +141,14 @@ class OptimiserContext(ABC):
 
 class EmceeOptimiser(OptimiserContext):
 
-    def __init__(self, optimiser_settings: OptimiserEmceeSettings):
+    def __init__(self,
+                 optimiser_settings: OptimiserEmceeSettings,
+                 prior_manager: PriorManager,
+                 model_kwargs = None,
+                 ):
         self.optimiser_settings = optimiser_settings
-
+        self.prior_manager = prior_manager
+        self.model_kwargs = model_kwargs
         self.ndim = len(self.optimiser_settings.param_names)
         self.move = [
             (emcee.moves.StretchMove(), 0.0),
@@ -159,6 +163,7 @@ class EmceeOptimiser(OptimiserContext):
             self.optimiser_settings.nwalkers,
             self.ndim,
             log_prob_fn=blackbox_func,
+            kwargs=self.model_kwargs,
             parameter_names=self.optimiser_settings.param_names,
             moves=self.move,
         )
@@ -171,7 +176,7 @@ class EmceeOptimiser(OptimiserContext):
 
             self.start_points = sample_from_high_density_region(
                 param_names=self.optimiser_settings.param_names,
-                priors=self.optimiser_settings.priors,
+                priors=self.prior_manager.priors,
                 optimiser=self.optimiser,
                 nwalkers=self.optimiser_settings.nwalkers,
                 nsamples=self.optimiser_settings.starting_samples,
@@ -180,7 +185,7 @@ class EmceeOptimiser(OptimiserContext):
         elif self.optimiser_settings.sample_method == "random":
             self.start_points = sample_from_priors(
                 param_names=self.optimiser_settings.param_names,
-                priors=self.optimiser_settings.priors,
+                priors=self.prior_manager.priors,
                 size=self.optimiser_settings.nwalkers,
             )
         else:
@@ -226,14 +231,14 @@ class EmceeOptimiser(OptimiserContext):
         results["blobs"] = {
             blob_name: xr.concat(
                 [data[blob_name] for data in blobs],
-                dim=pd.Index(samples, name="index"),
+                dim=pd.Index(samples, name="sample_idx"),
             )
             for blob_name in blob_names
         }
         results["accept_frac"] = self.optimiser.acceptance_fraction.sum()
         results["prior_sample"] = sample_from_priors(
             self.optimiser_settings.param_names,
-            self.optimiser_settings.priors,
+            self.prior_manager.priors,
             size=int(1e4),
         )
 
@@ -258,36 +263,3 @@ class EmceeOptimiser(OptimiserContext):
         results["auto_corr"] = self.autocorr
         return results
 
-
-def sample_from_high_density_region(
-    param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
-):
-
-    # TODO: remove repeated code
-    start_points = sample_from_priors(param_names, priors, size=nsamples)
-
-    ln_prob, _ = optimiser.compute_log_prob(start_points)
-    num_best_points = 3
-    index_best_start = np.argsort(ln_prob)[-num_best_points:]
-    best_start_points = start_points[index_best_start, :]
-    best_points_std = np.std(best_start_points, axis=0)
-
-    # Passing samples through ln_prior and redrawing if they fail
-    samples = np.empty((param_names.__len__(), 0))
-    while samples.size < param_names.__len__() * nwalkers:
-        sample = np.random.normal(
-            np.mean(best_start_points, axis=0),
-            best_points_std,
-            size=(nwalkers * 5, len(param_names)),
-        )
-        start = {name: sample[:, idx] for idx, name in enumerate(param_names)}
-        _ln_prior = ln_prior(
-            priors,
-            start,
-        )
-        # Convert from dictionary of arrays -> array,
-        # then filtering out where ln_prior is -infinity
-        accepted_samples = np.array(list(start.values()))[:, _ln_prior != -np.inf]
-        samples = np.append(samples, accepted_samples, axis=1)
-    start_points = samples[:, 0:nwalkers].transpose()
-    return start_points

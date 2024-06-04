@@ -25,7 +25,7 @@ DEFAULT_PRIORS = {
     "electron_temperature.wcenter": get_uniform(0.2, 0.4),
     "electron_temperature.peaking": get_uniform(1, 4),
 
-    "impurity_density:ar.y0": loguniform(2e15, 1e18),
+    "impurity_density:ar.y0": loguniform(1e16, 1e18),
     "impurity_density:ar.y1": loguniform(1e14, 1e16),
     "impurity_density:ar.wped": get_uniform(2, 6),
     "impurity_density:ar.wcenter": get_uniform(0.2, 0.4),
@@ -71,6 +71,7 @@ class PriorManager:
 
         self.cond_funcs = cond_prior_funcs
         self.prior_funcs = prior_funcs
+        self.priors = {**prior_funcs, **cond_prior_funcs}
 
     def update_priors(self):
         return
@@ -128,3 +129,36 @@ def sample_from_priors(param_names: list, priors: dict, size=10):
     samples = samples[:, 0:size]
     return samples.transpose()
 
+
+def sample_from_high_density_region(
+    param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
+):
+
+    # TODO: remove repeated code
+    start_points = sample_from_priors(param_names, priors, size=nsamples)
+
+    ln_prob, _ = optimiser.compute_log_prob(start_points)
+    num_best_points = 3
+    index_best_start = np.argsort(ln_prob)[-num_best_points:]
+    best_start_points = start_points[index_best_start, :]
+    best_points_std = np.std(best_start_points, axis=0)
+
+    # Passing samples through ln_prior and redrawing if they fail
+    samples = np.empty((param_names.__len__(), 0))
+    while samples.size < param_names.__len__() * nwalkers:
+        sample = np.random.normal(
+            np.mean(best_start_points, axis=0),
+            best_points_std,
+            size=(nwalkers * 5, len(param_names)),
+        )
+        start = {name: sample[:, idx] for idx, name in enumerate(param_names)}
+        _ln_prior = ln_prior(
+            priors,
+            start,
+        )
+        # Convert from dictionary of arrays -> array,
+        # then filtering out where ln_prior is -infinity
+        accepted_samples = np.array(list(start.values()))[:, _ln_prior != -np.inf]
+        samples = np.append(samples, accepted_samples, axis=1)
+    start_points = samples[:, 0:nwalkers].transpose()
+    return start_points
