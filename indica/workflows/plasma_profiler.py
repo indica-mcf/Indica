@@ -66,10 +66,14 @@ PLASMA_ATTRIBUTE_NAMES = [
 
 
 def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
-    R = plasma.R_midplane
-    z = plasma.z_midplane
 
     midplane_profiles: dict = {}
+
+    R = plasma.R_midplane
+    z = plasma.z_midplane
+    _rho, _, _ = plasma.equilibrium.flux_coords(R, z, plasma.t)
+    rho = _rho.swap_dims({"index":"R"}).drop_vars("index")
+
     for key, value in profiles.items():
         if "rho_poloidal" not in value.dims:
             continue
@@ -77,11 +81,8 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
             continue
 
         midplane_profiles[key] = []
-        _rho, _, _ = plasma.equilibrium.flux_coords(R, z, plasma.t)
-        # _rho = plasma.equilibrium.rho.interp(t=plasma.t).interp(R=R, z=z)
-        # rho = _rho.swap_dims({"index": "R"}).drop_vars("index")
+        _prof_midplane = value.interp(rho_poloidal=rho)
 
-        _prof_midplane = value.interp(rho_poloidal=_rho)
         midplane_profiles[key] = xr.where(
             np.isfinite(_prof_midplane), _prof_midplane, 0.0
         )
