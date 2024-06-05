@@ -109,16 +109,17 @@ def bda_run(
 
     if set_ts:
         # interp ppts profiles as some are empty
-        ppts_profs = ppts_reader.binned_data["ppts"]
-        ne = ppts_profs["ne_rho"].interp(t=plasma.t, rho_poloidal=plasma.rho)
-        te = ppts_profs["te_rho"].interp(t=plasma.t, rho_poloidal=plasma.rho)
+        ppts_profs = ppts_reader.filtered_data["ppts"]
+        ne = ppts_profs["ne_rho"].interp(t=plasma.t, method="nearest").interp(rho_poloidal=plasma.rho)
+        te = ppts_profs["te_rho"].interp(t=plasma.t, method="nearest").interp(rho_poloidal=plasma.rho)
         plasma_profiler.set_profiles({"electron_density": ne,
                                       "electron_temperature": te,
                                       })
     plasma_profiler.save_phantoms(phantom=phantom)
 
+    # if binned data is used then interpolating onto equil.t and back to plasma.t causes some time points to be lost
     if apply_rshift:
-        R_shift = ppts_reader.binned_data["ppts"]["R_shift"]
+        R_shift = ppts_reader.raw_data["ppts"]["R_shift"]
 
     # different data methods TODO: abstract these to an interface
     if phantom:
