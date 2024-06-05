@@ -560,12 +560,6 @@ class Equilibrium:
             z_ax = self.zmag
             t = self.rho.coords["t"]
             z_x_point = self.zx
-            _z = z.interp(
-                t=t,
-            )
-            _R = R.interp(
-                t=t,
-            )
         else:
             check_time_present(t, self.t)
             rho = self.rho.interp(t=t, method="nearest")
