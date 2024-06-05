@@ -3,8 +3,15 @@ from typing import Dict
 pulse = 11089
 pulse_to_write = 43000000
 
-diagnostics = ["xrcs", "cxff_tws_c", "ts", ]
-quant_to_optimise = ["xrcs.spectra", "cxff_tws_c.ti", "ts.ne", "ts.te"]
+diagnostics = [
+            "xrcs",
+            "cxff_tws_c",
+            "ts", ]
+quant_to_optimise = [
+                    "xrcs.spectra",
+                    "cxff_tws_c.ti",
+                    "ts.ne",
+                    "ts.te"]
 
 param_names = [
     # "electron_density.y1",
@@ -22,7 +29,7 @@ param_names = [
     # "electron_temperature.wcenter",
     # "electron_temperature.peaking",
     "ion_temperature.y0",
-    # "ion_temperature.wped",
+    "ion_temperature.wped",
     "ion_temperature.wcenter",
     "ion_temperature.peaking",
 ]
@@ -35,7 +42,7 @@ plasma_settings = dict(
     n_rad=20,
 )
 
-phantom = True
+phantom = False
 set_ts = True
 profile_params_to_update: Dict = {}
 
@@ -46,14 +53,15 @@ filter_coords: Dict = {"cxff_pi":
                        }
 model_init: Dict = {"xrcs": {"window_masks": [slice(0.394, 0.396)]}}
 
-tstart = 0.04
-tend = 0.05
+apply_rshift = True
+tstart = 0.05
+tend = 0.11
 dt = 0.01
-starting_samples = 10
-iterations = 10
+starting_samples = 100
+iterations = 1000
 nwalkers = 15
-stopping_criteria_factor = 0.005
-sample_method = "random"
+stopping_criteria_factor = 0.002
+sample_method = "high_density"
 stopping_criteria = "mode"
 burn_frac = 0.20
 

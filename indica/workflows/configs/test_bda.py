@@ -34,15 +34,18 @@ plasma_settings = dict(
     n_rad=10,
 )
 
+filter_coords: Dict = {"cxff_pi":
+                       {"ti": ("channel", (3, 5)), "vtor": ("channel", (3, 5))},
+                        "cxff_tws_c":
+                        {"ti": ("channel", (0, 1)), "vtor": ("channel", (0, 1))}
+                       }
+model_init: Dict = {"xrcs": {"window_masks": [slice(0.394, 0.396)]}}
+
 phantom = False
 mock = True
 set_ts = False
-ts_split = ""
-ts_R_shift = 0.02
 profile_params_to_update: Dict = {}
-model_init: Dict = {}
 revisions: Dict = {}
-filters: Dict = {}
 tstart = 0.05
 tend = 0.06
 dt = 0.01
