@@ -572,18 +572,12 @@ class Equilibrium:
             R_ax = self.rmag.interp(t=t, method="nearest")
             z_ax = self.zmag.interp(t=t, method="nearest")
             z_x_point = self.zx.interp(t=t, method="nearest")
-            _z = z.interp(
-                t=t,
-            )
-            _R = R.interp(
-                t=t,
-            )
 
         # TODO: rho and theta dimensions not in the same order...
-        rho = rho.interp(R=_R, z=_z)
+        rho = rho.interp(R=R, z=z)
         theta = np.arctan2(
-            _z - z_ax,
-            _R - R_ax,
+            z - z_ax,
+            R - R_ax,
         )
 
         # Correct for any interpolation errors resulting in negative fluxes
