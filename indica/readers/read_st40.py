@@ -39,7 +39,15 @@ FILTER_LIMITS: Dict[str, Dict[str, tuple]] = {
     "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},
     "cxff_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
     "cxqf_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
-    "xrcs": {"ti_w": (0, np.inf), "te_kw": (0, np.inf), "te_n3w": (0, np.inf)},
+    "xrcs": {"ti_w": (0, np.inf),
+             "ti_z": (0, np.inf),
+             "te_kw": (0, np.inf),
+             "te_n3w": (0, np.inf),
+             "intens": (0, np.inf),
+             "radiance": (0, np.inf),
+             "emission": (0, np.inf),
+             "spec_rad": (0, np.inf),
+             },
     "brems": {"brightness": (0, np.inf)},
     "halpha": {"brightness": (0, np.inf)},
     "sxr_spd": {"brightness": (0, np.inf)},
@@ -65,7 +73,10 @@ FILTER_COORDS: Dict[str, Dict[str, tuple]] = {
     "cxff_pi": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "cxff_tws_c": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "xrcs": {
-        "spectra": ("wavelength", (0.0, np.inf)),
+        "intens": ("wavelength", (0.0, np.inf)),
+        "radiance": ("wavelength", (0.0, np.inf)),
+        "emission": ("wavelength", (0.0, np.inf)),
+        "sepc_rad": ("wavelength", (0.0, np.inf)),
     },
     "ts": {"te": ("channel", (0, np.inf)), "ne": ("channel", (0, np.inf))},
 }
@@ -360,7 +371,12 @@ def bin_data_in_time(
 
             if "t" in data_quant.coords:
                 data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
-
+            # Using groupedby_bins always removes error from coords so adding it back after
+            if "error" in raw_data[instr][quant].coords:
+                error = convert_in_time_dt(tstart, tend, dt, raw_data[instr][quant].error)
+                data_quant = data_quant.assign_coords(
+                    error=(raw_data[instr][quant].dims, error)
+                )
             binned_quantities[quant] = data_quant
         binned_data[instr] = binned_quantities
     return binned_data
@@ -408,7 +424,7 @@ def coord_condition(data: DataArray, coord_info: tuple):
     condition = (data.coords[coord_name] >= coord_slice[0]) * (
         data.coords[coord_name] < coord_slice[1]
     )
-    filtered_data = xr.where(condition, data, np.nan)
+    filtered_data = data.where(condition, np.nan)
     filtered_data.attrs = data.attrs
     return filtered_data
 
