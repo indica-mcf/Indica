@@ -971,9 +971,7 @@ class DataReader(BaseIO):
                 error = error.sel(t=slice(self._tstart, self._tend))
 
         if include_error:
-            data = data.assign_coords(
-                error=(data.dims, error)
-            )
+            data = data.assign_coords(error=(data.dims, error))
         if transform is not None:
             data.attrs["transform"] = transform
 

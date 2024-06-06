@@ -29,8 +29,7 @@ class ST40Conf:
             "astra": "get_astra",
             "ppts": "get_ppts",
         }
-        self.UIDS_MDS = {
-        }
+        self.UIDS_MDS = {}
         self.QUANTITIES_MDS = {
             "efit": {
                 "f": ".profiles.psi_norm:f",
