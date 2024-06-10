@@ -6,13 +6,14 @@ import numpy as np
 from indica.defaults.load_defaults import get_filename_default_objects
 from indica.equilibrium import Equilibrium
 from indica.models import Plasma
-from indica.workflows.plasma_profiles import PlasmaProfiles
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import ST40Conf
 from indica.readers import ST40Reader
+from indica.workflows.plasma_profiles import PlasmaProfiles
 
 PROJECT_PATH = Path(__file__).parent.parent
 DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
+
 
 def save_default_objects(
     machine: str,
@@ -120,8 +121,6 @@ def save_default_objects(
     pickle.dump(plasma, open(plasma_file, "wb"))
 
     return plasma
-
-
 
 
 if __name__ == "__main__":
