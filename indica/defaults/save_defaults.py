@@ -6,10 +6,10 @@ import numpy as np
 from indica.defaults.load_defaults import get_filename_default_objects
 from indica.equilibrium import Equilibrium
 from indica.models import Plasma
+from indica.models.plasma import PlasmaProfiles
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import ST40Conf
 from indica.readers import ST40Reader
-from indica.models.plasma import PlasmaProfiles
 
 PROJECT_PATH = Path(__file__).parent.parent
 DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
