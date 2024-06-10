@@ -8,7 +8,7 @@ diagnostics = [
             "cxff_tws_c",
             "ts", ]
 quant_to_optimise = [
-                    "xrcs.spectra",
+                    "xrcs.intens",
                     "cxff_tws_c.ti",
                     "ts.ne",
                     "ts.te"]
@@ -55,10 +55,10 @@ model_init: Dict = {"xrcs": {"window_masks": [slice(0.394, 0.396)]}}
 
 apply_rshift = True
 tstart = 0.05
-tend = 0.11
+tend = 0.06
 dt = 0.01
 starting_samples = 100
-iterations = 1000
+iterations = 100
 nwalkers = 15
 stopping_criteria_factor = 0.002
 sample_method = "high_density"
@@ -67,7 +67,7 @@ burn_frac = 0.20
 
 mds_write = True
 best = False
-plot = False
+plot = True
 run = "RUN01"
 run_info = "Example run"
 dirname = None
