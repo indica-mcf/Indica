@@ -334,7 +334,13 @@ class HelikeSpectrometer(DiagnosticModel):
             for quantity in self.quantities:
                 datatype = self.quantities[quantity]
 
-                if quantity in ["intens", "spec_rad", "radiance", "emission", "background"]:
+                if quantity in [
+                    "intens",
+                    "spec_rad",
+                    "radiance",
+                    "emission",
+                    "background",
+                ]:
                     continue
 
                 line = str(quantity.split("_")[1])
@@ -496,7 +502,9 @@ class HelikeSpectrometer(DiagnosticModel):
         for i, t in enumerate(self.t):
             plt.plot(
                 self.plasma.ion_temperature.rho_poloidal,
-                self.plasma.ion_temperature.sel(t=t, ),
+                self.plasma.ion_temperature.sel(
+                    t=t,
+                ),
                 color=cols_time[i],
             )
             plt.plot(
@@ -581,9 +589,7 @@ def helike_transform_example(nchannels):
     return los_transform
 
 
-def example_run(
-    plasma=None, plot=False, moment_analysis: bool = False, **kwargs
-):
+def example_run(plasma=None, plot=False, moment_analysis: bool = False, **kwargs):
 
     if plasma is None:
         plasma = load_default_objects("st40", "plasma")
