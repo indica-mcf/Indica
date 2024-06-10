@@ -21,6 +21,18 @@ DEFAULT_PROFILE_PARAMS = {
     "impurity_density:ar.wcenter": 0.3,
     "impurity_density:ar.wped": 3,
     "impurity_density:ar.peaking": 2,
+    "impurity_density:c.y0": 5e17,
+    "impurity_density:c.y1": 2e17,
+    "impurity_density:c.yend": 2e17,
+    "impurity_density:c.wcenter": 0.3,
+    "impurity_density:c.wped": 3,
+    "impurity_density:c.peaking": 1.2,
+    "impurity_density:he.y0": 5e17,
+    "impurity_density:he.y1": 2e17,
+    "impurity_density:he.yend": 2e17,
+    "impurity_density:he.wcenter": 0.3,
+    "impurity_density:he.wped": 3,
+    "impurity_density:he.peaking": 1.2,
     "electron_temperature.y0": 3000,
     "electron_temperature.y1": 50,
     "electron_temperature.yend": 10,
@@ -152,7 +164,7 @@ class PlasmaProfiler:
         return plasma_attributes
 
 
-    def __call__(self, parameters: dict):
+    def __call__(self, parameters: dict, t=None):
         """
         Set parameters of desired profilers and assign to plasma class profiles
 
@@ -185,7 +197,7 @@ class PlasmaProfiler:
 
         updated_profiles = {profile_to_update: self.profilers[profile_to_update]()
                             for profile_to_update in profiles_to_update}
-        self.set_profiles(updated_profiles)
+        self.set_profiles(updated_profiles, t)
         return
 
 
