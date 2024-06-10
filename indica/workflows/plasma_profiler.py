@@ -145,7 +145,7 @@ class PlasmaProfiler:
                 if _prof_identifiers[1] in self.plasma.elements:
                     getattr(self.plasma, _prof_identifiers[0]).loc[dict(t=t, element=_prof_identifiers[-1])] = profile
                 else:
-                    print(f"{profile_name} can't be set because {_prof_identifiers[1]} not in plasma.elements")
+                    print(f"profile {profile_name} can't be set because {_prof_identifiers[1]} not in plasma.elements")
             else:
                 getattr(self.plasma, profile_name).loc[dict(t=t)] = profile
 
