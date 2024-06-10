@@ -5,9 +5,8 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
@@ -328,13 +327,16 @@ class HelikeSpectrometer(DiagnosticModel):
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
-        if hasattr(self, "measured_intens"):
+        if hasattr(self, "measured_spectra"):
             self.bckc["intens"] = self.measured_spectra
 
         if self.moment_analysis:
             for quantity in self.quantities:
-
                 datatype = self.quantities[quantity]
+
+                if quantity in ["intens", "spec_rad", "radiance", "emission", "background"]:
+                    continue
+
                 line = str(quantity.split("_")[1])
                 if "int" in quantity and line in self.measured_intensity.keys():
                     self.bckc[quantity] = self.measured_intensity[line]
@@ -491,11 +493,10 @@ class HelikeSpectrometer(DiagnosticModel):
 
         # Plot the temperatures profiles
         plt.figure()
-        elem = self.Ti.element[0].values
         for i, t in enumerate(self.t):
             plt.plot(
                 self.plasma.ion_temperature.rho_poloidal,
-                self.plasma.ion_temperature.sel(t=t, element=elem),
+                self.plasma.ion_temperature.sel(t=t, ),
                 color=cols_time[i],
             )
             plt.plot(
@@ -586,6 +587,8 @@ def example_run(
 
     if plasma is None:
         plasma = load_default_objects("st40", "plasma")
+        equilibrium = load_default_objects("st40", "equilibrium")
+        plasma.set_equilibrium(equilibrium)
 
     diagnostic_name = "xrcs"
     los_transform = helike_transform_example(3)
