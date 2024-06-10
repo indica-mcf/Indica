@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.plasma import Plasma
 from indica.operators import tomo_1D
