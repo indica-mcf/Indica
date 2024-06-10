@@ -352,7 +352,10 @@ class PPFReader(DataReader):
                 results["conc_error"] = cohi.data - conc.data
                 results["conc_records"] = paths + [c_path, e_path]
             except NodeNotFound:
-                pass  # CONC not always produced for JET CXRS
+                # CONC not always produced for JET CXRS
+                results["conc"] = None
+                results["conc_error"] = None
+                results["conc_records"] = paths
         if "ti" in quantities:
             ti, t_path = self._get_signal(uid, instrument, "ti", revision)
             tihi, e_path = self._get_signal(uid, instrument, "tihi", revision)
@@ -362,6 +365,8 @@ class PPFReader(DataReader):
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
 
+        results["location"] = None
+        results["direction"] = None
         results["machine_dims"] = self.MACHINE_DIMS
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
