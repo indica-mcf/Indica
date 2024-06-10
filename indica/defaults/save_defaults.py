@@ -9,7 +9,7 @@ from indica.models import Plasma
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import ST40Conf
 from indica.readers import ST40Reader
-from indica.workflows.plasma_profiles import PlasmaProfiles
+from indica.models.plasma import PlasmaProfiles
 
 PROJECT_PATH = Path(__file__).parent.parent
 DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
