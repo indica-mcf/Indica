@@ -17,21 +17,27 @@ from indica.workflows.priors import PriorManager
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
-    "xrcs.spectra": lambda x: np.sqrt(x)  # Poisson noise
+    "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
                             + (x.where((x.wavelength < 0.392) &
                                        (x.wavelength > 0.388), ).std("wavelength")).fillna(0),  # Background noise
     "cxff_pi.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
 }
 
-def add_error_to_opt_data(opt_data: dict, error_functions=None):
+def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
     if error_functions is None:
         error_functions = ERROR_FUNCTIONS
 
     opt_data_with_error = {}
     for key, value in opt_data.items():
         if key not in error_functions.keys():
-            print(f"no error function defined for {key}")
+            if verbose:
+                print(f"no error function defined for {key}")
+            continue
+        if "error" in value.coords:
+            if verbose:
+                print(f"{key} contains error: skipping")
+            opt_data_with_error[key] = value
             continue
         error = error_functions[key](value)
         opt_data_with_error[key] = value.assign_coords({"error": error})
@@ -155,7 +161,7 @@ def bda_run(
 
     # post processing (TODO: where should this be)
     flat_data = flatdict.FlatDict(reader.binned_data, ".")
-    opt_data = add_error_to_opt_data(flat_data)
+    opt_data = add_error_to_opt_data(flat_data, verbose=False)
 
     models = {diag: INSTRUMENT_MAPPING[diag] for diag in diagnostics}
     model_coordinator = ModelCoordinator(
@@ -166,13 +172,13 @@ def bda_run(
 
     if "xrcs" in reader.binned_data.keys():
         more_model_settings = {"xrcs": {
-            "window": reader.binned_data["xrcs"]["spectra"].wavelength},
+            "window": reader.binned_data["xrcs"]["intens"].wavelength},
         }
     else:
         more_model_settings = {}
 
     if "xrcs" in reader.binned_data.keys():
-        background = 0
+        background = reader.binned_data["xrcs"]["background"]
         model_kwargs = {"xrcs": {
             "background": background,}
         }
