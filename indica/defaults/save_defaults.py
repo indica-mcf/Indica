@@ -6,10 +6,14 @@ import numpy as np
 from indica.defaults.load_defaults import get_filename_default_objects
 from indica.equilibrium import Equilibrium
 from indica.models import Plasma
+<<<<<<< HEAD
 from indica.workflows.plasma_profiles import PlasmaProfiles
+=======
+>>>>>>> mg/reader_xrcs_update
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import ST40Conf
 from indica.readers import ST40Reader
+from indica.workflows.plasma_profiles import PlasmaProfiles
 
 PROJECT_PATH = Path(__file__).parent.parent
 DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
@@ -122,7 +126,10 @@ def save_default_objects(
     return plasma
 
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> mg/reader_xrcs_update
 if __name__ == "__main__":
     save_default_objects("st40", 11419)

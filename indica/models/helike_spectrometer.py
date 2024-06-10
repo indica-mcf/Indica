@@ -16,7 +16,6 @@ from indica.utilities import get_element_info
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
 
-# TODO: why resonance lines in upper case, others lower?
 LINE_RANGES = {
     "w": slice(0.39489, 0.39494),
     "n3": slice(0.39543, 0.39574),
@@ -329,15 +328,22 @@ class HelikeSpectrometer(AbstractDiagnostic):
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
-        if "spectra" in self.quantities and hasattr(self, "measured_spectra"):
-            self.bckc["spectra"] = self.measured_spectra
+        if hasattr(self, "measured_spectra"):
+            self.bckc["intens"] = self.measured_spectra
 
         if self.moment_analysis:
             for quantity in self.quantities:
-                if quantity == "spectra":
+                datatype = self.quantities[quantity]
+
+                if quantity in [
+                    "intens",
+                    "spec_rad",
+                    "radiance",
+                    "emission",
+                    "background",
+                ]:
                     continue
 
-                datatype = self.quantities[quantity]
                 line = str(quantity.split("_")[1])
                 if "int" in quantity and line in self.measured_intensity.keys():
                     self.bckc[quantity] = self.measured_intensity[line]
@@ -475,29 +481,30 @@ class HelikeSpectrometer(AbstractDiagnostic):
         plt.figure()
         channels = self.transform.x1
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
-        if "spectra" in self.bckc.keys():
-            spectra = self.bckc["spectra"]
-            if "channel" in spectra.dims:
-                spectra = spectra.sel(channel=np.median(channels))
+        if "intens" in self.bckc.keys():
+            intens = self.bckc["intens"]
+            if "channel" in intens.dims:
+                intens = intens.sel(channel=np.median(channels))
             for i, t in enumerate(np.array(self.t, ndmin=1)):
                 plt.plot(
-                    spectra.wavelength,
-                    spectra.sel(t=t),
+                    intens.wavelength,
+                    intens.sel(t=t),
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
-            plt.ylabel("Brightness (a.u.)")
+            plt.ylabel("Intensity (count/s.)")
             plt.xlabel("Wavelength (nm)")
             plt.legend()
             set_axis_sci()
 
         # Plot the temperatures profiles
         plt.figure()
-        elem = self.Ti.element[0].values
         for i, t in enumerate(self.t):
             plt.plot(
                 self.plasma.ion_temperature.rho_poloidal,
-                self.plasma.ion_temperature.sel(t=t, element=elem),
+                self.plasma.ion_temperature.sel(
+                    t=t,
+                ),
                 color=cols_time[i],
             )
             plt.plot(
@@ -582,14 +589,13 @@ def helike_transform_example(nchannels):
     return los_transform
 
 
-def example_run(
-    pulse: int = None, plasma=None, plot=False, moment_analysis: bool = False, **kwargs
-):
-    # TODO: LOS sometime crossing bad EFIT reconstruction
+def example_run(plasma=None, plot=False, moment_analysis: bool = False, **kwargs):
+
     if plasma is None:
         plasma = load_default_objects("st40", "plasma")
-        # plasma.time_to_calculate = plasma.t[3:5]
-        # Create new diagnostic
+        equilibrium = load_default_objects("st40", "equilibrium")
+        plasma.set_equilibrium(equilibrium)
+
     diagnostic_name = "xrcs"
     los_transform = helike_transform_example(3)
     los_transform.set_equilibrium(plasma.equilibrium)

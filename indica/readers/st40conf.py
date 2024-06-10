@@ -29,9 +29,7 @@ class ST40Conf:
             "astra": "get_astra",
             "ppts": "get_ppts",
         }
-        self.UIDS_MDS = {
-            "xrcs": "sxr",
-        }
+        self.UIDS_MDS = {}
         self.QUANTITIES_MDS = {
             "efit": {
                 "f": ".profiles.psi_norm:f",
@@ -53,20 +51,19 @@ class ST40Conf:
                 "df": ".constraints.df:cvalue",
             },
             "xrcs": {
-                "int_k": ".te_kw:int_k",
-                "int_w": ".te_kw:int_w",
-                "int_z": ".te_kw:int_z",
-                "int_q": ".te_kw:int_q",
-                "int_r": ".te_kw:int_r",
-                "int_a": ".te_kw:int_a",
-                "int_n3": ".te_n3w:int_n3",
-                "int_tot": ".te_n3w:int_tot",
-                "te_kw": ".te_kw:te",
-                "te_n3w": ".te_n3w:te",
-                "ti_w": ".ti_w:ti",
-                "ti_z": ".ti_z:ti",
-                "ampl_w": ".ti_w:amplitude",
-                "spectra": ":intensity",
+                "ti_w": ".global:ti_w",
+                "ti_z": ".global:ti_z",
+                "te_n3w": ".global:te_n3w",
+                "te_kw": ".global:te_kw",
+                "intens": ":intens",
+                "emission": ":emission",
+                "radiance": ":radiance",
+                "spec_rad": ":spec_rad",
+                "int_w": ".global:int_w",
+                "int_k": ".global:int_k",
+                "int_tot": ".global:int_tot",
+                "int_n3": ".global:int_n3",
+                "background": ".global:back_avg",
             },
             "smmh": {
                 "ne": ".global:ne_int",
