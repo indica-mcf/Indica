@@ -23,7 +23,7 @@ param_names = [
     "impurity_density:ar.y0",
     # "impurity_density:ar.wcenter",
     # "impurity_density:ar.wped",
-    "impurity_density:ar.peaking",
+    # "impurity_density:ar.peaking",
     # "electron_temperature.y0",
     # "electron_temperature.wped",
     # "electron_temperature.wcenter",
@@ -57,10 +57,10 @@ apply_rshift = True
 tstart = 0.05
 tend = 0.06
 dt = 0.01
-starting_samples = 100
-iterations = 100
-nwalkers = 15
-stopping_criteria_factor = 0.002
+starting_samples = 200
+iterations = 3000
+nwalkers = 10
+stopping_criteria_factor = 0.001
 sample_method = "high_density"
 stopping_criteria = "mode"
 burn_frac = 0.20
