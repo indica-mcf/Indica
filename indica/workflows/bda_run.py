@@ -172,19 +172,14 @@ def bda_run(
 
     if "xrcs" in reader.binned_data.keys():
         more_model_settings = {"xrcs": {
-            "window": reader.binned_data["xrcs"]["intens"].wavelength},
+            "window": reader.binned_data["xrcs"]["intens"].wavelength,
+            "background": reader.binned_data["xrcs"]["background"],
+        },
         }
     else:
         more_model_settings = {}
 
-    if "xrcs" in reader.binned_data.keys():
-        background = reader.binned_data["xrcs"]["background"]
-        model_kwargs = {"xrcs": {
-            "background": background,}
-        }
-    else:
-        model_kwargs = {}
-
+    model_kwargs = {}
 
     model_coordinator.init_models(**more_model_settings)
     model_coordinator.set_transforms(reader.transforms)
