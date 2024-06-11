@@ -39,7 +39,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         name: str,
         instrument_method="get_helike_spectroscopy",
         etendue: float = 1.0,
-        calibration: float = 1.0e-18,
+        calibration: float = 5.0e-19,
         element: str = "ar",
         window_len: int = 1030,
         window_lim=None,
@@ -462,8 +462,10 @@ class HelikeSpectrometer(AbstractDiagnostic):
         if moment_analysis:
             self._moment_analysis()
 
+        dt = np.gradient(self.plasma.t).mean()  # Temp hack for count -> count / s
+        self.measured_spectra = self.measured_spectra / dt
         if background is not None:
-            self.measured_spectra = self.measured_spectra + background
+            self.measured_spectra += background
 
         if pixel_offset is not None:
             self.measured_spectra = self.measured_spectra.shift(
