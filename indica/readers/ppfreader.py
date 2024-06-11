@@ -29,6 +29,7 @@ from .abstractreader import CACHE_DIR
 from .abstractreader import DataReader
 from .. import session
 from ..datatypes import ELEMENTS
+from ..numpy_typing import ArrayLike
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
@@ -367,6 +368,33 @@ class PPFReader(DataReader):
 
         results["location"] = None
         results["direction"] = None
+
+        # Currently arbitrary, TODO be more specific/justified. Based approximately on
+        # start of JET C38 campaign
+        if self.pulse > 90000:
+            spec = {
+                "cxs": "ks5a",
+                "cxd": "ks5b",
+                "cxf": "ks5c",
+                "cxg": "ks5d",
+                "cxh": "ks5e",
+            }.get(instrument.lower()[:3], None)
+            if spec is None:
+                raise PPFError(
+                    f"Failed to match spectrometer name to instrument {instrument}"
+                )
+            trck, _ = self._get_signal(uid, instrument, "trck", revision)
+            location, direction = _get_cxrs_los_geometry(
+                sav_file=_get_cxrs_los_savfile(pulse=self.pulse, spec=spec),
+                tracks=_get_cxrs_active_tracks(
+                    pulse=self.pulse, spec=spec, trck=trck.data
+                ),
+            )
+            results["location"] = location
+            results["direction"] = direction
+        else:
+            warnings.warn(f"CXRS LOS geometry not supported for JPN ${self.pulse}")
+
         results["machine_dims"] = self.MACHINE_DIMS
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
@@ -712,3 +740,134 @@ class PPFReader(DataReader):
             return True
         except AuthenticationFailed:
             return False
+
+
+def _get_cxrs_los_geometry(sav_file: Path, tracks: ArrayLike) -> Any:
+    """Read IDL save file to get position and direction for KS5 tracks
+
+    Parameters
+    ----------
+
+    sav_file:
+        Path to IDL save file to load
+    tracks:
+        ArrayLike of tracks to select from save file, from JET dtype `TRCK`
+
+    Returns
+    -------
+
+    :
+        Tuple of position and direction arrays
+    """
+    import scipy.io as io
+
+    data = io.readsav(sav_file)
+    fibres = data.ptrfib.fibres[0]
+    numfibview = fibres.numfibview[0].astype(str)
+    origin, direction = [], []
+    for name, pos, vec in zip(
+        numfibview,
+        fibres.losdef[0].virtualposition_roomtemp_rot[0].cartesian_ref[0],
+        fibres.losdef[0].virtualdirection_rot[0].cartesian_ref[0],
+    ):
+        if name in tracks:
+            origin.append(pos)
+            direction.append(vec)
+    return (np.asarray(origin), np.asarray(direction))
+
+
+def _setup_idl(pulse: int) -> Any:
+    try:
+        import idlbridge as idlb
+    except ImportError:
+        raise PPFError("Could not find IDLBridge module, required for CXRS geometry")
+
+    idlb.execute(".reset")
+    idlb.execute(
+        "!PATH=!PATH + ':' + "
+        "expand_path( '+~cxs/idl_spectro/' ) + ':' + "
+        "expand_path( '+~cxs/idl_spectro/show' ) + ':' + "
+        "expand_path( '+~cxs/ks6read/' ) + ':' + "
+        "expand_path( '+~cxs/ktread/' ) + ':' + "
+        "expand_path( '+~cxs/kx1read/' ) + ':' + "
+        "expand_path( '+~cxs/idl_spectro/kt3d' ) + ':' + "
+        "expand_path( '+~cxs/utc' ) + ':' + "
+        "expand_path( '+~cxs/instrument_data' ) + ':' + "
+        "expand_path( '+~cxs/calibration' ) + ':' + "
+        "expand_path( '+~cxs/alignment' ) + ':' + "
+        "expand_path( '+/usr/local/idl' ) + ':' + "
+        "expand_path( '+/home/CXSE/cxsfit/idl/' ) + ':' + "
+        "expand_path( '+~/jet/share/lib' ) + ':' + "
+        "expand_path( '+~/jet/share/root/lib' ) + ':' + "
+        "expand_path( '+~/jet/share/idl' )"
+    )
+
+    idlb.execute(
+        "!PATH = !PATH + ':' + expand_path('+/u/cxs/utilities',/all_dirs)+ ':'"
+    )
+
+    idlb.execute(
+        "!PATH = !PATH + ':' + expand_path('+/u/cxs/instrument_data/namelists')+ ':' + "
+        "expand_path('+/u/cxs/instrument_data/jpfnodes')"
+    )
+
+    idlb.execute("!PATH = !PATH + ':' + expand_path('+/usr/local/idl')")
+    idlb.execute("!PATH = !PATH + ':' + expand_path('+/home/CXSE/cxsfit/idl/')")
+    idlb.execute("!PATH = !PATH +':/home/CXSE/cxsfit/idl:'")
+    idlb.execute(".compile plot")
+    idlb.execute(".compile ppfread")
+    idlb.execute(".compile cxf_number_to_text")
+    idlb.execute(".compile cxf_read_switches")
+    idlb.execute(".compile cxf_decompress_history")
+
+    idlb.put("shot", pulse)
+    idlb.execute("julian_date = agm_pulse_to_julian(shot, 'DG')")
+
+    return idlb
+
+
+def _get_cxrs_los_savfile(pulse: int, spec: str) -> Path:
+    """Determine correct sav file for given pulse and spectrometer
+
+    Parameters
+    ----------
+    pulse:
+        Pulse to search for
+    spec:
+        Spectrometer to search for
+
+    Returns
+    -------
+    :
+        Path to save file
+    """
+    octant = {"ks5a": 7, "ks5b": 1, "ks5c": 7, "ks5d": 7, "ks5e": 1}.get(spec.lower())
+    idlb = _setup_idl(pulse=pulse)
+    idlb.execute(
+        "str1 = periscope_oct{}_hist_align(julian_date=julian_date)".format(str(octant))
+    )
+    idlb.execute("file_align = str1.file_align")
+    savfile = Path(str(idlb.get("file_align")))
+    try:
+        assert savfile.exists() and savfile.is_file()
+    except AssertionError:
+        raise PPFError(f"Cannot find savfile {savfile}")
+    return savfile
+
+
+def _get_cxrs_active_tracks(pulse: int, spec: str, trck: ArrayLike) -> ArrayLike:
+    """Translate tracks used to track names as in geometry save file"""
+    idlb = _setup_idl(pulse=pulse)
+    idlb.execute(
+        "str1={}_hist_fibresetup(pulse=pulse,julian_date=julian_date)".format(str(spec))
+    )
+    idlb.execute("viewing_position=str1.pulse_setup.viewing_position")
+    idlb.execute("track_reshuffle=str1.pulse_setup.ks4fit_track_reshuffle")
+    viewing_position = idlb.get("viewing_position")
+    track_reshuffle = idlb.get("track_reshuffle")
+    assert len(viewing_position) == len(track_reshuffle) == len(trck)
+    return [
+        viewing_position[i - 1]
+        for i in track_reshuffle
+        if int(trck[len(trck) - i]) == 1
+    ][::-1]
