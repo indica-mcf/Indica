@@ -152,8 +152,9 @@ class EmceeOptimiser(OptimiserContext):
         self.ndim = len(self.optimiser_settings.param_names)
         self.move = [
             (emcee.moves.StretchMove(), 0.0),
-            (emcee.moves.DEMove(), 1.0),
-            (emcee.moves.DESnookerMove(), 0.0),
+            (emcee.moves.DEMove(), 0.9 * 0.9),
+            (emcee.moves.DESnookerMove(), 0.1),
+            (emcee.moves.DESnookerMove(gammas=1.0), 0.9 * 0.1)
         ]
 
 
