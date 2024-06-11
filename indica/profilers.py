@@ -203,6 +203,59 @@ class ProfilerGauss(Profiler):
         return yspl
 
 
+class ProfileBasis:
+    """
+    Class to build pca profiles from basis functions
+
+    Parameters
+    ----------
+    radial_grid
+        normalised radial grid [0, 1]  on which profile is to be built
+    """
+    def __init__(self,
+                basis_function: np.ndarray,
+                bias: np.ndarray,
+                ncomps: int = 2,
+                radial_grid: np.ndarray = None,
+                coord = "rho_poloidal",
+                profile_parameters: list = [],
+                 ):
+
+        self.basis_function = basis_function
+        self.bias = bias
+        self.ncomps = ncomps
+
+        self.radial_grid = radial_grid
+        self.coord = coord
+        self.profile_parameters = profile_parameters
+
+    def __post_init__(self):
+        # Weights have to be dynamically assigned as attributes so they can be accessed / changed by the profiler
+        for icomp in range(self.ncomps):
+            setattr(self, f"weight_{icomp+1}", 0)
+            self.profile_parameters.append(f"weight_{icomp+1}")
+
+    def set_parameters(self, **kwargs):
+        """
+        Set any of the shaping parameters
+        """
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    def construct_profile(self, ):
+        weights = np.stack([getattr(self, f"weight_{icomp+1}") for icomp in range(self.ncomps)], axis=-1).T
+        return np.dot(weights, self.basis_function) + self.bias
+
+    def __call__(
+        self,
+    ):
+        """
+        Builds the profile using the parameters set
+        """
+        y = self.construct_profile()
+        y = xr.DataArray(y, coords=[(self.coord, self.radial_grid)])
+        return y
+
 
 def get_defaults(datatype: str) -> dict:
     parameters = {
