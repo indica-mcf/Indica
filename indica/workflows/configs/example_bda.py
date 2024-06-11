@@ -21,7 +21,7 @@ param_names = [
     # "electron_density.wped",
     # "impurity_density:ar.y1",
     "impurity_density:ar.y0",
-    "impurity_density:ar.wcenter",
+    # "impurity_density:ar.wcenter",
     # "impurity_density:ar.wped",
     "impurity_density:ar.peaking",
     # "electron_temperature.y0",
@@ -29,7 +29,7 @@ param_names = [
     # "electron_temperature.wcenter",
     # "electron_temperature.peaking",
     "ion_temperature.y0",
-    "ion_temperature.wped",
+    # "ion_temperature.wped",
     "ion_temperature.wcenter",
     "ion_temperature.peaking",
 ]
