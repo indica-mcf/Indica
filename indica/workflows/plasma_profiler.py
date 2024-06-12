@@ -1,4 +1,3 @@
-
 from indica.defaults.load_defaults import load_default_objects
 from indica.profilers import ProfilerGauss, Profiler
 from indica.models.plasma import Plasma
@@ -60,31 +59,30 @@ DEFAULT_PROFILE_PARAMS = {
 }
 
 PLASMA_ATTRIBUTE_NAMES = [
-            "electron_temperature",
-            "electron_density",
-            "ion_temperature",
-            "ion_density",
-            "impurity_density",
-            "fast_density",
-            "pressure_fast",
-            "neutral_density",
-            "zeff",
-            "meanz",
-            "wp",
-            "wth",
-            "pressure_tot",
-            "pressure_th",
+    "electron_temperature",
+    "electron_density",
+    "ion_temperature",
+    "ion_density",
+    "impurity_density",
+    "fast_density",
+    "pressure_fast",
+    "neutral_density",
+    "zeff",
+    "meanz",
+    "wp",
+    "wth",
+    "pressure_tot",
+    "pressure_th",
 ]
 
 
 def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
-
     midplane_profiles: dict = {}
 
     R = plasma.R_midplane
     z = plasma.z_midplane
     _rho, _, _ = plasma.equilibrium.flux_coords(R, z, plasma.t)
-    rho = _rho.swap_dims({"index":"R"}).drop_vars("index")
+    rho = _rho.swap_dims({"index": "R"}).drop_vars("index")
 
     for key, value in profiles.items():
         if "rho_poloidal" not in value.dims:
@@ -100,16 +98,21 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
         )
     return midplane_profiles
 
-def initialise_gauss_profilers(xspl: np.ndarray, profile_params=None,):
+
+def initialise_gauss_profilers(xspl: np.ndarray, profile_params: dict = None, profiler_names: list = None):
     # considering whether profilers should be a dataclass or named tuple rather than bare dictionary
     if profile_params is None:
         profile_params = DEFAULT_PROFILE_PARAMS
     flat_profile_params = flatdict.FlatDict(profile_params, ".")
-    profile_names = flat_profile_params.as_dict().keys()
+
+    if profiler_names is None:
+        profile_names = flat_profile_params.as_dict().keys()
+    else:
+        profile_names = profiler_names
 
     profilers = {profile_name: ProfilerGauss(datatype=profile_name.split(":")[0],
-                                        parameters=flat_profile_params[profile_name],
-                                        xspl=xspl)
+                                             parameters=flat_profile_params[profile_name],
+                                             xspl=xspl)
                  for profile_name in profile_names}
 
     return profilers
@@ -159,13 +162,11 @@ class PlasmaProfiler:
         self.phantom_profiles = phantom_profiles
         return phantom_profiles
 
-
     def plasma_attributes(self):
         plasma_attributes = {}
         for attribute in self.plasma_attribute_names:
             plasma_attributes[attribute] = getattr(self.plasma, attribute).sel(t=self.plasma.time_to_calculate)
         return plasma_attributes
-
 
     def __call__(self, parameters: dict, t=None):
         """
@@ -205,12 +206,12 @@ class PlasmaProfiler:
 
 
 if __name__ == "__main__":
-
     example_plasma = load_default_objects("st40", "plasma")
     gauss_profilers = initialise_gauss_profilers(profile_params=DEFAULT_PROFILE_PARAMS, xspl=example_plasma.rho)
     plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=gauss_profilers)
 
-    plasma_profiler(parameters={"electron_density.y0": 10e19, "electron_density.y1":1e19, "electron_density.yend":1e19,
-                                "ion_temperature.y0":1e3})
+    plasma_profiler(
+        parameters={"electron_density.y0": 10e19, "electron_density.y1": 1e19, "electron_density.yend": 1e19,
+                    "ion_temperature.y0": 1e3})
     plasma_profiler.profilers["ion_temperature"].plot()
     plt.show()
