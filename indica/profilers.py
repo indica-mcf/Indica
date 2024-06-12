@@ -25,7 +25,6 @@ class Profiler(ABC):
             parameters = {}
         self.parameters = parameters
 
-
     def set_parameters(self, **kwargs):
         """
         Set any of the shaping parameters
@@ -53,15 +52,14 @@ class Profiler(ABC):
         self.yspl = None
 
 
-
 class ProfilerGauss(Profiler):
     def __init__(
-        self,
-        datatype: str = "electron_temperature",
-        xend: float = 1.05,
-        xspl: np.ndarray = None,
-        coord="poloidal",
-        parameters: dict = None,
+            self,
+            datatype: str = "electron_temperature",
+            xend: float = 1.05,
+            xspl: np.ndarray = None,
+            coord="poloidal",
+            parameters: dict = None,
     ):
         """
         Class to build general gaussian profiles
@@ -106,13 +104,12 @@ class ProfilerGauss(Profiler):
 
         self.set_parameters(**parameters)
 
-
     def __call__(
-        self,
-        y0_fix=False,
-        y0_ref=None,
-        wcenter_exp=0.05,
-        debug=False,
+            self,
+            y0_fix=False,
+            y0_ref=None,
+            wcenter_exp=0.05,
+            debug=False,
     ):
         """
         Builds the profiles using the parameters set
@@ -143,7 +140,7 @@ class ProfilerGauss(Profiler):
 
         if peaking2 > 1:
             centre = y0_ref
-            wcenter = self.wcenter - (peaking2**wcenter_exp - 1)
+            wcenter = self.wcenter - (peaking2 ** wcenter_exp - 1)
         else:
             wcenter = self.wcenter
 
@@ -152,7 +149,7 @@ class ProfilerGauss(Profiler):
         x = self.x[np.where(self.x <= 1.0)[0]]
 
         # baseline profile shape
-        y_baseline = (center - self.y1) * (1 - x**self.wped) + self.y1
+        y_baseline = (center - self.y1) * (1 - x ** self.wped) + self.y1
 
         if self.peaking != 1:  # add central peaking
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
@@ -174,7 +171,6 @@ class ProfilerGauss(Profiler):
 
         else:
             y = y_peaking2
-
 
         x = np.append(x, self.xend)
         y = np.append(y, self.yend)
@@ -203,7 +199,7 @@ class ProfilerGauss(Profiler):
         return yspl
 
 
-class ProfileBasis:
+class ProfileBasis(Profiler):
     """
     Class to build pca profiles from basis functions
 
@@ -212,45 +208,36 @@ class ProfileBasis:
     radial_grid
         normalised radial grid [0, 1]  on which profile is to be built
     """
-    def __init__(self,
-                basis_function: np.ndarray,
-                bias: np.ndarray,
-                ncomps: int = 2,
-                radial_grid: np.ndarray = None,
-                coord = "rho_poloidal",
-                profile_parameters: list = [],
-                 ):
 
-        self.basis_function = basis_function
+    def __init__(self,
+                 basis_functions: np.ndarray,
+                 bias: np.ndarray,
+                 ncomps: int = 2,
+                 radial_grid: np.ndarray = None,
+                 coord="rho_poloidal",
+                 parameters: dict = None,
+                 ):
+        super().__init__(parameters)
+        self.basis_functions = basis_functions
         self.bias = bias
         self.ncomps = ncomps
-
         self.radial_grid = radial_grid
         self.coord = coord
-        self.profile_parameters = profile_parameters
 
-    def __post_init__(self):
         # Weights have to be dynamically assigned as attributes so they can be accessed / changed by the profiler
         for icomp in range(self.ncomps):
-            setattr(self, f"weight_{icomp+1}", 0)
-            self.profile_parameters.append(f"weight_{icomp+1}")
-
-    def set_parameters(self, **kwargs):
-        """
-        Set any of the shaping parameters
-        """
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+            param_name = f"weight_{icomp + 1}"
+            self.parameters[param_name] = 0
 
     def construct_profile(self, ):
-        weights = np.stack([getattr(self, f"weight_{icomp+1}") for icomp in range(self.ncomps)], axis=-1).T
-        return np.dot(weights, self.basis_function) + self.bias
+        weights = np.stack([weight for weight_name, weight in self.parameters.items()], axis=-1).T
+        return np.dot(weights, self.basis_functions) + self.bias
 
     def __call__(
-        self,
+            self,
     ):
         """
-        Builds the profile using the parameters set
+        Builds the profile from basis functions using the parameters set
         """
         y = self.construct_profile()
         y = xr.DataArray(y, coords=[(self.coord, self.radial_grid)])
@@ -315,7 +302,6 @@ def get_defaults(datatype: str) -> dict:
         )
 
     return parameters[datatype]
-
 
 
 def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
@@ -447,7 +433,7 @@ def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None)
     post = deepcopy(pre)
 
     if volume is None:
-        volume = DataArray(0.85 * pre.xspl**3, coords=[("rho_poloidal", pre.xspl)])
+        volume = DataArray(0.85 * pre.xspl ** 3, coords=[("rho_poloidal", pre.xspl)])
     vol = volume.interp(rho_poloidal=pre.yspl.rho_poloidal)
     vol_int_pre = np.trapz(pre.yspl, vol)
 
@@ -484,13 +470,13 @@ def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None)
 
 
 def density_crash(
-    los_avrg=2.8e19,
-    drop=0.9,
-    rho=np.linspace(0, 1, 20),
-    rho_inv=0.4,
-    identifier="density",
+        los_avrg=2.8e19,
+        drop=0.9,
+        rho=np.linspace(0, 1, 20),
+        rho_inv=0.4,
+        identifier="density",
 ):
-    volume = DataArray(0.85 * rho**3, coords=[("rho_poloidal", rho)])
+    volume = DataArray(0.85 * rho ** 3, coords=[("rho_poloidal", rho)])
 
     pre = ProfilerGauss(datatype=(identifier, "electron"), xspl=rho)
     pre.wcenter = rho_inv / 1.5
