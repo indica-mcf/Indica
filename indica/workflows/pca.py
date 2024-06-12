@@ -129,7 +129,7 @@ def _plot_KDE_comparison(kernels: Dict[str, gaussian_kde], prior: LinearNDInterp
 
 
 @dataclass
-class PCAProcess:
+class PCAProcessor:
     gaussian_profiles: Dict[str, np.ndarray]
 
     ncomps: int = 2
@@ -194,16 +194,16 @@ def pca_workflow(prior_manager: PriorManager, opt_profiles: list, x_grid: xr.Dat
     profilers = initialise_gauss_profilers(xspl=x_grid, profiler_names=opt_profiles)
     profiles = sample_gauss_profiles(param_samples, profilers=profilers, size=num_prof_samples)
 
-    pca_process = PCAProcess(gaussian_profiles=profiles, ncomps=n_components)
-    pca_process.basis_priors = {key: PriorBasis(kernel=value) for key, value in pca_process.basis_priors.items()}
+    pca_processor = PCAProcessor(gaussian_profiles=profiles, ncomps=n_components)
+    pca_processor.basis_priors = {key: PriorBasis(kernel=value) for key, value in pca_processor.basis_priors.items()}
 
     new_profilers = {}
     for profile_name, _profiles in profiles.items():
-        _basis_func = pca_process.pca_fits[profile_name].components_
-        _bias = pca_process.pca_fits[profile_name].mean_
+        _basis_func = pca_processor.pca_fits[profile_name].components_
+        _bias = pca_processor.pca_fits[profile_name].mean_
         new_profilers[profile_name] = ProfilerBasis(basis_functions=_basis_func, bias=_bias, ncomps=n_components,
                                                     radial_grid=x_grid)
-    return pca_process, new_profilers
+    return pca_processor, new_profilers
 
 
 def sample_gauss_profiles(sample_params: Dict[str, np.ndarray], profilers: dict, size: int) -> Dict[str, np.ndarray]:
@@ -224,9 +224,7 @@ def sample_gauss_profiles(sample_params: Dict[str, np.ndarray], profilers: dict,
 
 
 if __name__ == "__main__":
-    pca, pca_profilers = pca_workflow(PriorManager(), ["electron_temperature", "impurity_density:ar"],
-                                      np.linspace(0, 1, 30), n_components=2, num_prof_samples=int(1e2))
-    # pca.plot_all()
-    # plt.show(block=True)
-
-    print()
+    pca_processor, pca_profilers = pca_workflow(PriorManager(), ["electron_temperature", "impurity_density:ar"],
+                                      np.linspace(0, 1, 30), n_components=2, num_prof_samples=int(1e3))
+    pca_processor.plot_all()
+    plt.show(block=True)
