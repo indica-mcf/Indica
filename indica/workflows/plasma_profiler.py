@@ -138,6 +138,10 @@ class PlasmaProfiler:
         self.phantom = None
         self.phantom_profiles = None
 
+    def update_profilers(self, profilers: dict):
+        for profile_name, profiler in profilers.items():
+            self.profilers[profile_name] = profiler
+
     def set_profiles(self, profiles: dict[xr.DataArray], t: float = None):
         if t is None:
             t = self.plasma.time_to_calculate
