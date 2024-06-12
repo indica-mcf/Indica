@@ -371,7 +371,8 @@ class PPFReader(DataReader):
 
         # Currently arbitrary, TODO be more specific/justified. Based approximately on
         # start of JET C38 campaign
-        if self.pulse > 90000:
+        c38_start = 92671
+        if self.pulse > c38_start:
             spec = {
                 "cxs": "ks5a",
                 "cxd": "ks5b",
@@ -393,7 +394,10 @@ class PPFReader(DataReader):
             results["location"] = location
             results["direction"] = direction
         else:
-            warnings.warn(f"CXRS LOS geometry not supported for JPN ${self.pulse}")
+            warnings.warn(
+                f"CXRS LOS geometry not supported for JPN {self.pulse}, "
+                f"currently only supporting after {c38_start}"
+            )
 
         results["machine_dims"] = self.MACHINE_DIMS
         results["revision"] = self._get_revision(uid, instrument, revision)
