@@ -199,7 +199,7 @@ class ProfilerGauss(Profiler):
         return yspl
 
 
-class ProfileBasis(Profiler):
+class ProfilerBasis(Profiler):
     """
     Class to build pca profiles from basis functions
 
