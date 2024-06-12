@@ -388,7 +388,7 @@ class PPFReader(DataReader):
             location, direction = _get_cxrs_los_geometry(
                 sav_file=_get_cxrs_los_savfile(pulse=self.pulse, spec=spec),
                 tracks=_get_cxrs_active_tracks(
-                    pulse=self.pulse, spec=spec, trck=trck.data
+                    pulse=self.pulse, spec=spec, trck=trck.data[: len(results["R"]) + 1]
                 ),
             )
             results["location"] = location
