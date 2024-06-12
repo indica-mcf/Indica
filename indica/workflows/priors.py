@@ -101,7 +101,7 @@ class PriorManager:
         # refactor ln_prior to be generalisable / define interface between cond and regular priors
         return ln_prior(priors={**self.prior_funcs, **self.cond_funcs}, parameters=parameters)
 
-    def get_prior_names_from_profile_names(self, profile_names: list):
+    def get_prior_names_from_profile_names(self, profile_names: list) -> list:
 
         param_names = [prior_name for prior_name in self.priors for profile_name in profile_names if
                        "/" not in prior_name and profile_name in prior_name]
