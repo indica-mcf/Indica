@@ -103,10 +103,10 @@ class PriorManager:
 
     def get_prior_names_from_profile_names(self, profile_names: list) -> list:
 
-        param_names = [prior_name for prior_name in self.priors for profile_name in profile_names if
+        prior_names = [prior_name for prior_name in self.priors for profile_name in profile_names if
                        "/" not in prior_name and profile_name in prior_name]
 
-        return param_names
+        return prior_names
 
 
 def ln_prior(priors: dict, parameters: dict):
