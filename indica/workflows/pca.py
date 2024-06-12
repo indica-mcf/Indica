@@ -10,8 +10,8 @@ from sklearn.decomposition import PCA
 from scipy.interpolate import LinearNDInterpolator
 from scipy.stats import gaussian_kde
 
-from indica.workflows.priors import DEFAULT_PRIORS, PriorContext, PriorBasis
-from indica.profilers import Profiler, ProfileBasis
+from indica.workflows.priors import DEFAULT_PRIORS, PriorManager, PriorBasis
+from indica.profilers import Profiler, ProfilerBasis
 
 
 def pca_fit(profiles: np.ndarray, ncomps, verbose=True) -> Tuple[np.ndarray, PCA]:
@@ -202,14 +202,15 @@ def pca_workflow(profiler: Profiler, param_sampler: Callable, size=2000, ncomps=
     for profile_name in profiler.profile_names:
         _basis_func = pca.pca_fits[profile_name].components_
         _bias = pca.pca_fits[profile_name].mean_
-        profiler.profiles[profile_name] = ProfileBasis(basis_function=_basis_func, bias=_bias, ncomps=ncomps,
+        profiler.profiles[profile_name] = ProfilerBasis(basis_functions=_basis_func, bias=_bias, ncomps=ncomps,
                                                        radial_grid=profiler.radial_grid)
     return pca
 
 
 if __name__ == "__main__":
 
-    prior_context = PriorContext(priors=DEFAULT_PRIORS, )
+    prior_manager = PriorManager(priors=DEFAULT_PRIORS, )
+
     opt_profiles = ["Ne_prof", ]
     profiler = Profiler(profile_names=opt_profiles)
 
