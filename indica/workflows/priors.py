@@ -1,6 +1,7 @@
 from scipy.stats import loguniform, uniform, gaussian_kde
 import numpy as np
 
+
 def get_uniform(lower, upper):
     # Less confusing parametrisation of scipy.stats uniform
     return uniform(loc=lower, scale=upper - lower)
@@ -11,6 +12,7 @@ class PriorBasis:
     Basis Function prior built to work with scipy.stats rvs and pdf methods
     evaluating pdf is a bit of a bottleneck ~ 2ms per point
     """
+
     def __init__(self,
                  kernel: gaussian_kde = None
                  ):
@@ -23,6 +25,7 @@ class PriorBasis:
 
     def pdf(self, param):
         return self.kernel.pdf(param)
+
 
 DEFAULT_PRIORS = {
     "ion_temperature.y0": get_uniform(1000, 10000),
@@ -91,14 +94,19 @@ class PriorManager:
         self.prior_funcs = prior_funcs
         self.priors = {**prior_funcs, **cond_prior_funcs}
 
-    def update_priors(self):
-        return
+    def update_priors(self, new_params: dict):
+        self.priors.update(new_params)
 
     def ln_prior(self, parameters: dict):
         # refactor ln_prior to be generalisable / define interface between cond and regular priors
-        # Probably like: (tuple(param_names), lambda)
-        return ln_prior(priors= {**self.prior_funcs, **self.cond_funcs}, parameters=parameters)
+        return ln_prior(priors={**self.prior_funcs, **self.cond_funcs}, parameters=parameters)
 
+    def get_prior_names_from_profile_names(self, profile_names: list):
+
+        param_names = [prior_name for prior_name in self.priors for profile_name in profile_names if
+                       "/" not in prior_name and profile_name in prior_name]
+
+        return param_names
 
 
 def ln_prior(priors: dict, parameters: dict):
@@ -132,7 +140,6 @@ def ln_prior(priors: dict, parameters: dict):
 
 
 def sample_from_priors(param_names: list, priors: dict, size=10):
-
     #  Throw out samples that don't meet conditional priors and redraw
     samples = np.empty((param_names.__len__(), 0))
     while samples.size < param_names.__len__() * size:
@@ -149,9 +156,8 @@ def sample_from_priors(param_names: list, priors: dict, size=10):
 
 
 def sample_from_high_density_region(
-    param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
+        param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
 ):
-
     # TODO: remove repeated code
     start_points = sample_from_priors(param_names, priors, size=nsamples)
 
@@ -180,3 +186,4 @@ def sample_from_high_density_region(
         samples = np.append(samples, accepted_samples, axis=1)
     start_points = samples[:, 0:nwalkers].transpose()
     return start_points
+
