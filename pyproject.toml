@@ -58,7 +58,11 @@ scikit-learn = "^1.3.0"
 Pint = "^0.23"
 GitPython = "^3.1.41"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.build]
+generate-setup-file = false
+script = ".get_git_commit.py"
+
+[tool.poetry.group.dev.dependencies]
 click = "^8.0.0"
 corner = "^1.0"
 coverage = {extras = ["toml"], version = "^5.2.1"}
@@ -69,10 +73,6 @@ pytest = "^6.0.1"
 pytest-cov = "^2.10.0"
 pytest-xdist = "^2.0.0"
 types-setuptools = "^57.4.14"
-
-[tool.poetry.build]
-generate-setup-file = false
-script = ".get_git_commit.py"
 
 [tool.poetry.group.JET.dependencies]
 idlbridge = {git = "https://github.com/pixelifytica/IDLBridge.git", rev = "update_pep_517"}
