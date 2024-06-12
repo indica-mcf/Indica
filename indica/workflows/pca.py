@@ -10,7 +10,8 @@ from sklearn.decomposition import PCA
 from scipy.interpolate import LinearNDInterpolator
 from scipy.stats import gaussian_kde
 
-from indica.workflows.priors import DEFAULT_PRIORS, PriorManager, PriorBasis
+from indica.workflows.plasma_profiler import initialise_gauss_profilers
+from indica.workflows.priors import PriorManager, PriorBasis, sample_from_priors
 from indica.profilers import Profiler, ProfilerBasis
 
 
@@ -44,7 +45,6 @@ def project_priors(prior_fit, pca_profiles) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def fit_KDE_prior(linear_fit: LinearNDInterpolator, size=100000) -> gaussian_kde:
-
     sampled_points = linear_fit.points
     min = sampled_points.min(axis=0)
     max = sampled_points.max(axis=0)
@@ -73,7 +73,6 @@ def _plot_principle_comps(pca, profile_name):
 
 
 def _plot_profile_fits(profiles: np.ndarray, projected_profiles: np.ndarray, profile_name, nsamples: int = 100):
-
     prof_array = xr.DataArray(profiles, dims=("index", "radial"),
                               coords=(np.arange(0, profiles.shape[0]), np.linspace(0, 1, profiles.shape[1])))
     proj_prof_array = xr.DataArray(projected_profiles, dims=("index", "radial"),
@@ -117,7 +116,6 @@ def _plot_projected_priors(Z, meshgrid, pca_profiles, profile_name):
 
 
 def _plot_KDE_comparison(kernels: Dict[str, gaussian_kde], prior: LinearNDInterpolator, size=1000):
-
     plt.figure()
     sample = [kernel.resample(size) for name, kernel in kernels.items()]
 
@@ -155,8 +153,6 @@ class PCAProcess:
             self.pca_weights[profile_name], self.pca_fits[profile_name] = pca_fit(
                 self.gaussian_profiles[profile_name], self.ncomps)
 
-
-
             self.prior_fits[profile_name] = fit_priors(self.pca_weights[profile_name])
             name = "/".join([f"{profile_name}.basis_{i + 1}" for i in range(self.ncomps)])
 
@@ -173,12 +169,13 @@ class PCAProcess:
 
     def plot_profile(self, profile_name: str):
 
-        _plot_profile_fits(self.gaussian_profiles[profile_name], self.reconstructed_profiles[profile_name], profile_name)
+        _plot_profile_fits(self.gaussian_profiles[profile_name], self.reconstructed_profiles[profile_name],
+                           profile_name)
         _plot_principle_comps(self.pca_fits[profile_name], profile_name)
         _plot_projected_priors(self.projected_priors[profile_name],
-                                    self.projected_prior_meshgrid[profile_name],
-                                    self.pca_weights[profile_name],
-                                    profile_name)
+                               self.projected_prior_meshgrid[profile_name],
+                               self.pca_weights[profile_name],
+                               profile_name)
         _plot_KDE_comparison(self.KDE_priors[profile_name], self.prior_fits[profile_name])
 
     def plot_all(self):
@@ -187,33 +184,49 @@ class PCAProcess:
         plt.show(block=True)
 
 
-def pca_workflow(profiler: Profiler, param_sampler: Callable, size=2000, ncomps=2):
-    # Little wrapper may remove this or make PCAProcess post_init into multiple methods
+def pca_workflow(prior_manager: PriorManager, opt_profiles: list, x_grid: xr.DataArray,
+                 n_components=2, num_prof_samples: int = int(1e4)):
+    prior_names = prior_manager.get_prior_names_from_profile_names(opt_profiles)
+    param_samples: np.ndarray = sample_from_priors(prior_names, prior_manager.priors, size=num_prof_samples)
+    param_samples: Dict[str, np.ndarray] = \
+        {prior_name: param_samples[:, idx] for idx, prior_name in enumerate(prior_names)}
 
-    _sample_params = param_sampler(profiler.parameter_names, size=size)
-    sample_params = {param_name: _sample_params[:, idx] for idx, param_name in enumerate(profiler.parameter_names)}
+    profilers = initialise_gauss_profilers(xspl=x_grid, profiler_names=opt_profiles)
+    profiles = sample_gauss_profiles(param_samples, profilers=profilers, size=num_prof_samples)
 
-    gaussian_profiles = profiler.sample_profiles(sample_params, size=size)
-    gaussian_profiles = {key: value for key, value in gaussian_profiles.items() if key in profiler.profile_names}
+    pca_process = PCAProcess(gaussian_profiles=profiles, ncomps=n_components)
+    pca_process.basis_priors = {key: PriorBasis(kernel=value) for key, value in pca_process.basis_priors.items()}
 
-    pca = PCAProcess(gaussian_profiles=gaussian_profiles, ncomps=ncomps)
-    pca.basis_priors = {key: PriorBasis(kernel = value) for key, value in pca.basis_priors.items()}
+    new_profilers = {}
+    for profile_name, _profiles in profiles.items():
+        _basis_func = pca_process.pca_fits[profile_name].components_
+        _bias = pca_process.pca_fits[profile_name].mean_
+        new_profilers[profile_name] = ProfilerBasis(basis_functions=_basis_func, bias=_bias, ncomps=n_components,
+                                                    radial_grid=x_grid)
+    return pca_process, new_profilers
 
-    for profile_name in profiler.profile_names:
-        _basis_func = pca.pca_fits[profile_name].components_
-        _bias = pca.pca_fits[profile_name].mean_
-        profiler.profiles[profile_name] = ProfilerBasis(basis_functions=_basis_func, bias=_bias, ncomps=ncomps,
-                                                       radial_grid=profiler.radial_grid)
-    return pca
+
+def sample_gauss_profiles(sample_params: Dict[str, np.ndarray], profilers: dict, size: int) -> Dict[str, np.ndarray]:
+    # TODO: Vectorise profilers? (only if pca too slow)
+    profiles = {}
+    for _profile_name, _profiler in profilers.items():
+
+        _params = {key.split(".")[1]: value for key, value in sample_params.items() if
+                   _profile_name in key}
+        _profiles = []
+        for idx in range(size):
+            profilers[_profile_name].set_parameters(
+                **{param_name: param_value[idx] for param_name, param_value in
+                   _params.items()})
+            _profiles.append(profilers[_profile_name]().values)
+        profiles[_profile_name] = np.vstack(_profiles)
+    return profiles
 
 
 if __name__ == "__main__":
+    pca, pca_profilers = pca_workflow(PriorManager(), ["electron_temperature", "impurity_density:ar"],
+                                      np.linspace(0, 1, 30), n_components=2, num_prof_samples=int(1e2))
+    # pca.plot_all()
+    # plt.show(block=True)
 
-    prior_manager = PriorManager(priors=DEFAULT_PRIORS, )
-
-    opt_profiles = ["Ne_prof", ]
-    profiler = Profiler(profile_names=opt_profiles)
-
-    pca = pca_workflow(profiler, prior_context.sample_from_priors, ncomps=3)
-    pca.plot_all()
-    plt.show(block=True)
+    print()
