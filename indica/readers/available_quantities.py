@@ -1,167 +1,131 @@
 """
 Quantities that can be read with the current abstract reader implementation
-TODO: change the tuple to DataArray (long_name, units) - see examples in abstractreader
+
+To each quantity is associated a datatype string corresponding to indica/datatypes.py
 """
 
 from typing import Dict
 
-from ..datatypes import ArrayType
-
-AVAILABLE_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {
+AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
     "get_thomson_scattering": {
-        "ne": ("number_density", "electrons"),
-        "te": ("temperature", "electrons"),
-        "chi2": ("chi-squared", "fit"),
+        "ne": "electron_density",
+        "te": "electron_temperature",
+        "chi2": "chi_squared",
     },
     "get_spectrometer": {
-        "spectra": ("emission", "spectral"),
+        "spectra": "spectra",
     },
     "get_charge_exchange": {
-        "angf": ("angular_freq", "ion"),
-        "vtor": ("linear_rotation", "ion"),
-        "ti": ("temperature", "ion"),
-        "conc": ("concentration", "ion"),
-        "spectra": ("spectra", "experimental"),
-        "fit": ("spectra", "fit"),
+        "vtor": "toroidal_rotation",
+        "ti": "ion_temperature",
+        "conc": "concentration",
+        "spectra": "spectra",
+        "fit": "spectra_fit",
     },
     "get_bremsstrahlung_spectroscopy": {
-        "zeff": ("effective_charge", "plasma"),
+        "zeff": "effective_charge",
     },
     "get_helike_spectroscopy": {
-        "int_w": ("intensity", "spectral_line"),
-        "int_k": ("intensity", "spectral_line"),
-        "int_tot": ("intensity", "spectral_line"),
-        "int_n3": ("intensity", "spectral_line"),
-        "te_kw": ("temperature", "electrons"),
-        "te_n3w": ("temperature", "electrons"),
-        "ti_w": ("temperature", "ions"),
-        "ti_z": ("temperature", "ions"),
-        "spectra": ("spectra", "passive"),
+        "int_w": "line_intensity",
+        "int_k": "line_intensity",
+        "int_tot": "line_intensity",
+        "int_n3": "line_intensity",
+        "te_kw": "electron_temperature",
+        "te_n3w": "electron_temperature",
+        "ti_w": "ion_temperature",
+        "ti_z": "ion_temperature",
+        "spectra": "spectra",
+    },
+    "get_ppts": {
+        "ne_rho": "electron_density",
+        "te_rho": "electron_temperature",
+        "pe_rho": "electron_pressure",
+        "ne_R": "electron_density",
+        "te_R": "electron_temperature",
+        "pe_R": "electron_pressure",
+        "ne_data": "electron_density",
+        "te_data": "electron_temperature",
+        "pe_data": "electron_pressure",
+        "R_shift": "major_radius_shift",
     },
     "get_diode_filters": {
-        "brightness": ("luminous_flux", None),
+        "brightness": "brightness",
     },
     "get_interferometry": {
-        "ne": ("density", "electrons"),
+        "ne": "electron_density_integrated",
     },
     "get_equilibrium": {
-        "f": ("f_value", "plasma"),
-        "faxs": ("magnetic_flux_axis", "poloidal"),
-        "fbnd": ("magnetic_flux_separatrix", "poloidal"),
-        "ftor": ("magnetic_flux", "toroidal"),
-        "rmji": ("major_rad", "hfs"),
-        "rmjo": ("major_rad", "lfs"),
-        "psi": ("magnetic_flux", "poloidal"),
-        "vjac": ("volume_jacobian", "plasma"),
-        "ajac": ("area_jacobian", "plasma"),
-        "rmag": ("major_rad", "mag_axis"),
-        "rgeo": ("major_rad", "geometric"),
-        "rbnd": ("major_rad", "separatrix"),
-        "zmag": ("z", "mag_axis"),
-        "zbnd": ("z", "separatrix"),
-        "ipla": ("current", "plasma"),
-        "wp": ("energy", "plasma"),
-        "psin": ("poloidal_flux", "normalised"),
+        "f": "equilibrium_f",
+        "faxs": "poloidal_flux_axis",
+        "fbnd": "poloidal_flux_boundary",
+        "ftor": "toroidal_flux",
+        "psi": "poloidal_flux",
+        "rmji": "major_radius_hfs",
+        "rmjo": "major_radius_lfs",
+        "vjac": "volume_jacobian",
+        "ajac": "area_jacobian",
+        "rmag": "major_radius_magnetic_axis",
+        "rgeo": "major_radius_geometric_axis",
+        "rbnd": "major_radius_boundary",
+        "zmag": "z_magnetic_axis",
+        "zbnd": "z_boundary",
+        "ipla": "plasma_current",
+        "wp": "equilibrium_stored_energy",
     },
     "get_cyclotron_emissions": {
-        "te": ("temperature", "electrons"),
+        "te": "electron_temperature",
     },
     "get_radiation": {
-        "brightness": ("luminous_flux", None),
+        "brightness": "brightness",
     },
-    "get_astra": {
-        "f": ("f_value", "plasma"),
-        "faxs": ("magnetic_flux_axis", "poloidal"),
-        "fbnd": ("magnetic_flux_separatrix", "poloidal"),
-        "ftor": ("magnetic_flux", "toroidal"),
-        # "rmji": ("major_rad", "hfs"),
-        # "rmjo": ("major_rad", "lfs"),
-        "psi": ("magnetic_flux", "poloidal"),
-        "psi_1d": ("magnetic_flux", "poloidal"),
-        # "vjac": ("volume_jacobian", "plasma"),
-        # "ajac": ("area_jacobian", "plasma"),
-        "volume": ("volume", "plasma"),
-        "area": ("area", "plasma"),
-        "rmag": ("major_rad", "mag_axis"),
-        "rgeo": ("major_rad", "geometric"),
-        "zmag": ("z", "mag_axis"),
-        "zgeo": ("z", "geometric"),
-        "rbnd": ("major_rad", "separatrix"),
-        "zbnd": ("z", "separatrix"),
-        "ipla": ("current", "plasma"),
-        "upl": (
-            "voltage",
-            "loop",
-        ),  # Loop voltage V
-        "wth": (
-            "stored_energy",
-            "equilibrium",
-        ),
-        "wtherm": (
-            "stored_energy",
-            "thermal",
-        ),
-        "wfast": (
-            "stored_energy",
-            "fast",
-        ),  # Thermal stored energy
-        "j_bs": ("current_density", "bootstrap"),  # Bootstrap current density,MA/m2
-        "j_nbi": (
-            "current_density",
-            "neutral_beam",
-        ),  # NB driven current density,MA/m2
-        "j_oh": ("current_density", "ohmic"),  # Ohmic current density,MA/m2
-        "j_rf": ("current_density", "rf"),  # EC driven current density,MA/m2
-        "j_tot": ("current_density", "total"),  # Total current density,MA/m2
-        "ne": ("density", "electron"),  # Electron density, 10^19 m^-3
-        "ni": ("density", "main_ion"),  # Main ion density, 10^19 m^-3
-        "nf": ("density", "fast"),
-        "omega_tor": (
-            "rotation_frequency",
-            "toroidal",
-        ),  # Toroidal rotation frequency, 1/s
-        "qe": ("heat_flux", "electron"),  # electron power flux, MW
-        "qi": ("heat_flux", "ion"),  # ion power flux, MW
-        "qn": ("heat_flux", "total"),  # total electron flux, 10^19/s
-        "qnbe": (
-            "power_density_nbi",
-            "electron",
-        ),  # Beam power density to electrons, MW/m3
-        "qnbi": ("power_density_nbi", "ion"),  # Beam power density to ions, MW/m3
-        "q_oh": (
-            "power_density_ohm",
-            "total",
-        ),  # Ohmic heating power profile, MW/m3
-        "q_rf": (
-            "power_density_rf",
-            "electron",
-        ),  # RF power density to electron,MW/m3
-        "sbm": ("particle_source", "nbi"),  # Particle source from beam, 10^19/m^3/s
-        "swall": (
-            "particle_source",
-            "wall_neutrals",
-        ),  # Particle source from wall neutrals, 10^19/m^3/s
-        "stot": ("particle_source", "total"),  # Total electron source,10^19/s/m3
-        "te": ("temperature", "electron"),  # Electron temperature, keV
-        "ti": ("temperature", "ion"),  # Ion temperature, keV
-        "zeff": ("effective_charge", "plasma"),  # Effective ion charge
-        "p": ("pressure", "total"),  # PRESSURE(PSI_NORM)
-        "pblon": ("fast_pressure", "parallel"),
-        "pbper": ("fast_pressure", "perpendicular"),
-        "pnb": ("nbi", "injected_power"),  # Injected NBI power, W
-        "pabs": ("nbi", "absorbed_power"),  # Absorber NBI power, W
-        "p_oh": ("ohmic", "power"),  # Absorber NBI power, W
-        "q": ("safety_factor", "plasma"),  # Q_PROFILE(PSI_NORM)
-        "sigmapar": ("conductivity", "parallel"),  # Parallel conductivity,1/(Ohm*m)
-        "nn": (
-            "density",
-            "thermal_neutral",
-        ),  # ...missing information on what elements are used
-        "niz1": (
-            "density",
-            "impurity",
-        ),  # ...missing information on what elements are used
-        "niz2": ("density", "impurity"),
-        "niz3": ("density", "impurity"),
+    "get_astra": {  # TODO: check all units!!!!
+        "faxs": "poloidal_flux_axis",
+        "fbnd": "poloidal_flux_boundary",
+        "ftor": "toroidal_flux",
+        "psi": "poloidal_flux",
+        "rmji": "major_radius_hfs",
+        "rmjo": "major_radius_lfs",
+        "volume": "volume",
+        "area": "area",
+        "rmag": "major_radius_magnetic_axis",
+        "rgeo": "major_radius_geometric_axis",
+        "rbnd": "major_radius_boundary",
+        "zmag": "z_magnetic_axis",
+        "zgeo": "z_geometric",
+        "zbnd": "z_boundary",
+        "ipla": "plasma_current",
+        "wp": "total_stored_energy",
+        "upl": "loop_voltage",  # V
+        "wth": "equilibrium_stored_energy",
+        "wtherm": "thermal_stored_energy",
+        "wfast": "fast_ion_stored_energy",
+        "j_bs": "bootstrap_current_density",  # MA/m2
+        "j_nbi": "nbi_current_density",  # MA/m2
+        "j_oh": "ohmic_current_density",  # MA/m2
+        "j_tot": "total_current_density",  # MA/m2
+        "ne": "electron_density",  # 10^19 m^-3
+        "ni": "ion_density",  # 10^19 m^-3
+        "nf": "fast_ion_density",  # 10^19 m^-3
+        "omega_tor": "toroidal_angular_frequency",  # 1/s
+        "q_oh": "ohmic_power_density",  # MW/m3
+        "q_nbi": "nbi_power_density",  # MW/m3
+        "sbm": "nbi_particle_source",  # 10^19/m^3/s
+        "swall": "wall_particle_source",  # 10^19/m^3/s
+        "stot": "total_particle_source",  # 10^19/m^3/s
+        "te": "electron_temperature",  # keV
+        "ti": "ion_temperature",  # keV
+        "zeff": "effective_charge",
+        "p": "total_pressure",  #
+        "pblon": "parallel_fast_ion_pressure",  #
+        "pbper": "perpendicular_fast_ion_pressure",  #
+        "pnb": "injected_nbi_power",  # W
+        "pabs": "absorbed_nbi_power",  # W
+        "p_oh": "absorbed_ohmic_power",  # W
+        "q": "safety_factor",  #
+        "sigmapar": "parallel_conductivity",  # 1/(Ohm*m)
+        "nn": "thermal_neutral_density",  # 10^19/m^3
+        "niz1": "impurity_density",  # what element?
+        "niz2": "impurity_density",  # what element?
+        "niz3": "impurity_density",  # what element?
     },
 }

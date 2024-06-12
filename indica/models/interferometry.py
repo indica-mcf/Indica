@@ -1,12 +1,12 @@
-import matplotlib.cm as cm
+from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters import LineOfSightTransform
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
@@ -24,6 +24,7 @@ class Interferometry(DiagnosticModel):
         name: str,
         instrument_method="get_interferometry",
     ):
+        self.los_transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -43,7 +44,6 @@ class Interferometry(DiagnosticModel):
                     "transform": self.los_transform,
                     "error": error,
                     "stdev": stdev,
-                    "provenance": str(self),
                     "long_name": "Ne",
                     "units": "$m^{-2}$",
                 }
@@ -112,7 +112,17 @@ def smmh1_transform_example(nchannels):
 
 def example_run(pulse: int = None, plasma=None, plot=False):
     if plasma is None:
+        from indica.equilibrium import fake_equilibrium
+
         plasma = example_plasma(pulse=pulse)
+        machine_dims = plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=plasma.tstart,
+            tend=plasma.tend,
+            dt=plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        plasma.set_equilibrium(equilibrium)
 
     # Create new interferometers diagnostics
     diagnostic_name = "smmh1"
@@ -121,7 +131,7 @@ def example_run(pulse: int = None, plasma=None, plot=False):
     )
     los_transform = smmh1_transform_example(3)
     los_transform.set_equilibrium(plasma.equilibrium)
-    model.set_los_transform(los_transform)
+    model.set_transform(los_transform)
     model.set_plasma(plasma)
 
     bckc = model()

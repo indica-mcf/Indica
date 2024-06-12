@@ -7,8 +7,6 @@ from MDSplus.mdsExceptions import TreeNODATA
 import numpy as np
 import xarray as xr
 
-from indica.converters.line_of_sight import LineOfSightTransform
-from indica.converters.transect import TransectCoordinates
 from indica.equilibrium import Equilibrium
 from indica.models.bolometer_camera import Bolometer
 from indica.models.charge_exchange import ChargeExchange
@@ -18,6 +16,7 @@ from indica.models.interferometry import Interferometry
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
+from indica.readers.read_st40 import bin_data_in_time
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
@@ -101,11 +100,10 @@ def plasma_code(
         impurities=impurities,
         main_ion=main_ion,
         impurity_concentration=impurity_concentration,
-        pulse=pulse,
         full_run=False,
         n_rad=n_rad,
     )
-    _plasma.build_atomic_data(default=True)
+    _plasma.build_atomic_data()
     for run in runs:
         plasma[run] = deepcopy(_plasma)
 
@@ -162,8 +160,9 @@ def read_modelling_runs(
     for run in runs:
         try:
             code_raw_data[run] = code_reader.get_raw_data("", code, run)
-            code_reader.bin_data_in_time([code], tstart, tend, dt)
-            code_binned_data[run] = code_reader.binned_data[code]
+            code_binned_data[run] = bin_data_in_time(
+                code_reader.raw_data, tstart, tend, dt
+            )
         except TreeNODATA:
             print(f"   no data for {run}")
 
@@ -198,12 +197,7 @@ def initialize_diagnostic_models(
             models[instrument] = DIAGNOSTIC_MODELS[instrument](instrument)
 
             transform = data[list(data)[0]].transform
-            if type(transform) is LineOfSightTransform:
-                models[instrument].set_los_transform(transform)
-            elif type(transform) is TransectCoordinates:
-                models[instrument].set_transect_transform(transform)
-            else:
-                raise ValueError("Transform not recognized...")
+            models[instrument].set_transform(transform)
 
     if "xrcs" in models.keys():
         models["xrcs"].calibration = 0.2e-16
@@ -357,14 +351,14 @@ def plot_plasma_quantity(
         to_plot = to_plot.T
     if "element" in to_plot.dims:
         to_plot = to_plot.sel(element=element)
-    if add_label and "datatype" in to_plot.attrs:
-        label = to_plot.datatype[1]
-    if "datatype" in to_plot.attrs and color is None and len(np.shape(to_plot)) == 1:
-        color_label = to_plot.datatype[1]
-        if color_label in COLORS.keys():
-            color = COLORS[color_label]
-        ylabel = f"{to_plot.datatype[0]} [{to_plot.units}]"
-        ylabel = ylabel[0].upper() + ylabel[1:]
+    # if add_label and "datatype" in to_plot.attrs:
+    #     label = to_plot.datatype[1]
+    # if "datatype" in to_plot.attrs and color is None and len(np.shape(to_plot)) == 1:
+    #     color_label = to_plot.datatype[1]
+    #     if color_label in COLORS.keys():
+    #         color = COLORS[color_label]
+    #     ylabel = f"{to_plot.datatype[0]} [{to_plot.units}]"
+    #     ylabel = ylabel[0].upper() + ylabel[1:]
 
     to_plot.plot(
         label=label,

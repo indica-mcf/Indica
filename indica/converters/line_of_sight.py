@@ -375,6 +375,9 @@ class LineOfSightTransform(CoordinateTransform):
             Spatial resolution (m)
         """
 
+        if hasattr(self, "rho"):
+            delattr(self, "rho")
+
         # Calculate start and end coordinates, R, z and phi for all LOS
         x_start: list = []
         y_start: list = []
@@ -528,7 +531,7 @@ class LineOfSightTransform(CoordinateTransform):
         self, profile_to_map: DataArray, t: LabeledArray = None, calc_rho: bool = False
     ) -> DataArray:
         """
-        Check requested times
+        Check requested time
         """
 
         time = np.array(t)
@@ -538,7 +541,7 @@ class LineOfSightTransform(CoordinateTransform):
         equil_t = self.equilibrium.rho.t
         equil_ok = (np.min(time) >= np.min(equil_t)) * (np.max(time) <= np.max(equil_t))
         if not equil_ok:
-            print(f"Available equilibrium times {np.array(equil_t)}")
+            print(f"Available equilibrium time {np.array(equil_t)}")
             raise ValueError(
                 f"Inserted time {time} is not available in Equilibrium object"
             )
@@ -724,12 +727,23 @@ def example_run(
     beamlets=4,
     spot_width=0.1,
 ):
-    from indica.models.plasma import example_run as example_plasma
+    from indica.models.plasma import example_plasma
+    from indica.equilibrium import fake_equilibrium
+    from indica.readers import ST40Conf
 
     if plasma is None:
         plasma = example_plasma(pulse=pulse)
-
-    machine_dims = ((0.15, 0.85), (-0.75, 0.75))
+        machine_dims = plasma.machine_dimensions
+        equilibrium = fake_equilibrium(
+            tstart=plasma.tstart,
+            tend=plasma.tend,
+            dt=plasma.dt / 2.0,
+            machine_dims=machine_dims,
+        )
+        plasma.set_equilibrium(equilibrium)
+    else:
+        _conf = ST40Conf()
+        machine_dims = _conf.MACHINE_DIMS
 
     nchannels = 3
     los_end = np.full((nchannels, 3), 0.0)
@@ -748,7 +762,7 @@ def example_run(
         direction[:, 1],
         direction[:, 2],
         name="",
-        machine_dimensions=machine_dims,
+        machine_dimensions=plasma.machine_dimensions,
         passes=1,
         beamlets=beamlets,
         spot_width=spot_width,

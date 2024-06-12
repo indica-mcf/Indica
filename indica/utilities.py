@@ -1,6 +1,7 @@
 """Various miscellanious helper functions."""
 from copy import deepcopy
 from getpass import getuser
+import hashlib
 import inspect
 import os
 import string
@@ -17,18 +18,58 @@ from matplotlib import cm
 from matplotlib import rcParams
 import matplotlib.pylab as plt
 import numpy as np
+import periodictable
 from scipy.interpolate import CubicSpline
 from xarray import apply_ufunc
 from xarray import DataArray
 from xarray.core.dataset import Dataset
 from xarray.core.variable import Variable
 
+from indica.datatypes import DATATYPES
+from indica.datatypes import UNITS
 from .numpy_typing import ArrayLike
 from .numpy_typing import LabeledArray
 from .numpy_typing import OnlyArray
 
 DATA_PATH = f"/home/{getuser()}/data/Indica/"
 FIG_PATH = f"/home/{getuser()}/figures/Indica/"
+CACHE_DIR = ".indica"
+
+
+def get_element_info(element: str) -> Tuple[int, float, str, str]:
+    """
+    Return periodic table information of specified element
+
+    Parameters
+    ----------
+    element
+        Element name (e.g. molybdenum) or symbol (Mo)
+
+    Returns
+    -------
+    atomic number, atomic weight, element name
+    """
+    number: int
+    mass: float
+    name: str
+    symbol: str
+    if len(element) <= 2:
+        _element = element.capitalize()
+    else:
+        _element = element.lower()
+
+    if hasattr(periodictable, _element):
+        elem_info = getattr(periodictable, _element)
+        number, mass, name, symbol = (
+            elem_info.number,
+            elem_info.mass,
+            elem_info.name,
+            elem_info.symbol,
+        )
+    else:
+        number, mass, name, symbol = 0, 0.0, "", ""
+
+    return number, mass, name, symbol
 
 
 def positional_parameters(func: Callable[..., Any]) -> Tuple[List[str], Optional[str]]:
@@ -267,47 +308,74 @@ def input_check(
         raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
 
 
-def assign_datatype(data_array: DataArray, datatype: tuple, unit=""):
-    data_array.name = f"{datatype[1]}_{datatype[0]}"
-    data_array.attrs["datatype"] = datatype
-    if len(unit) > 0:
-        data_array.attrs["unit"] = unit
+def format_coord(data: LabeledArray, var_name: str):
+    """
+    Create coordinate dataarray using the variable name == dimension
+    and the values as coordinates
+
+    Parameters
+    ----------
+    data
+        Input coordinate data to convert to DataArray
+    var_name
+        Name of the variable to be assigned as coordinate
+    """
+    coords = [(var_name, DataArray(data, dims=var_name))]
+    return format_dataarray(data, var_name, coords)
 
 
-def assign_data(
+def format_dataarray(
     data: LabeledArray,
-    datatype: tuple,
-    units: str = "",
-    make_copy=True,
-    coords: list = None,
-    long_name: str = None,
+    var_name: str,
+    coords: List[Tuple[str, Any]] = [],
+    make_copy: bool = False,
 ):
-    new_data: DataArray
+    """
+    Generate DataArray with long_name & units (indica/datatypes.py) & coordinates
+
+    Parameters
+    ----------
+    data
+        Input data
+    var_name
+        Variable name (see DATATYPES)
+    coords
+        Coordinates sequence (see xr.DataArray documentation)
+
+    Returns
+    -------
+    Formatted data array
+
+    """
 
     if make_copy:
-        new_data = deepcopy(data)
+        _data = deepcopy(data)
     else:
-        new_data = data
+        _data = data
 
-    if type(new_data) is not DataArray and coords is not None:
-        new_data = DataArray(new_data, coords)
-
-    new_data.name = f"{datatype[1]}_{datatype[0]}"
-    datatype0 = datatype[0].replace("_", " ")
-    datatype1 = datatype[1].replace("_", " ")
-    datatype1 = f"{str.upper(datatype1[0])}{datatype1[1:]}"
-
-    if long_name is not None:
-        new_data.attrs["long_name"] = long_name
+    if len(coords) != 0:
+        data_array = DataArray(_data, coords=coords)
     else:
-        new_data.attrs["long_name"] = f"{datatype1} {datatype0}"
+        if type(_data) != DataArray:
+            raise ValueError("data must be a DataArray if coordinates are not given")
 
-    new_data.attrs["datatype"] = datatype
+    assign_datatype(data_array, var_name)
 
-    if len(units) > 0:
-        new_data.attrs["units"] = units
+    return data_array
 
-    return new_data
+
+def assign_datatype(
+    data_array: DataArray,
+    var_name: str,
+):
+    try:
+        long_name, units_key = DATATYPES[var_name]
+        units = UNITS[units_key]
+    except Exception:
+        raise Exception(f"\n Check DATATYPE and UNITS for {var_name}. \n")
+
+    data_array.attrs["long_name"] = long_name
+    data_array.attrs["units"] = units
 
 
 def print_like(string: str):
@@ -498,3 +566,27 @@ def set_axis_sci(plot_object=None, axis: str = "y"):
         if plot_object is None:
             plot_object = plt
         plot_object.ticklabel_format(style="sci", axis=axis, scilimits=(0, 0))
+
+
+def hash_vals(**kwargs: Any) -> str:
+    """Produces an SHA256 hash from the key-value pairs passed as
+    arguments.
+
+    Parameters
+    ---------
+    kwargs
+        The data to use for the hash.
+
+    Returns
+    -------
+    str
+        A hexadecimal representation of the hash.
+    """
+    # TODO: include date/time in hash
+    hash_result = hashlib.sha256()
+    for key, val in kwargs.items():
+        hash_result.update(bytes(key, encoding="utf-8"))
+        hash_result.update(b":")
+        hash_result.update(bytes(str(val), encoding="utf-8"))
+        hash_result.update(b",")
+    return hash_result.hexdigest()

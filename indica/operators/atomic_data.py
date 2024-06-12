@@ -4,17 +4,24 @@ from typing import List
 from typing import Tuple
 from typing import Union
 
+import matplotlib.pylab as plt
 import numpy as np
 from numpy.core.numeric import zeros_like
+from pandas import DataFrame
 import scipy
 import xarray as xr
 from xarray import DataArray
 
 from indica.numpy_typing import LabeledArray
+from indica.profiles_gauss import Profiles
+from indica.readers.adas import ADASReader
+from indica.readers.adas import ADF11
+from indica.utilities import DATA_PATH
+from indica.utilities import set_plot_colors
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
-from .. import session
 from ..datatypes import DataType
+
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
@@ -24,18 +31,15 @@ class FractionalAbundance(Operator):
 
     Parameters
     ----------
-    SCD
+    scd
         xarray.DataArray of effective ionisation rate coefficients of all relevant
         ionisation charges of given impurity element.
-    ACD
+    acd
         xarray.DataArray of effective recombination rate coefficients of all relevant
         ionisation charges of given impurity element.
-    CCD
+    ccd
         xarray.DataArray of charge exchange cross coupling coefficients of all relevant
         ionisation charges of given impurity element. (Optional)
-    sess
-        Object representing this session of calculations with the library.
-        Holds and communicates provenance information. (Optional)
 
     Attributes
     ----------
@@ -89,27 +93,19 @@ class FractionalAbundance(Operator):
 
     def __init__(
         self,
-        SCD: DataArray,
-        ACD: DataArray,
-        CCD: DataArray = None,
-        sess: session.Session = session.global_session,
-        set_default: bool = False,
-        main_ion: str = "h",
+        scd: DataArray,
+        acd: DataArray,
+        ccd: DataArray = None,
     ):
         """Initialises FractionalAbundance class"""
-        super().__init__(sess)
         self.Ne = None
         self.Te = None
         self.Nh = None
         self.tau = None
         self.F_z_t0 = None
-        self.SCD = SCD
-        self.ACD = ACD
-        self.CCD = CCD
-
-        if set_default:
-            Te, Ne, Nh = default_profiles(main_ion=main_ion)
-            self.__call__(Ne=Ne, Te=Te, Nh=Nh)
+        self.scd = scd
+        self.acd = acd
+        self.ccd = ccd
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         """Indicates the datatypes of the results when calling the operator
@@ -149,46 +145,46 @@ class FractionalAbundance(Operator):
 
         Returns
         -------
-        SCD_spec
+        scd_spec
             Interpolated effective ionisation rate coefficients.
-        ACD_spec
+        acd_spec
             Interpolated effective recombination rate coefficients.
-        CCD_spec
+        ccd_spec
             Interpolated charge exchange cross coupling coefficients.
-        num_of_ion_charges
+        num_of_ion_charge
             Number of ionisation charges(stages) for the given impurity element.
         """
 
         self.Ne, self.Te = Ne, Te  # type: ignore
 
-        SCD_spec = self.SCD.indica.interp2d(
+        scd_spec = self.scd.indica.interp2d(
             electron_temperature=Te,
             electron_density=Ne,
             method="cubic",
             assume_sorted=True,
         )
 
-        if self.CCD is not None:
-            CCD_spec = self.CCD.indica.interp2d(
+        if self.ccd is not None:
+            ccd_spec = self.ccd.indica.interp2d(
                 electron_temperature=Te,
                 electron_density=Ne,
                 method="cubic",
                 assume_sorted=True,
             )
         else:
-            CCD_spec = None
+            ccd_spec = None
 
-        ACD_spec = self.ACD.indica.interp2d(
+        acd_spec = self.acd.indica.interp2d(
             electron_temperature=Te,
             electron_density=Ne,
             method="cubic",
             assume_sorted=True,
         )
 
-        self.SCD_spec, self.ACD_spec, self.CCD_spec = SCD_spec, ACD_spec, CCD_spec
-        self.num_of_ion_charges = self.SCD_spec.shape[0] + 1
+        self.scd_spec, self.acd_spec, self.ccd_spec = scd_spec, acd_spec, ccd_spec
+        self.num_of_ion_charge = self.scd_spec.shape[0] + 1
 
-        return SCD_spec, ACD_spec, CCD_spec, self.num_of_ion_charges
+        return scd_spec, acd_spec, ccd_spec, self.num_of_ion_charge
 
     def calc_ionisation_balance_matrix(
         self,
@@ -213,26 +209,26 @@ class FractionalAbundance(Operator):
             the time evolution of the ionisation balance.
         """
         if Nh is not None:
-            if self.CCD is None:
+            if self.ccd is None:
                 raise ValueError(
                     "Nh (Thermal hydrogen density) cannot be given when \
-                    CCD (effective charge exchange recombination) at initialisation \
+                    ccd (effective charge exchange recombination) at initialisation \
                     is None."
                 )
-        elif self.CCD is not None:
+        elif self.ccd is not None:
             Nh = cast(DataArray, zeros_like(Ne))
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
 
-        num_of_ion_charges = self.num_of_ion_charges
-        SCD, ACD, CCD = self.SCD_spec, self.ACD_spec, self.CCD_spec
+        num_of_ion_charge = self.num_of_ion_charge
+        scd, acd, ccd = self.scd_spec, self.acd_spec, self.ccd_spec
 
-        x1_coord = SCD.coords[[k for k in SCD.dims if k != "ion_charges"][0]]
+        x1_coord = scd.coords[[k for k in scd.dims if k != "ion_charge"][0]]
         self.x1_coord = x1_coord
 
         dims = (
-            num_of_ion_charges,
-            num_of_ion_charges,
+            num_of_ion_charge,
+            num_of_ion_charge,
             *x1_coord.shape,
         )
 
@@ -241,34 +237,34 @@ class FractionalAbundance(Operator):
         icharge = 0
         ionisation_balance_matrix[icharge, icharge : icharge + 2] = np.array(
             [
-                -Ne * SCD[icharge],  # type: ignore
-                Ne * ACD[icharge]
-                + (Nh * CCD[icharge] if Nh is not None and CCD is not None else 0.0),
+                -Ne * scd[icharge],  # type: ignore
+                Ne * acd[icharge]
+                + (Nh * ccd[icharge] if Nh is not None and ccd is not None else 0.0),
             ]
         )
-        for icharge in range(1, num_of_ion_charges - 1):
+        for icharge in range(1, num_of_ion_charge - 1):
             ionisation_balance_matrix[icharge, icharge - 1 : icharge + 2] = np.array(
                 [
-                    Ne * SCD[icharge - 1],
-                    -Ne * (SCD[icharge] + ACD[icharge - 1])  # type: ignore
+                    Ne * scd[icharge - 1],
+                    -Ne * (scd[icharge] + acd[icharge - 1])  # type: ignore
                     - (
-                        Nh * CCD[icharge - 1]
-                        if Nh is not None and CCD is not None
+                        Nh * ccd[icharge - 1]
+                        if Nh is not None and ccd is not None
                         else 0.0
                     ),
-                    Ne * ACD[icharge]
+                    Ne * acd[icharge]
                     + (
-                        Nh * CCD[icharge] if Nh is not None and CCD is not None else 0.0
+                        Nh * ccd[icharge] if Nh is not None and ccd is not None else 0.0
                     ),
                 ]
             )
-        icharge = num_of_ion_charges - 1
+        icharge = num_of_ion_charge - 1
         ionisation_balance_matrix[icharge, icharge - 1 : icharge + 1] = np.array(
             [
-                Ne * SCD[icharge - 1],
-                -Ne * (ACD[icharge - 1])  # type: ignore
+                Ne * scd[icharge - 1],
+                -Ne * (acd[icharge - 1])  # type: ignore
                 - (
-                    Nh * CCD[icharge - 1] if Nh is not None and CCD is not None else 0.0
+                    Nh * ccd[icharge - 1] if Nh is not None and ccd is not None else 0.0
                 ),
             ]
         )
@@ -292,8 +288,8 @@ class FractionalAbundance(Operator):
         x1_coord = self.x1_coord
         ionisation_balance_matrix = self.ionisation_balance_matrix
 
-        null_space = np.zeros((self.num_of_ion_charges, x1_coord.size))
-        F_z_tinf = np.zeros((self.num_of_ion_charges, x1_coord.size))
+        null_space = np.zeros((self.num_of_ion_charge, x1_coord.size))
+        F_z_tinf = np.zeros((self.num_of_ion_charge, x1_coord.size))
 
         for ix1 in range(x1_coord.size):
             null_space[:, ix1, np.newaxis] = scipy.linalg.null_space(
@@ -310,14 +306,12 @@ class FractionalAbundance(Operator):
             data=F_z_tinf,
             coords=[
                 (
-                    "ion_charges",
-                    np.linspace(
-                        0, self.num_of_ion_charges - 1, self.num_of_ion_charges
-                    ),
+                    "ion_charge",
+                    np.linspace(0, self.num_of_ion_charge - 1, self.num_of_ion_charge),
                 ),
                 x1_coord,
             ],
-            dims=["ion_charges", x1_coord.dims[0]],
+            dims=["ion_charge", x1_coord.dims[0]],
         )
 
         self.F_z_tinf = F_z_tinf
@@ -339,10 +333,10 @@ class FractionalAbundance(Operator):
         """
         x1_coord = self.x1_coord
         eig_vals = np.zeros(
-            (self.num_of_ion_charges, x1_coord.size), dtype=np.complex128
+            (self.num_of_ion_charge, x1_coord.size), dtype=np.complex128
         )
         eig_vecs = np.zeros(
-            (self.num_of_ion_charges, self.num_of_ion_charges, x1_coord.size),
+            (self.num_of_ion_charge, self.num_of_ion_charge, x1_coord.size),
             dtype=np.complex128,
         )
 
@@ -390,14 +384,14 @@ class FractionalAbundance(Operator):
                 data=F_z_t0,
                 coords=[
                     (
-                        "ion_charges",
+                        "ion_charge",
                         np.linspace(
-                            0, self.num_of_ion_charges - 1, self.num_of_ion_charges
+                            0, self.num_of_ion_charge - 1, self.num_of_ion_charge
                         ),
                     ),
                     x1_coord,  # type: ignore
                 ],
-                dims=["ion_charges", x1_coord.dims[0]],
+                dims=["ion_charge", x1_coord.dims[0]],
             )
         else:
             try:
@@ -412,14 +406,14 @@ class FractionalAbundance(Operator):
                 data=F_z_t0.values,  # type: ignore
                 coords=[
                     (
-                        "ion_charges",
+                        "ion_charge",
                         np.linspace(
-                            0, self.num_of_ion_charges - 1, self.num_of_ion_charges
+                            0, self.num_of_ion_charge - 1, self.num_of_ion_charge
                         ),
                     ),
                     x1_coord,  # type: ignore
                 ],
-                dims=["ion_charges", x1_coord.dims[0]],
+                dims=["ion_charge", x1_coord.dims[0]],
             )
 
         eig_vals = self.eig_vals
@@ -466,7 +460,7 @@ class FractionalAbundance(Operator):
             else:
                 itau = tau
 
-            for icharge in range(self.num_of_ion_charges):
+            for icharge in range(self.num_of_ion_charge):
                 F_z_t[:, ix1] += (
                     self.eig_coeffs[icharge, ix1]
                     * np.exp(self.eig_vals[icharge, ix1] * itau)
@@ -552,18 +546,15 @@ class PowerLoss(Operator):
 
     Parameters
     ----------
-    PLT
+    plt
         xarray.DataArray of radiated power of line emission from excitation of all
         relevant ionisation charges of given impurity element.
-    PRB
+    prb
         xarray.DataArray of radiated power from recombination and bremsstrahlung of
         given impurity element.
-    PRC
+    prc
         xarray.DataArray of radiated power of charge exchange emission of all relevant
         ionisation charges of given impurity element. (Optional)
-    sess
-        Object representing this session of calculations with the library.
-        Holds and communicates provenance information. (Optional)
 
     Attributes
     ----------
@@ -605,25 +596,23 @@ class PowerLoss(Operator):
 
     def __init__(
         self,
-        PLT: DataArray,
-        PRB: DataArray,
-        PRC: DataArray = None,
-        sess: session.Session = session.global_session,
+        plt: DataArray,
+        prb: DataArray,
+        prc: DataArray = None,
     ):
-        super().__init__(sess)
-        self.PLT = PLT
-        self.PRC = PRC
-        self.PRB = PRB
+        self.plt = plt
+        self.prc = prc
+        self.prb = prb
         self.Ne = None
         self.Nh = None
         self.Te = None
         self.F_z_t = None
 
         imported_data = {}
-        imported_data["PLT"] = self.PLT
-        imported_data["PRB"] = self.PRB
-        if self.PRC is not None:
-            imported_data["PRC"] = self.PRC
+        imported_data["plt"] = self.plt
+        imported_data["prb"] = self.prb
+        if self.prc is not None:
+            imported_data["prc"] = self.prc
 
     def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
         """Indicates the datatypes of the results when calling the operator
@@ -662,67 +651,39 @@ class PowerLoss(Operator):
 
         Returns
         -------
-        PLT_spec
+        plt_spec
             Interpolated radiated power of line emission from excitation of all
             relevant ionisation charges.
-        PRC_spec
+        prc_spec
             Interpolated radiated power of charge exchange emission of all relevant
             ionisation charges.
-        PRB_spec
+        prb_spec
             Interpolated radiated power from recombination and bremsstrahlung.
-        num_of_ion_charges
+        num_of_ion_charge
             Number of ionisation charges(stages) for the given impurity element.
         """
 
         self.Ne, self.Te = Ne, Te  # type: ignore
-        # TODO: why errors using interp2d for cubic density interpolation?
-        # try:
-        #     PLT_spec = self.PLT.indica.interp2d(
-        #         electron_temperature=Te,
-        #         electron_density=Ne,
-        #         method="cubic",
-        #         assume_sorted=True,
-        #     )
-        # except:
-        # print("PowerLoss: error in indica.interp2d")
-        PLT_spec = self.PLT.interp(electron_temperature=Te, method="cubic").interp(
+        plt_spec = self.plt.interp(electron_temperature=Te, method="cubic").interp(
             electron_density=Ne, method="linear"
         )
 
-        if self.PRC is not None:
-            # try:
-            #     PRC_spec = self.PRC.indica.interp2d(
-            #         electron_temperature=Te,
-            #         electron_density=Ne,
-            #         method="cubic",
-            #         assume_sorted=True,
-            #     )
-            # except:
-            # print("PowerLoss: error in indica.interp2d")
-            PRC_spec = self.PRC.interp(electron_temperature=Te, method="cubic").interp(
+        if self.prc is not None:
+            prc_spec = self.prc.interp(electron_temperature=Te, method="cubic").interp(
                 electron_density=Ne, method="linear"
             )
 
         else:
-            PRC_spec = None
+            prc_spec = None
 
-        # try:
-        #     PRB_spec = self.PRB.indica.interp2d(
-        #         electron_temperature=Te,
-        #         electron_density=Ne,
-        #         method="cubic",
-        #         assume_sorted=True,
-        #     )
-        # except:
-        # print("PowerLoss: error in indica.interp2d")
-        PRB_spec = self.PRB.interp(electron_temperature=Te, method="cubic").interp(
+        prb_spec = self.prb.interp(electron_temperature=Te, method="cubic").interp(
             electron_density=Ne, method="linear"
         )
 
-        self.PLT_spec, self.PRC_spec, self.PRB_spec = PLT_spec, PRC_spec, PRB_spec
-        self.num_of_ion_charges = self.PLT_spec.shape[0] + 1
+        self.plt_spec, self.prc_spec, self.prb_spec = plt_spec, prc_spec, prb_spec
+        self.num_of_ion_charge = self.plt_spec.shape[0] + 1
 
-        return PLT_spec, PRC_spec, PRB_spec, self.num_of_ion_charges
+        return plt_spec, prc_spec, prb_spec, self.num_of_ion_charge
 
     def calculate_power_loss(
         self,
@@ -751,13 +712,13 @@ class PowerLoss(Operator):
             Total radiated power of all ionisation charges.
         """
         if Nh is not None:
-            if self.PRC is None:
+            if self.prc is None:
                 raise ValueError(
                     "Nh (Thermal hydrogen density) cannot be given when \
-                    PRC (effective charge exchange power) at initialisation \
+                    prc (effective charge exchange power) at initialisation \
                     is None."
                 )
-        elif self.PRC is not None:
+        elif self.prc is not None:
             Nh = cast(DataArray, zeros_like(Ne))
 
         self.Ne, self.Nh = Ne, Nh  # type: ignore
@@ -774,42 +735,42 @@ class PowerLoss(Operator):
         elif self.F_z_t is None:
             raise ValueError("Please provide a valid F_z_t (Fractional Abundance).")
 
-        self.x1_coord = self.PLT_spec.coords[
-            [k for k in self.PLT_spec.dims if k != "ion_charges"][0]
+        self.x1_coord = self.plt_spec.coords[
+            [k for k in self.plt_spec.dims if k != "ion_charge"][0]
         ]
 
         x1_coord = self.x1_coord
 
-        PLT, PRB, PRC = self.PLT_spec, self.PRB_spec, self.PRC_spec
+        plt, prb, prc = self.plt_spec, self.prb_spec, self.prc_spec
 
         # TODO: make this faster by using DataArray methods
         cooling_factor = xr.zeros_like(self.F_z_t)
         for ix1 in range(x1_coord.size):
             icharge = 0
             cooling_factor[icharge, ix1] = (
-                PLT[icharge, ix1] * self.F_z_t[icharge, ix1]  # type: ignore
+                plt[icharge, ix1] * self.F_z_t[icharge, ix1]  # type: ignore
             )
-            for icharge in range(1, self.num_of_ion_charges - 1):
+            for icharge in range(1, self.num_of_ion_charge - 1):
                 cooling_factor[icharge, ix1] = (
-                    PLT[icharge, ix1]
+                    plt[icharge, ix1]
                     + (
-                        (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
-                        if (PRC is not None) and (Nh is not None)
+                        (Nh[ix1] / Ne[ix1]) * prc[icharge - 1, ix1]
+                        if (prc is not None) and (Nh is not None)
                         else 0.0
                     )
-                    + PRB[icharge - 1, ix1]
+                    + prb[icharge - 1, ix1]
                 ) * self.F_z_t[
                     icharge, ix1
                 ]  # type: ignore
 
-            icharge = self.num_of_ion_charges - 1
+            icharge = self.num_of_ion_charge - 1
             cooling_factor[icharge, ix1] = (
                 (
-                    (Nh[ix1] / Ne[ix1]) * PRC[icharge - 1, ix1]
-                    if (PRC is not None) and (Nh is not None)
+                    (Nh[ix1] / Ne[ix1]) * prc[icharge - 1, ix1]
+                    if (prc is not None) and (Nh is not None)
                     else 0.0
                 )
-                + PRB[icharge - 1, ix1]
+                + prb[icharge - 1, ix1]
             ) * self.F_z_t[
                 icharge, ix1
             ]  # type: ignore
@@ -883,7 +844,7 @@ def interpolate_results(
     -------
     Interpolated values
     """
-    dim_old = [d for d in data.dims if d != "ion_charges"][0]
+    dim_old = [d for d in data.dims if d != "ion_charge"][0]
     _data = data.assign_coords(electron_temperature=(dim_old, Te_data))
     _data = _data.swap_dims({dim_old: "electron_temperature"}).drop_vars(dim_old)
     result = _data.interp(electron_temperature=Te_interp).drop_vars(
@@ -892,23 +853,192 @@ def interpolate_results(
     return result
 
 
-def default_profiles(main_ion: str = "h"):
-    from indica.readers.adas import ADF11, ADASReader
+def default_atomic_data(
+    elements: Tuple[str, ...],
+    Te: DataArray = None,
+    Ne: DataArray = None,
+    Nh: DataArray = None,
+    tau: DataArray = None,
+):
+    """
+    Initialises atomic data classes with default ADAS files and runs the
+    __call__ with default plasma parameters
+    """
+    if Te is None or Ne is None:
+        Te, Ne, Nh, tau = default_profiles()
 
-    _Te = DataArray(np.append(np.arange(5, 500, 10), np.arange(600, 10.0e3, 100)))
-    x = np.linspace(0, 1, np.size(_Te))
-    Te = _Te.assign_coords(dim_0=x)
-    Ne = xr.full_like(Te, 5.0e19)
-
+    # print_like("Initialize fractional abundance and power loss objects")
+    fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
     adas_reader = ADASReader()
-    scd = adas_reader.get_adf11("scd", main_ion, ADF11[main_ion]["scd"])
-    acd = adas_reader.get_adf11("acd", main_ion, ADF11[main_ion]["acd"])
-    ccd = adas_reader.get_adf11("ccd", main_ion, ADF11[main_ion]["ccd"])
-    Fz_main_ion = FractionalAbundance(scd, acd, CCD=ccd)
-    fz = Fz_main_ion(Te, Ne=Ne)
-    Nh = xr.full_like(Te, 0.0)
-    _Nh = fz.sel(ion_charges=0) - fz.sel(ion_charges=0).min()
-    _Nh /= _Nh.max()
-    Nh.values = _Nh * 1.0e16 + 1.0e12
+    for elem in elements:
+        scd = adas_reader.get_adf11("scd", elem, ADF11[elem]["scd"])
+        acd = adas_reader.get_adf11("acd", elem, ADF11[elem]["acd"])
+        ccd = adas_reader.get_adf11("ccd", elem, ADF11[elem]["ccd"])
+        fract_abu[elem] = FractionalAbundance(scd, acd, ccd=ccd)
+        F_z_t = fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
 
-    return Te, Ne, Nh
+        plt = adas_reader.get_adf11("plt", elem, ADF11[elem]["plt"])
+        prb = adas_reader.get_adf11("prb", elem, ADF11[elem]["prb"])
+        prc = adas_reader.get_adf11("prc", elem, ADF11[elem]["prc"])
+        power_loss_tot[elem] = PowerLoss(plt, prb, prc=prc)
+        power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh)
+
+        try:
+            pls = adas_reader.get_adf11("pls", elem, ADF11[elem]["pls"])
+            prs = adas_reader.get_adf11("prs", elem, ADF11[elem]["prs"])
+            power_loss_sxr[elem] = PowerLoss(pls, prs)
+            power_loss_sxr[elem](Te, F_z_t, Ne=Ne, Nh=Nh)
+        except Exception:
+            print(f"No SXR-filtered data available for element {elem}")
+
+    return fract_abu, power_loss_tot, power_loss_sxr
+
+
+def default_profiles(n_rad: int = 100):
+    """
+    Set default plasma profiles to calculate atomic data
+    """
+    xend = 1.02
+    rho_end = 1.01
+    rho = np.abs(np.linspace(rho_end, 0, n_rad) ** 1.8 - rho_end - 0.01)
+
+    Te_prof = Profiles(
+        datatype="electron_temperature",
+        xspl=rho,
+        xend=xend,
+    )
+    Te_prof.y0 = 10.0e3
+    Te = Te_prof()
+    Ne_prof = Profiles(datatype="electron_density", xspl=rho, xend=xend)
+    Ne = Ne_prof()
+    Nh_prof = Profiles(
+        datatype="neutral_density",
+        xspl=rho,
+        xend=xend,
+    )
+    Nh = Nh_prof()
+    tau = None
+
+    return Te, Ne, Nh, tau
+
+
+def cooling_factor_corona(
+    elements: List[str],
+    write_to_file: bool = False,
+    plot: bool = False,
+    new_figure: bool = True,
+    include_neutrals: bool = False,
+):
+    """
+    Initialises atomic data classes with default ADAS files and runs the
+    __call__ with default plasma parameters
+    """
+    tau = None
+    Ne_const = 5.0e19
+    Nh1 = 1.0e17
+    Nh0 = 1.0e12
+
+    fract_abu: dict = {}
+    power_loss_tot: dict = {}
+    atomic_data_files: dict = {}
+    cooling_factor: dict = {}
+    filenames = ""
+    files_to_read = ["scd", "acd", "ccd", "plt", "prb", "prc"]
+    Te_files = []
+
+    print("Read atomic data")
+    adas_reader = ADASReader()
+    for elem in elements:
+        atomic_data_files[elem] = {}
+        for file_type in files_to_read:
+            _atomic_data = adas_reader.get_adf11(
+                file_type, elem, ADF11[elem][file_type]
+            )
+            filenames += f"{_atomic_data.filename}"
+            Te_files.append(_atomic_data.electron_temperature)
+            atomic_data_files[elem][file_type] = _atomic_data
+
+    # Set Te so that max(Te) doesn't exceed the value available in all atomic-data files
+    _indx = np.argmin(np.array([np.max(_Te) for _Te in Te_files]))
+    _Te = Te_files[_indx]
+    nTe = np.size(_Te)
+    Te = DataArray(_Te.data, coords=[("index", np.arange(nTe))])
+    Ne = xr.full_like(Te, Ne_const)
+    Nh = xr.full_like(Te, 0.0)
+    if include_neutrals:
+        _Nh = np.array([Te.values[i] for i in np.arange(Te.size - 1, -1, -1)])
+        _Nh -= np.min(_Nh)
+        _Nh /= np.max(_Nh)
+        _Nh *= Nh1
+        _Nh += Nh0
+        Nh.values = _Nh
+
+    _to_write = {"Te": np.array(Te), "Ne": np.array(Ne), "Nh": np.array(Nh)}
+
+    print("Calculate fractional abundance and cooling factors")
+    for elem in elements:
+        print(f"  {elem}")
+        fract_abu[elem] = FractionalAbundance(
+            atomic_data_files[elem]["scd"],
+            atomic_data_files[elem]["acd"],
+            ccd=atomic_data_files[elem]["ccd"],
+        )
+        _fz = fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
+
+        power_loss_tot[elem] = PowerLoss(
+            atomic_data_files[elem]["plt"],
+            atomic_data_files[elem]["prb"],
+            prc=atomic_data_files[elem]["prc"],
+        )
+        _power_loss = power_loss_tot[elem](Te, _fz, Ne=Ne, Nh=Nh)
+
+        _cooling_factor: DataArray = _power_loss.sum("ion_charge")
+        _cooling_factor = (
+            _cooling_factor.assign_coords(electron_temperature=("index", Te))
+            .swap_dims({"index": "electron_temperature"})
+            .drop_vars("index")
+        )
+
+        cooling_factor[elem] = _cooling_factor
+        _to_write[elem] = np.array(_cooling_factor)
+
+    _to_write["atomic_data_files"] = filenames
+
+    if write_to_file:
+        if include_neutrals:
+            file_name = f"{DATA_PATH}corona_cooling_factors_Nh.csv"
+        else:
+            file_name = f"{DATA_PATH}corona_cooling_factors.csv"
+        print(f"Writing data to {file_name}")
+        df = DataFrame(_to_write)
+        df.to_csv(file_name)
+
+    if plot:
+        if new_figure:
+            plt.figure()
+        cmap, _ = set_plot_colors()
+        cols = cmap(np.linspace(0.75, 0.1, len(cooling_factor), dtype=float))
+
+        label = ""
+        marker = "o"
+        linestyle = "solid"
+        if include_neutrals:
+            marker = ""
+            linestyle = "dashed"
+
+        for i, elem in enumerate(elements):
+            if new_figure:
+                label = elem
+            cooling_factor[elem].plot(
+                label=label,
+                alpha=0.8,
+                marker=marker,
+                color=cols[i],
+                linestyle=linestyle,
+            )
+        if new_figure:
+            plt.xscale("log")
+            plt.yscale("log")
+            plt.legend()
+
+    return cooling_factor, _to_write, fract_abu

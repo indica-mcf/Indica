@@ -11,18 +11,14 @@ from urllib.request import pathname2url
 from urllib.request import urlretrieve
 
 import numpy as np
-import prov.model as prov
 from xarray import DataArray
 
-from .. import session
+from indica.utilities import assign_datatype
+from indica.utilities import CACHE_DIR
 from ..abstractio import BaseIO
-from ..datatypes import ADF11_GENERAL_DATATYPES
-from ..datatypes import ADF15_GENERAL_DATATYPES
-from ..datatypes import ELEMENTS
 
 # TODO: Evaluate this location
 DEFAULT_PATH = Path("")
-CACHE_DIR = ".indica"
 
 ADF11: dict = {
     "h": {
@@ -36,12 +32,22 @@ ADF11: dict = {
         "prs": "15",
     },
     "he": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+    "li": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "89",
+        "prb": "89",
+        "prc": "89",
         "pls": "15",
         "prs": "15",
     },
@@ -56,16 +62,6 @@ ADF11: dict = {
         "prs": "15",
     },
     "c": {
-        "scd": "96",
-        "acd": "96",
-        "ccd": "96",
-        "plt": "96",
-        "prb": "96",
-        "prc": "96",
-        "pls": "15",
-        "prs": "15",
-    },
-    "ar": {
         "scd": "89",
         "acd": "89",
         "ccd": "89",
@@ -85,11 +81,41 @@ ADF11: dict = {
         "pls": "15",
         "prs": "15",
     },
+    "ar": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "42",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
     "ni": {
         "scd": "89",
         "acd": "89",
         "ccd": "89",
         "plt": "89",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+    "kr": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "42",
+        "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+    "xe": {
+        "scd": "89",
+        "acd": "89",
+        "ccd": "89",
+        "plt": "42",
         "prb": "89",
         "prc": "89",
         "pls": "15",
@@ -107,7 +133,7 @@ ADF11: dict = {
         "scd": "89",
         "acd": "89",
         "ccd": "89",
-        "plt": "89",
+        "plt": "42",
         "prb": "89",
         "prc": "89",
         "pls": "15",
@@ -125,42 +151,20 @@ class ADASReader(BaseIO):
         Location from which relative paths should be evaluated.
         Default is to download files from OpenADAS, storing them
         in your home directory for later use.
-    session: session.Session
-        An object representing the session being run. Contains information
-        such as provenance data.
-
     """
 
     def __init__(
         self,
         path: Union[str, Path] = DEFAULT_PATH,
-        sess: session.Session = session.global_session,
     ):
         path = Path(path)
-        self.session = sess
         self.openadas = path == DEFAULT_PATH
         if path == DEFAULT_PATH:
             self.namespace = "openadas"
-            self.session.prov.add_namespace(
-                self.namespace, "https://open.adas.ac.uk/detail/adf11/"
-            )
             self.path = Path.home() / CACHE_DIR / "adas"
         else:
-            self.path = path
             self.namespace = "localadas"
-            self.session.prov.add_namespace(
-                self.namespace, "file:/" + str(self.path.resolve())
-            )
-        self.prov_id = session.hash_vals(path=self.path)
-        self.agent = self.session.prov.agent(self.prov_id)
-        self.session.prov.delegation(self.session.agent, self.agent)
-        self.entity = self.session.prov.entity(
-            self.prov_id, {"path": str(self.path.resolve())}
-        )
-        self.session.prov.generation(
-            self.entity, self.session.session, time=datetime.datetime.now()
-        )
-        self.session.prov.attribution(self.entity, self.session.agent)
+            self.path = path
 
     def close(self):
         """Closes connections to database/files. For this class it does not
@@ -193,7 +197,7 @@ class ADASReader(BaseIO):
         filename = Path(file_component) / f"{file_component}_{element.lower()}.dat"
         with self._get_file("adf11", filename) as f:
             header = f.readline().split()
-            z = int(header[0])
+            # z = int(header[0])
             nd = int(header[1])
             nt = int(header[2])
             zmin = int(header[3]) - 1
@@ -226,36 +230,23 @@ class ADASReader(BaseIO):
                 if new_date > date:
                     date = new_date
                 data[i, ...] = np.fromfile(f, float, nd * nt, " ").reshape((nt, nd))
-        gen_type = ADF11_GENERAL_DATATYPES[quantity]
-        spec_type = element_name
-        try:
-            assert (
-                z
-                == [value[0] for value in ELEMENTS.values() if value[2] == spec_type][0]
-            )
-        except AssertionError:
-            raise AssertionError(
-                "There is a mismatch between atomic number(z)\
-                and element name(element_name) imported from the ADF11 file."
-            )
-        name = f"{spec_type}_{gen_type}"
         attrs = {
-            "datatype": (gen_type, spec_type),
             "date": date,
-            "provenance": self.create_provenance(filename, now),
-            "element_symbol": element,
+            "element": element_name,
             "year": year,
+            "filename": filename,
         }
-        return DataArray(
+        _adf11 = DataArray(
             10 ** (data - 6),
             coords=[
-                ("ion_charges", np.arange(zmin, zmax + 1, dtype=int)),
+                ("ion_charge", np.arange(zmin, zmax + 1, dtype=int)),
                 ("electron_temperature", 10 ** (temperatures)),
                 ("electron_density", 10 ** (densities + 6)),
             ],
-            name=name,
             attrs=attrs,
         )
+        assign_datatype(_adf11, quantity)
+        return _adf11
 
     def get_adf15(
         self,
@@ -339,7 +330,6 @@ class ADASReader(BaseIO):
 
             return transition_type, match
 
-        now = datetime.datetime.now()
         file_component = build_file_component(year, element)
         filename = Path(pathname2url(file_component)) / pathname2url(
             f"{file_component}_{filetype.lower()}]"
@@ -431,13 +421,8 @@ class ADASReader(BaseIO):
                 transition_tmp = format_transition[transition_type](m)
                 transition.append(transition_tmp)
                 line = f.readline().strip().lower()
-
-        gen_type = ADF15_GENERAL_DATATYPES[filetype]
-        spec_type = element
-        name = f"{spec_type}_{gen_type}"
         attrs = {
-            "datatype": (gen_type, spec_type),
-            "provenance": self.create_provenance(filename, now),
+            "filename": filename,
         }
 
         coords = [
@@ -449,7 +434,6 @@ class ADASReader(BaseIO):
         pecs = DataArray(
             data * 10**-6,
             coords=coords,
-            name=name,
             attrs=attrs,
         )
 
@@ -460,37 +444,8 @@ class ADASReader(BaseIO):
         )  # (2S+1)L(w-1/2)-(2S+1)L(w-1/2) of upper-lower levels, no blank spaces
         pecs = pecs.assign_coords(type=("index", ttype))  # (excit, recomb, cx)
 
+        assign_datatype(pecs, "pec")
         return pecs
-
-    def create_provenance(
-        self, filename: Path, start_time: datetime.datetime
-    ) -> prov.ProvEntity:
-        """Create a provenance entity for the given ADAS file.
-
-        Note that this method just creates the provenance data
-        appropriate for the arguments it has been provided with. It
-        does not check that these arguments are actually valid and
-        that the provenance corresponds to actually existing data.
-
-        """
-        end_time = datetime.datetime.now()
-        entity = self.session.prov.entity(
-            session.hash_vals(filename=filename, start_time=start_time)
-        )
-        activity = self.session.prov.activity(
-            session.hash_vals(agent=self.prov_id, date=start_time),
-            start_time,
-            end_time,
-            {prov.PROV_TYPE: "ReadData"},
-        )
-        self.session.prov.association(activity, self.agent)
-        self.session.prov.association(activity, self.session.agent)
-        self.session.prov.communication(activity, self.session.session)
-        self.session.prov.derivation(entity, f"{self.namespace}:{filename}", activity)
-        self.session.prov.generation(entity, activity, end_time)
-        self.session.prov.attribution(entity, self.agent)
-        self.session.prov.attribution(entity, self.session.agent)
-        return entity
 
     def _get_file(self, dataclass: str, filename: Union[str, Path]) -> TextIO:
         """Retrieves an ADAS file, downloading it from OpenADAS if

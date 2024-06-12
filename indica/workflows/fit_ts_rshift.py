@@ -42,21 +42,23 @@ def fit_ts(
     else:
         R_shift = None
 
-    ts_R = te_data.R
-    ts_z = te_data.z
+    ts_R = te_data.transform.R
+    ts_z = te_data.transform.z
     equilibrium = te_data.transform.equilibrium
-    print("  Te")
+    if verbose:
+        print("  Te")
     te_fit, te_R_shift, te_rho = fit_profile_and_R_shift(
         ts_R,
         ts_z,
         te_data,
         te_err,
-        xknots=[0, 0.4, 0.6, 0.8, 1.1],
+        xknots=[0, 0.4, 0.85, 0.9, 0.98, 1.1],
         equilibrium=equilibrium,
         R_shift=R_shift,
         verbose=verbose,
     )
-    print("  Ne")
+    if verbose:
+        print("  Ne")
     ne_fit, ne_R_shift, ne_rho = fit_profile_and_R_shift(
         ts_R,
         ts_z,

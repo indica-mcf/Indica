@@ -1,17 +1,8 @@
-"""Routines for averaging or interpolate along the time axis given start and end times
+"""Routines for averaging or interpolate along the time axis given start and end time
 and a desired time resolution"""
 
 import numpy as np
 from xarray import DataArray
-
-
-def strip_provenance(arr: DataArray):
-    """
-    Remove provenance information from a DataArray if present.
-    """
-    if "provenance" in arr.attrs:
-        del arr.attrs["partial_provenance"]
-        del arr.attrs["provenance"]
 
 
 def convert_in_time(
@@ -83,7 +74,7 @@ def convert_in_time_dt(
 
     tcoords = data.coords["t"]
     data_dt = tcoords[1] - tcoords[0]
-    if data_dt <= dt / 2:
+    if data_dt <= dt / 2 and tstart != tend:
         return bin_in_time_dt(tstart, tend, dt, data)
     else:
         return interpolate_in_time_dt(tstart, tend, dt, data, method=method)
@@ -98,7 +89,7 @@ def interpolate_to_time_labels(
     Parameters
     ----------
     tlabels
-        The times at which the data should be interpolated.
+        The time at which the data should be interpolated.
     data
         Data to be interpolated.
 
@@ -124,8 +115,6 @@ def interpolate_to_time_labels(
             )
         interpolated.attrs["dropped"] = dropped
 
-    strip_provenance(interpolated)
-
     return interpolated
 
 
@@ -135,7 +124,7 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
     Parameters
     ----------
     tlabels
-        The times at which the data should be binned.
+        The time at which the data should be binned.
     data
         Data to be binned.
 
@@ -155,8 +144,8 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
     grouped = data.sel(t=slice(tbins[0], tbins[-1])).groupby_bins(
         "t", tbins, labels=tlabels
     )
-    averaged = grouped.mean("t", keep_attrs=True)
-    stdev = grouped.std("t", keep_attrs=True)
+    averaged = grouped.mean("t", keep_attrs=True, skipna=True)
+    stdev = grouped.std("t", keep_attrs=True, skipna=True)
     stdev = np.sqrt(stdev**2)
     averaged.attrs["stdev"] = stdev.rename(t_bins="t")
 
@@ -199,10 +188,6 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
             averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
             stdev = np.sqrt(stdev**2)
             averaged.attrs["dropped"].attrs["stdev"] = stdev.rename(t_bins="t")
-
-    if "provenance" in data.attrs:
-        del averaged.attrs["partial_provenance"]
-        del averaged.attrs["provenance"]
 
     return averaged.rename(t_bins="t")
 
@@ -378,7 +363,8 @@ def get_tlabels_dt(tstart: float, tend: float, dt: float):
         Time array
 
     """
-    tlabels = np.arange(tstart, tend + dt, dt)
+    _tlabels = np.arange(tstart, tend + dt, dt)
+    tlabels = _tlabels[np.logical_or(_tlabels < tend, np.isclose(_tlabels, tend))]
     return tlabels
 
 

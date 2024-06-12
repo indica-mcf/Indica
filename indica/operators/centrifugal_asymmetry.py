@@ -4,12 +4,12 @@ import matplotlib.pylab as plt
 import numpy as np
 from xarray import DataArray
 
-from indica.datatypes import ELEMENTS
 from indica.equilibrium import Equilibrium
-from indica.models.plasma import example_run as example_plasma
+from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
-from indica.utilities import assign_data
+from indica.utilities import format_dataarray
+from indica.utilities import get_element_info
 
 
 def centrifugal_asymmetry_parameter(
@@ -30,8 +30,8 @@ def centrifugal_asymmetry_parameter(
 
     asymmetry_parameter = deepcopy(ion_density)
     for elem in elements.values:
-        main_ion_mass = ELEMENTS[main_ion][1]
-        mass = ELEMENTS[elem][1]
+        main_ion_mass = get_element_info(main_ion)[1]
+        mass = get_element_info(elem)[1]
         asymmetry_parameter.loc[dict(element=elem)] = ph.centrifugal_asymmetry(
             ion_temperature.sel(element=elem).drop_vars("element"),
             electron_temperature,
@@ -83,7 +83,17 @@ def centrifugal_asymmetry_2d_map(
 
 def example_run(plot: bool = False):
 
+    from indica.equilibrium import fake_equilibrium
+
     plasma = example_plasma()
+    machine_dims = plasma.machine_dimensions
+    equilibrium = fake_equilibrium(
+        tstart=plasma.tstart,
+        tend=plasma.tend,
+        dt=plasma.dt / 2.0,
+        machine_dims=machine_dims,
+    )
+    plasma.set_equilibrium(equilibrium)
 
     asymmetry_parameter = centrifugal_asymmetry_parameter(
         plasma.ion_density,
@@ -101,9 +111,7 @@ def example_run(plot: bool = False):
         plasma.equilibrium,
     )
 
-    ion_density_2d = assign_data(
-        ion_density_2d, ("density", "ion"), "$m^{-3}$", long_name="Ion density"
-    )
+    ion_density_2d = format_dataarray(ion_density_2d, "ion_density")
 
     if plot:
         tplot = ion_density_2d.t[2]

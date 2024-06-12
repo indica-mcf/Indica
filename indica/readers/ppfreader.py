@@ -25,10 +25,8 @@ from sal.dataclass import Signal
 import scipy.constants as sc
 
 import indica.readers.surf_los as surf_los
-from .abstractreader import CACHE_DIR
+from indica.utilities import CACHE_DIR
 from .abstractreader import DataReader
-from .. import session
-from ..datatypes import ELEMENTS
 from ..numpy_typing import ArrayLike
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
@@ -57,8 +55,8 @@ class PPFReader(DataReader):
 
     Parameters
     ----------
-    times : np.ndarray
-        An ordered array of times to which data will be
+    time : np.ndarray
+        An ordered array of time to which data will be
         downsampled/interpolated.
     pulse : int
         The ID number for the pulse from which to get data.
@@ -69,9 +67,6 @@ class PPFReader(DataReader):
     default_error : float
         Relative uncertainty to use for diagnostics which do not provide a
         value themselves.
-    sess : session.Session
-        An object representing the session being run. Contains information
-        such as provenance data.
 
     Attributes
     ----------
@@ -188,16 +183,12 @@ class PPFReader(DataReader):
         tend: float,
         server: str = "https://sal.jet.uk",
         default_error: float = 0.05,
-        max_freq: float = 1e6,
-        session: session.Session = session.global_session,
     ):
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
         self.NAMESPACE: Tuple[str, str] = ("jet", server)
         super().__init__(
             tstart,
             tend,
-            max_freq,
-            session,
             pulse=pulse,
             server=server,
             default_error=default_error,
@@ -318,8 +309,14 @@ class PPFReader(DataReader):
             uid, instrument, "zqnn", revision
         )
 
-        mass_int = round(mass.data[0])
-        atomic_num_int = round(atomic_num.data[0])
+        # TODO: is there no string information on the element in the database?
+        # mass_int = round(mass.data[0])
+        # atomic_num_int = round(atomic_num.data[0])
+        # results["element"] = [
+        #     value[2]
+        #     for value in ELEMENTS.values()
+        #     if (value[0] == atomic_num_int and value[1] == mass_int)
+        # ][0]
 
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
@@ -327,19 +324,14 @@ class PPFReader(DataReader):
         results["y"] = np.zeros_like(results["R"])
         results["z"] = z.data[0, :]
         results["length"] = R.data.shape[1]
-        results["element"] = [
-            value[2]
-            for value in ELEMENTS.values()
-            if (value[0] == atomic_num_int and value[1] == mass_int)
-        ][0]
         results["texp"] = texp.data
-        results["times"] = None
+        results["time"] = None
         paths = [R_path, z_path, m_path, t_path]
         if "angf" in quantities:
             angf, a_path = self._get_signal(uid, instrument, "angf", revision)
             afhi, e_path = self._get_signal(uid, instrument, "afhi", revision)
-            if results["times"] is None:
-                results["times"] = angf.dimensions[0].data
+            if results["time"] is None:
+                results["time"] = angf.dimensions[0].data
             results["angf"] = angf.data
             results["angf_error"] = afhi.data - angf.data
             results["angf_records"] = paths + [a_path, e_path]
@@ -360,8 +352,8 @@ class PPFReader(DataReader):
         if "ti" in quantities:
             ti, t_path = self._get_signal(uid, instrument, "ti", revision)
             tihi, e_path = self._get_signal(uid, instrument, "tihi", revision)
-            if results["times"] is None:
-                results["times"] = ti.dimensions[0].data
+            if results["time"] is None:
+                results["time"] = ti.dimensions[0].data
             results["ti"] = ti.data
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
@@ -482,7 +474,7 @@ class PPFReader(DataReader):
                 results["psi_r"] = r.data
                 results["psi_z"] = z.data
                 results["psi"] = qval.data.reshape(
-                    (len(results["times"]), len(z.data), len(r.data))
+                    (len(results["time"]), len(z.data), len(r.data))
                 )
                 results["psi_records"] = [q_path, r_path, z_path]
             else:
@@ -531,8 +523,8 @@ class PPFReader(DataReader):
                 )
                 records.append(q_path)
                 data.append(qval.data)
-                if "times" not in results:
-                    results["times"] = qval.dimensions[0].data
+                if "time" not in results:
+                    results["time"] = qval.dimensions[0].data
             results[q] = np.array(data).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
@@ -643,36 +635,6 @@ class PPFReader(DataReader):
         results["direction"] = direction.transpose()
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
-
-    # def _handle_kk3(self, key: str, revision: RevisionLike) -> DataArray:
-    #     """Produce :py:class:`xarray.DataArray` for electron temperature."""
-    #     uid, general_dat = self._get_signal("kk3_gen", revision)
-    #     channel_index = np.argwhere(general_dat.data[0, :] > 0)
-    #     f_chan = general_dat.data[15, channel_index]
-    #     nharm_chan = general_dat.data[11, channel_index]
-    #     uids = [uid]
-    #     temperatures = []
-    #     Btot = []
-
-    #     for i, f, nharm in zip(channel_index, f_chan, nharm_chan):
-    #         uid, signal = self._get_signal("{}{:02d}".format(key, i),
-    #                                        revision)
-    #         uids.append(uid)
-    #         temperatures.append(signal.data)
-    #         Btot.append(2 * np.pi, f * sc.m_e / (nharm * sc.e))
-
-    #     uncalibrated = Btot[general_dat.data[18, channel_index] != 0.0]
-    #     temps_array = np.array(temperatures)
-    #     coords = [("Btot", np.array(Btot)), ("t", signal.dimensions[0].data)]
-    #     meta = {"datatype": self.AVALABLE_DATA[key],
-    #             "error": DataArray(0.1*temps_array, coords)}
-    #     # TODO: Select correct time range
-    #     data = DataArray(temps_array, coords, name=key,
-    #                      attrs=meta)
-    #     drop = self._select_channels(uid, data, "Btot", uncalibrated)
-    #     data.attrs["provenance"] = self.create_provenance(key, revision,
-    #                                                       uids, drop)
-    #     return data.drop_sel({"Btot": drop})
 
     def _get_bad_channels(
         self, uid: str, instrument: str, quantity: str

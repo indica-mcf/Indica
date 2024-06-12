@@ -8,9 +8,9 @@ from indica.readers import ADASReader
 
 ELEMENT = "be"
 ADAS_FILE = ADASReader()
-SCD = ADAS_FILE.get_adf11("scd", ELEMENT, "89")
-ACD = ADAS_FILE.get_adf11("acd", ELEMENT, "89")
-CCD = ADAS_FILE.get_adf11("ccd", ELEMENT, "89")
+scd = ADAS_FILE.get_adf11("scd", ELEMENT, "89")
+acd = ADAS_FILE.get_adf11("acd", ELEMENT, "89")
+ccd = ADAS_FILE.get_adf11("ccd", ELEMENT, "89")
 
 
 @pytest.fixture
@@ -19,21 +19,21 @@ def test_fractional_abundance_init():
 
     try:
         example_frac_abundance = FractionalAbundance(
-            SCD,
-            ACD,
-            CCD=CCD,
+            scd,
+            acd,
+            ccd=ccd,
         )
     except Exception as e:
         raise e
 
     try:
         example_frac_abundance_no_optional = FractionalAbundance(
-            SCD,
-            ACD,
+            scd,
+            acd,
         )
     except Exception as e:
         raise e
-    assert example_frac_abundance_no_optional.CCD is None
+    assert example_frac_abundance_no_optional.ccd is None
 
     return example_frac_abundance, example_frac_abundance_no_optional
 
@@ -204,7 +204,7 @@ def test_calc_eigen_vals_and_vecs(test_calc_F_z_tinf):
     )
 
     for irho in range(rho.size):
-        for ieig in range(example_frac_abundance_no_optional.num_of_ion_charges):
+        for ieig in range(example_frac_abundance_no_optional.num_of_ion_charge):
             test_eigen = np.dot(
                 ionisation_balance_matrix[:, :, irho], eig_vecs[:, ieig, irho]
             ) - np.dot(eig_vals[ieig, irho], eig_vecs[:, ieig, irho])
@@ -229,7 +229,7 @@ def test_calc_eigen_vals_and_vecs(test_calc_F_z_tinf):
     ionisation_balance_matrix = example_frac_abundance.ionisation_balance_matrix
 
     for irho in range(rho.size):
-        for ieig in range(example_frac_abundance.num_of_ion_charges):
+        for ieig in range(example_frac_abundance.num_of_ion_charge):
             test_eigen = np.dot(
                 ionisation_balance_matrix[:, :, irho], eig_vecs[:, ieig, irho]
             ) - np.dot(eig_vals[ieig, irho], eig_vecs[:, ieig, irho])
@@ -457,18 +457,18 @@ def test_power_loss_init():
 
     element = "be"
 
-    PLT = ADAS_file.get_adf11("plt", element, "89")
-    PRC = ADAS_file.get_adf11("prc", element, "89")
-    PRB = ADAS_file.get_adf11("prb", element, "89")
+    plt = ADAS_file.get_adf11("plt", element, "89")
+    prc = ADAS_file.get_adf11("prc", element, "89")
+    prb = ADAS_file.get_adf11("prb", element, "89")
 
     try:
-        example_power_loss = PowerLoss(PLT, PRB, PRC=PRC)
+        example_power_loss = PowerLoss(plt, prb, prc=prc)
     except Exception as e:
         raise e
 
-    # Test omission of optional inputs, PRC and Nh
+    # Test omission of optional inputs, prc and Nh
     try:
-        example_power_loss_no_optional = PowerLoss(PLT, PRB)
+        example_power_loss_no_optional = PowerLoss(plt, prb)
     except Exception as e:
         raise e
 
@@ -498,42 +498,42 @@ def test_interpolate_power(test_power_loss_init):
 
     try:
         (
-            PLT_spec,
-            PRC_spec,
-            PRB_spec,
+            plt_spec,
+            prc_spec,
+            prb_spec,
             _,
         ) = example_power_loss_no_optional.interpolate_power(Ne=input_Ne, Te=input_Te)
     except Exception as e:
         raise e
 
-    assert PLT_spec.shape == (4, 10)
-    assert PRB_spec.shape == (4, 10)
-    assert PRC_spec is None
+    assert plt_spec.shape == (4, 10)
+    assert prb_spec.shape == (4, 10)
+    assert prc_spec is None
 
-    assert np.all(np.logical_not(np.isnan(PLT_spec)))
-    assert np.all(np.logical_not(np.isnan(PRB_spec)))
+    assert np.all(np.logical_not(np.isnan(plt_spec)))
+    assert np.all(np.logical_not(np.isnan(prb_spec)))
 
-    assert np.all(np.logical_not(np.isinf(PLT_spec)))
-    assert np.all(np.logical_not(np.isinf(PRB_spec)))
+    assert np.all(np.logical_not(np.isinf(plt_spec)))
+    assert np.all(np.logical_not(np.isinf(prb_spec)))
 
     try:
-        PLT_spec, PRC_spec, PRB_spec, _ = example_power_loss.interpolate_power(
+        plt_spec, prc_spec, prb_spec, _ = example_power_loss.interpolate_power(
             Ne=input_Ne, Te=input_Te
         )
     except Exception as e:
         raise e
 
-    assert PLT_spec.shape == (4, 10)
-    assert PRC_spec.shape == (4, 10)
-    assert PRB_spec.shape == (4, 10)
+    assert plt_spec.shape == (4, 10)
+    assert prc_spec.shape == (4, 10)
+    assert prb_spec.shape == (4, 10)
 
-    assert np.all(np.logical_not(np.isnan(PLT_spec)))
-    assert np.all(np.logical_not(np.isnan(PRC_spec)))
-    assert np.all(np.logical_not(np.isnan(PRB_spec)))
+    assert np.all(np.logical_not(np.isnan(plt_spec)))
+    assert np.all(np.logical_not(np.isnan(prc_spec)))
+    assert np.all(np.logical_not(np.isnan(prb_spec)))
 
-    assert np.all(np.logical_not(np.isinf(PLT_spec)))
-    assert np.all(np.logical_not(np.isinf(PRC_spec)))
-    assert np.all(np.logical_not(np.isinf(PRB_spec)))
+    assert np.all(np.logical_not(np.isinf(plt_spec)))
+    assert np.all(np.logical_not(np.isinf(prc_spec)))
+    assert np.all(np.logical_not(np.isinf(prb_spec)))
 
     return example_power_loss, example_power_loss_no_optional
 
@@ -556,14 +556,14 @@ def test_power_loss_call(test_interpolate_power):
         dims=["rho_poloidal"],
     )
 
-    SCD = ADAS_file.get_adf11("scd", element, "89")
-    ACD = ADAS_file.get_adf11("acd", element, "89")
-    CCD = ADAS_file.get_adf11("ccd", element, "89")
+    scd = ADAS_file.get_adf11("scd", element, "89")
+    acd = ADAS_file.get_adf11("acd", element, "89")
+    ccd = ADAS_file.get_adf11("ccd", element, "89")
     try:
         example_frac_abundance = FractionalAbundance(
-            SCD,
-            ACD,
-            CCD=CCD,
+            scd,
+            acd,
+            ccd=ccd,
         )
 
         example_frac_abundance.interpolate_rates(Ne=input_Ne, Te=input_Te)
@@ -632,14 +632,14 @@ def test_power_loss_full_run(test_power_loss_init):
         dims=["rho_poloidal"],
     )
 
-    SCD = ADAS_file.get_adf11("scd", element, "89")
-    ACD = ADAS_file.get_adf11("acd", element, "89")
-    CCD = ADAS_file.get_adf11("ccd", element, "89")
+    scd = ADAS_file.get_adf11("scd", element, "89")
+    acd = ADAS_file.get_adf11("acd", element, "89")
+    ccd = ADAS_file.get_adf11("ccd", element, "89")
     try:
         example_frac_abundance = FractionalAbundance(
-            SCD,
-            ACD,
-            CCD=CCD,
+            scd,
+            acd,
+            ccd=ccd,
         )
 
         example_frac_abundance.interpolate_rates(Ne=input_Ne, Te=input_Te)

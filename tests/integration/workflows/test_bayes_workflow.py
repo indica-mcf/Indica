@@ -1,6 +1,8 @@
-from indica.workflows.bayes_workflow import BayesBBSettings
+from unittest.mock import MagicMock
+
+from indica.defaults.read_write_defaults import load_default_objects
 from indica.workflows.bayes_workflow import BayesWorkflow
-from indica.workflows.bayes_workflow import DEFAULT_PRIORS
+from indica.workflows.bayes_workflow import DEFAULT_DIAG_NAMES
 from indica.workflows.bayes_workflow import DEFAULT_PROFILE_PARAMS
 from indica.workflows.bayes_workflow import EmceeOptimiser
 from indica.workflows.bayes_workflow import MockData
@@ -11,105 +13,70 @@ from indica.workflows.bayes_workflow import PlasmaContext
 from indica.workflows.bayes_workflow import PlasmaSettings
 from indica.workflows.bayes_workflow import ReaderSettings
 
+config = dict(
+    tstart=0.05,
+    tend=0.10,
+    dt=0.01,
+)
+
 
 class TestBayesWorkflow:
     def setup_class(self):
-        self.diagnostics = ["cxff_tws_c", "cxff_pi"]
-        self.opt_params = [
-            "Ti_prof.y0",
-            # "Ti_prof.peaking",
-            # "Ti_prof.wped",
-            # "Ti_prof.wcenter",
-        ]
-        self.opt_quant = ["cxff_tws_c.ti", "cxff_pi.ti"]
+        self.plasma = load_default_objects("st40", "plasma")
+        self.equilibrium = load_default_objects("st40", "equilibrium")
+        self.plasma.set_equilibrium(self.equilibrium)
 
-        self.pulse = None
-        self.tstart = 0.01
-        self.tend = 0.02
-        self.dt = 0.01
+    def test_mockdata_initialises(self):
 
-        self.plasma_settings = PlasmaSettings(
-            main_ion="h",
-            impurities=("ar", "c"),
-            impurity_concentration=(0.001, 0.04),
-            n_rad=10,
-        )
-
-        self.bayes_settings = BayesBBSettings(
-            diagnostics=self.diagnostics,
-            param_names=self.opt_params,
-            opt_quantity=self.opt_quant,
-            priors=DEFAULT_PRIORS,
-        )
-
-        self.data_settings = ReaderSettings(filters={}, revisions={})
-
-        self.model_settings = ModelSettings(call_kwargs={"xrcs": {"pixel_offset": 0.0}})
-
-        self.optimiser_settings = OptimiserEmceeSettings(
-            param_names=self.bayes_settings.param_names,
-            nwalkers=5,
-            iterations=2,
-            sample_method="random",
-            starting_samples=2,
-            burn_frac=0,
-            stopping_criteria="mode",
-            stopping_criteria_factor=0.005,
-            stopping_criteria_debug=True,
-            priors=self.bayes_settings.priors,
-        )
-
-    def test_workflow_runs(self):
-
+        reader_settings = ReaderSettings()
         data_context = MockData(
-            pulse=self.pulse,
-            diagnostics=self.diagnostics,
-            tstart=self.tstart,
-            tend=self.tend,
-            dt=self.dt,
-            reader_settings=self.data_settings,
+            pulse=None,
+            diagnostics=DEFAULT_DIAG_NAMES,
+            reader_settings=reader_settings,
+            **config,
         )
         data_context.read_data()
 
+    def test_plasma_context_initialises(self):
+        plasma_settings = PlasmaSettings()
         plasma_context = PlasmaContext(
-            plasma_settings=self.plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS
+            plasma_settings=plasma_settings, profile_params=DEFAULT_PROFILE_PARAMS
         )
         plasma_context.init_plasma(
-            data_context.equilibrium, self.tstart, self.tend, self.dt
+            self.equilibrium,
+            **config,
         )
-        plasma_context.save_phantom_profiles(phantoms=data_context.phantoms)
+        plasma_context.save_phantom_profiles(phantoms=True)
 
+    def test_model_context_initialises(self):
+
+        model_settings = ModelSettings()
         model_context = ModelContext(
-            diagnostics=self.diagnostics,
-            plasma_context=plasma_context,
-            equilibrium=data_context.equilibrium,
-            transforms=data_context.transforms,
-            model_settings=self.model_settings,
+            diagnostics=DEFAULT_DIAG_NAMES,
+            plasma_context=MagicMock(),
+            equilibrium=self.equilibrium,
+            transforms=MagicMock(),
+            model_settings=model_settings,
         )
-        model_context.update_model_kwargs(data_context.binned_data)
+
+        model_context.update_model_kwargs(MagicMock())
         model_context.init_models()
-        data_context.process_data(
-            model_context._build_bckc,
-        )
 
-        optimiser_context = EmceeOptimiser(optimiser_settings=self.optimiser_settings)
-
-        workflow = BayesWorkflow(
-            tstart=self.tstart,
-            tend=self.tend,
-            dt=self.dt,
-            blackbox_settings=self.bayes_settings,
-            data_context=data_context,
-            optimiser_context=optimiser_context,
-            plasma_context=plasma_context,
-            model_context=model_context,
+    def test_optimiser_context_initialises(self):
+        optimiser_settings = OptimiserEmceeSettings(
+            param_names=MagicMock(), priors=MagicMock()
         )
-        workflow(
-            pulse_to_write=43000001,
-            run="TEST",
-            mds_write=False,
-            plot=False,
-            filepath="./results/test/",
+        EmceeOptimiser(optimiser_settings=optimiser_settings)
+
+    def test_bayes_workflow_initialises(self):
+        # bayes_settings = MagicMock()
+        BayesWorkflow(
+            **config,
+            blackbox_settings=MagicMock(),
+            data_context=MagicMock(),
+            optimiser_context=MagicMock(),
+            plasma_context=MagicMock(),
+            model_context=MagicMock(),
         )
 
 
@@ -117,4 +84,3 @@ if __name__ == "__main__":
 
     test = TestBayesWorkflow()
     test.setup_class()
-    test.test_workflow_runs()

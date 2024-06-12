@@ -1,14 +1,12 @@
 """Contains an abstract base class for reading equilibrium data for a pulse.
 """
 
-import datetime
 from typing import cast
 from typing import Dict
 from typing import Optional
 from typing import Tuple
 
 import numpy as np
-import prov.model as prov
 import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
@@ -17,8 +15,9 @@ from xarray import zeros_like
 
 from indica.converters.time import get_tlabels_dt
 from indica.utilities import check_time_present
-from . import session
+from .numpy_typing import FloatOrDataArray
 from .numpy_typing import LabeledArray
+from .numpy_typing import OnlyArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
@@ -37,32 +36,27 @@ class Equilibrium:
         A collection of equilibrium data rea in using
         :py:meth:`~indica.readers.DataReader.get_equilibrium`. TODO: List full set
         of required quantities.
-    R_shift : float
+    R_shift
         How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
-        on the major radius.
-        TODO: this and z_shift should be time-dependent...
-    z_shift : float
+        on the major radius. Either a float for all time slices or a DataArray
+        with coord 't'
+    z_shift
         How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
-        in the vertical coordinate.
-    sess : session.Session
-        An object representing the session being run. Contains information
-        such as provenance data.
-    offset_picker: OffsetPicker
-        A callback which determines by how much to offset the equilibrium data
-        along the major radius. Allows the user to select this interactively.
+        in the vertical coordinate. Either a float for all time slices or a DataArray
+        with coord 't'
 
     """
 
     def __init__(
         self,
         equilibrium_data: Dict[str, DataArray],
-        R_shift: float = 0.0,
-        z_shift: float = 0.0,
-        sess: session.Session = session.global_session,
+        R_shift: FloatOrDataArray = 0.0,
+        z_shift: FloatOrDataArray = 0.0,
     ):
 
-        self._session = sess
+        self.equilibrium_data = equilibrium_data
         self.f = equilibrium_data["f"]
+        self.t = equilibrium_data["f"].t
         self.faxs = equilibrium_data["faxs"]
         self.fbnd = equilibrium_data["fbnd"]
         self.ftor = equilibrium_data["ftor"]
@@ -76,6 +70,29 @@ class Equilibrium:
             / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
         )
         self.psi = equilibrium_data["psi"]
+
+        if isinstance(R_shift, float):
+            R_offset = xr.full_like(self.t, R_shift)
+        else:
+            R_offset = R_shift.interp(t=self.t, kwargs={"fill_value": 0})
+        if isinstance(z_shift, float):
+            z_offset = xr.full_like(self.t, z_shift)
+        else:
+            z_offset = z_shift.interp(t=self.t, kwargs={"fill_value": 0})
+        self.R_offset = R_offset
+        self.z_offset = z_offset
+
+        R_new = self.psi.R + self.R_offset
+        z_new = self.psi.z + self.z_offset
+        self.psi = self.psi.interp(R=R_new, z=z_new)
+
+        self.faxs["R"] -= self.R_offset
+        self.faxs["z"] -= self.z_offset
+        self.rmag -= self.R_offset
+        self.rbnd -= self.R_offset
+        self.zmag -= self.z_offset
+        self.zbnd -= self.z_offset
+        self.zx -= self.z_offset
 
         # Including workaround in case faxs or fbnd had messy data
         rho: DataArray = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
@@ -91,8 +108,8 @@ class Equilibrium:
         self.rho = rho
         self.t = self.rho.t
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
-            self.psin = equilibrium_data["psin"]
-            dpsin = self.psin[1] - self.psin[0]
+            psin = equilibrium_data["vjac"].rho_poloidal ** 2
+            dpsin = psin[1] - psin[0]
             self.volume = (equilibrium_data["vjac"] * dpsin).cumsum("rho_poloidal")
             self.area = (equilibrium_data["ajac"] * dpsin).cumsum("rho_poloidal")
         elif "volume" in equilibrium_data and "area" in equilibrium_data:
@@ -101,10 +118,8 @@ class Equilibrium:
         else:
             raise ValueError("No volume or area information")
         if "rmji" and "rmjo" in equilibrium_data:
-            self.rmji = equilibrium_data["rmji"]
-            self.rmjo = equilibrium_data["rmjo"]
-        self.R_offset = R_shift
-        self.z_offset = z_shift
+            self.rmji = equilibrium_data["rmji"] - self.R_offset
+            self.rmjo = equilibrium_data["rmjo"] - self.R_offset
 
         self.Rmin = min(self.rho.coords["R"])
         self.Rmax = max(self.rho.coords["R"])
@@ -116,25 +131,6 @@ class Equilibrium:
             np.arctan2(self.zmax - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
             np.arctan2(self.zmin - self.zmag, self.Rmin - self.rmag) % (2 * np.pi),
         ]
-
-        self.prov_id = session.hash_vals(
-            **equilibrium_data, R_offset=self.R_offset, z_offset=self.z_offset
-        )
-        self.provenance = sess.prov.entity(
-            self.prov_id,
-            {
-                prov.PROV_TYPE: "Equilibrium",
-                "R_offset": self.R_offset,
-                "z_offset": self.z_offset,
-            },
-        )
-        sess.prov.generation(
-            self.provenance, sess.session, time=datetime.datetime.now()
-        )
-        sess.prov.attribution(self.provenance, sess.agent)
-        for val in equilibrium_data.values():
-            if "provenance" in val.attrs:
-                self.provenance.wasDerivedFrom(val.attrs["provenance"])
 
     def Bfield(
         self,
@@ -161,34 +157,32 @@ class Equilibrium:
         Returns
         -------
         Br, Bz, Bt
-            Magnetic field components at the given location and times.
+            Magnetic field components at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        _R, _z = prepare_coords(
-            R + np.full_like(R, self.R_offset), z + np.full_like(z, self.z_offset)
-        )
+
         if t is not None:
             check_time_present(t, self.t)
             psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
             f = self.f.interp(t=t, method="nearest", assume_sorted=True)
-            rho_, theta_, _ = self.flux_coords(_R, _z, t)
+            rho_, theta_, _ = self.flux_coords(R, z, t)
         else:
             t = self.rho.coords["t"]
             psi = self.psi
             f = self.f
-            rho_, theta_, _ = self.flux_coords(_R, _z)
+            rho_, theta_, _ = self.flux_coords(R, z)
 
-        dpsi_dR = psi.differentiate("R").interp(R=_R, z=_z)
+        dpsi_dR = psi.differentiate("R").interp(R=R, z=z)
         dpsi_dz = psi.differentiate("z").interp(
-            R=_R,
-            z=_z,
+            R=R,
+            z=z,
         )
-        b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
+        b_R = -(np.float64(1.0) / R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
         b_R = b_R.T
-        b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
+        b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
         b_z.name = "Vertical Magnetic Field (T)"
         b_z = b_z.T
         rho_ = where(
@@ -197,13 +191,13 @@ class Equilibrium:
 
         f = f.interp(rho_poloidal=rho_)
         f.name = self.f.name
-        b_T = f / _R
+        b_T = f / R
         b_T.name = "Toroidal Magnetic Field (T)"
 
         if full_Rz:
             _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rho.R
             _b_T = _b_T.drop(["z", "rho_poloidal"]).expand_dims(dim={"z": self.rho.z})
-            b_T = _b_T.interp(R=_R, z=_z)
+            b_T = _b_T.interp(R=R, z=z)
 
         return b_R, b_z, b_T, t
 
@@ -230,7 +224,7 @@ class Equilibrium:
         Returns
         -------
         Btot
-            Total magnetic field strength at the given location and times.
+            Total magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -258,7 +252,7 @@ class Equilibrium:
         Returns
         -------
         Br
-            Radial magnetic field strength at the given location and times.
+            Radial magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -282,7 +276,7 @@ class Equilibrium:
         Returns
         -------
         Bz
-            Vertical magnetic field strength at the given location and times.
+            Vertical magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -310,7 +304,7 @@ class Equilibrium:
         Returns
         -------
         Bt
-            Toroidal magnetic field strength at the given location and times.
+            Toroidal magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -338,7 +332,7 @@ class Equilibrium:
         Returns
         -------
         Bp
-            Poloidal magnetic field strength at the given location and times.
+            Poloidal magnetic field strength at the given location and time.
         t
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
@@ -383,12 +377,12 @@ class Equilibrium:
             rmjo = self.rmjo
             t = self.rmjo.coords["t"]
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-            R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic")
         else:
             check_time_present(t, self.t)
             rmjo = self.rmjo.interp(t=t, method="nearest")
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-            R = rmjo.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmjo.interp(rho_poloidal=rho, method="cubic")
 
         return R, t
 
@@ -431,9 +425,9 @@ class Equilibrium:
             rmji = self.rmji.interp(t=t, method="nearest")
         rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
         try:
-            R = rmji.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmji.interp(rho_poloidal=rho, method="cubic")
         except ValueError:
-            R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic")
 
         return R, t
 
@@ -528,8 +522,8 @@ class Equilibrium:
 
     def flux_coords(
         self,
-        R: LabeledArray,
-        z: LabeledArray,
+        R: OnlyArray,
+        z: OnlyArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
     ) -> Tuple[DataArray, DataArray, LabeledArray]:
@@ -559,27 +553,25 @@ class Equilibrium:
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        _R, _z = prepare_coords(
-            R + np.full_like(R, self.R_offset), z + np.full_like(z, self.z_offset)
-        )
-        if t is not None:
-            check_time_present(t, self.t)
-            rho = self.rho.interp(t=t, method="nearest")
-            R_ax = self.rmag.interp(t=t, method="nearest")
-            z_ax = self.zmag.interp(t=t, method="nearest")
-            z_x_point = self.zx.interp(t=t, method="nearest")
-        else:
+
+        if t is None:
             rho = self.rho
             R_ax = self.rmag
             z_ax = self.zmag
             t = self.rho.coords["t"]
             z_x_point = self.zx
+        else:
+            check_time_present(t, self.t)
+            rho = self.rho.interp(t=t, method="nearest")
+            R_ax = self.rmag.interp(t=t, method="nearest")
+            z_ax = self.zmag.interp(t=t, method="nearest")
+            z_x_point = self.zx.interp(t=t, method="nearest")
 
         # TODO: rho and theta dimensions not in the same order...
-        rho = rho.interp(R=_R, z=_z)
+        rho = rho.interp(R=R, z=z)
         theta = np.arctan2(
-            _z - z_ax,
-            _R - R_ax,
+            z - z_ax,
+            R - R_ax,
         )
 
         # Correct for any interpolation errors resulting in negative fluxes
@@ -629,8 +621,8 @@ class Equilibrium:
         minor_rad, t = self.minor_radius(rho, theta, t, kind)
         R0 = self.rmag.interp(t=t, method="nearest")
         z0 = self.zmag.interp(t=t, method="nearest")
-        R = R0 - self.R_offset + minor_rad * np.cos(theta)
-        z = z0 - self.z_offset + minor_rad * np.sin(theta)
+        R = R0 + minor_rad * np.cos(theta)
+        z = z0 + minor_rad * np.sin(theta)
         return R, z, t
 
     def convert_flux_coords(
@@ -880,9 +872,9 @@ def fake_equilibrium_data(
         machine_dims = MACHINE_DIMS
 
     get_tlabels_dt(tstart, tend, dt)
-    times = np.arange(tstart, tend + dt, dt)
+    time = np.arange(tstart, tend + dt, dt)
 
-    # ntime = times.size
+    # ntime = time.size
     Btot_factor = None
 
     result = {}
@@ -896,19 +888,19 @@ def fake_equilibrium_data(
     attrs: dict = {}
 
     result["rmag"] = DataArray(
-        r_centre + tfuncs(times), coords=[("t", times)], name="rmag", attrs=attrs
+        r_centre + tfuncs(time), coords=[("t", time)], name="rmag", attrs=attrs
     )
     result["rmag"].attrs["datatype"] = ("major_rad", "mag_axis")
 
     result["zmag"] = DataArray(
-        z_centre + tfuncs(times), coords=[("t", times)], name="zmag", attrs=attrs
+        z_centre + tfuncs(time), coords=[("t", time)], name="zmag", attrs=attrs
     )
     result["zmag"].attrs["datatype"] = ("z", "mag_axis")
 
     fmin = 0.1
     result["faxs"] = DataArray(
-        fmin + np.abs(tfuncs(times)),
-        {"t": times, "R": result["rmag"], "z": result["zmag"]},
+        fmin + np.abs(tfuncs(time)),
+        {"t": time, "R": result["rmag"], "z": result["zmag"]},
         ["t"],
         name="faxs",
         attrs=attrs,
@@ -922,7 +914,7 @@ def fake_equilibrium_data(
                 np.abs(machine_dims[0][1] - result["rmag"]),
             ),
         ),
-        coords=[("t", times)],
+        coords=[("t", time)],
     )
 
     if Btot_factor is None:
@@ -933,13 +925,13 @@ def fake_equilibrium_data(
                     np.abs(machine_dims[1][1] - result["zmag"].data),
                 ),
             ),
-            coords=[("t", times)],
+            coords=[("t", time)],
         )
         n_exp = 0.5
         fmax = 5.0
         result["fbnd"] = DataArray(
-            fmax - np.abs(tfuncs(times)),
-            coords=[("t", times)],
+            fmax - np.abs(tfuncs(time)),
+            coords=[("t", time)],
             name="fbnd",
             attrs=attrs,
         )
@@ -951,7 +943,7 @@ def fake_equilibrium_data(
             np.vectorize(lambda axs, diff: axs + 0.03 * diff)(
                 result["faxs"], fdiff_max.values
             ),
-            coords=[("t", times)],
+            coords=[("t", time)],
             name="fbnd",
             attrs=attrs,
         )
@@ -985,8 +977,8 @@ def fake_equilibrium_data(
     ftor_min = 0.1
     ftor_max = 5.0
     result["ftor"] = DataArray(
-        np.outer(1 + tfuncs(times), monotonic_series(ftor_min, ftor_max, nspace)),
-        coords=[("t", times), ("rho_poloidal", rho1d)],
+        np.outer(1 + tfuncs(time), monotonic_series(ftor_min, ftor_max, nspace)),
+        coords=[("t", time), ("rho_poloidal", rho1d)],
         name="ftor",
         attrs=attrs,
     )
@@ -1044,7 +1036,7 @@ def fake_equilibrium_data(
     if Btot_factor is None:
         f_min = 0.1
         f_max = 5.0
-        time_vals = tfuncs(times)
+        time_vals = tfuncs(time)
         space_vals = monotonic_series(f_min, f_max, nspace)
         f_raw = np.outer(abs(1 + time_vals), space_vals)
     else:
@@ -1058,7 +1050,7 @@ def fake_equilibrium_data(
         f_raw[:, 0] = Btot_factor
 
     result["f"] = DataArray(
-        f_raw, coords=[("t", times), ("rho_poloidal", rho1d)], name="f", attrs=attrs
+        f_raw, coords=[("t", time), ("rho_poloidal", rho1d)], name="f", attrs=attrs
     )
     result["f"].attrs["datatype"] = ("f_value", "plasma")
 
