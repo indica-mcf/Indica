@@ -240,8 +240,7 @@ class ProfilerBasis(Profiler):
         Builds the profile from basis functions using the parameters set
         """
         y = self.construct_profile()
-        y = xr.DataArray(y, coords=[(self.coord, self.radial_grid)])
-        return y
+        return xr.DataArray(y, coords=[(self.coord, self.radial_grid)])
 
 
 def get_defaults(datatype: str) -> dict:
