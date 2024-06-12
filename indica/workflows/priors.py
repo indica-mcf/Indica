@@ -27,27 +27,28 @@ class PriorBasis:
         return self.kernel.pdf(param)
 
 
+# Move this to a config
 DEFAULT_PRIORS = {
     "ion_temperature.y0": get_uniform(1000, 10000),
-    "ion_temperature.y1": get_uniform(0, 500),
+    "ion_temperature.y1": get_uniform(10, 50),
     "ion_temperature.wped": get_uniform(1, 6),
     "ion_temperature.wcenter": get_uniform(0.2, 0.4),
     "ion_temperature.peaking": get_uniform(1, 6),
 
     "electron_density.y0": get_uniform(2e19, 4e20),
-    "electron_density.y1": get_uniform(1e18, 2e19),
+    "electron_density.y1": get_uniform(1e18, 1e19),
     "electron_density.wped": loguniform(2, 20),
     "electron_density.wcenter": get_uniform(0.2, 0.4),
     "electron_density.peaking": get_uniform(1, 4),
 
     "electron_temperature.y0": get_uniform(1000, 5000),
-    "electron_temperature.y1": get_uniform(0, 500),
+    "electron_temperature.y1": get_uniform(10, 50),
     "electron_temperature.wped": get_uniform(1, 6),
     "electron_temperature.wcenter": get_uniform(0.2, 0.4),
     "electron_temperature.peaking": get_uniform(1, 4),
 
-    "impurity_density:ar.y0": loguniform(1e16, 1e18),
-    "impurity_density:ar.y1": loguniform(1e14, 1e16),
+    "impurity_density:ar.y0": loguniform(1.01e16, 1e18),
+    "impurity_density:ar.y1": loguniform(1e16, 1.01e16),
     "impurity_density:ar.wped": get_uniform(2, 6),
     "impurity_density:ar.wcenter": get_uniform(0.2, 0.4),
     "impurity_density:ar.peaking": get_uniform(1, 6),
