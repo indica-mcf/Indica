@@ -31,6 +31,7 @@ class Profiler(ABC):
         """
         for k, v in kwargs.items():
             setattr(self, k, v)
+        self.parameters.update(**kwargs)
 
     def get_parameters(self):
         """
@@ -228,6 +229,7 @@ class ProfilerBasis(Profiler):
         for icomp in range(self.ncomps):
             param_name = f"weight_{icomp + 1}"
             self.parameters[param_name] = 0
+            setattr(self, param_name, 0)
 
     def construct_profile(self, ):
         weights = np.stack([weight for weight_name, weight in self.parameters.items()], axis=-1).T
