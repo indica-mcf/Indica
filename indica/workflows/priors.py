@@ -1,10 +1,28 @@
-from scipy.stats import loguniform, uniform
+from scipy.stats import loguniform, uniform, gaussian_kde
 import numpy as np
 
 def get_uniform(lower, upper):
     # Less confusing parametrisation of scipy.stats uniform
     return uniform(loc=lower, scale=upper - lower)
 
+
+class PriorBasis:
+    """
+    Basis Function prior built to work with scipy.stats rvs and pdf methods
+    evaluating pdf is a bit of a bottleneck ~ 2ms per point
+    """
+    def __init__(self,
+                 kernel: gaussian_kde = None
+                 ):
+        self.kernel = kernel
+        if self.kernel.d != 1:
+            raise ValueError(f"prior kernel must be 1D not {self.kernel.d}D")
+
+    def rvs(self, size):
+        return self.kernel.resample(size=size).squeeze()
+
+    def pdf(self, param):
+        return self.kernel.pdf(param)
 
 DEFAULT_PRIORS = {
     "ion_temperature.y0": get_uniform(1000, 10000),
