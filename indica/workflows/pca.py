@@ -113,6 +113,11 @@ def _plot_projected_priors(Z, meshgrid, pca_profiles, profile_name):
         plt.plot(pca_profiles[:, 0], pca_profiles[:, 1], "ok", label="inputs")
         plt.legend()
         plt.colorbar()
+    if Z.ndim == 3:
+        plt.figure()
+        axs = plt.axes(projection="3d")
+        axs.scatter3D(pca_profiles[:,0], pca_profiles[:,1], pca_profiles[:,2])
+
 
 
 def _plot_KDE_comparison(kernels: Dict[str, gaussian_kde], prior: LinearNDInterpolator, size=1000):
@@ -224,7 +229,7 @@ def sample_gauss_profiles(sample_params: Dict[str, np.ndarray], profilers: dict,
 
 
 if __name__ == "__main__":
-    pca_processor, pca_profilers = pca_workflow(PriorManager(), ["electron_temperature", "impurity_density:ar"],
-                                      np.linspace(0, 1, 30), n_components=2, num_prof_samples=int(1e3))
+    pca_processor, pca_profilers = pca_workflow(PriorManager(), ["electron_temperature", ],
+                                      np.linspace(0, 1, 30), n_components=3, num_prof_samples=int(1e3))
     pca_processor.plot_all()
     plt.show(block=True)
