@@ -1,3 +1,7 @@
+from abc import abstractmethod, ABC
+from enum import Enum
+from typing import Callable
+
 from scipy.stats import loguniform, uniform, gaussian_kde
 import numpy as np
 
@@ -6,44 +10,23 @@ def get_uniform(lower, upper):
     # Less confusing parametrisation of scipy.stats uniform
     return uniform(loc=lower, scale=upper - lower)
 
-
-class PriorBasis:
-    """
-    Basis Function prior built to work with scipy.stats rvs and pdf methods
-    evaluating pdf is a bit of a bottleneck ~ 2ms per point
-    """
-
-    def __init__(self,
-                 kernel: gaussian_kde = None
-                 ):
-        self.kernel = kernel
-        if self.kernel.d != 1:
-            raise ValueError(f"prior kernel must be 1D not {self.kernel.d}D")
-
-    def rvs(self, size):
-        return self.kernel.resample(size=size).squeeze()
-
-    def pdf(self, param):
-        return self.kernel.pdf(param)
-
-
 # Move this to a config
 DEFAULT_PRIORS = {
     "ion_temperature.y0": get_uniform(1000, 10000),
-    "ion_temperature.y1": get_uniform(10, 50),
-    "ion_temperature.wped": get_uniform(1, 6),
+    "ion_temperature.y1": get_uniform(50, 50.1),
+    "ion_temperature.wped": get_uniform(1, 10),
     "ion_temperature.wcenter": get_uniform(0.2, 0.4),
-    "ion_temperature.peaking": get_uniform(1, 6),
+    "ion_temperature.peaking": get_uniform(1, 10),
 
-    "electron_density.y0": get_uniform(2e19, 4e20),
+    "electron_density.y0": get_uniform(2e19, 2e20),
     "electron_density.y1": get_uniform(1e18, 1e19),
     "electron_density.wped": loguniform(2, 20),
     "electron_density.wcenter": get_uniform(0.2, 0.4),
     "electron_density.peaking": get_uniform(1, 4),
 
     "electron_temperature.y0": get_uniform(1000, 5000),
-    "electron_temperature.y1": get_uniform(10, 50),
-    "electron_temperature.wped": get_uniform(1, 6),
+    "electron_temperature.y1": get_uniform(50, 50.1),
+    "electron_temperature.wped": get_uniform(1, 10),
     "electron_temperature.wcenter": get_uniform(0.2, 0.4),
     "electron_temperature.peaking": get_uniform(1, 4),
 
@@ -61,23 +44,97 @@ DEFAULT_PRIORS = {
 }
 
 DEFAULT_COND_PRIORS = {
+    "electron_temperature.y0/electron_temperature.y1": lambda x1, x2: np.where(
+        (x1 > x2 * 2), 1, 0
+    ),
     "electron_density.y0/electron_density.y1": lambda x1, x2: np.where(
         (x1 > x2 * 2), 1, 0
     ),
-    "electron_density.y0/impurity_density:ar.y0": lambda x1, x2: np.where(
-        (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
-    ),
+    # "electron_density.y0/impurity_density:ar.y0": lambda x1, x2: np.where(
+    #     (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
+    # ),
     "impurity_density:ar.y0/impurity_density:ar.y1": lambda x1, x2: np.where(
         (x1 > x2), 1, 0
     ),
-    "impurity_density:ar.peaking/electron_density.peaking": lambda x1, x2: np.where(
-        (x1 > x2), 1, 0
-    ),  # impurity always more peaked
+    # "impurity_density:ar.peaking/electron_density.peaking": lambda x1, x2: np.where(
+    #     (x1 > x2), 1, 0
+    # ),  # impurity always more peaked
+    "ion_temperature.y0/ion_temperature.y1": lambda x1, x2: np.where(
+        (x1 > x2 * 2), 1, 0
+    ),
     # "ion_temperature.y0/electron_temperature.y0": lambda x1, x2: np.where(
     #     x1 > x2, 1, 0
     # ),  # hot ion mode
 
 }
+
+
+class PriorType(Enum):
+    BASIC = 1
+    COND = 2
+    COMPOUND = 3
+
+
+class Prior(ABC):
+    def __init__(self,
+                 prior_func: Callable = None,
+                 labels: tuple = None,
+                 type: PriorType = None,
+                 ):
+        self.prior_func = prior_func
+        self.labels = labels  # to identify mapping between prior names and ndim prior funcs
+        self.type = type
+
+    @abstractmethod
+    def pdf(self, value):
+        return None
+
+    @abstractmethod
+    def rvs(self, size):
+        return None
+
+
+class PriorBasic(Prior):
+    def __init__(self,
+                 prior_func: Callable = None,
+                 labels: tuple = None
+                 ):
+        super().__init__(prior_func=prior_func, labels=labels, type=PriorType.BASIC)
+
+    def pdf(self, value):
+        return self.prior_func.pdf(value)
+
+    def rvs(self, size):
+        return self.prior_func.rvs(size)
+
+
+class PriorCond(Prior):
+    def __init__(self,
+                 prior_func: Callable = None,
+                 labels: tuple = None,
+                 ):
+        super().__init__(prior_func=prior_func, labels=labels, type=PriorType.COND)
+
+    def pdf(self, *values):
+        return self.prior_func(*values)
+
+    def rvs(self, size):
+        return None
+
+
+class PriorCompound(Prior):
+    def __init__(self,
+                 prior_func: gaussian_kde = None,
+                 labels: tuple = None,
+                 ):
+        super().__init__(labels=labels, type=PriorType.COMPOUND)
+        self.prior_func = prior_func
+
+    def pdf(self, *values):
+        return self.prior_func(np.array(values))
+
+    def rvs(self, size):
+        return self.prior_func.resample(size).T
 
 
 class PriorManager:
@@ -90,63 +147,87 @@ class PriorManager:
             prior_funcs = DEFAULT_PRIORS
         if cond_prior_funcs is None:
             cond_prior_funcs = DEFAULT_COND_PRIORS
+        self.compound_prior_funcs = {}
 
-        self.cond_funcs = cond_prior_funcs
         self.prior_funcs = prior_funcs
-        self.priors = {**prior_funcs, **cond_prior_funcs}
+        self.cond_prior_funcs = cond_prior_funcs
 
-    def update_priors(self, new_params: dict):
-        self.priors.update(new_params)
+        #  Create these somewhere else
+        self.priors: dict = {}
+        for name, prior in self.prior_funcs.items():
+            self.priors[name] = PriorBasic(prior, labels=tuple([name]))
+        for name, prior in self.cond_prior_funcs.items():
+            self.priors[name] = PriorCond(prior, labels=tuple(name.split("/")))
+
+    def update_priors(self, new_priors: dict):
+        #  Remove old priors matching new_priors prefixes
+        prior_prefixes_to_remove = list(set([key.split(".")[0] for key in new_priors.keys()]))
+        priors_to_remove = [prior_name for prior_name in self.priors.keys() if
+                            any(prior_name for prefix in prior_prefixes_to_remove if prefix in prior_name)]
+        print(f"Discarding priors: {priors_to_remove}")
+        print(f"Updating with {new_priors.keys()}")
+        for prior_name in priors_to_remove:
+            self.priors.pop(prior_name)
+        self.priors.update(new_priors)
+
+    def get_prior_names_for_profiles(self, profile_names: list) -> list:
+        #  All priors that correspond to the profile_names given
+        prior_names = [prior_name for prior_name, prior in self.priors.items() for profile_name in profile_names if
+                       profile_name in str(prior.labels)]
+
+        return prior_names
+
+    def get_param_names_for_profiles(self, profile_names: list) -> list:
+        #  All param names that correspond to the profile_names given
+        param_names = [list(prior.labels) for prior_name, prior in self.priors.items() for profile_name in profile_names if
+                       profile_name in str(prior.labels)]
+        unpacked_names = [param_name for param_name_list in param_names for param_name in param_name_list]
+        unique_param_names = list(set(unpacked_names))
+        return unique_param_names
 
     def ln_prior(self, parameters: dict):
         # refactor ln_prior to be generalisable / define interface between cond and regular priors
-        return ln_prior(priors={**self.prior_funcs, **self.cond_funcs}, parameters=parameters)
-
-    def get_prior_names_from_profile_names(self, profile_names: list) -> list:
-
-        prior_names = [prior_name for prior_name in self.priors for profile_name in profile_names if
-                       "/" not in prior_name and profile_name in prior_name]
-
-        return prior_names
+        return ln_prior(priors=self.priors, parameters=parameters)
 
 
 def ln_prior(priors: dict, parameters: dict):
     ln_prior = 0
-    for prior_name, prior_func in priors.items():
-        param_names_in_prior = [x for x in parameters.keys() if x in prior_name]
+
+    for prior_name, prior in priors.items():
+        param_names_in_prior = [x for x in prior.labels if x in parameters.keys()]
         if param_names_in_prior.__len__() == 0:
             # if prior assigned but no parameter then skip
             continue
-        param_values = [parameters[x] for x in param_names_in_prior]
-        if hasattr(prior_func, "pdf"):
-            # for scipy.stats objects use pdf / for lambda functions just call
-            ln_prior += np.log(prior_func.pdf(*param_values))
-        else:
-            # if lambda prior with 2+ args is defined when only 1 of
-            # its parameters is given ignore it
-            if prior_func.__code__.co_argcount != param_values.__len__():
-                continue
-            else:
-                # Sorting to make sure args are given in the same order
-                # as the prior_name string
-                name_index = [
-                    prior_name.find(param_name_in_prior)
-                    for param_name_in_prior in param_names_in_prior
-                ]
-                sorted_name_index, sorted_param_values = (
-                    list(x) for x in zip(*sorted(zip(name_index, param_values)))
-                )
-                ln_prior += np.log(prior_func(*sorted_param_values))
+        # if not all relevant params given then ignore prior (important for conditional priors)
+        if param_names_in_prior.__len__() != prior.labels.__len__():
+            continue
+        param_values = np.array([parameters[x] for x in param_names_in_prior])
+        ln_prior += np.log(prior.pdf(*param_values))
     return ln_prior
 
 
 def sample_from_priors(param_names: list, priors: dict, size=10):
-    #  Throw out samples that don't meet conditional priors and redraw
     samples = np.empty((param_names.__len__(), 0))
     while samples.size < param_names.__len__() * size:
-        # Some mangling of dictionaries so _ln_prior works
         # Increase 'size * n' if too slow / looping too much
-        new_sample = {name: priors[name].rvs(size=size * 2) for name in param_names}
+        _new_sample = {}
+        for prior_name, prior in priors.items():
+            if any([label not in param_names for label in prior.labels]):
+                continue
+            if prior.type is PriorType.BASIC:
+                _new_sample[prior_name] = prior.rvs(size=size * 2)
+            elif prior.type is PriorType.COMPOUND:
+                tuple_sample = prior.rvs(size=size * 2)
+                for idx, value in enumerate(prior.labels):
+                    _new_sample[value] = tuple_sample[:, idx]
+            elif prior.type is PriorType.COND:
+                continue
+            else:
+                raise TypeError(f"{prior} is not a version of {PriorType}")
+
+        #  Due to looping over priors the samples need to be reordered to match param_names ordering
+        new_sample = {param_name: _new_sample[param_name] for param_name in param_names}
+        #  Throw out samples that don't meet conditional priors and redraw
         _ln_prior = ln_prior(priors, new_sample)
         # Convert from dictionary of arrays -> array,
         # then filtering out where ln_prior is -infinity
@@ -188,3 +269,11 @@ def sample_from_high_density_region(
     start_points = samples[:, 0:nwalkers].transpose()
     return start_points
 
+
+if __name__ == "__main__":
+    pm = PriorManager()
+    post = pm.ln_prior({"electron_density.y0": 1e20, "electron_density.y1": 1e19})
+    samples = sample_from_priors(["electron_density.y0", "electron_density.y1"], pm.priors)
+
+    print(post)
+    print(samples)
