@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Callable, Tuple
+from typing import Dict, Tuple
 
 import numpy as np
 import xarray as xr
@@ -25,8 +25,6 @@ def fit_pca(profiles: np.ndarray, ncomps, verbose=True) -> Tuple[np.ndarray, PCA
 
 
 def fit_linear_prior(pca_profiles: np.ndarray, prior_values=None, ) -> LinearNDInterpolator:
-    # TODO: add non 1 or 0 prior evaluations
-    # each profile has a prior value
     if prior_values is None:
         prior_values = np.ones(shape=pca_profiles.shape[0])
 
