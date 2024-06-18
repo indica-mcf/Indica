@@ -19,6 +19,7 @@ def sample_with_moments(
     n_params,
     auto_sample=10,
     stopping_factor=0.01,
+    tune=False,
     debug=False,
 ):
     # TODO: Compare old_chain to new_chain
@@ -32,6 +33,7 @@ def sample_with_moments(
         iterations=iterations,
         progress=True,
         skip_initial_state_check=False,
+        tune=tune,
     ):
         if sampler.iteration % auto_sample:
             continue
@@ -153,7 +155,7 @@ class EmceeOptimiser(OptimiserContext):
         self.model_kwargs = model_kwargs
         self.ndim = len(self.optimiser_settings.param_names)
         self.move = [
-            (DIMEMove(), 1.0)  # differential independence mixture ensemble
+            (DIMEMove(aimh_prob=0.1), 1.0)  # differential independence mixture ensemble
             # (emcee.moves.StretchMove(), 1.0),
             # (emcee.moves.DEMove(), 0.1),
             # (emcee.moves.DEMove(), 0.9 * 0.9),

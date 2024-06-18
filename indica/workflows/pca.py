@@ -4,18 +4,17 @@ from typing import Dict, Callable, Tuple
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
-import flatdict
 
 from sklearn.decomposition import PCA
 from scipy.interpolate import LinearNDInterpolator
 from scipy.stats import gaussian_kde
 
 from indica.workflows.plasma_profiler import initialise_gauss_profilers
-from indica.workflows.priors import PriorManager, PriorBasis, sample_from_priors
-from indica.profilers import Profiler, ProfilerBasis
+from indica.workflows.priors import PriorManager, sample_from_priors, PriorCompound
+from indica.profilers import ProfilerBasis
 
 
-def pca_fit(profiles: np.ndarray, ncomps, verbose=True) -> Tuple[np.ndarray, PCA]:
+def fit_pca(profiles: np.ndarray, ncomps, verbose=True) -> Tuple[np.ndarray, PCA]:
     pca = PCA(n_components=ncomps)
     pca.fit(profiles)
     pca_profiles = pca.transform(profiles)
@@ -25,7 +24,7 @@ def pca_fit(profiles: np.ndarray, ncomps, verbose=True) -> Tuple[np.ndarray, PCA
     return pca_profiles, pca
 
 
-def fit_priors(pca_profiles: np.ndarray, prior_values=None, ) -> LinearNDInterpolator:
+def fit_linear_prior(pca_profiles: np.ndarray, prior_values=None, ) -> LinearNDInterpolator:
     # TODO: add non 1 or 0 prior evaluations
     # each profile has a prior value
     if prior_values is None:
@@ -35,16 +34,7 @@ def fit_priors(pca_profiles: np.ndarray, prior_values=None, ) -> LinearNDInterpo
     return prior_fit
 
 
-def project_priors(prior_fit, pca_profiles) -> Tuple[np.ndarray, np.ndarray]:
-    grid = [np.linspace(pca_profiles[:, dim].max(), pca_profiles[:, dim].min(), 100)
-            for dim in range(pca_profiles.shape[1])]
-    mesh_grid = np.meshgrid(*grid)
-    Z = prior_fit(*mesh_grid)
-
-    return Z, mesh_grid
-
-
-def fit_KDE_prior(linear_fit: LinearNDInterpolator, size=100000) -> gaussian_kde:
+def fit_kde_prior(linear_fit: LinearNDInterpolator, size=int(1e5)) -> gaussian_kde:
     sampled_points = linear_fit.points
     min = sampled_points.min(axis=0)
     max = sampled_points.max(axis=0)
@@ -53,9 +43,7 @@ def fit_KDE_prior(linear_fit: LinearNDInterpolator, size=100000) -> gaussian_kde
     random_points = np.array([np.random.uniform(r[0], r[1], size=size) for r in ranges])
     accepted_points = random_points[:, linear_fit(*random_points).nonzero()[0]]
     kernel = gaussian_kde(accepted_points)
-
-    marginalised_kernels = {f"weight_{i + 1}": kernel.marginal(i) for i in range(kernel.d)}
-    return marginalised_kernels
+    return kernel
 
 
 def _reconstruct_profile(basis_function: np.ndarray, bias: np.ndarray, weights: np.ndarray, ):
@@ -105,31 +93,20 @@ def _plot_profile_fits(profiles: np.ndarray, projected_profiles: np.ndarray, pro
     return
 
 
-def _plot_projected_priors(Z, meshgrid, pca_profiles, profile_name):
-    if Z.ndim == 2:
-        plt.figure()
-        plt.title(f"{profile_name}: priors")
-        plt.pcolormesh(meshgrid[0], meshgrid[1], Z, shading="auto")
-        plt.plot(pca_profiles[:, 0], pca_profiles[:, 1], "ok", label="inputs")
-        plt.legend()
-        plt.colorbar()
-    if Z.ndim == 3:
-        plt.figure()
-        axs = plt.axes(projection="3d")
-        axs.scatter3D(pca_profiles[:,0], pca_profiles[:,1], pca_profiles[:,2])
+def _plot_KDE_comparison(kernel: gaussian_kde, prior: LinearNDInterpolator, size=1000):
+    sample = kernel.resample(size).T
 
-
-
-def _plot_KDE_comparison(kernels: Dict[str, gaussian_kde], prior: LinearNDInterpolator, size=1000):
     plt.figure()
-    sample = [kernel.resample(size) for name, kernel in kernels.items()]
-
-    values = prior(*sample)
-    accepted_mask = values != 0
-
     plt.title("KDE Samples")
-    plt.plot(sample[0][accepted_mask], sample[1][accepted_mask], "gx", label="accepted")
-    plt.plot(sample[0][np.invert(accepted_mask)], sample[1][np.invert(accepted_mask)], "rx", label="rejected")
+    if kernel.d == 3:
+        axs = plt.axes(projection="3d")
+        axs.scatter3D(sample[:, 0], sample[:, 1], sample[:, 2], color="r", label="KDE Samples")
+        axs.scatter3D(prior.points[:, 0], prior.points[:, 1], prior.points[:, 2], color="k", label="Prior Samples")
+
+    if kernel.d == 2:
+        axs = plt.axes(projection="2d")
+        axs.scatter(sample[:, 0], sample[:, 1], color="r", label="KDE Samples")
+        axs.scatter(prior.points[:, 0], prior.points[:, 1], color="k", label="Prior Samples")
     plt.legend()
 
 
@@ -141,12 +118,9 @@ class PCAProcessor:
     pca_weights: Dict[str, np.ndarray] = field(default_factory=lambda: {})  # (nsamples, ncomps)
     reconstructed_profiles: Dict[str, np.ndarray] = field(default_factory=lambda: {})  # (nsamples, xspl)
     pca_fits: Dict[str, PCA] = field(default_factory=lambda: {})
-    prior_fits: Dict[str, LinearNDInterpolator] = field(default_factory=lambda: {})
 
-    projected_priors: Dict[str, np.ndarray] = field(default_factory=lambda: {})  # (nsamples, ncomps)
-    projected_prior_meshgrid: Dict[str, np.ndarray] = field(default_factory=lambda: {})  # (nsamples, nsamples, ...)
-    KDE_priors: Dict[str, gaussian_kde] = field(default_factory=lambda: {})
-    conditional_priors: Dict[str, Callable] = field(default_factory=lambda: {})
+    linear_prior: Dict[str, LinearNDInterpolator] = field(default_factory=lambda: {})
+    kde_prior: Dict[str, gaussian_kde] = field(default_factory=lambda: {})
 
     def __post_init__(self):
         """
@@ -155,33 +129,22 @@ class PCAProcessor:
 
         for profile_name in self.gaussian_profiles.keys():
             print(f"PCA Profile: {profile_name}")
-            self.pca_weights[profile_name], self.pca_fits[profile_name] = pca_fit(
+            self.pca_weights[profile_name], self.pca_fits[profile_name] = fit_pca(
                 self.gaussian_profiles[profile_name], self.ncomps)
-
-            self.prior_fits[profile_name] = fit_priors(self.pca_weights[profile_name])
-            name = "/".join([f"{profile_name}.basis_{i + 1}" for i in range(self.ncomps)])
-
-            self.conditional_priors[name] = self.prior_fits[profile_name]
             self.reconstructed_profiles[profile_name] = _reconstruct_profile(
                 self.pca_fits[profile_name].components_,
                 self.pca_fits[profile_name].mean_,
                 self.pca_weights[profile_name], )
 
-            self.projected_priors[profile_name], self.projected_prior_meshgrid[profile_name] = \
-                project_priors(self.prior_fits[profile_name], self.pca_weights[profile_name])
-            self.KDE_priors[profile_name] = fit_KDE_prior(self.prior_fits[profile_name], )
-        self.basis_priors = flatdict.FlatDict(self.KDE_priors, ".")
+            self.linear_prior[profile_name] = fit_linear_prior(self.pca_weights[profile_name])
+            self.kde_prior[profile_name] = fit_kde_prior(self.linear_prior[profile_name], )
 
     def plot_profile(self, profile_name: str):
 
         _plot_profile_fits(self.gaussian_profiles[profile_name], self.reconstructed_profiles[profile_name],
                            profile_name)
         _plot_principle_comps(self.pca_fits[profile_name], profile_name)
-        _plot_projected_priors(self.projected_priors[profile_name],
-                               self.projected_prior_meshgrid[profile_name],
-                               self.pca_weights[profile_name],
-                               profile_name)
-        _plot_KDE_comparison(self.KDE_priors[profile_name], self.prior_fits[profile_name])
+        _plot_KDE_comparison(self.kde_prior[profile_name], self.linear_prior[profile_name])
 
     def plot_all(self):
         for name in self.gaussian_profiles.keys():
@@ -191,16 +154,19 @@ class PCAProcessor:
 
 def pca_workflow(prior_manager: PriorManager, opt_profiles: list, x_grid: xr.DataArray,
                  n_components=2, num_prof_samples: int = int(1e4)):
-    prior_names = prior_manager.get_prior_names_from_profile_names(opt_profiles)
-    param_samples: np.ndarray = sample_from_priors(prior_names, prior_manager.priors, size=num_prof_samples)
+    param_names = prior_manager.get_param_names_for_profiles(opt_profiles)
+    param_samples: np.ndarray = sample_from_priors(param_names, prior_manager.priors, size=num_prof_samples)
     param_samples: Dict[str, np.ndarray] = \
-        {prior_name: param_samples[:, idx] for idx, prior_name in enumerate(prior_names)}
+        {param_name: param_samples[:, idx] for idx, param_name in enumerate(param_names)}
 
     profilers = initialise_gauss_profilers(xspl=x_grid, profiler_names=opt_profiles)
     profiles = sample_gauss_profiles(param_samples, profilers=profilers, size=num_prof_samples)
 
     pca_processor = PCAProcessor(gaussian_profiles=profiles, ncomps=n_components)
-    pca_processor.basis_priors = {key: PriorBasis(kernel=value) for key, value in pca_processor.basis_priors.items()}
+    pca_processor.compound_priors = {f"{key}.kde":
+                                         PriorCompound(prior_func=kernel, labels=tuple(f"{key}.weight_{i + 1}"
+                                                                                       for i in range(kernel.d))) for
+                                     key, kernel in pca_processor.kde_prior.items()}
 
     new_profilers = {}
     for profile_name, _profiles in profiles.items():
@@ -230,6 +196,6 @@ def sample_gauss_profiles(sample_params: Dict[str, np.ndarray], profilers: dict,
 
 if __name__ == "__main__":
     pca_processor, pca_profilers = pca_workflow(PriorManager(), ["electron_temperature", ],
-                                      np.linspace(0, 1, 30), n_components=3, num_prof_samples=int(1e3))
+                                                np.linspace(0, 1, 30), n_components=3, num_prof_samples=int(1e3))
     pca_processor.plot_all()
     plt.show(block=True)
