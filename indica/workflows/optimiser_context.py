@@ -155,7 +155,7 @@ class EmceeOptimiser(OptimiserContext):
         self.model_kwargs = model_kwargs
         self.ndim = len(self.optimiser_settings.param_names)
         self.move = [
-            (DIMEMove(aimh_prob=0.1), 1.0)  # differential independence mixture ensemble
+            (DIMEMove(aimh_prob=0.2), 1.0)  # differential independence mixture ensemble
             # (emcee.moves.StretchMove(), 1.0),
             # (emcee.moves.DEMove(), 0.1),
             # (emcee.moves.DEMove(), 0.9 * 0.9),
