@@ -5,9 +5,11 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 import emcee
+from dime_sampler import DIMEMove
+
 from scipy.stats import describe
-from indica.bayesblackbox import BayesBlackBox
-from indica.workflows.priors import sample_from_priors, PriorManager, sample_from_high_density_region
+
+from indica.workflows.priors import sample_from_priors, PriorManager, ln_prior
 
 
 def sample_with_moments(
@@ -116,7 +118,7 @@ class OptimiserEmceeSettings:
     starting_samples: int = 100
     stopping_criteria: str = "mode"
     stopping_criteria_factor: float = 0.01
-    stopping_criteria_sample: int = 20
+    stopping_criteria_sample: int = 10
     stopping_criteria_debug: bool = False
 
 
@@ -151,10 +153,12 @@ class EmceeOptimiser(OptimiserContext):
         self.model_kwargs = model_kwargs
         self.ndim = len(self.optimiser_settings.param_names)
         self.move = [
-            (emcee.moves.StretchMove(), 0.0),
-            (emcee.moves.DEMove(), 0.9 * 0.9),
-            (emcee.moves.DESnookerMove(), 0.1),
-            (emcee.moves.DESnookerMove(gammas=1.0), 0.9 * 0.1)
+            (DIMEMove(), 1.0)  # differential independence mixture ensemble
+            # (emcee.moves.StretchMove(), 1.0),
+            # (emcee.moves.DEMove(), 0.1),
+            # (emcee.moves.DEMove(), 0.9 * 0.9),
+            # (emcee.moves.DESnookerMove(), 0.1),
+            # (emcee.moves.DESnookerMove(gammas=1.0), 0.9 * 0.1)
         ]
 
 
@@ -174,7 +178,6 @@ class EmceeOptimiser(OptimiserContext):
     ):
 
         if self.optimiser_settings.sample_method == "high_density":
-
             self.start_points = sample_from_high_density_region(
                 param_names=self.optimiser_settings.param_names,
                 priors=self.prior_manager.priors,
@@ -182,7 +185,6 @@ class EmceeOptimiser(OptimiserContext):
                 nwalkers=self.optimiser_settings.nwalkers,
                 nsamples=self.optimiser_settings.starting_samples,
             )
-
         elif self.optimiser_settings.sample_method == "random":
             self.start_points = sample_from_priors(
                 param_names=self.optimiser_settings.param_names,
@@ -240,7 +242,7 @@ class EmceeOptimiser(OptimiserContext):
         results["prior_sample"] = sample_from_priors(
             self.optimiser_settings.param_names,
             self.prior_manager.priors,
-            size=int(1e4),
+            size=int(5e3),
         )
 
         post_sample = self.optimiser.get_chain(
@@ -264,3 +266,37 @@ class EmceeOptimiser(OptimiserContext):
         results["auto_corr"] = self.autocorr
         return results
 
+
+def sample_from_high_density_region(
+        param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
+):
+    num_best_points = 2
+    index_best_start = []
+
+    while index_best_start.__len__() < num_best_points:
+        start_points = sample_from_priors(param_names, priors, size=nsamples)
+        ln_prob, _ = optimiser.compute_log_prob(start_points)
+        good_indices = np.argsort(ln_prob)[-num_best_points:]
+        index_best_start.extend(good_indices)
+
+    index_best_start[:num_best_points] = index_best_start[:num_best_points]
+    best_start_points = start_points[index_best_start, :]
+    # Passing samples through ln_prior and redrawing if they fail
+    samples = np.empty((param_names.__len__(), 0))
+    while samples.size < param_names.__len__() * nwalkers:
+        sample = np.random.uniform(
+            np.min(best_start_points, axis=0),
+            np.max(best_start_points, axis=0),
+            size=(nwalkers * 2, len(param_names)),
+        )
+        start = {name: sample[:, idx] for idx, name in enumerate(param_names)}
+        _ln_prior = ln_prior(
+            priors,
+            start,
+        )
+        # Convert from dictionary of arrays -> array,
+        # then filtering out where ln_prior is -infinity
+        accepted_samples = np.array(list(start.values()))[:, _ln_prior != -np.inf]
+        samples = np.append(samples, accepted_samples, axis=1)
+    start_points = samples[:, 0:nwalkers].transpose()
+    return start_points
