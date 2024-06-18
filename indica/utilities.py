@@ -353,8 +353,17 @@ def format_dataarray(
     else:
         _data = data
 
+    """
+    old
+        if len(coords) != 0:
+            data_array = DataArray(_data, coords=coords)
+    """
+    processed_coords = {name: coord.data if isinstance(coord, DataArray) else coord for name, coord in coords}
+
     if len(coords) != 0:
-        data_array = DataArray(_data, coords=coords)
+        data_array = DataArray(_data, coords=processed_coords, name=var_name)
+
+    
     else:
         if type(_data) != DataArray:
             raise ValueError("data must be a DataArray if coordinates are not given")
