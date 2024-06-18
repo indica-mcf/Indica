@@ -59,9 +59,9 @@ class BayesBlackBox:
         time_coord = self.plasma_profiler.plasma.time_to_calculate
 
         for key in self.quant_to_optimise:
-            model_data = self.bckc[key]
-            exp_data = self.opt_data[key].sel(t=time_coord)
-            exp_error = exp_data.error
+            model_data = self.bckc[key].astype("float128")
+            exp_data = self.opt_data[key].sel(t=time_coord).astype("float128")
+            exp_error = exp_data.error.astype("float128")
 
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
             # treat channel as key dim which isn't averaged like other dims

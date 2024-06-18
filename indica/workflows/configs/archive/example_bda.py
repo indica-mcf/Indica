@@ -14,26 +14,18 @@ quant_to_optimise = [
                     "ts.te"]
 
 param_names = [
-    # "electron_density.y1",
-    # "electron_density.y0",
-    # "electron_density.peaking",
-    # "electron_density.wcenter",
-    # "electron_density.wped",
-    # "impurity_density:ar.y1",
     "impurity_density:ar.y0",
     # "impurity_density:ar.wcenter",
     # "impurity_density:ar.wped",
     # "impurity_density:ar.peaking",
-    # "electron_temperature.y0",
-    # "electron_temperature.wped",
-    # "electron_temperature.wcenter",
-    # "electron_temperature.peaking",
     "ion_temperature.y0",
     # "ion_temperature.wped",
     "ion_temperature.wcenter",
     "ion_temperature.peaking",
 ]
 
+pca_profiles = ["ion_temperature", "impurity_density:ar"]
+pca_components = 3
 
 plasma_settings = dict(
     main_ion="h",
@@ -57,9 +49,9 @@ apply_rshift = True
 tstart = 0.05
 tend = 0.06
 dt = 0.01
-starting_samples = 200
+starting_samples = 100
 iterations = 3000
-nwalkers = 10
+nwalkers = 16
 stopping_criteria_factor = 0.001
 sample_method = "high_density"
 stopping_criteria = "mode"
