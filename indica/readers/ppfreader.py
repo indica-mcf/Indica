@@ -104,60 +104,59 @@ class PPFReader(DataReader):
     }
     _IMPLEMENTATION_QUANTITIES = {
         "hrts": {
-            "ne": ("number_density", "electrons"),
-            "te": ("temperature", "electrons"),
+            "ne": "electron_density",
+            "te": "electron_temperature",
         },
         "lidr": {
-            "ne": ("number_density", "electrons"),
-            "te": ("temperature", "electrons"),
+            "ne": "electron_density",
+            "te": "electron_temperature",
         },
         "efit": {
-            "f": ("f_value", "plasma"),
-            "faxs": ("magnetic_flux_axis", "poloidal"),
-            "fbnd": ("magnetic_flux_separatrix", "poloidal"),
-            "ftor": ("magnetic_flux", "toroidal"),
-            "rmji": ("major_rad", "hfs"),
-            "rmjo": ("major_rad", "lfs"),
-            "psi": ("magnetic_flux", "poloidal"),
-            "vjac": ("volume_jacobian", "plasma"),
-            "ajac": ("area_jacobian", "plasma"),
-            "rmag": ("major_rad", "mag_axis"),
-            "rgeo": ("major_rad", "geometric"),
-            "rbnd": ("major_rad", "separatrix"),
-            "zmag": ("z", "mag_axis"),
-            "zbnd": ("z", "separatrix"),
-            "wp": ("energy", "plasma"),
-            "psin": ("poloidal_flux", "normalised"),
+            "f": "poloidal_flux_normalised",  # TODO check this
+            "faxs": "poloidal_flux_axis",
+            "fbnd": "poloidal_flux_boundary",
+            "ftor": "toroidal_flux",
+            "rmji": "major_radius_hfs",
+            "rmjo": "major_radius_lfs",
+            "psi": "poloidal_flux_normalised",
+            "vjac": "volume_jacobian",
+            "ajac": "area_jacobian",
+            "rmag": "major_radius_magnetic_axis",
+            "rgeo": "major_radius_geometric_axis",
+            "rbnd": "major_radius_boundary",
+            "zmag": "z_magnetic_axis",
+            "zbnd": "z_boundary",
+            "wp": "equilibrium_stored_energy",
         },
-        "kg10": {"ne": ("number_density", "electron")},
-        "sxrh": {"h": ("luminous_flux", "sxr")},
-        "sxrv": {"v": ("luminous_flux", "sxr")},
-        "sxrt": {"t": ("luminous_flux", "sxr")},
-        "kb5h": {"kb5h": ("luminous_flux", "bolometric")},
-        "kb5v": {"kb5v": ("luminous_flux", "bolometric")},
-        "ks3h": {"zefh": ("effective_charge", "plasma")},
-        "ks3v": {"zefv": ("effective_charge", "plasma")},
+        "kg10": {"ne": "electron_density"},
+        "sxrh": {"h": "sxr_radiated_power_emission"},
+        "sxrv": {"v": "sxr_radiated_power_emission"},
+        "sxrt": {"t": "sxr_radiated_power_emission"},
+        "kb5h": {"kb5h": "total_radiated_power_emission"},
+        "kb5v": {"kb5v": "total_radiated_power_emission"},
+        "ks3h": {"zefh": "effective_charge"},
+        "ks3v": {"zefv": "effective_charge"},
         **{
             "cx{}m".format(val): {
-                "angf": ("angular_freq", "ion"),
-                "ti": ("temperature", "ion"),
-                "conc": ("concentration", "ion"),
+                "angf": "toroidal_rotation",
+                "ti": "ion_temperature",
+                "conc": "concentration",
             }
             for val in ("s", "d", "f", "g", "h")
         },
         **{
             "cx{}6".format(val): {
-                "angf": ("angular_freq", "ions"),
-                "ti": ("temperature", "ions"),
-                "conc": ("concentration", "ions"),
+                "angf": "toroidal_rotation",
+                "ti": "ion_temperature",
+                "conc": "concentration",
             }
             for val in ("s", "d", "f", "g")
         },
         **{
             "cx{}4".format(val): {
-                "angf": ("angular_freq", "ions"),
-                "ti": ("temperature", "ions"),
-                "conc": ("concentration", "ions"),
+                "angf": "toroidal_rotation",
+                "ti": "ion_temperature",
+                "conc": "concentration",
             }
             for val in ("s", "d", "f", "h")
         },

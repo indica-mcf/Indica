@@ -1,5 +1,4 @@
-"""Experimental design for reading data from disk/database.
-"""
+"""Experimental design for reading data from disk/database."""
 
 from typing import Any
 from typing import Dict
@@ -14,7 +13,6 @@ from xarray import DataArray
 from indica.abstractio import BaseIO
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
-from indica.datatypes import ArrayType
 from indica.numpy_typing import OnlyArray
 from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
@@ -65,7 +63,7 @@ class DataReader(BaseIO):
 
     INSTRUMENT_METHODS: Dict[str, str] = {}
     _AVAILABLE_QUANTITIES = AVAILABLE_QUANTITIES
-    _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {}
+    _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, str]] = {}
 
     _RECORD_TEMPLATE = "{}-{}-{}-{}-{}"
     NAMESPACE: Tuple[str, str] = ("experiment", "server")
@@ -192,7 +190,6 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
-
         database_results = self._get_ppts(uid, instrument, revision, quantities)
         database_results["channel"] = np.arange(database_results["length"])
         database_results["R_midplane"] = database_results[
