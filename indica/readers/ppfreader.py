@@ -410,8 +410,8 @@ class PPFReader(DataReader):
         z, z_path = self._get_signal(uid, instrument, "z", revision)
         results["z"] = z.data
         results["R"] = z.dimensions[0].data
-        results["x"] = z.dimensions[0].data
-        results["y"] = z.dimensions[0].data
+        results["x"] = results["R"]
+        results["y"] = np.zeros_like(results["R"])
         results["length"] = len(z.data)
         if "te" in quantities:
             te, t_path = self._get_signal(uid, instrument, "te", revision)
