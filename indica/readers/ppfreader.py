@@ -325,13 +325,13 @@ class PPFReader(DataReader):
         results["z"] = z.data[0, :]
         results["length"] = R.data.shape[1]
         results["texp"] = texp.data
-        results["time"] = None
+        results["t"] = None
         paths = [R_path, z_path, m_path, t_path]
         if "angf" in quantities:
             angf, a_path = self._get_signal(uid, instrument, "angf", revision)
             afhi, e_path = self._get_signal(uid, instrument, "afhi", revision)
-            if results["time"] is None:
-                results["time"] = angf.dimensions[0].data
+            if results["t"] is None:
+                results["t"] = angf.dimensions[0].data
             results["angf"] = angf.data
             results["angf_error"] = afhi.data - angf.data
             results["angf_records"] = paths + [a_path, e_path]
@@ -339,8 +339,8 @@ class PPFReader(DataReader):
             try:
                 conc, c_path = self._get_signal(uid, instrument, "conc", revision)
                 cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
-                if results["times"] is None:
-                    results["times"] = conc.dimensions[0].data
+                if results["t"] is None:
+                    results["t"] = conc.dimensions[0].data
                 results["conc"] = conc.data
                 results["conc_error"] = cohi.data - conc.data
                 results["conc_records"] = paths + [c_path, e_path]
@@ -352,8 +352,8 @@ class PPFReader(DataReader):
         if "ti" in quantities:
             ti, t_path = self._get_signal(uid, instrument, "ti", revision)
             tihi, e_path = self._get_signal(uid, instrument, "tihi", revision)
-            if results["time"] is None:
-                results["time"] = ti.dimensions[0].data
+            if results["t"] is None:
+                results["t"] = ti.dimensions[0].data
             results["ti"] = ti.data
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
@@ -417,7 +417,7 @@ class PPFReader(DataReader):
         if "te" in quantities:
             te, t_path = self._get_signal(uid, instrument, "te", revision)
             results["te"] = te.data
-            results["times"] = te.dimensions[0].data
+            results["t"] = te.dimensions[0].data
             if instrument == "lidr":
                 tehi, e_path = self._get_signal(uid, instrument, "teu", revision)
                 results["te_error"] = tehi.data - results["te"]
@@ -428,7 +428,7 @@ class PPFReader(DataReader):
         if "ne" in quantities:
             ne, d_path = self._get_signal(uid, instrument, "ne", revision)
             results["ne"] = ne.data
-            results["times"] = ne.dimensions[0].data
+            results["t"] = ne.dimensions[0].data
             if instrument == "lidr":
                 nehi, e_path = self._get_signal(uid, instrument, "neu", revision)
                 results["ne_error"] = nehi.data - results["ne"]
@@ -460,7 +460,7 @@ class PPFReader(DataReader):
                 continue
             qval, q_path = self._get_signal(uid, instrument, q, revision)
             if qval.dimensions[0].temporal:
-                results["times"] = qval.dimensions[0].data
+                results["t"] = qval.dimensions[0].data
             if (
                 len(qval.dimensions) > 1
                 and q not in {"psi", "rbnd", "zbnd"}
@@ -474,7 +474,7 @@ class PPFReader(DataReader):
                 results["psi_r"] = r.data
                 results["psi_z"] = z.data
                 results["psi"] = qval.data.reshape(
-                    (len(results["time"]), len(z.data), len(r.data))
+                    (len(results["t"]), len(z.data), len(r.data))
                 )
                 results["psi_records"] = [q_path, r_path, z_path]
             else:
@@ -523,8 +523,8 @@ class PPFReader(DataReader):
                 )
                 records.append(q_path)
                 data.append(qval.data)
-                if "time" not in results:
-                    results["time"] = qval.dimensions[0].data
+                if "t" not in results:
+                    results["t"] = qval.dimensions[0].data
             results[q] = np.array(data).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
@@ -559,7 +559,7 @@ class PPFReader(DataReader):
                 qval, qpath = self._get_signal(uid, instrument, q, revision)
                 records.append(qpath)
                 results["length"] = qval.dimensions[1].length
-                results["times"] = qval.dimensions[0].data
+                results["t"] = qval.dimensions[0].data
                 results[q] = qval.data
                 channels: Union[List[int], slice] = slice(None, None)
             else:
@@ -575,8 +575,8 @@ class PPFReader(DataReader):
                     records.append(q_path)
                     luminosities.append(qval.data)
                     channels.append(i - 1)
-                    if "times" not in results:
-                        results["times"] = qval.dimensions[0].data
+                    if "t" not in results:
+                        results["t"] = qval.dimensions[0].data
                 if len(channels) == 0:
                     # TODO: Try getting information on the INSTRUMENT (DDA in JET),
                     #  to determine if the failure is actually due to requesting
@@ -619,8 +619,8 @@ class PPFReader(DataReader):
         for q in quantities:
             qval, q_path = self._get_signal(uid, instrument, q, revision)
             los, l_path = self._get_signal(uid, los_instrument, "los" + q[-1], revision)
-            if "times" not in results:
-                results["times"] = qval.dimensions[0].data
+            if "t" not in results:
+                results["t"] = qval.dimensions[0].data
             results["length"] = 1
             results[q] = qval.data
             results[q + "_error"] = 0.0 * results[q]
