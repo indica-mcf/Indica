@@ -17,15 +17,16 @@ ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also stil
 1. Make sure pip is up-to-date:
     - *pip install --upgrade pip*
 
-2. Create a virtual environment with python 3.9 and activate it, e.g. using conda:
+2. Create a virtual environment with python 3.11 and activate it, e.g. using conda:
    - *set_global_conda*
-   - *conda create --name ENV_NAME python=3.9*
+   - *conda create --name ENV_NAME python=3.11*
    - *conda activate ENV_NAME*
 
 3. Install poetry and environment dependencies:
-    - *pip install poetry==1.1.15*
+    - *pip install poetry==1.7*- (check this)
     - *poetry update*
 
+3. ..Or just pip install
 4. For mdsplus building and installation:
    - *cp -r /usr/local/mdsplus/mdsobjects/python mdsPython*
    - *cd mdsPython*

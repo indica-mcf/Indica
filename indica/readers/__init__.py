@@ -4,7 +4,6 @@ filesystem or databases. These objects are all subclasses of
 functionality for a different format of data.
 
 """
-
 from .abstractreader import DataReader
 from .adas import ADASReader
 
@@ -39,5 +38,6 @@ try:
 
     __all__ += ["ST40Reader"]
 except ImportError as e:
+    traceback.print_exc()
     print(e)
     pass

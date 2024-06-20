@@ -210,6 +210,10 @@ class DataReader(BaseIO):
 
         rpos_coords = xr.DataArray(database_results["R_data"], coords=[coords[1]])
         zpos_coords = xr.DataArray(database_results["z_data"], coords=[coords[1]])
+        # Assuming database_results contains numpy arrays or other data types for R_data and z_data
+        #rpos_coords = xr.DataArray(database_results["R_data"], coords={'dim_name': coords[1].data if isinstance(coords[1], xr.DataArray) else coords[1]})
+        #zpos_coords = xr.DataArray(database_results["z_data"], coords={'dim_name': coords[1].data if isinstance(coords[1], xr.DataArray) else coords[1]})
+
 
         data = {}
         for quantity in quantities:
@@ -269,10 +273,11 @@ class DataReader(BaseIO):
         """
         Reads Charge-exchange-spectroscopy data
         """
+
         database_results = self._get_charge_exchange(
             uid, instrument, revision, quantities
         )
-
+        print("charge4")
         transform = TransectCoordinates(
             database_results["x"],
             database_results["y"],
@@ -280,6 +285,7 @@ class DataReader(BaseIO):
             f"{instrument}",
             machine_dimensions=database_results["machine_dims"],
         )
+        print("charge5")
         los_transform = instatiate_line_of_sight(
             database_results["location"],
             database_results["direction"],
