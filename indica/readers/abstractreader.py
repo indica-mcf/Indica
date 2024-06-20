@@ -232,13 +232,13 @@ class DataReader(BaseIO):
             )
             if "_data" in quantity:
                 data[quantity] = data[quantity].assign_coords(
-                    rho_poloidal=(("t", "channel"), rho_poloidal_coords)
+                    rho_poloidal=(("t", "channel"), rho_poloidal_coords.data)
                 )
                 data[quantity] = data[quantity].assign_coords(
-                    zpos=("channel", zpos_coords)
+                    zpos=("channel", zpos_coords.data)
                 )
                 data[quantity] = data[quantity].assign_coords(
-                    rpos=("channel", rpos_coords)
+                    rpos=("channel", rpos_coords.data)
                 )
         return data
 
