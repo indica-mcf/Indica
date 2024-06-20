@@ -994,7 +994,7 @@ def cooling_factor_corona(
 
         _cooling_factor: DataArray = _power_loss.sum("ion_charge")
         _cooling_factor = (
-            _cooling_factor.assign_coords(electron_temperature=("index", Te))
+            _cooling_factor.assign_coords(electron_temperature=("index", Te.data))
             .swap_dims({"index": "electron_temperature"})
             .drop_vars("index")
         )
