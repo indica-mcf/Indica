@@ -86,7 +86,6 @@ class DataReader(BaseIO):
             End of time range for which to get data.
         kwargs
             Any other arguments which should be recorded for the reader.
-
         """
         self._reader_cache_id: str
         self._tstart = tstart
@@ -210,10 +209,6 @@ class DataReader(BaseIO):
 
         rpos_coords = xr.DataArray(database_results["R_data"], coords=[coords[1]])
         zpos_coords = xr.DataArray(database_results["z_data"], coords=[coords[1]])
-        # Assuming database_results contains numpy arrays or other data types for R_data and z_data
-        #rpos_coords = xr.DataArray(database_results["R_data"], coords={'dim_name': coords[1].data if isinstance(coords[1], xr.DataArray) else coords[1]})
-        #zpos_coords = xr.DataArray(database_results["z_data"], coords={'dim_name': coords[1].data if isinstance(coords[1], xr.DataArray) else coords[1]})
-
 
         data = {}
         for quantity in quantities:

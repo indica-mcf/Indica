@@ -38,6 +38,5 @@ try:
 
     __all__ += ["ST40Reader"]
 except ImportError as e:
-    traceback.print_exc()
     print(e)
     pass

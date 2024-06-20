@@ -53,7 +53,7 @@ def save_default_objects(
     equilibrium_object = Equilibrium(equilibrium_data)
     print(f"\n Writing equilibrium data to: {equilibrium_file}. \n")
     pickle.dump(equilibrium_object, open(equilibrium_file, "wb"))
-    
+
     print("plasmaeq")
     # Plasma Equilibrium object
     if machine == "st40":

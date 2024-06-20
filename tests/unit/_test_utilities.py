@@ -1,8 +1,7 @@
 """Test the contents of the utilities module."""
 
 
-
-#TODO - modernize this to not use hypothesis but pytest in the way the other tests do.
+# TODO - modernize this to not use hypothesis but pytest in the way the other tests do.
 import re
 import unittest
 
