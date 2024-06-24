@@ -493,11 +493,10 @@ class HelikeSpectrometer(DiagnosticModel):
 
         # Plot the temperatures profiles
         plt.figure()
-        elem = self.Ti.element[0].values
         for i, t in enumerate(self.t):
             plt.plot(
                 self.plasma.ion_temperature.rho_poloidal,
-                self.plasma.ion_temperature.sel(t=t, element=elem),
+                self.plasma.ion_temperature.sel(t=t),
                 color=cols_time[i],
             )
             plt.plot(
