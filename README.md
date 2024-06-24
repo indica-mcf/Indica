@@ -23,13 +23,14 @@ ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also stil
    - *conda activate ENV_NAME*
 
 3. Install poetry and environment dependencies:
-    - *pip install poetry==1.7*- 
+    - *pip install poetry==1.7*
     - *poetry update*
 
 4. For mdsplus building and installation:
    - *cp -r /usr/local/mdsplus/mdsobjects/python mdsPython*
    - *cd mdsPython*
-   - *python -m pip install .*
+   - *python setup.py build*
+   - *python setup.py install*
    - *cd ../*
    - *rm -r mdsPython*
 
