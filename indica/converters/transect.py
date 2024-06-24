@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.utilities import format_coord
 from .abstractconverter import CoordinateTransform
 from ..numpy_typing import Coordinates
 from ..numpy_typing import LabeledArray
@@ -61,7 +62,7 @@ class TransectCoordinates(CoordinateTransform):
         self.name: str = f"{name}_transect_transform"
 
         x1 = np.arange(len(x_positions))
-        self.x1: DataArray = DataArray(x1, coords=[(self.x1_name, x1)])
+        self.x1: DataArray = format_coord(x1, self.x1_name)
         self.x2: DataArray = DataArray(None)
 
         # TODO: add intersection with first walls to restrict possible coordinates
