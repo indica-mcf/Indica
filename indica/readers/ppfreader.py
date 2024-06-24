@@ -319,7 +319,7 @@ class PPFReader(DataReader):
 
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
-        results["x"] = np.zeros_like(results["R"])
+        results["x"] = results["R"]
         results["y"] = np.zeros_like(results["R"])
         results["z"] = z.data[0, :]
         results["length"] = R.data.shape[1]
@@ -379,7 +379,7 @@ class PPFReader(DataReader):
             location, direction = _get_cxrs_los_geometry(
                 sav_file=_get_cxrs_los_savfile(pulse=self.pulse, spec=spec),
                 tracks=_get_cxrs_active_tracks(
-                    pulse=self.pulse, spec=spec, trck=trck.data[: len(results["R"]) + 1]
+                    pulse=self.pulse, spec=spec, trck=trck.data
                 ),
             )
             results["location"] = location
@@ -736,7 +736,7 @@ def _get_cxrs_los_geometry(sav_file: Path, tracks: ArrayLike) -> Any:
         fibres.losdef[0].virtualdirection_rot[0].cartesian_ref[0],
     ):
         if name in tracks:
-            origin.append(pos)
+            origin.append(pos / 1000)  # mm -> m
             direction.append(vec)
     return (np.asarray(origin), np.asarray(direction))
 
