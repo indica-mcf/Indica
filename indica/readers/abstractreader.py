@@ -197,7 +197,7 @@ class DataReader(BaseIO):
             "R"
         ]  # necessary because of assign_dataarray...
 
-        coords_t = {"t": database_results["t"]}
+        coords_chan = {"channel": database_results["channel"]}
         coords = {
             "t": database_results["t"],
             "channel": database_results["channel"],
@@ -207,8 +207,8 @@ class DataReader(BaseIO):
         )
         rho_poloidal_coords = rho_poloidal_coords.sel(t=slice(self._tstart, self._tend))
 
-        rpos_coords = xr.DataArray(database_results["R_data"], coords=coords_t)
-        zpos_coords = xr.DataArray(database_results["z_data"], coords=coords_t)
+        rpos_coords = xr.DataArray(database_results["R_data"], coords=coords_chan)
+        zpos_coords = xr.DataArray(database_results["z_data"], coords=coords_chan)
 
         data = {}
         for quantity in quantities:
