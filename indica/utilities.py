@@ -320,14 +320,13 @@ def format_coord(data: LabeledArray, var_name: str):
     var_name
         Name of the variable to be assigned as coordinate
     """
-    coords = [(var_name, DataArray(data, dims=var_name))]
-    return format_dataarray(data, var_name, coords)
+    return format_dataarray(data, var_name, {var_name: data})
 
 
 def format_dataarray(
     data: LabeledArray,
     var_name: str,
-    coords: List[Tuple[str, Any]] = [],
+    coords: Dict[str, Any] = {},
     make_copy: bool = False,
 ):
     """
@@ -344,7 +343,7 @@ def format_dataarray(
 
     Returns
     -------
-    Formatted data array
+    Formatted data array, including attribute assignement (also to coords)
 
     """
 
@@ -353,17 +352,11 @@ def format_dataarray(
     else:
         _data = data
 
-    """
-    old
-        if len(coords) != 0:
-            data_array = DataArray(_data, coords=coords)
-    """
-    processed_coords = {
-        name: coord.data if isinstance(coord, DataArray) else coord
-        for name, coord in coords
-    }
-
     if len(coords) != 0:
+        processed_coords = {
+            name: coord.data if isinstance(coord, DataArray) else coord
+            for name, coord in coords.items()
+        }
         data_array = DataArray(_data, coords=processed_coords, name=var_name)
 
     else:
@@ -371,6 +364,8 @@ def format_dataarray(
             raise ValueError("data must be a DataArray if coordinates are not given")
 
     assign_datatype(data_array, var_name)
+    for dim in data_array.dims:
+        assign_datatype(data_array.coords[dim], dim)
 
     return data_array
 
