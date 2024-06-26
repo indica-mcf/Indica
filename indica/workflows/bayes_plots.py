@@ -487,5 +487,5 @@ def plot_bayes_result(
 
 
 if __name__ == "__main__":
-    filehead = "./results/11089.RUN01/"
+    filehead = "./results/example/"
     plot_bayes_result(filepath=filehead, filetype=".png")
