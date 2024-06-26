@@ -14,7 +14,7 @@ def get_uniform(lower, upper):
 DEFAULT_PRIORS = {
     "ion_temperature.y0": get_uniform(1000, 10000),
     "ion_temperature.y1": get_uniform(50, 50.1),
-    "ion_temperature.wped": get_uniform(1, 10),
+    "ion_temperature.wped": get_uniform(1, 2),
     "ion_temperature.wcenter": get_uniform(0.2, 0.4),
     "ion_temperature.peaking": get_uniform(1, 10),
 
@@ -32,9 +32,9 @@ DEFAULT_PRIORS = {
 
     "impurity_density:ar.y0": loguniform(1.01e16, 1e18),
     "impurity_density:ar.y1": loguniform(1e16, 1.01e16),
-    "impurity_density:ar.wped": get_uniform(2, 6),
+    "impurity_density:ar.wped": get_uniform(1, 2),
     "impurity_density:ar.wcenter": get_uniform(0.2, 0.4),
-    "impurity_density:ar.peaking": get_uniform(1, 6),
+    "impurity_density:ar.peaking": get_uniform(1, 4),
 
     "neutral_density.y0": loguniform(1e13, 1e15),
     "neutral_density.y1": loguniform(1e13, 1e16),
