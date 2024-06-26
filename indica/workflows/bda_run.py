@@ -17,9 +17,9 @@ from indica.workflows.priors import PriorManager
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
-    # "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
-    #                          + (x.where((x.wavelength < 0.392) &
-    #                                     (x.wavelength > 0.388), ).std("wavelength")).fillna(0),  # Background noise
+    "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
+                             + (x.where((x.wavelength < 0.392) &
+                                        (x.wavelength > 0.388), ).std("wavelength")).fillna(0),  # Background noise
     "cxff_pi.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
 }
@@ -38,9 +38,8 @@ def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
             continue
         if "error" in value.coords:
             if verbose:
-                print(f"{key} contains error: overwriting")
+                print(f"{key} contains error: skipping")
             opt_data_with_error[key] = value
-            value["error"] = error_functions[key](value)
             continue
         error = error_functions[key](value)
         opt_data_with_error[key] = value.assign_coords({"error": error})
