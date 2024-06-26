@@ -244,7 +244,7 @@ class EmceeOptimiser(OptimiserContext):
         results["prior_sample"] = sample_from_priors(
             self.optimiser_settings.param_names,
             self.prior_manager.priors,
-            size=int(5e3),
+            size=int(1e3),
         )
 
         post_sample = self.optimiser.get_chain(
