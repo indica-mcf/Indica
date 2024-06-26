@@ -7,22 +7,23 @@ from indica.models import *
 from indica.readers.read_st40 import ReadST40
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.optimiser_context import OptimiserEmceeSettings
+from indica.workflows.pca import pca_workflow
 from indica.workflows.plasma_profiler import PlasmaProfiler, initialise_gauss_profilers
 from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.bayes_workflow import EmceeOptimiser
 from indica.defaults.load_defaults import load_default_objects
 from indica.workflows.priors import PriorManager
 
-
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
-    "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
-                            + (x.where((x.wavelength < 0.392) &
-                                       (x.wavelength > 0.388), ).std("wavelength")).fillna(0),  # Background noise
+    # "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
+    #                          + (x.where((x.wavelength < 0.392) &
+    #                                     (x.wavelength > 0.388), ).std("wavelength")).fillna(0),  # Background noise
     "cxff_pi.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
 }
+
 
 def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
     if error_functions is None:
@@ -31,13 +32,15 @@ def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
     opt_data_with_error = {}
     for key, value in opt_data.items():
         if key not in error_functions.keys():
+            opt_data_with_error[key] = value
             if verbose:
                 print(f"no error function defined for {key}")
             continue
         if "error" in value.coords:
             if verbose:
-                print(f"{key} contains error: skipping")
+                print(f"{key} contains error: overwriting")
             opt_data_with_error[key] = value
+            value["error"] = error_functions[key](value)
             continue
         error = error_functions[key](value)
         opt_data_with_error[key] = value.assign_coords({"error": error})
@@ -55,11 +58,13 @@ INSTRUMENT_MAPPING: dict = {
 
 
 def bda_run(
-        pulse=None,
-        pulse_to_write=None,
-        diagnostics=None,
-        param_names=None,
-        quant_to_optimise=None,
+        pulse: int = None,
+        pulse_to_write: int = None,
+        diagnostics: list = None,
+        param_names: list = None,
+        pca_profiles: list = None,
+        pca_components: int = 3,
+        quant_to_optimise: list = None,
         phantom=False,
         mock=False,
         tstart=0.02,
@@ -89,7 +94,6 @@ def bda_run(
         set_ts=False,
         **kwargs,
 ):
-
     if model_init is None:
         model_init = {}
     if profile_params_to_update is None:
@@ -98,6 +102,8 @@ def bda_run(
         plasma_settings = dict(main_ion="h", impurities=("ar",))
     if not all([pulse, diagnostics, param_names, quant_to_optimise, ]):
         raise ValueError("Not all inputs defined")
+    if pca_profiles is None:
+        pca_profiles = []
 
     if pulse_to_write is None:
         pulse_to_write = 43000000 + pulse
@@ -127,7 +133,7 @@ def bda_run(
     if apply_rshift:
         R_shift = ppts_reader.raw_data["ppts"]["R_shift"]
 
-    # different data methods TODO: abstract these to an interface
+    # different data handling methods TODO: abstract these to an interface
     if phantom:
         phantom_reader = ReadST40(pulse=pulse, tstart=tstart, tend=tend, dt=dt)
         phantom_reader(diagnostics, filter_coords=filter_coords, filter_limits=filter_limits,
@@ -135,7 +141,7 @@ def bda_run(
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in diagnostics}
         reader = ModelCoordinator(models, model_init, )
         if "xrcs" in phantom_reader.binned_data.keys():
-            more_model_settings = {"xrcs": {"window": phantom_reader.binned_data["xrcs"]["spectra"].wavelength}}
+            more_model_settings = {"xrcs": {"window": phantom_reader.binned_data["xrcs"]["intens"].wavelength}}
         else:
             more_model_settings = {}
         reader.init_models(**more_model_settings)
@@ -155,8 +161,8 @@ def bda_run(
     else:
         reader = ReadST40(pulse=pulse, tstart=tstart, tend=tend, dt=dt, )
 
-    reader(diagnostics, filter_coords=filter_coords, filter_limits=filter_limits, revisions=revisions,
-           R_shift=R_shift)
+    reader(diagnostics, filter_coords=filter_coords, filter_limits=filter_limits,
+           revisions=revisions, R_shift=R_shift)
     plasma.set_equilibrium(equilibrium=reader.equilibrium)
 
     # post processing (TODO: where should this be)
@@ -169,7 +175,6 @@ def bda_run(
         model_settings=model_init,
         verbose=False,
     )
-
     if "xrcs" in reader.binned_data.keys():
         more_model_settings = {"xrcs": {
             "window": reader.binned_data["xrcs"]["intens"].wavelength,
@@ -180,17 +185,26 @@ def bda_run(
         more_model_settings = {}
 
     model_kwargs = {}
-
     model_coordinator.init_models(**more_model_settings)
     model_coordinator.set_transforms(reader.transforms)
     model_coordinator.set_equilibrium(reader.equilibrium)
     model_coordinator.set_plasma(plasma)
 
-
     prior_manager = PriorManager()
 
+    if any(pca_profiles):
+        pca_processor, pca_profilers = pca_workflow(prior_manager, pca_profiles,
+                                                    plasma.rho, n_components=pca_components, num_prof_samples=int(5e3))
+        prior_manager.update_priors(pca_processor.compound_priors)
+        plasma_profiler.update_profilers(pca_profilers)
+        opt_params = [param for param in param_names if param.split(".")[0] not in pca_profiles]
+        opt_params.extend(prior_manager.get_param_names_for_profiles(pca_profiles))
+        print(f"optimising with: {opt_params}")
+    else:
+        opt_params = param_names
+
     optimiser_settings = OptimiserEmceeSettings(
-        param_names=param_names,
+        param_names=opt_params,
         nwalkers=nwalkers,
         iterations=iterations,
         sample_method=sample_method,
@@ -228,7 +242,7 @@ def bda_run(
 if __name__ == "__main__":
 
     if len(sys.argv) < 2:
-        config_name = "example_bda"
+        config_name = "example_pca_with_DIME"
     else:
         config_name = sys.argv[1]
 
