@@ -219,7 +219,7 @@ def sample_from_high_density_region(
     return start_points
 
 
-@hydra.main(config_path="../configs/workflows/priors/", config_name="config", )
+@hydra.main(version_base=None, config_path="../configs/workflows/priors/", config_name="config", )
 def main(cfg: DictConfig):
     pm = PriorManager(**cfg.priors)
     post = pm.ln_prior({"electron_density.y0": 1e20, "electron_density.y1": 1e19})
