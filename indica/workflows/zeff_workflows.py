@@ -485,7 +485,7 @@ def plot_results(
         R = los_transform.impact_parameter.R
         to_plot = (
             filter_data.sel(t=t)
-            .assign_coords(R=("channel", R))
+            .assign_coords(R=("channel", R.data))
             .swap_dims({"channel": "R"})
         )
         to_plot_err = filter_data.error.sel(t=t)

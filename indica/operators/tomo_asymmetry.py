@@ -323,7 +323,7 @@ def example_run(asymmetric_profile: bool = True):
             )
             profile_1d = (
                 (profile_2d.sel(t=t).sel(z=0, method="nearest").interp(R=rho_lfs.R))
-                .assign_coords(rho_poloidal=("R", rho_lfs.values))
+                .assign_coords(rho_poloidal=("R", rho_lfs.data))
                 .swap_dims({"R": "rho_poloidal"})
             )
             profile_1d_bckc = (
@@ -332,7 +332,7 @@ def example_run(asymmetric_profile: bool = True):
                     .sel(z=0, method="nearest")
                     .interp(R=rho_lfs.R)
                 )
-                .assign_coords(rho_poloidal=("R", rho_lfs.values))
+                .assign_coords(rho_poloidal=("R", rho_lfs.data))
                 .swap_dims({"R": "rho_poloidal"})
             )
             profile_1d.plot(
