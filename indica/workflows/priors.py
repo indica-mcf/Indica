@@ -2,71 +2,18 @@ from abc import abstractmethod, ABC
 from enum import Enum
 from typing import Callable
 
+import hydra
+from omegaconf import DictConfig
 from scipy.stats import loguniform, uniform, gaussian_kde
 import numpy as np
 
 
+def greater_than(x1, x2):
+    return np.where(x1 > x2, 1, 0)
+
 def get_uniform(lower, upper):
     # Less confusing parametrisation of scipy.stats uniform
     return uniform(loc=lower, scale=upper - lower)
-
-# Move this to a config
-DEFAULT_PRIORS = {
-    "ion_temperature.y0": get_uniform(1000, 10000),
-    "ion_temperature.y1": get_uniform(50, 50.1),
-    "ion_temperature.wped": get_uniform(1, 2),
-    "ion_temperature.wcenter": get_uniform(0.2, 0.4),
-    "ion_temperature.peaking": get_uniform(1, 10),
-
-    "electron_density.y0": get_uniform(2e19, 2e20),
-    "electron_density.y1": get_uniform(1e18, 1e19),
-    "electron_density.wped": loguniform(2, 20),
-    "electron_density.wcenter": get_uniform(0.2, 0.4),
-    "electron_density.peaking": get_uniform(1, 4),
-
-    "electron_temperature.y0": get_uniform(1000, 5000),
-    "electron_temperature.y1": get_uniform(50, 50.1),
-    "electron_temperature.wped": get_uniform(1, 10),
-    "electron_temperature.wcenter": get_uniform(0.2, 0.4),
-    "electron_temperature.peaking": get_uniform(1, 4),
-
-    "impurity_density:ar.y0": loguniform(1.01e16, 1e18),
-    "impurity_density:ar.y1": loguniform(1e16, 1.01e16),
-    "impurity_density:ar.wped": get_uniform(1, 2),
-    "impurity_density:ar.wcenter": get_uniform(0.2, 0.4),
-    "impurity_density:ar.peaking": get_uniform(1, 4),
-
-    "neutral_density.y0": loguniform(1e13, 1e15),
-    "neutral_density.y1": loguniform(1e13, 1e16),
-    "neutral_density.wped": get_uniform(16, 17),
-    "neutral_density.wcenter": get_uniform(0.2, 0.4),
-    "neutral_density.peaking": get_uniform(1, 6),
-}
-
-DEFAULT_COND_PRIORS = {
-    "electron_temperature.y0/electron_temperature.y1": lambda x1, x2: np.where(
-        (x1 > x2 * 2), 1, 0
-    ),
-    "electron_density.y0/electron_density.y1": lambda x1, x2: np.where(
-        (x1 > x2 * 2), 1, 0
-    ),
-    # "electron_density.y0/impurity_density:ar.y0": lambda x1, x2: np.where(
-    #     (x1 > x2 * 100) & (x1 < x2 * 1e5), 1, 0
-    # ),
-    "impurity_density:ar.y0/impurity_density:ar.y1": lambda x1, x2: np.where(
-        (x1 > x2), 1, 0
-    ),
-    # "impurity_density:ar.peaking/electron_density.peaking": lambda x1, x2: np.where(
-    #     (x1 > x2), 1, 0
-    # ),  # impurity always more peaked
-    "ion_temperature.y0/ion_temperature.y1": lambda x1, x2: np.where(
-        (x1 > x2 * 2), 1, 0
-    ),
-    # "ion_temperature.y0/electron_temperature.y0": lambda x1, x2: np.where(
-    #     x1 > x2, 1, 0
-    # ),  # hot ion mode
-
-}
 
 
 class PriorType(Enum):
@@ -139,24 +86,25 @@ class PriorCompound(Prior):
 
 class PriorManager:
     def __init__(self,
-                 prior_funcs: dict = None,
-                 cond_prior_funcs: dict = None,
+                 basic_prior_info: dict = None,
+                 cond_prior_info: dict = None,
                  ):
 
-        if prior_funcs is None:
-            prior_funcs = DEFAULT_PRIORS
-        if cond_prior_funcs is None:
-            cond_prior_funcs = DEFAULT_COND_PRIORS
-        self.compound_prior_funcs = {}
+        self.compound_prior_funcs = {}  # initialised later
 
-        self.prior_funcs = prior_funcs
-        self.cond_prior_funcs = cond_prior_funcs
+        self.basic_prior_info = basic_prior_info
+        self.cond_prior_info = cond_prior_info
 
-        #  Create these somewhere else
+        self.get_uniform = get_uniform
+        self.loguniform = loguniform
+        self.greater_than = greater_than
+
         self.priors: dict = {}
-        for name, prior in self.prior_funcs.items():
+        for name, prior in self.basic_prior_info.items():
+            prior = getattr(self, prior[0])(*prior[1:])
             self.priors[name] = PriorBasic(prior, labels=tuple([name]))
-        for name, prior in self.cond_prior_funcs.items():
+        for name, prior in self.cond_prior_info.items():
+            prior = getattr(self, prior)
             self.priors[name] = PriorCond(prior, labels=tuple(name.split("/")))
 
     def update_priors(self, new_priors: dict):
@@ -179,7 +127,8 @@ class PriorManager:
 
     def get_param_names_for_profiles(self, profile_names: list) -> list:
         #  All param names that correspond to the profile_names given
-        param_names = [list(prior.labels) for prior_name, prior in self.priors.items() for profile_name in profile_names if
+        param_names = [list(prior.labels) for prior_name, prior in self.priors.items() for profile_name in profile_names
+                       if
                        profile_name in str(prior.labels)]
         unpacked_names = [param_name for param_name_list in param_names for param_name in param_name_list]
         unique_param_names = list(set(unpacked_names))
@@ -270,10 +219,15 @@ def sample_from_high_density_region(
     return start_points
 
 
-if __name__ == "__main__":
-    pm = PriorManager()
+@hydra.main(config_path="../configs/workflows/priors/", config_name="config", )
+def main(cfg: DictConfig):
+    pm = PriorManager(**cfg.priors)
     post = pm.ln_prior({"electron_density.y0": 1e20, "electron_density.y1": 1e19})
     samples = sample_from_priors(["electron_density.y0", "electron_density.y1"], pm.priors)
 
     print(post)
     print(samples)
+
+
+if __name__ == "__main__":
+    main()
