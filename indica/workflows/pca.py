@@ -32,7 +32,7 @@ def fit_linear_prior(pca_profiles: np.ndarray, prior_values=None, ) -> LinearNDI
     return prior_fit
 
 
-def fit_kde_prior(linear_fit: LinearNDInterpolator, size=int(1e5)) -> gaussian_kde:
+def fit_kde_prior(linear_fit: LinearNDInterpolator, size=int(1e6)) -> gaussian_kde:
     sampled_points = linear_fit.points
     min = sampled_points.min(axis=0)
     max = sampled_points.max(axis=0)
@@ -151,7 +151,7 @@ class PCAProcessor:
 
 
 def pca_workflow(prior_manager: PriorManager, opt_profiles: list, x_grid: xr.DataArray,
-                 n_components=2, num_prof_samples: int = int(1e4)):
+                 n_components=2, num_prof_samples: int = int(1e5)):
     param_names = prior_manager.get_param_names_for_profiles(opt_profiles)
     param_samples: np.ndarray = sample_from_priors(param_names, prior_manager.priors, size=num_prof_samples)
     param_samples: Dict[str, np.ndarray] = \
