@@ -112,7 +112,8 @@ def _plot_KDE_comparison(kernel: gaussian_kde, prior: LinearNDInterpolator, size
 class PCAProcessor:
     gaussian_profiles: Dict[str, np.ndarray]
 
-    ncomps: int = 2
+    ncomps: int = field(default=2)
+    kde_size: int = field(default=int(1e6))
     pca_weights: Dict[str, np.ndarray] = field(default_factory=lambda: {})  # (nsamples, ncomps)
     reconstructed_profiles: Dict[str, np.ndarray] = field(default_factory=lambda: {})  # (nsamples, xspl)
     pca_fits: Dict[str, PCA] = field(default_factory=lambda: {})
@@ -135,7 +136,7 @@ class PCAProcessor:
                 self.pca_weights[profile_name], )
 
             self.linear_prior[profile_name] = fit_linear_prior(self.pca_weights[profile_name])
-            self.kde_prior[profile_name] = fit_kde_prior(self.linear_prior[profile_name], )
+            self.kde_prior[profile_name] = fit_kde_prior(self.linear_prior[profile_name], size=self.kde_size)
 
     def plot_profile(self, profile_name: str):
 
@@ -160,7 +161,7 @@ def pca_workflow(prior_manager: PriorManager, opt_profiles: list, x_grid: xr.Dat
     profilers = initialise_gauss_profilers(xspl=x_grid, profiler_names=opt_profiles)
     profiles = sample_gauss_profiles(param_samples, profilers=profilers, size=num_prof_samples)
 
-    pca_processor = PCAProcessor(gaussian_profiles=profiles, ncomps=n_components)
+    pca_processor = PCAProcessor(gaussian_profiles=profiles, ncomps=n_components, kde_size=1e6)
     pca_processor.compound_priors = {f"{key}.kde":
                                          PriorCompound(prior_func=kernel, labels=tuple(f"{key}.weight_{i + 1}"
                                                                                        for i in range(kernel.d))) for
