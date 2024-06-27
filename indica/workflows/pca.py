@@ -161,7 +161,7 @@ def pca_workflow(prior_manager: PriorManager, opt_profiles: list, x_grid: xr.Dat
     profilers = initialise_gauss_profilers(xspl=x_grid, profiler_names=opt_profiles)
     profiles = sample_gauss_profiles(param_samples, profilers=profilers, size=num_prof_samples)
 
-    pca_processor = PCAProcessor(gaussian_profiles=profiles, ncomps=n_components, kde_size=1e6)
+    pca_processor = PCAProcessor(gaussian_profiles=profiles, ncomps=n_components, kde_size=int(1e6))
     pca_processor.compound_priors = {f"{key}.kde":
                                          PriorCompound(prior_func=kernel, labels=tuple(f"{key}.weight_{i + 1}"
                                                                                        for i in range(kernel.d))) for
