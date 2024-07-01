@@ -328,17 +328,15 @@ class HelikeSpectrometer(DiagnosticModel):
     def _build_bckc_dictionary(self):
         self.bckc = {}
         if hasattr(self, "measured_spectra"):
-            self.bckc["intens"] = self.measured_spectra
+            self.bckc["raw_spectra"] = self.measured_spectra
 
         if self.moment_analysis:
             for quantity in self.quantities:
                 datatype = self.quantities[quantity]
 
                 if quantity in [
-                    "intens",
-                    "spec_rad",
-                    "radiance",
-                    "emission",
+                    "raw_spectra",
+                    "spectra",
                     "background",
                 ]:
                     continue
@@ -481,14 +479,14 @@ class HelikeSpectrometer(DiagnosticModel):
         plt.figure()
         channels = self.los_transform.x1
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
-        if "intens" in self.bckc.keys():
-            intens = self.bckc["intens"]
-            if "channel" in intens.dims:
-                intens = intens.sel(channel=np.median(channels))
+        if "raw_spectra" in self.bckc.keys():
+            raw_spectra = self.bckc["raw_spectra"]
+            if "channel" in raw_spectra.dims:
+                raw_spectra = raw_spectra.sel(channel=np.median(channels))
             for i, t in enumerate(np.array(self.t, ndmin=1)):
                 plt.plot(
-                    intens.wavelength,
-                    intens.sel(t=t),
+                    raw_spectra.wavelength,
+                    raw_spectra.sel(t=t),
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
