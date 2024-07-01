@@ -35,10 +35,8 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "int_k": "line_intensity",
         "int_tot": "line_intensity",
         "int_n3": "line_intensity",
-        "intens": "intensity",
-        "emission": "brightness",
-        "radiance": "radiance",
-        "spec_rad": "spectral_radiance",
+        "raw_spectra": "intensity",
+        "spectra": "spectral_radiance",
         "background": "intensity",
     },
     "get_ppts": {

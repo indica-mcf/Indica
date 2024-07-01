@@ -656,7 +656,7 @@ class DataReader(BaseIO):
 
         data: dict = {}
         for quantity in quantities:
-            if quantity in ["intens", "emission", "radiance", "spec_rad"]:
+            if quantity in ["spectra",  "raw_spectra"]:
                 dims = ["t", "wavelength"]
             else:
                 dims = ["t"]
