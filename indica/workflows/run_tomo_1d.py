@@ -5,7 +5,7 @@ import numpy as np
 from xarray import DataArray
 
 from indica.converters.time import convert_in_time_dt
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.equilibrium import Equilibrium
 from indica.operators import tomo_1D
 from indica.readers import ST40Reader

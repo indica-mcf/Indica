@@ -4,7 +4,7 @@ pulse = 11089
 pulse_to_write = 43000000
 
 diagnostics = ["xrcs", "cxff_tws_c", "ts", "efit"]
-opt_quantity = ["xrcs.spectra", "cxff_tws_c.ti", "ts.ne", "ts.te"]
+opt_quantity = ["xrcs.raw_spectra", "cxff_tws_c.ti", "ts.ne", "ts.te"]
 
 param_names = [
     # "electron_density.y1",

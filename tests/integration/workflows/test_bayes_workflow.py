@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.bayes_workflow import DEFAULT_DIAG_NAMES
 from indica.workflows.bayes_workflow import DEFAULT_PROFILE_PARAMS

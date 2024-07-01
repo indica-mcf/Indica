@@ -4,7 +4,7 @@ from typing import Dict
 import numpy as np
 import pytest
 
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.models.bolometer_camera import example_run as bolo
 from indica.models.charge_exchange import example_run as cxrs
 from indica.models.diode_filters import example_run as diodes

@@ -656,7 +656,7 @@ class DataReader(BaseIO):
 
         data: dict = {}
         for quantity in quantities:
-            if quantity == "spectra":
+            if quantity in ["spectra", "raw_spectra"]:
                 dims = ["t", "wavelength"]
             else:
                 dims = ["t"]
@@ -971,8 +971,7 @@ class DataReader(BaseIO):
                 error = error.sel(t=slice(self._tstart, self._tend))
 
         if include_error:
-            data.attrs["error"] = error
-
+            data = data.assign_coords(error=(data.dims, error))
         if transform is not None:
             data.attrs["transform"] = transform
 

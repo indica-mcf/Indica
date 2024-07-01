@@ -22,7 +22,7 @@ import xarray as xr
 from indica.bayesblackbox import BayesBlackBox
 from indica.bayesblackbox import get_uniform
 from indica.bayesblackbox import ln_prior
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.equilibrium import Equilibrium
 from indica.models.charge_exchange import ChargeExchange
 from indica.models.charge_exchange import pi_transform_example

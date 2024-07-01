@@ -1,4 +1,4 @@
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 import indica.models.helike_spectroscopy as helike
 from indica.models.helike_spectroscopy import helike_transform_example
 
