@@ -210,7 +210,7 @@ html_static_path = ["_static"]
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "impuritiesdoc"
+htmlhelp_basename = "indicadoc"
 
 # -- Options for LaTeX output ---------------------------------------------
 
