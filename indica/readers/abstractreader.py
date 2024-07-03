@@ -272,7 +272,6 @@ class DataReader(BaseIO):
         database_results = self._get_charge_exchange(
             uid, instrument, revision, quantities
         )
-        print("charge4")
         transform = TransectCoordinates(
             database_results["x"],
             database_results["y"],
@@ -280,7 +279,6 @@ class DataReader(BaseIO):
             f"{instrument}",
             machine_dimensions=database_results["machine_dims"],
         )
-        print("charge5")
         los_transform = instatiate_line_of_sight(
             database_results["location"],
             database_results["direction"],
