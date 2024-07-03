@@ -18,7 +18,6 @@ from indica.datatypes import ArrayType
 from indica.numpy_typing import OnlyArray
 from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 
 
@@ -86,7 +85,6 @@ class DataReader(BaseIO):
             End of time range for which to get data.
         kwargs
             Any other arguments which should be recorded for the reader.
-
         """
         self._reader_cache_id: str
         self._tstart = tstart
@@ -199,17 +197,18 @@ class DataReader(BaseIO):
             "R"
         ]  # necessary because of assign_dataarray...
 
-        coords = [
-            ("t", database_results["t"]),
-            ("channel", database_results["channel"]),
-        ]
+        coords_chan = {"channel": database_results["channel"]}
+        coords = {
+            "t": database_results["t"],
+            "channel": database_results["channel"],
+        }
         rho_poloidal_coords = xr.DataArray(
             database_results["rho_poloidal_data"], coords=coords
         )
         rho_poloidal_coords = rho_poloidal_coords.sel(t=slice(self._tstart, self._tend))
 
-        rpos_coords = xr.DataArray(database_results["R_data"], coords=[coords[1]])
-        zpos_coords = xr.DataArray(database_results["z_data"], coords=[coords[1]])
+        rpos_coords = xr.DataArray(database_results["R_data"], coords=coords_chan)
+        zpos_coords = xr.DataArray(database_results["z_data"], coords=coords_chan)
 
         data = {}
         for quantity in quantities:
@@ -233,13 +232,13 @@ class DataReader(BaseIO):
             )
             if "_data" in quantity:
                 data[quantity] = data[quantity].assign_coords(
-                    rho_poloidal=(("t", "channel"), rho_poloidal_coords)
+                    rho_poloidal=(("t", "channel"), rho_poloidal_coords.data)
                 )
                 data[quantity] = data[quantity].assign_coords(
-                    zpos=("channel", zpos_coords)
+                    zpos=("channel", zpos_coords.data)
                 )
                 data[quantity] = data[quantity].assign_coords(
-                    rpos=("channel", rpos_coords)
+                    rpos=("channel", rpos_coords.data)
                 )
         return data
 
@@ -269,10 +268,10 @@ class DataReader(BaseIO):
         """
         Reads Charge-exchange-spectroscopy data
         """
+
         database_results = self._get_charge_exchange(
             uid, instrument, revision, quantities
         )
-
         transform = TransectCoordinates(
             database_results["x"],
             database_results["y"],
@@ -820,7 +819,7 @@ class DataReader(BaseIO):
 
         # Reorganise coordinate system to match Indica default rho-poloidal
         t = database_results["t"]
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
+        t = DataArray(t, coords={"t": t}, attrs={"long_name": "t", "units": "s"})
         psin = database_results["psin"]
         rhop_psin = np.sqrt(psin)
         rhop_interp = np.linspace(0, 1.0, 65)
@@ -861,12 +860,12 @@ class DataReader(BaseIO):
             else:
                 name_coords = []
 
-            coords: list = [("t", t)]
+            coords: dict = {"t": t}
             if len(name_coords) > 0:
                 for coord in name_coords:
-                    coords.append((coord, radial_coords[coord]))
+                    coords[coord] = radial_coords[coord]
 
-            if len(np.shape(database_results[quantity])) != len(coords):
+            if len(np.shape(database_results[quantity])) != len(coords.keys()):
                 continue
 
             quant_data = self.assign_dataarray(
@@ -951,9 +950,9 @@ class DataReader(BaseIO):
         DataArray with assigned coordinates, transform, error, long_name and units
         """
         # Build coordinate dictionary
-        coords = []
+        coords = {}
         for dim in dims:
-            coords.append((dim, format_coord(database_results[dim], dim)))
+            coords[dim] = database_results[dim]
 
         # Build DataArray data with coordinates and long_name + units
         var_name = self.available_quantities(instrument)[quantity]
@@ -971,7 +970,8 @@ class DataReader(BaseIO):
                 error = error.sel(t=slice(self._tstart, self._tend))
 
         if include_error:
-            data = data.assign_coords(error=(data.dims, error))
+            data = data.assign_coords(error=(data.dims, error.data))
+
         if transform is not None:
             data.attrs["transform"] = transform
 

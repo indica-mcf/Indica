@@ -13,6 +13,7 @@ from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
+from indica.utilities import format_coord
 
 
 class BremsstrahlungDiode(DiagnosticModel):
@@ -72,7 +73,7 @@ class BremsstrahlungDiode(DiagnosticModel):
             self.filter_wavelength - self.filter_fwhm * 2,
             self.filter_wavelength + self.filter_fwhm * 2,
         )
-        self.wavelength = DataArray(wavelength, coords=[("wavelength", wavelength)])
+        self.wavelength = format_coord(wavelength, "wavelength")
 
         # Transmission filter function
         transmission = ph.make_window(
@@ -81,7 +82,7 @@ class BremsstrahlungDiode(DiagnosticModel):
             self.filter_fwhm,
             window=self.filter_type,
         )
-        self.transmission = DataArray(transmission, coords=[("wavelength", wavelength)])
+        self.transmission = DataArray(transmission, coords={"wavelength": wavelength})
 
     def integrate_spectra(self, spectra: DataArray, fit_background: bool = True):
         """
