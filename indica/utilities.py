@@ -326,7 +326,7 @@ def format_coord(data: LabeledArray, var_name: str):
 def format_dataarray(
     data: LabeledArray,
     var_name: str,
-    coords: Dict[str, Any] = {},
+    coords: Dict[str, Any] = None,
     make_copy: bool = False,
 ):
     """
@@ -358,7 +358,6 @@ def format_dataarray(
             for name, coord in coords.items()
         }
         data_array = DataArray(_data, coords=processed_coords, name=var_name)
-
     else:
         if type(_data) != DataArray:
             raise ValueError("data must be a DataArray if coordinates are not given")
