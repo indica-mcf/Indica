@@ -326,7 +326,7 @@ def format_coord(data: LabeledArray, var_name: str):
 def format_dataarray(
     data: LabeledArray,
     var_name: str,
-    coords: Dict[str, Any] = {},
+    coords: Dict[str, Any] = None,
     make_copy: bool = False,
 ):
     """
