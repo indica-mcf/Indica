@@ -328,7 +328,6 @@ class ST40Reader(DataReader):
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
-
         results["revision"] = self._get_revision(uid, instrument)
         revision = results["revision"]
 

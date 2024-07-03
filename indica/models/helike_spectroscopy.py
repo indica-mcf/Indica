@@ -85,7 +85,7 @@ class HelikeSpectrometer(DiagnosticModel):
                 mask[(window > mslice.start) & (window < mslice.stop)] = 1
         else:
             mask[:] = 1
-        self.window = DataArray(mask, coords=[("wavelength", window)])
+        self.window = DataArray(mask, coords={"wavelength": window})
         self._get_atomic_data(self.window)
 
         self.line_emission: dict

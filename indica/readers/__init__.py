@@ -4,7 +4,6 @@ filesystem or databases. These objects are all subclasses of
 functionality for a different format of data.
 
 """
-
 from .abstractreader import DataReader
 from .adas import ADASReader
 

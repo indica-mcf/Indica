@@ -490,7 +490,7 @@ class CoordinateTransform(ABC):
 
         if hasattr(self, "equilibrium"):
             if t is None:
-                t = np.float(np.mean(self.equilibrium.rho.t))
+                t = np.float64(np.mean(self.equilibrium.rho.t))
             equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(t)
             x_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.cos(
                 angles

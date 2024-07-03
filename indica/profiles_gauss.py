@@ -43,8 +43,7 @@ class Profiles:
         self.x = np.linspace(0, 1, 15) ** 0.7
         self.datatype = datatype
         if xspl is None:
-            xspl = np.linspace(0, 1.0, 30)
-            xspl = DataArray(xspl, coords=[(self.coord, xspl)])
+            xspl = format_coord(np.linspace(0, 1.0, 30), self.coord)
         self.xspl = xspl
         self.profile_parameters: list = [
             "y0",
@@ -186,7 +185,7 @@ class Profiles:
         )
         _yspl = self.cubicspline(self.xspl)
 
-        coords = [(self.coord, format_coord(self.xspl, self.coord))]
+        coords = {self.coord: self.xspl}
         yspl = format_dataarray(_yspl, self.datatype, coords=coords)
         self.yspl = yspl
 

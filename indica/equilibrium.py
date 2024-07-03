@@ -57,7 +57,7 @@ class Equilibrium:
         self.equilibrium_data = equilibrium_data
         self.f = equilibrium_data["f"]
         self.t = equilibrium_data["f"].t
-        self.faxs = equilibrium_data["faxs"]
+        self.faxs = equilibrium_data["faxs"].drop_vars(["R", "z"])
         self.fbnd = equilibrium_data["fbnd"]
         self.ftor = equilibrium_data["ftor"]
         self.rmag = equilibrium_data["rmag"]
@@ -70,7 +70,9 @@ class Equilibrium:
             / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
         )
         self.psi = equilibrium_data["psi"]
+        self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
 
+        # Shift equilibrium
         if isinstance(R_shift, float):
             R_offset = xr.full_like(self.t, R_shift)
         else:
@@ -85,27 +87,24 @@ class Equilibrium:
         R_new = self.psi.R + self.R_offset
         z_new = self.psi.z + self.z_offset
         self.psi = self.psi.interp(R=R_new, z=z_new)
-
-        self.faxs["R"] -= self.R_offset
-        self.faxs["z"] -= self.z_offset
+        self.rho = self.rho.interp(
+            R=R_new, z=z_new, kwargs={"fill_value": self.rho.max()}
+        )
         self.rmag -= self.R_offset
-        self.rbnd -= self.R_offset
         self.zmag -= self.z_offset
+        self.rbnd -= self.R_offset
         self.zbnd -= self.z_offset
         self.zx -= self.z_offset
 
         # Including workaround in case faxs or fbnd had messy data
-        rho: DataArray = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
-        if np.any(np.isnan(rho.interp(R=self.rmag, z=self.zmag))):
+        if np.any(np.isnan(self.rho.interp(R=self.rmag, z=self.zmag))):
             self.faxs = self.psi.interp(R=self.rmag, z=self.zmag).drop(["R", "z"])
             self.fbnd = self.psi.interp(R=self.rbnd, z=self.zbnd).mean(
                 "arbitrary_index"
             )
-            rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
-        if np.any(np.isnan(rho)):
-            rho = xr.where(rho > 0, rho, 0.0)
+        if np.any(np.isnan(self.rho)):
+            self.rho = xr.where(self.rho > 0, self.rho, 0.0)
 
-        self.rho = rho
         self.t = self.rho.t
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
             psin = equilibrium_data["vjac"].rho_poloidal ** 2

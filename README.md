@@ -17,13 +17,13 @@ ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also stil
 1. Make sure pip is up-to-date:
     - *pip install --upgrade pip*
 
-2. Create a virtual environment with python 3.9 and activate it, e.g. using conda:
+2. Create a virtual environment with python 3.11 and activate it, e.g. using conda:
    - *set_global_conda*
-   - *conda create --name ENV_NAME python=3.9*
+   - *conda create --name ENV_NAME python=3.11*
    - *conda activate ENV_NAME*
 
 3. Install poetry and environment dependencies:
-    - *pip install poetry==1.1.15*
+    - *pip install poetry==1.7*
     - *poetry update*
 
 4. For mdsplus building and installation:
@@ -34,7 +34,9 @@ ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also stil
    - *cd ../*
    - *rm -r mdsPython*
 
-
+5. Optional: For installing InDiCA as a package:
+    - *cd Indica*
+    - *python -m pip install .*
 
 ## License
 

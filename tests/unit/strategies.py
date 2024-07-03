@@ -445,7 +445,7 @@ def arbitrary_coordinates(
     results = tuple(
         draw(
             hynp.arrays(
-                np.float,
+                np.float64,
                 shapes[i],
                 elements=hyst.floats(
                     min_value[i], max_value[i], allow_nan=False, allow_infinity=False
