@@ -741,10 +741,10 @@ class ST40Reader(DataReader):
         rpos, _ = self._get_signal(
             uid, instrument, ".profiles.r_midplane:rpos", results["revision"]
         )
-        zpos, _ = self._get_signal(
-            uid, instrument, ".profiles.r_midplane:rpos", results["revision"]
-        )
-        zpos *= 0  # TODO fix path when data is present
+        # zpos, _ = self._get_signal(
+        #     uid, instrument, ".profiles.r_midplane:zpos", results["revision"]
+        # )
+        zpos = np.full_like(rpos, 0.0)  # TODO fix path when data is present
 
         rhop_data, _ = self._get_signal(
             uid, instrument, ".profiles.inputs:rhop", results["revision"]

@@ -226,6 +226,11 @@ class DataReader(BaseIO):
                 dims,
                 transform=None,
             )
+            if "_R" in quantity:
+                data[quantity] = data[quantity].assign_coords(
+                    z=("R", database_results["z"])
+                )
+
             if "_data" in quantity:
                 data[quantity] = data[quantity].assign_coords(
                     rho_poloidal=(("t", "channel"), rho_poloidal_data.data)
