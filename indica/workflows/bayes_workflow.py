@@ -194,7 +194,7 @@ class BayesWorkflow:
                 "PTH_ERR": self.midplane_blobs["pressure_th"].std(dim="sample_idx"),
                 "PFAST_ERR": self.midplane_blobs["pressure_fast"].std(dim="sample_idx"),
                 "ZEFF_ERR": self.midplane_blobs["zeff"].sum("element").std(dim="sample_idx"),
-                "MEANZ_ERR": self.midplane_blobs["meanz"].median(dim="sample_idx"),
+                "MEANZ_ERR": self.midplane_blobs["meanz"].std(dim="sample_idx"),
             },
         }
 
