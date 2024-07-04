@@ -215,6 +215,9 @@ def bda_run(
         prior_manager=prior_manager
     )
 
+    # cleaning up config to write to file (removing metadata)
+    config_str = str({key: value for key, value in cfg.__dict__.items() if "_" not in key})
+
     log.info("Beginning BDA")
     workflow(
         pulse_to_write=cfg.pulse_info.pulse_to_write,
@@ -224,6 +227,7 @@ def bda_run(
         mds_write=cfg.write_info.mds_write,
         plot=cfg.write_info.plot,
         filepath=f"./results/{dirname}/",
+        config=config_str,
     )
 
 

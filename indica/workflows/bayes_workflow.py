@@ -79,7 +79,7 @@ class BayesWorkflow:
         result["INPUT"] = {
             "GIT_ID": f"{git_id}",
             "USER": f"{getpass.getuser()}",
-            "SETTINGS": "CONFIG GOES HERE",
+            "SETTINGS": self.config,
             "DATETIME": datetime.utcnow().__str__(),
         }
         # TODO fix workflow
@@ -292,9 +292,9 @@ class BayesWorkflow:
         best=True,
         pulse_to_write=None,
         plot=False,
-        **kwargs,
+        config=None,
     ):
-
+        self.config = config
         self.result = self._build_inputs_dict()
         results = []
         time_iterator = iter(self.plasma_profiler.plasma.t)
@@ -335,7 +335,7 @@ class BayesWorkflow:
         self.result = dict_of_dataarray_to_numpy(self.result)
 
         if mds_write:
-            print("Writing to MDS+")
+            print(f"Writing MDS+ for pulse: {pulse_to_write}")
             tree_exists = does_tree_exist(pulse_to_write)
             if tree_exists:
                 mode = "EDIT"
