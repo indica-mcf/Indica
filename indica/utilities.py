@@ -358,7 +358,6 @@ def format_dataarray(
             for name, coord in coords.items()
         }
         data_array = DataArray(_data, coords=processed_coords, name=var_name)
-
     else:
         if type(_data) != DataArray:
             raise ValueError("data must be a DataArray if coordinates are not given")

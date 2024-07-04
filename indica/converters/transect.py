@@ -69,35 +69,17 @@ class TransectCoordinates(CoordinateTransform):
         self._machine_dims = machine_dimensions
         self.x = xr.DataArray(
             x_positions,
-            coords={
-                self.x1_name: self.x1.data
-                if isinstance(self.x1, xr.DataArray)
-                else self.x1
-            },
-            dims=self.x1_name,
+            coords={self.x1_name: self.x1.data},
         )
         self.y = xr.DataArray(
             y_positions,
-            coords={
-                self.x1_name: self.x1.data
-                if isinstance(self.x1, xr.DataArray)
-                else self.x1
-            },
-            dims=self.x1.name,
+            coords={self.x1_name: self.x1.data},
         )
         self.z = xr.DataArray(
             z_positions,
-            coords={
-                self.x1_name: self.x1.data
-                if isinstance(self.x1, xr.DataArray)
-                else self.x1
-            },
-            dims=self.x1_name,
+            coords={self.x1_name: self.x1.data},
         )
 
-        # self.x: DataArray = DataArray(x_positions, coords=[(self.x1_name, self.x1)])
-        # self.y: DataArray = DataArray(y_positions, coords=[(self.x1_name, self.x1)])
-        # self.z: DataArray = DataArray(z_positions, coords=[(self.x1_name, self.x1)])
         self.R: DataArray = np.sqrt(self.x**2 + self.y**2)
         self.rho: DataArray
         self.theta: DataArray
