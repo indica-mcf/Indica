@@ -376,14 +376,17 @@ class PPFReader(DataReader):
                     f"Failed to match spectrometer name to instrument {instrument}"
                 )
             trck, _ = self._get_signal(uid, instrument, "trck", revision)
-            location, direction = _get_cxrs_los_geometry(
-                sav_file=_get_cxrs_los_savfile(pulse=self.pulse, spec=spec),
-                tracks=_get_cxrs_active_tracks(
-                    pulse=self.pulse, spec=spec, trck=trck.data
-                ),
-            )
-            results["location"] = location
-            results["direction"] = direction
+            try:
+                location, direction = _get_cxrs_los_geometry(
+                    sav_file=_get_cxrs_los_savfile(pulse=self.pulse, spec=spec),
+                    tracks=_get_cxrs_active_tracks(
+                        pulse=self.pulse, spec=spec, trck=trck.data
+                    ),
+                )
+                results["location"] = location
+                results["direction"] = direction
+            except PPFError:
+                warnings.warn("Can't load CXRS geometry without IDLBridge module")
         else:
             warnings.warn(
                 f"CXRS LOS geometry not supported for JPN {self.pulse}, "

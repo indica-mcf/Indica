@@ -277,14 +277,6 @@ class DataReader(BaseIO):
             f"{instrument}",
             machine_dimensions=database_results["machine_dims"],
         )
-        los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
-            instrument,
-            database_results["machine_dims"],
-            dl,
-            passes,
-        )
 
         database_results["channel"] = np.arange(database_results["length"])
         if "wavelength" in database_results.keys():
@@ -304,7 +296,18 @@ class DataReader(BaseIO):
                 dims,
                 transform=transform,
             )
-            quant_data.attrs["los_transform"] = los_transform
+            if (
+                database_results["location"] is not None
+                and database_results["direction"] is not None
+            ):
+                quant_data.attrs["los_transform"] = instatiate_line_of_sight(
+                    database_results["location"],
+                    database_results["direction"],
+                    instrument,
+                    database_results["machine_dims"],
+                    dl,
+                    passes,
+                )
             data[quantity] = quant_data
 
         return data
