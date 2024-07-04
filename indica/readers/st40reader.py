@@ -296,13 +296,8 @@ class ST40Reader(DataReader):
             uid, instrument, ":time", results["revision"]
         )
         wavelength, _ = self._get_signal(
-            uid, instrument, ":wavelength", results["revision"]
+            uid, instrument, ":wavelen", results["revision"]
         )
-        # TODO: change once wavelength in MDS+ has been fixed to nanometers!
-        wavelength /= 10.0
-        if self.pulse >= 10307:
-            dlambda = float(np.abs(wavelength[1] - wavelength[0])) * 4
-            wavelength += dlambda
         results["wavelength"] = wavelength
 
         for q in quantities:
