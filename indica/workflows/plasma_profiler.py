@@ -90,12 +90,11 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
         if not hasattr(plasma, key):
             continue
 
-        midplane_profiles[key] = []
-        _prof_midplane = value.interp(rho_poloidal=rho)
-
-        midplane_profiles[key] = xr.where(
-            np.isfinite(_prof_midplane), _prof_midplane, 0.0
-        )
+        midplane_profiles[key] = value.interp(rho_poloidal=rho)
+        # TODO: when sampling is stopped early there are NaN blobs which cause bugs when changed to zeros
+        # midplane_profiles[key] = xr.where(
+        #     np.isfinite(_prof_midplane), _prof_midplane, 0.0
+        # )
     return midplane_profiles
 
 
