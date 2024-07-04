@@ -64,48 +64,9 @@ class Equilibrium:
         self.rbnd = equilibrium_data["rbnd"]
         self.zmag = equilibrium_data["zmag"]
         self.zbnd = equilibrium_data["zbnd"]
-        self.zx = self.zbnd.min("arbitrary_index")
-        self.rhotor = np.sqrt(
-            (self.ftor - self.ftor.sel(rho_poloidal=0.0))
-            / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
-        )
-        self.psi = equilibrium_data["psi"]
-        self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
-
-        # Shift equilibrium
-        if isinstance(R_shift, float):
-            R_offset = xr.full_like(self.t, R_shift)
-        else:
-            R_offset = R_shift.interp(t=self.t, kwargs={"fill_value": 0})
-        if isinstance(z_shift, float):
-            z_offset = xr.full_like(self.t, z_shift)
-        else:
-            z_offset = z_shift.interp(t=self.t, kwargs={"fill_value": 0})
-        self.R_offset = R_offset
-        self.z_offset = z_offset
-
-        R_new = self.psi.R + self.R_offset
-        z_new = self.psi.z + self.z_offset
-        self.psi = self.psi.interp(R=R_new, z=z_new)
-        self.rho = self.rho.interp(
-            R=R_new, z=z_new, kwargs={"fill_value": self.rho.max()}
-        )
-        self.rmag -= self.R_offset
-        self.zmag -= self.z_offset
-        self.rbnd -= self.R_offset
-        self.zbnd -= self.z_offset
-        self.zx -= self.z_offset
-
-        # Including workaround in case faxs or fbnd had messy data
-        if np.any(np.isnan(self.rho.interp(R=self.rmag, z=self.zmag))):
-            self.faxs = self.psi.interp(R=self.rmag, z=self.zmag).drop(["R", "z"])
-            self.fbnd = self.psi.interp(R=self.rbnd, z=self.zbnd).mean(
-                "arbitrary_index"
-            )
-        if np.any(np.isnan(self.rho)):
-            self.rho = xr.where(self.rho > 0, self.rho, 0.0)
-
-        self.t = self.rho.t
+        if "rmji" and "rmjo" in equilibrium_data:
+            self.rmji = equilibrium_data["rmji"]
+            self.rmjo = equilibrium_data["rmjo"]
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
             psin = equilibrium_data["vjac"].rho_poloidal ** 2
             dpsin = psin[1] - psin[0]
@@ -116,10 +77,49 @@ class Equilibrium:
             self.area = equilibrium_data["area"]
         else:
             raise ValueError("No volume or area information")
-        if "rmji" and "rmjo" in equilibrium_data:
-            self.rmji = equilibrium_data["rmji"] - self.R_offset
-            self.rmjo = equilibrium_data["rmjo"] - self.R_offset
 
+        self.zx = self.zbnd.min("arbitrary_index")
+        self.rhotor = np.sqrt(
+            (self.ftor - self.ftor.sel(rho_poloidal=0.0))
+            / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
+        )
+        self.psi = equilibrium_data["psi"]
+        self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
+
+        # TODO: shift of equilibrium is a bad idea, but useful...
+        #   - psi (R, z) is restricted to new limits to avoid NaNs
+        #   - volume is not changed so is inconsistent!
+        if isinstance(R_shift, float):
+            R_offset = xr.full_like(self.t, R_shift)
+        else:
+            R_offset = R_shift.interp(t=self.t, kwargs={"fill_value": 0})
+        if isinstance(z_shift, float):
+            z_offset = xr.full_like(self.t, z_shift)
+        else:
+            z_offset = z_shift.interp(t=self.t, kwargs={"fill_value": 0})
+
+        self.R_offset = xr.where(np.isfinite(R_offset), R_offset, 0)
+        self.z_offset = xr.where(np.isfinite(z_offset), z_offset, 0)
+        if np.any(np.abs(R_offset) > 0) or np.any(np.abs(z_offset) > 0):
+            R_new = self.psi.R + self.R_offset
+            z_new = self.psi.z + self.z_offset
+            R_range = slice(R_new.min("R").max("t"), R_new.max("R").min("t"))
+            z_range = slice(z_new.min("z").max("t"), z_new.max("z").min("t"))
+            self.psi = self.psi.interp(R=R_new, z=z_new).sel(R=R_range, z=z_range)
+            self.rho = self.rho.interp(R=R_new, z=z_new).sel(R=R_range, z=z_range)
+            self.rmag -= self.R_offset
+            self.zmag -= self.z_offset
+            self.rbnd -= self.R_offset
+            self.zbnd -= self.z_offset
+            self.zx -= self.z_offset
+            if hasattr(self, "rmji"):
+                self.rmji -= self.R_offset
+            if hasattr(self, "rmjo"):
+                self.rmjo -= self.R_offset
+
+        if np.any(np.isnan(self.rho)):
+            self.rho = xr.where(self.rho > 0, self.rho, 0.0)
+        self.t = self.rho.t
         self.Rmin = min(self.rho.coords["R"])
         self.Rmax = max(self.rho.coords["R"])
         self.zmin = min(self.rho.coords["z"])
