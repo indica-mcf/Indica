@@ -19,11 +19,11 @@ import logging
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
-    "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
-                             + (x.where((x.wavelength < 0.392) &
-                                        (x.wavelength > 0.388), ).std("wavelength")).fillna(0),  # Background noise
-    "cxff_pi.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
-    "cxff_tws_c.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
+    # "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
+    #                          + (x.where((x.wavelength < 0.392) &
+    #                                     (x.wavelength > 0.388), ).std("wavelength")).fillna(0),  # Background noise
+    "cxff_pi.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
+    "cxff_tws_c.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
 }
 
 
@@ -38,11 +38,12 @@ def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
             if verbose:
                 print(f"no error function defined for {key}")
             continue
-        if "error" in value.coords:
-            if verbose:
-                print(f"{key} contains error: skipping")
-            opt_data_with_error[key] = value
-            continue
+        # TODO: better way of handling errors for exp + phantom cases
+        # if "error" in value.coords:
+        #     if verbose:
+        #         print(f"{key} contains error: skipping")
+        #     opt_data_with_error[key] = value
+        #     continue
         error = error_functions[key](value)
         opt_data_with_error[key] = value.assign_coords({"error": error})
     return opt_data_with_error
@@ -58,14 +59,14 @@ INSTRUMENT_MAPPING: dict = {
 }
 
 
-@hydra.main(version_base=None, config_path="../configs/workflows/bda_run", config_name="test", )
+@hydra.main(version_base=None, config_path="../configs/workflows/bda_run", config_name="exp_run", )
 def bda_run(
         cfg: DictConfig,
 ):
     log = logging.getLogger(__name__)
     log.info(f"Beginning BDA for pulse {cfg.pulse_info.pulse}")
 
-    # TODO: add to configs
+    # TODO: add to configs (slices not supported by yaml)
     model_init: dict = {"xrcs": {"window_masks": [slice(0.394, 0.396)]}}
 
     dirname = f"{cfg.pulse_info.pulse}.{cfg.write_info.run}"
@@ -99,6 +100,12 @@ def bda_run(
     if cfg.data_info.apply_rshift:
         R_shift = ppts_reader.raw_data["ppts"]["R_shift"]
         log.info(f"R shift of: {R_shift}")
+
+    equil_reader = ReadST40(pulse=cfg.data_info.equilibrium.modelling_number + cfg.pulse_info.pulse,
+                            tstart=cfg.pulse_info.tstart, tend=cfg.pulse_info.tend, dt=cfg.pulse_info.dt, )
+    equil_reader([cfg.data_info.equilibrium.code], revisions=dict(cfg.data_info.equilibrium.revisions), R_shift=R_shift)
+    equilibrium = equil_reader.equilibrium
+    plasma.set_equilibrium(equilibrium=equilibrium)
 
     # different data handling methods TODO: abstract these to an interface
     if cfg.data_info.phantom:  # Currently broken
@@ -137,7 +144,7 @@ def bda_run(
     reader(cfg.pulse_info.diagnostics, filter_coords=cfg.data_info.filter_coords,
            filter_limits=cfg.data_info.filter_limits,
            revisions=dict(cfg.data_info.revisions), R_shift=R_shift)
-    plasma.set_equilibrium(equilibrium=reader.equilibrium)
+
 
     # post processing (TODO: where should this be)
     flat_data = flatdict.FlatDict(reader.binned_data, ".")
@@ -163,7 +170,7 @@ def bda_run(
     model_kwargs = {}
     model_coordinator.init_models(**more_model_settings)
     model_coordinator.set_transforms(reader.transforms)
-    model_coordinator.set_equilibrium(reader.equilibrium)
+    model_coordinator.set_equilibrium(equilibrium)
     model_coordinator.set_plasma(plasma)
 
     log.info("initialising PriorManager")
@@ -181,7 +188,7 @@ def bda_run(
         opt_params.extend(prior_manager.get_param_names_for_profiles(cfg.optimisation_info.pca_profiles))
         log.info(f"optimising with: {opt_params}")
     else:
-        opt_params = cfg.optimisation_info.param_names
+        opt_params = list(cfg.optimisation_info.param_names)
 
     optimiser_settings = OptimiserEmceeSettings(
         param_names=opt_params,
