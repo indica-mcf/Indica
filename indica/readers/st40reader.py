@@ -83,7 +83,7 @@ class ST40Reader(DataReader):
         self._get_signal = self.mdsutils.get_signal
         self._get_signal_dims = self.mdsutils.get_signal_dims
         self._get_data = self.mdsutils.get_data
-        self._get_revision = self.mdsutils.get_best_revision
+        self._get_revision = self.mdsutils.get_revision
 
     def _get_equilibrium(
         self,
@@ -98,7 +98,7 @@ class ST40Reader(DataReader):
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {}
-        results["revision"] = self._get_revision(uid, instrument)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
         time, _ = self._get_signal(uid, instrument, ":time", revision)
         results["t"] = time
@@ -153,7 +153,7 @@ class ST40Reader(DataReader):
             uid = self.UIDS_MDS[instrument]
 
         results: Dict[str, Any] = {}
-        results["revision"] = self._get_revision(uid, instrument)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
         # Read time and radial dimensions
@@ -211,7 +211,7 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
         location, location_path = self._get_signal(
@@ -269,7 +269,7 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
         location, location_path = self._get_signal(
@@ -329,7 +329,7 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
         texp, texp_path = self._get_signal(uid, instrument, ":exposure", revision)
@@ -426,7 +426,7 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument)
+        results["revision"] = self._get_revision(uid, instrument,revision)
         revision = results["revision"]
 
         time, _ = self._get_signal(uid, instrument, ":time", revision)
@@ -507,7 +507,7 @@ class ST40Reader(DataReader):
         }
         results["location"] = location
         results["direction"] = direction
-        results["revision"] = self._get_revision(uid, instrument)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         results["revision"] = revision
         revision = results["revision"]
 
@@ -561,7 +561,7 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
         location, location_path = self._get_signal(
@@ -649,7 +649,7 @@ class ST40Reader(DataReader):
             "machine_dims": self.MACHINE_DIMS,
         }
 
-        results["revision"] = self._get_revision(uid, instrument)
+        results["revision"] = self._get_revision(uid, instrument, revision)
         revision = results["revision"]
 
         time, time_path = self._get_signal(uid, instrument, ":time", revision)
@@ -707,10 +707,9 @@ class ST40Reader(DataReader):
 
         results: Dict[str, Any] = {
             "length": {},
-            "revision": self._get_revision(uid, instrument),
+            "revision": self._get_revision(uid, instrument, revision),
         }
         revision = results["revision"]
-
         time, time_path = self._get_signal(uid, instrument, ":time", revision)
         rshift, _ = self._get_signal(uid, instrument, ".global:rshift", revision)
         rhop, _ = self._get_signal(uid, instrument, ".profiles.psi_norm:rhop", revision)
