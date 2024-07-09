@@ -1,9 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Dict, Tuple
 
+import hydra
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
+from omegaconf import DictConfig
 
 from sklearn.decomposition import PCA
 from scipy.interpolate import LinearNDInterpolator
@@ -32,7 +34,7 @@ def fit_linear_prior(pca_profiles: np.ndarray, prior_values=None, ) -> LinearNDI
     return prior_fit
 
 
-def fit_kde_prior(linear_fit: LinearNDInterpolator, size=int(1e6)) -> gaussian_kde:
+def fit_kde_prior(linear_fit: LinearNDInterpolator, size=int(1e6), bw_method="scott") -> gaussian_kde:
     sampled_points = linear_fit.points
     min = sampled_points.min(axis=0)
     max = sampled_points.max(axis=0)
@@ -40,7 +42,7 @@ def fit_kde_prior(linear_fit: LinearNDInterpolator, size=int(1e6)) -> gaussian_k
 
     random_points = np.array([np.random.uniform(r[0], r[1], size=size) for r in ranges])
     accepted_points = random_points[:, linear_fit(*random_points).nonzero()[0]]
-    kernel = gaussian_kde(accepted_points)
+    kernel = gaussian_kde(accepted_points, bw_method=bw_method)
     return kernel
 
 
@@ -102,7 +104,7 @@ def _plot_KDE_comparison(kernel: gaussian_kde, prior: LinearNDInterpolator, size
         axs.scatter3D(prior.points[:, 0], prior.points[:, 1], prior.points[:, 2], color="k", label="Prior Samples")
 
     if kernel.d == 2:
-        axs = plt.axes(projection="2d")
+        axs = plt.axes()
         axs.scatter(sample[:, 0], sample[:, 1], color="r", label="KDE Samples")
         axs.scatter(prior.points[:, 0], prior.points[:, 1], color="k", label="Prior Samples")
     plt.legend()
@@ -193,8 +195,16 @@ def sample_gauss_profiles(sample_params: Dict[str, np.ndarray], profilers: dict,
     return profiles
 
 
-if __name__ == "__main__":
-    pca_processor, pca_profilers = pca_workflow(PriorManager(), ["electron_temperature", ],
-                                                np.linspace(0, 1, 30), n_components=3, num_prof_samples=int(1e3))
+@hydra.main(version_base=None, config_path="../configs/workflows/priors/", config_name="config", )
+def main(cfg: DictConfig):
+    pca_processor, pca_profilers = pca_workflow(PriorManager(
+        basic_prior_info=cfg.basic_prior_info, cond_prior_info=cfg.cond_prior_info,),
+        ["impurity_density:ar", ],
+        np.linspace(0, 1, 30), n_components=2, num_prof_samples=int(5e3))
+
     pca_processor.plot_all()
     plt.show(block=True)
+
+
+if __name__ == "__main__":
+    main()
