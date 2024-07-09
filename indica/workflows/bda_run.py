@@ -3,7 +3,7 @@ import hydra
 
 import pprint
 import numpy as np
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from indica.models import *
 from indica.readers.read_st40 import ReadST40
@@ -23,7 +23,7 @@ ERROR_FUNCTIONS = {
     # "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
     #                          + (x.where((x.wavelength < 0.392) &
     #                                     (x.wavelength > 0.388), ).std("wavelength")).fillna(0),  # Background noise
-    "cxff_pi.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
+    "cxff_pi.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
 }
 
@@ -60,16 +60,12 @@ INSTRUMENT_MAPPING: dict = {
 }
 
 
-@hydra.main(version_base=None, config_path="../configs/workflows/bda_run", config_name="basic_run", )
+@hydra.main(version_base=None, config_path="../configs/workflows/bda_run", config_name="basic_run",)
 def bda_run(
         cfg: DictConfig,
 ):
     log = logging.getLogger(__name__)
     log.info(f"Beginning BDA for pulse {cfg.pulse_info.pulse}")
-
-    # TODO: add to configs (slices not supported by yaml)
-    model_init: dict = {"xrcs": {"window_masks": [slice(0.394, 0.396)]}}
-
     dirname = f"{cfg.pulse_info.pulse}.{cfg.write_info.run}"
 
     log.info("Initialising plasma and plasma_profiler")
@@ -81,16 +77,16 @@ def bda_run(
     plasma_profiler(cfg.data_info.profile_params_to_update)
 
     log.info("PPTS reading")
-    ppts_reader = ReadST40(pulse=cfg.pulse_info.pulse, tstart=cfg.pulse_info.tstart, tend=cfg.pulse_info.tend,
-                           dt=cfg.pulse_info.dt, )
-    ppts_reader(["ppts"])
+    ppts_reader = ReadST40(pulse=cfg.pulse_info.pulse+cfg.data_info.ppts_modelling_number, tstart=cfg.pulse_info.tstart, tend=cfg.pulse_info.tend,
+                           dt=cfg.pulse_info.dt, tree="ppts")
+    ppts_reader(["ppts"], revisions=OmegaConf.to_container(cfg.data_info.revisions), fetch_equilbrium=False)
 
     if cfg.data_info.set_ts:
         # interp ppts profiles as some are empty
         log.info("Setting profiles from PPTS")
         ppts_profs = ppts_reader.filtered_data["ppts"]
-        ne = ppts_profs["ne_rho"].interp(t=plasma.t, method="nearest").interp(rho_poloidal=plasma.rho)
-        te = ppts_profs["te_rho"].interp(t=plasma.t, method="nearest").interp(rho_poloidal=plasma.rho)
+        ne = ppts_profs["ne_rho"].interpolate_na(dim="t").ffill("t").bfill("t").interp(t=plasma.t, ).interp(rho_poloidal=plasma.rho)
+        te = ppts_profs["te_rho"].interpolate_na(dim="t").ffill("t").bfill("t").interp(t=plasma.t, ).interp(rho_poloidal=plasma.rho)
         plasma_profiler.set_profiles({"electron_density": ne,
                                       "electron_temperature": te,
                                       })
@@ -104,7 +100,7 @@ def bda_run(
 
     equil_reader = ReadST40(pulse=cfg.data_info.equilibrium.modelling_number + cfg.pulse_info.pulse,
                             tstart=cfg.pulse_info.tstart, tend=cfg.pulse_info.tend, dt=cfg.pulse_info.dt, )
-    equil_reader([cfg.data_info.equilibrium.code], revisions=dict(cfg.data_info.equilibrium.revisions), R_shift=R_shift)
+    equil_reader([cfg.data_info.equilibrium.code], revisions=OmegaConf.to_container(cfg.data_info.equilibrium.revisions), R_shift=R_shift)
     equilibrium = equil_reader.equilibrium
     plasma.set_equilibrium(equilibrium=equilibrium)
 
@@ -115,16 +111,16 @@ def bda_run(
                                   tend=cfg.pulse_info.tend, dt=cfg.pulse_info.dt)
         phantom_reader(cfg.pulse_info.diagnostics, filter_coords=cfg.data_info.filter_coords,
                        filter_limits=cfg.data_info.filter_limits,
-                       revisions=dict(cfg.data_info.revisions), R_shift=R_shift)
+                       revisions=OmegaConf.to_container(cfg.data_info.revisions), R_shift=R_shift)
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
-        reader = ModelCoordinator(models, model_init, )
+        reader = ModelCoordinator(models, OmegaConf.to_container(cfg.model_info), )
         if "xrcs" in phantom_reader.binned_data.keys():
             more_model_settings = {"xrcs": {"window": phantom_reader.binned_data["xrcs"]["intens"].wavelength}}
         else:
             more_model_settings = {}
         reader.init_models(**more_model_settings)
         reader.set_transforms(phantom_reader.transforms)
-        reader.set_equilibrium(phantom_reader.equilibrium, )
+        reader.set_equilibrium(equil_reader.equilibrium, )
         reader.set_plasma(plasma)
 
     elif cfg.data_info.mock:
@@ -132,7 +128,7 @@ def bda_run(
         equilibrium = load_default_objects("st40", "equilibrium")
         transforms = load_default_objects("st40", "geometry")
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
-        reader = ModelCoordinator(models, model_init, )
+        reader = ModelCoordinator(models, OmegaConf.to_container(cfg.model_info), )
         reader.set_transforms(transforms)
         reader.set_equilibrium(equilibrium, )
         reader.set_plasma(plasma)
@@ -144,7 +140,7 @@ def bda_run(
 
     reader(cfg.pulse_info.diagnostics, filter_coords=cfg.data_info.filter_coords,
            filter_limits=cfg.data_info.filter_limits,
-           revisions=dict(cfg.data_info.revisions), R_shift=R_shift)
+           revisions=OmegaConf.to_container(cfg.data_info.revisions), R_shift=R_shift, fetch_equilbrium=False)
 
 
     # post processing (TODO: where should this be)
@@ -156,7 +152,7 @@ def bda_run(
     log.info("Initialising ModelCoordinator")
     model_coordinator = ModelCoordinator(
         models=models,
-        model_settings=model_init,
+        model_settings=OmegaConf.to_container(cfg.model_info),
         verbose=False,
     )
     if "xrcs" in reader.binned_data.keys():

@@ -83,7 +83,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         mask = np.zeros(shape=window.shape)
         if self.window_masks:
             for mslice in self.window_masks:
-                mask[(window > mslice.start) & (window < mslice.stop)] = 1
+                mask[(window > mslice[0]) & (window < mslice[1])] = 1
         else:
             mask[:] = 1
         self.window = DataArray(mask, coords=[("wavelength", window)])
