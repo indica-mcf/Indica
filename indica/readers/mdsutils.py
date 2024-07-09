@@ -123,6 +123,16 @@ class MDSUtils(BaseIO):
         best_revision, _ = self.get_signal(uid, instrument, ".best_run", "best")
         return best_revision
 
+    def get_revision(self, uid: str, instrument: str, revision: RevisionLike) -> str:
+        """
+        Return revision name given
+        """
+        revision_name = self.revision_name(revision)
+        if revision_name == "BEST":
+            revision_name = self.get_best_revision(uid, instrument)
+
+        return revision_name
+
     def get_mds_path(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[str, str]:
