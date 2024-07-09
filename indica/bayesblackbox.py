@@ -65,9 +65,9 @@ class BayesBlackBox:
 
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
             # treat channel as key dim which isn't averaged like other dims
-            if "channel" in _ln_likelihood.dims:
-                _ln_likelihood = _ln_likelihood.sum(dim="channel", skipna=True)
-            ln_likelihood += _ln_likelihood.mean(skipna=True).values
+            # if "channel" in _ln_likelihood.dims:
+            #     _ln_likelihood = _ln_likelihood.sum(dim="channel", skipna=True)
+            ln_likelihood += _ln_likelihood.sum(skipna=True).values
 
         return ln_likelihood
 
