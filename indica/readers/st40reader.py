@@ -786,6 +786,55 @@ class ST40Reader(DataReader):
             results[f"{q}_error"] = qval_err
         return results
 
+    def _get_zeff(
+            self,
+            uid: str,
+            instrument: str,
+            revision: RevisionLike,
+            quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        results: Dict[str, Any] = {
+            "machine_dims": self.MACHINE_DIMS,
+        }
+        results["revision"] = self._get_revision(uid, instrument, revision)
+        time, time_path = self._get_signal(
+            uid, instrument, ":time", results["revision"]
+        )
+        rshift, _ = self._get_signal(
+            uid, instrument, ".global:rshift", results["revision"]
+        )
+        rhop, _ = self._get_signal(
+            uid, instrument, ".profiles.psi_norm:rhop", results["revision"]
+        )
+        results["rho_poloidal"] = rhop
+        results["R_shift"] = rshift
+        results["t"] = time
+
+        for q in quantities:
+            qval, q_path = self._get_signal(
+                uid,
+                instrument,
+                self.QUANTITIES_MDS[instrument][q],
+                results["revision"],
+            )
+            try:
+                qval_err, q_path_err = self._get_signal(
+                    uid,
+                    instrument,
+                    self.QUANTITIES_MDS[instrument][q] + "_err",
+                    results["revision"],
+                )
+            except TreeNNF:
+                qval_err = np.full_like(qval, 0.0)
+
+            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+
+            results[q + "_records"] = q_path
+            results[q] = qval
+            results[f"{q}_error"] = qval_err
+        return results
+
     def close(self):
         """Ends connection to the SAL server from which PPF data is being
         read."""

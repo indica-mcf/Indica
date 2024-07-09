@@ -20,8 +20,8 @@ INSTRUMENT_INFO: dict = {
     "tws_c": ("", "tws_c", 0, set()),
     "ts": ("", "ts", 0, set()),
     "ppts": ("", "ppts", 0, set()),
+    "zeff_brems": ("", "zeff_brems", 0, set()),
 }
-
 
 def run_reader_get_methods(
     instrument_name: str,
@@ -161,3 +161,8 @@ def test_ts(instrument_name: str = "ts"):
 def test_ppts(instrument_name: str = "ppts"):
     data, database_results = run_reader_get_methods(instrument_name)
     check_transforms(instrument_name, data)
+
+if __name__ == "__main__":
+    from indica.readers.st40reader import ST40Reader
+    st40 = ST40Reader(23011560, 0, 1, tree="ZEFF_BREMS")
+    zeff_brems = st40.get("", "zeff_brems", "RUN10")

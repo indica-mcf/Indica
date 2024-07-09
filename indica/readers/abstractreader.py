@@ -18,7 +18,7 @@ from indica.datatypes import ArrayType
 from indica.numpy_typing import OnlyArray
 from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import format_dataarray
+from indica.utilities import format_dataarray, get_function_name
 
 
 def instatiate_line_of_sight(
@@ -801,6 +801,54 @@ class DataReader(BaseIO):
         raise NotImplementedError(
             "{} does not implement a '_get_spectroscopy' "
             "method.".format(self.__class__.__name__)
+        )
+
+    def get_zeff(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        # fname = get_function_name()
+        # database_results = getattr(self, f"_{fname}")(uid, instrument, revision, quantities)
+        database_results = self._get_zeff(uid, instrument, revision, quantities)
+
+        return database_results
+
+        data = {}
+        for quantity in quantities:
+            _path:str = database_results[f"{quantity}_records"]
+            print(_path)
+            if "global" in _path.lower():
+                dims = ["t"]
+            elif "profiles" in _path.lower():
+                dims = ["t", "rho_poloidal"]
+            else:
+                raise ValueError(f"Unknown quantity: {quantity}")
+
+            data[quantity] = self.assign_dataarray(
+                instrument,
+                quantity,
+                database_results,
+                dims,
+                transform=None,
+            )
+        return data
+
+    def _get_zeff(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """
+        Gets raw data for ZEFF analysis from the database
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a '_get_zeff' " "method."
         )
 
     # def get_astra(
