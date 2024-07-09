@@ -285,6 +285,7 @@ class ReadST40:
         raw_only: bool = False,
         debug: bool = False,
         set_equilibrium: bool = False,
+        fetch_equilbrium = True,
     ):
         self.debug = debug
 
@@ -309,7 +310,8 @@ class ReadST40:
             filter_coords = FILTER_COORDS
 
         self.reset_data()
-        self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
+        if fetch_equilbrium:
+            self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
         for instrument in instruments:
             print(f"Reading {instrument}")
             try:
