@@ -345,6 +345,7 @@ class BayesWorkflow:
                 pulse_to_write=pulse_to_write,
                 best=best,
                 run=run,
+                run_info=run_info,
                 diagnostic_quantities=self.quant_to_optimise,
                 mode=mode,
                 debug=False,
