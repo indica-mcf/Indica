@@ -15,20 +15,24 @@ from indica.abstractio import BaseIO
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
 from indica.datatypes import ArrayType
-from indica.numpy_typing import OnlyArray
 from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import format_dataarray, get_function_name
+from indica.utilities import format_dataarray
 
 
 def instatiate_line_of_sight(
-    location: OnlyArray,
-    direction: OnlyArray,
+    database_results: dict,
     instrument: str,
-    machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]],
     dl: float,
     passes: int,
 ) -> LineOfSightTransform:
+    """
+    Instatiate LOS transform
+    """
+    location = database_results["location"]
+    direction = database_results["direction"]
+    machine_dimensions = database_results["machine_dims"]
+
     return LineOfSightTransform(
         location[:, 0],
         location[:, 1],
@@ -281,10 +285,8 @@ class DataReader(BaseIO):
             machine_dimensions=database_results["machine_dims"],
         )
         los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
+            database_results,
             instrument,
-            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -338,30 +340,16 @@ class DataReader(BaseIO):
     ) -> Dict[str, DataArray]:
         """
         Reads spectroscopy data
-        TODO: find better way to filter non-acquired channels
-        TODO: check spectra uncertainty...
         """
         database_results = self._get_spectrometer(uid, instrument, revision, quantities)
 
-        if instrument == "pi":
-            has_data = np.arange(21, 28)
-        else:
-            has_data = np.where(
-                np.isfinite(database_results["spectra"][0, :, 0])
-                * (database_results["spectra"][0, :, 0] > 0)
-            )[0]
-        database_results["spectra"] = database_results["spectra"][:, has_data, :]
-        database_results["spectra_error"] = database_results["spectra"] * 0.0
-
         los_transform = instatiate_line_of_sight(
-            database_results["location"][has_data, :],
-            database_results["direction"][has_data, :],
+            database_results,
             instrument,
-            database_results["machine_dims"],
             dl,
             passes,
         )
-        database_results["channel"] = np.arange(len(has_data))
+        database_results["channel"] = np.arange(database_results["length"])
 
         data = {}
         for quantity in quantities:
@@ -528,10 +516,8 @@ class DataReader(BaseIO):
             quantities,
         )
         los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
+            database_results,
             instrument,
-            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -585,10 +571,8 @@ class DataReader(BaseIO):
             quantities,
         )
         los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
+            database_results,
             instrument,
-            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -645,10 +629,8 @@ class DataReader(BaseIO):
         )
 
         los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
+            database_results,
             instrument,
-            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -706,10 +688,8 @@ class DataReader(BaseIO):
             quantities,
         )
         los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
+            database_results,
             instrument,
-            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -765,10 +745,8 @@ class DataReader(BaseIO):
             quantities,
         )
         los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
+            database_results,
             instrument,
-            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -811,15 +789,11 @@ class DataReader(BaseIO):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        # fname = get_function_name()
-        # database_results = getattr(self, f"_{fname}")(uid, instrument, revision, quantities)
         database_results = self._get_zeff(uid, instrument, revision, quantities)
-
-        return database_results
 
         data = {}
         for quantity in quantities:
-            _path:str = database_results[f"{quantity}_records"]
+            _path: str = database_results[f"{quantity}_records"]
             print(_path)
             if "global" in _path.lower():
                 dims = ["t"]

@@ -403,7 +403,7 @@ class ST40Reader(DataReader):
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
 
-            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+            # dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
             results[q + "_records"] = q_path
             results[q] = qval
             results[f"{q}_error"] = qval_err
@@ -476,19 +476,29 @@ class ST40Reader(DataReader):
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
 
-            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+            # dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+
+            # TODO: this is a hack: should be fixed at source in MDS+ tree
+            if q == "spectra":
+                if instrument == "pi":
+                    has_data = np.arange(21, 28)
+                else:
+                    has_data = np.where(
+                        np.isfinite(qval[0, :, 0]) * (qval[0, :, 0] > 0)
+                    )[0]
+                qval = qval[:, has_data, :]
+                qval_err = qval_err[:, has_data, :]
 
             results[q + "_records"] = q_path
             results[q] = qval
             results[f"{q}_error"] = qval_err
 
-        results["length"] = location[:, 0].size
+        results["length"] = len(has_data)  # location[:, 0].size
         results["t"] = time
-        # TODO: check whether wlength should be channel agnostic or not...
         if wavelength is not None:
             results["wavelength"] = wavelength[0, :]
-        results["location"] = location
-        results["direction"] = direction
+        results["location"] = location[has_data, :]
+        results["direction"] = direction[has_data, :]
 
         return results
 
@@ -694,7 +704,7 @@ class ST40Reader(DataReader):
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
 
-            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+            # dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
 
             results[q + "_records"] = q_path
             results[q] = qval
@@ -779,7 +789,7 @@ class ST40Reader(DataReader):
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
 
-            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+            # dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
 
             results[q + "_records"] = q_path
             results[q] = qval
@@ -787,11 +797,11 @@ class ST40Reader(DataReader):
         return results
 
     def _get_zeff(
-            self,
-            uid: str,
-            instrument: str,
-            revision: RevisionLike,
-            quantities: Set[str],
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
     ) -> Dict[str, Any]:
 
         results: Dict[str, Any] = {
@@ -828,7 +838,7 @@ class ST40Reader(DataReader):
             except TreeNNF:
                 qval_err = np.full_like(qval, 0.0)
 
-            dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
+            # dimensions, _ = self._get_signal_dims(q_path, len(qval.shape))
 
             results[q + "_records"] = q_path
             results[q] = qval
