@@ -19,10 +19,6 @@ Contents:
 
    installation
    tutorial
-   composition
-   data
-   design
-   prov_schema
    developers
    api
 
