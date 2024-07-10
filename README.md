@@ -8,11 +8,11 @@ Status](https://readthedocs.org/projects/indica-ukaea/badge/?version=latest)](ht
 
 InDiCA (**In**tegrated **Di**agnosti**C** **A**nalysis) is a tool which allows to perform and combine the analysis of a large number of different diagnostics from Magnetic Confined Fusion (MCF) plasma devices. It will consist of a library of functions to analyse different diagnostic systems under a common framework, and a set of workflows to combine these measurements.  <!--- Test for pre-commit -->
 
-The overall design work has been completed and the general functionality implemented, but the library is still under active development. In  addition to the (rapidly changing) code, this repository holds the documentation for this project, [which can be found on
-ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also still (rapidly) changing.
+The overall design work has been completed and the general functionality implemented, but the library is still under active development.
+<!--In  addition to the (rapidly changing) code, this repository holds the documentation for this project, [which can be found on ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also still (rapidly) changing.-->
 
-## Install
-1. Make sure pip is up-to-date:
+## Creation of development environment
+1. Upgrade pip:
     - *pip install --upgrade pip*
 
 2. Create a virtual environment with python 3.11 and activate it, e.g. using conda:
@@ -24,17 +24,13 @@ ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also stil
     - *pip install poetry==1.7*
     - *poetry update*
 
-4. For mdsplus building and installation:
+4. For mdsplus building and installation, e.g. from a local mdsplus directory:
    - *cp -r /usr/local/mdsplus/mdsobjects/python mdsPython*
    - *cd mdsPython*
    - *python setup.py build*
    - *python setup.py install*
    - *cd ../*
    - *rm -r mdsPython*
-
-5. Optional: For installing InDiCA as a package:
-    - *cd Indica*
-    - *python -m pip install .*
 
 ## License
 
