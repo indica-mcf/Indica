@@ -58,7 +58,7 @@ master_doc = "index"
 # General information about the project.
 project = "InDiCa"
 copyright = "2020, Marco Sertoli, Chris MacMackin"
-author = "Marco Sertoli, Chris MacMackin"
+author = "Marco Sertoli, Chris MacMackin, Michael Gemmell, Evie Litherland-Smith"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
