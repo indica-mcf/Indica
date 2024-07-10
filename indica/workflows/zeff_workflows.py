@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.plasma import Plasma
 from indica.operators import tomo_1D
@@ -105,8 +105,7 @@ def calculate_zeff(
     )
     equilibrium = te_data.transform.equilibrium
 
-    # TODO: R_shift is time-dependent, but not in equilibrium!!!
-    equilibrium.R_offset = te_fit.R_shift.mean("t").values
+    # TODO: equilibrium must be re-instatiated so R_shift can be assigned!!!
 
     print("Interpolate spectra to TS time, and map it to equilibrium")
     if "spectra" in binned_data["pi"]:
@@ -287,8 +286,8 @@ def calculate_zeff_profile(
     error = filter_data.error.values
 
     los_transform = filter_data.transform
-    R = los_transform.R.mean("beamlet").values - los_transform.equilibrium.R_offset
-    z = los_transform.z.mean("beamlet").values - los_transform.equilibrium.z_offset
+    R = los_transform.R.mean("beamlet").values
+    z = los_transform.z.mean("beamlet").values
     has_data = [True] * filter_data.shape[1]
     rho_equil = los_transform.equilibrium.rho
 
@@ -486,7 +485,7 @@ def plot_results(
         R = los_transform.impact_parameter.R
         to_plot = (
             filter_data.sel(t=t)
-            .assign_coords(R=("channel", R))
+            .assign_coords(R=("channel", R.data))
             .swap_dims({"channel": "R"})
         )
         to_plot_err = filter_data.error.sel(t=t)

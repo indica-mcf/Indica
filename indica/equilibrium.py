@@ -15,7 +15,9 @@ from xarray import zeros_like
 
 from indica.converters.time import get_tlabels_dt
 from indica.utilities import check_time_present
+from .numpy_typing import FloatOrDataArray
 from .numpy_typing import LabeledArray
+from .numpy_typing import OnlyArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
 
@@ -34,55 +36,37 @@ class Equilibrium:
         A collection of equilibrium data rea in using
         :py:meth:`~indica.readers.DataReader.get_equilibrium`. TODO: List full set
         of required quantities.
-    R_shift : float
+    R_shift
         How much to shift the equilibrium inwards (or the remapped diagnostic outwards)
-        on the major radius.
-        TODO: this and z_shift should be time-dependent...
-    z_shift : float
+        on the major radius. Either a float for all time slices or a DataArray
+        with coord 't'
+    z_shift
         How much to shift the equilibrium downwards (or the remapped diagnostic upwards)
-        in the vertical coordinate.
-    offset_picker: OffsetPicker
-        A callback which determines by how much to offset the equilibrium data
-        along the major radius. Allows the user to select this interactively.
+        in the vertical coordinate. Either a float for all time slices or a DataArray
+        with coord 't'
 
     """
 
     def __init__(
         self,
         equilibrium_data: Dict[str, DataArray],
-        R_shift: float = 0.0,
-        z_shift: float = 0.0,
+        R_shift: FloatOrDataArray = 0.0,
+        z_shift: FloatOrDataArray = 0.0,
     ):
 
+        self.equilibrium_data = equilibrium_data
         self.f = equilibrium_data["f"]
         self.t = equilibrium_data["f"].t
-        self.faxs = equilibrium_data["faxs"]
+        self.faxs = equilibrium_data["faxs"].drop_vars(["R", "z"])
         self.fbnd = equilibrium_data["fbnd"]
         self.ftor = equilibrium_data["ftor"]
         self.rmag = equilibrium_data["rmag"]
         self.rbnd = equilibrium_data["rbnd"]
         self.zmag = equilibrium_data["zmag"]
         self.zbnd = equilibrium_data["zbnd"]
-        self.zx = self.zbnd.min("arbitrary_index")
-        self.rhotor = np.sqrt(
-            (self.ftor - self.ftor.sel(rho_poloidal=0.0))
-            / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
-        )
-        self.psi = equilibrium_data["psi"]
-
-        # Including workaround in case faxs or fbnd had messy data
-        rho: DataArray = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
-        if np.any(np.isnan(rho.interp(R=self.rmag, z=self.zmag))):
-            self.faxs = self.psi.interp(R=self.rmag, z=self.zmag).drop(["R", "z"])
-            self.fbnd = self.psi.interp(R=self.rbnd, z=self.zbnd).mean(
-                "arbitrary_index"
-            )
-            rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
-        if np.any(np.isnan(rho)):
-            rho = xr.where(rho > 0, rho, 0.0)
-
-        self.rho = rho
-        self.t = self.rho.t
+        if "rmji" and "rmjo" in equilibrium_data:
+            self.rmji = equilibrium_data["rmji"]
+            self.rmjo = equilibrium_data["rmjo"]
         if "vjac" in equilibrium_data and "ajac" in equilibrium_data:
             psin = equilibrium_data["vjac"].rho_poloidal ** 2
             dpsin = psin[1] - psin[0]
@@ -93,12 +77,49 @@ class Equilibrium:
             self.area = equilibrium_data["area"]
         else:
             raise ValueError("No volume or area information")
-        if "rmji" and "rmjo" in equilibrium_data:
-            self.rmji = equilibrium_data["rmji"]
-            self.rmjo = equilibrium_data["rmjo"]
-        self.R_offset = R_shift
-        self.z_offset = z_shift
 
+        self.zx = self.zbnd.min("arbitrary_index")
+        self.rhotor = np.sqrt(
+            (self.ftor - self.ftor.sel(rho_poloidal=0.0))
+            / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
+        )
+        self.psi = equilibrium_data["psi"]
+        self.rho = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
+
+        # TODO: shift of equilibrium is a bad idea, but useful...
+        #   - psi (R, z) is restricted to new limits to avoid NaNs
+        #   - volume is not changed so is inconsistent!
+        if isinstance(R_shift, float):
+            R_offset = xr.full_like(self.t, R_shift)
+        else:
+            R_offset = R_shift.interp(t=self.t, kwargs={"fill_value": 0})
+        if isinstance(z_shift, float):
+            z_offset = xr.full_like(self.t, z_shift)
+        else:
+            z_offset = z_shift.interp(t=self.t, kwargs={"fill_value": 0})
+
+        self.R_offset = xr.where(np.isfinite(R_offset), R_offset, 0)
+        self.z_offset = xr.where(np.isfinite(z_offset), z_offset, 0)
+        if np.any(np.abs(R_offset) > 0) or np.any(np.abs(z_offset) > 0):
+            R_new = self.psi.R + self.R_offset
+            z_new = self.psi.z + self.z_offset
+            R_range = slice(R_new.min("R").max("t"), R_new.max("R").min("t"))
+            z_range = slice(z_new.min("z").max("t"), z_new.max("z").min("t"))
+            self.psi = self.psi.interp(R=R_new, z=z_new).sel(R=R_range, z=z_range)
+            self.rho = self.rho.interp(R=R_new, z=z_new).sel(R=R_range, z=z_range)
+            self.rmag -= self.R_offset
+            self.zmag -= self.z_offset
+            self.rbnd -= self.R_offset
+            self.zbnd -= self.z_offset
+            self.zx -= self.z_offset
+            if hasattr(self, "rmji"):
+                self.rmji -= self.R_offset
+            if hasattr(self, "rmjo"):
+                self.rmjo -= self.R_offset
+
+        if np.any(np.isnan(self.rho)):
+            self.rho = xr.where(self.rho > 0, self.rho, 0.0)
+        self.t = self.rho.t
         self.Rmin = min(self.rho.coords["R"])
         self.Rmax = max(self.rho.coords["R"])
         self.zmin = min(self.rho.coords["z"])
@@ -140,29 +161,27 @@ class Equilibrium:
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        _R, _z = prepare_coords(
-            R + np.full_like(R, self.R_offset), z + np.full_like(z, self.z_offset)
-        )
+
         if t is not None:
             check_time_present(t, self.t)
             psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
             f = self.f.interp(t=t, method="nearest", assume_sorted=True)
-            rho_, theta_, _ = self.flux_coords(_R, _z, t)
+            rho_, theta_, _ = self.flux_coords(R, z, t)
         else:
             t = self.rho.coords["t"]
             psi = self.psi
             f = self.f
-            rho_, theta_, _ = self.flux_coords(_R, _z)
+            rho_, theta_, _ = self.flux_coords(R, z)
 
-        dpsi_dR = psi.differentiate("R").interp(R=_R, z=_z)
+        dpsi_dR = psi.differentiate("R").interp(R=R, z=z)
         dpsi_dz = psi.differentiate("z").interp(
-            R=_R,
-            z=_z,
+            R=R,
+            z=z,
         )
-        b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
+        b_R = -(np.float64(1.0) / R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
         b_R = b_R.T
-        b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
+        b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
         b_z.name = "Vertical Magnetic Field (T)"
         b_z = b_z.T
         rho_ = where(
@@ -171,13 +190,13 @@ class Equilibrium:
 
         f = f.interp(rho_poloidal=rho_)
         f.name = self.f.name
-        b_T = f / _R
+        b_T = f / R
         b_T.name = "Toroidal Magnetic Field (T)"
 
         if full_Rz:
             _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rho.R
             _b_T = _b_T.drop(["z", "rho_poloidal"]).expand_dims(dim={"z": self.rho.z})
-            b_T = _b_T.interp(R=_R, z=_z)
+            b_T = _b_T.interp(R=R, z=z)
 
         return b_R, b_z, b_T, t
 
@@ -357,12 +376,12 @@ class Equilibrium:
             rmjo = self.rmjo
             t = self.rmjo.coords["t"]
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-            R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmjo.indica.interp2d(rho_poloidal=rho, method="cubic")
         else:
             check_time_present(t, self.t)
             rmjo = self.rmjo.interp(t=t, method="nearest")
             rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
-            R = rmjo.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmjo.interp(rho_poloidal=rho, method="cubic")
 
         return R, t
 
@@ -405,9 +424,9 @@ class Equilibrium:
             rmji = self.rmji.interp(t=t, method="nearest")
         rho, _ = self.convert_flux_coords(rho, t, kind, "poloidal")
         try:
-            R = rmji.interp(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmji.interp(rho_poloidal=rho, method="cubic")
         except ValueError:
-            R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic") - self.R_offset
+            R = rmji.indica.interp2d(rho_poloidal=rho, method="cubic")
 
         return R, t
 
@@ -502,8 +521,8 @@ class Equilibrium:
 
     def flux_coords(
         self,
-        R: LabeledArray,
-        z: LabeledArray,
+        R: OnlyArray,
+        z: OnlyArray,
         t: Optional[LabeledArray] = None,
         kind: str = "poloidal",
     ) -> Tuple[DataArray, DataArray, LabeledArray]:
@@ -533,27 +552,25 @@ class Equilibrium:
             If ``t`` was not specified as an argument, return the time the
             results are given for. Otherwise return the argument.
         """
-        _R, _z = prepare_coords(
-            R + np.full_like(R, self.R_offset), z + np.full_like(z, self.z_offset)
-        )
-        if t is not None:
-            check_time_present(t, self.t)
-            rho = self.rho.interp(t=t, method="nearest")
-            R_ax = self.rmag.interp(t=t, method="nearest")
-            z_ax = self.zmag.interp(t=t, method="nearest")
-            z_x_point = self.zx.interp(t=t, method="nearest")
-        else:
+
+        if t is None:
             rho = self.rho
             R_ax = self.rmag
             z_ax = self.zmag
             t = self.rho.coords["t"]
             z_x_point = self.zx
+        else:
+            check_time_present(t, self.t)
+            rho = self.rho.interp(t=t, method="nearest")
+            R_ax = self.rmag.interp(t=t, method="nearest")
+            z_ax = self.zmag.interp(t=t, method="nearest")
+            z_x_point = self.zx.interp(t=t, method="nearest")
 
         # TODO: rho and theta dimensions not in the same order...
-        rho = rho.interp(R=_R, z=_z)
+        rho = rho.interp(R=R, z=z)
         theta = np.arctan2(
-            _z - z_ax,
-            _R - R_ax,
+            z - z_ax,
+            R - R_ax,
         )
 
         # Correct for any interpolation errors resulting in negative fluxes
@@ -603,8 +620,8 @@ class Equilibrium:
         minor_rad, t = self.minor_radius(rho, theta, t, kind)
         R0 = self.rmag.interp(t=t, method="nearest")
         z0 = self.zmag.interp(t=t, method="nearest")
-        R = R0 - self.R_offset + minor_rad * np.cos(theta)
-        z = z0 - self.z_offset + minor_rad * np.sin(theta)
+        R = R0 + minor_rad * np.cos(theta)
+        z = z0 + minor_rad * np.sin(theta)
         return R, z, t
 
     def convert_flux_coords(

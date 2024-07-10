@@ -16,6 +16,7 @@ from indica.models.interferometry import Interferometry
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
+from indica.readers.read_st40 import bin_data_in_time
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
@@ -159,8 +160,9 @@ def read_modelling_runs(
     for run in runs:
         try:
             code_raw_data[run] = code_reader.get_raw_data("", code, run)
-            code_reader.bin_data_in_time([code], tstart, tend, dt)
-            code_binned_data[run] = code_reader.binned_data[code]
+            code_binned_data[run] = bin_data_in_time(
+                code_reader.raw_data, tstart, tend, dt
+            )
         except TreeNODATA:
             print(f"   no data for {run}")
 

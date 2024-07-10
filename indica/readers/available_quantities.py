@@ -4,6 +4,7 @@ Quantities that can be read with the current abstract reader implementation
 To each quantity is associated a datatype string corresponding to indica/datatypes.py
 """
 
+
 from typing import Dict
 
 AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
@@ -26,15 +27,29 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "zeff": "effective_charge",
     },
     "get_helike_spectroscopy": {
+        "ti_w": "ion_temperature",
+        "ti_z": "ion_temperature",
+        "te_n3w": "electron_temperature",
+        "te_kw": "electron_temperature",
         "int_w": "line_intensity",
         "int_k": "line_intensity",
         "int_tot": "line_intensity",
         "int_n3": "line_intensity",
-        "te_kw": "electron_temperature",
-        "te_n3w": "electron_temperature",
-        "ti_w": "ion_temperature",
-        "ti_z": "ion_temperature",
-        "spectra": "spectra",
+        "raw_spectra": "intensity",
+        "spectra": "spectral_radiance",
+        "background": "intensity",
+    },
+    "get_ppts": {
+        "ne_rho": "electron_density",
+        "te_rho": "electron_temperature",
+        "pe_rho": "electron_pressure",
+        "ne_R": "electron_density",
+        "te_R": "electron_temperature",
+        "pe_R": "electron_pressure",
+        "ne_data": "electron_density",
+        "te_data": "electron_temperature",
+        "pe_data": "electron_pressure",
+        "R_shift": "major_radius_shift",
     },
     "get_diode_filters": {
         "brightness": "brightness",
@@ -67,22 +82,22 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "brightness": "brightness",
     },
     "get_astra": {  # TODO: check all units!!!!
+        "f": "equilibrium_f",
         "faxs": "poloidal_flux_axis",
         "fbnd": "poloidal_flux_boundary",
         "ftor": "toroidal_flux",
+        "rhot": "rho_toroidal",
         "psi": "poloidal_flux",
-        "rmji": "major_radius_hfs",
-        "rmjo": "major_radius_lfs",
-        "volume": "volume",
-        "area": "area",
         "rmag": "major_radius_magnetic_axis",
         "rgeo": "major_radius_geometric_axis",
         "rbnd": "major_radius_boundary",
         "zmag": "z_magnetic_axis",
-        "zgeo": "z_geometric",
         "zbnd": "z_boundary",
         "ipla": "plasma_current",
-        "wp": "total_stored_energy",
+        "wp": "equilibrium_stored_energy",
+        "volume": "volume",
+        "area": "area",
+        "zgeo": "z_geometric",
         "upl": "loop_voltage",  # V
         "wth": "equilibrium_stored_energy",
         "wtherm": "thermal_stored_energy",
@@ -96,7 +111,8 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "nf": "fast_ion_density",  # 10^19 m^-3
         "omega_tor": "toroidal_angular_frequency",  # 1/s
         "q_oh": "ohmic_power_density",  # MW/m3
-        "q_nbi": "nbi_power_density",  # MW/m3
+        # "qnbi": "nbi_power_density_ions",  # MW/m3
+        # "qnbe": "nbi_power_density_electrons",  # MW/m3
         "sbm": "nbi_particle_source",  # 10^19/m^3/s
         "swall": "wall_particle_source",  # 10^19/m^3/s
         "stot": "total_particle_source",  # 10^19/m^3/s
