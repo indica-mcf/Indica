@@ -25,13 +25,15 @@ description = "INtegrated DIagnostiC Analysis"
 license = "GPL-3.0-or-later"
 
 authors = [
-    "Marco Sertoli <marco.sertoli@outlook.com>",
-    "Chris MacMackin <chris.macmackin@ukaea.uk>"
+    "Marco Sertoli <marco.sertoli@tokamakenergy.com>",
+    "Chris MacMackin <chris.macmackin@ukaea.uk>",
+    "Michael Gemmell <michael.gemmell@tokamakenergy.com>",
+    "Evie Litherland-Smith <evie.litherland-smith@ukaea.uk>"
 ]
 maintainers = [
     "Evie Litherland-Smith <evie.litherland-smith@ukaea.uk>",
-    "Shane Scully <shane.scully@ukaea.uk>",
-    "Chris MacMackin <chris.macmackin@ukaea.uk>",
+    "Michael Gemmell <michael.gemmell@tokamakenergy.com>",
+    "Jussi Hakosalo <jussi.hakosalo@tokamakenergy.com>"
 ]
 repository = "https://github.com/indica-mcf/Indica"
 #documentation = "https://indica-ukaea.readthedocs.io/"
@@ -42,7 +44,7 @@ include = [".git", "indica/git_version"]
 [tool.poetry.dependencies]
 corner = "^1.0"
 pandas = "2.2.1"
-python = ">=3.11"
+python = "^3.9,<3.12"
 prov = "^1.5.3"
 netCDF4 = "^1.5.4"
 numpy = "1.26.4"
@@ -50,7 +52,6 @@ scipy = "^1.9.2"
 xarray = "2024.6.0"
 matplotlib = "^3.8.0"
 sal = "^1.2.2"
-ipython = "^8.24.0"
 emcee = "^3.1.4"
 flatdict = "^4.0.1"
 tqdm = "^4.65.0"
@@ -70,6 +71,7 @@ pytest = "^6.0.1"
 pytest-cov = "^2.10.0"
 pytest-xdist = "^2.0.0"
 types-setuptools = "^57.4.14"
+ipython = {version = "^8.24.0", python = "^3.10"}
 
 [tool.poetry.build]
 generate-setup-file = false

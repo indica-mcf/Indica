@@ -338,30 +338,18 @@ class DataReader(BaseIO):
     ) -> Dict[str, DataArray]:
         """
         Reads spectroscopy data
-        TODO: find better way to filter non-acquired channels
-        TODO: check spectra uncertainty...
         """
         database_results = self._get_spectrometer(uid, instrument, revision, quantities)
 
-        if instrument == "pi":
-            has_data = np.arange(21, 28)
-        else:
-            has_data = np.where(
-                np.isfinite(database_results["spectra"][0, :, 0])
-                * (database_results["spectra"][0, :, 0] > 0)
-            )[0]
-        database_results["spectra"] = database_results["spectra"][:, has_data, :]
-        database_results["spectra_error"] = database_results["spectra"] * 0.0
-
         los_transform = instatiate_line_of_sight(
-            database_results["location"][has_data, :],
-            database_results["direction"][has_data, :],
+            database_results["location"],
+            database_results["direction"],
             instrument,
             database_results["machine_dims"],
             dl,
             passes,
         )
-        database_results["channel"] = np.arange(len(has_data))
+        database_results["channel"] = np.arange(database_results["length"])
 
         data = {}
         for quantity in quantities:
@@ -801,6 +789,50 @@ class DataReader(BaseIO):
         raise NotImplementedError(
             "{} does not implement a '_get_spectroscopy' "
             "method.".format(self.__class__.__name__)
+        )
+
+    def get_zeff(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+
+        database_results = self._get_zeff(uid, instrument, revision, quantities)
+
+        data = {}
+        for quantity in quantities:
+            _path: str = database_results[f"{quantity}_records"]
+            print(_path)
+            if "global" in _path.lower():
+                dims = ["t"]
+            elif "profiles" in _path.lower():
+                dims = ["t", "rho_poloidal"]
+            else:
+                raise ValueError(f"Unknown quantity: {quantity}")
+
+            data[quantity] = self.assign_dataarray(
+                instrument,
+                quantity,
+                database_results,
+                dims,
+                transform=None,
+            )
+        return data
+
+    def _get_zeff(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities: Set[str],
+    ) -> Dict[str, Any]:
+        """
+        Gets raw data for ZEFF analysis from the database
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a '_get_zeff' " "method."
         )
 
     # def get_astra(
