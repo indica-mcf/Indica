@@ -60,11 +60,7 @@ Pint = "^0.23"
 GitPython = "^3.1.41"
 periodictable = "^1.6.1"
 
-[tool.poetry.build]
-generate-setup-file = false
-script = ".get_git_commit.py"
-
-[tool.poetry.group.dev.dependencies]
+[tool.poetry.dev-dependencies]
 click = "^8.0.0"
 corner = "^1.0"
 coverage = {extras = ["toml"], version = "^7.5.1"}
@@ -77,11 +73,9 @@ pytest-xdist = "^2.0.0"
 types-setuptools = "^57.4.14"
 ipython = {version = "^8.24.0", python = "^3.10"}
 
-[tool.poetry.group.JET.dependencies]
-idlbridge = {git = "https://github.com/pixelifytica/IDLBridge.git", rev = "update_pep_517", optional = true }
-
-[tool.poetry.extras]
-JET = ["idlbridge"]
+[tool.poetry.build]
+generate-setup-file = false
+script = ".get_git_commit.py"
 
 [tool.mypy]
 install_types = true
