@@ -58,7 +58,7 @@ master_doc = "index"
 # General information about the project.
 project = "InDiCa"
 copyright = "2020, Marco Sertoli, Chris MacMackin"
-author = "Marco Sertoli, Chris MacMackin"
+author = "Marco Sertoli, Chris MacMackin, Michael Gemmell, Evie Litherland-Smith"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -210,7 +210,7 @@ html_static_path = ["_static"]
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "impuritiesdoc"
+htmlhelp_basename = "indicadoc"
 
 # -- Options for LaTeX output ---------------------------------------------
 

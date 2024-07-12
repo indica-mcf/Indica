@@ -81,6 +81,13 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
     "get_radiation": {
         "brightness": "brightness",
     },
+    "get_zeff": {
+        "zeff_avrg": "effective_charge",
+        "zeff_hi": "effective_charge",
+        "zeff_low": "effective_charge",
+        "zeff": "effective_charge",
+        "R_shift": "major_radius_shift",
+    },
     "get_astra": {  # TODO: check all units!!!!
         "f": "equilibrium_f",
         "faxs": "poloidal_flux_axis",

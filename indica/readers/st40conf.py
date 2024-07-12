@@ -28,6 +28,7 @@ class ST40Conf:
             "blom_xy1": "get_radiation",
             "astra": "get_astra",
             "ppts": "get_ppts",
+            "zeff_brems": "get_zeff",
         }
         self.UIDS_MDS = {}
         self.QUANTITIES_MDS = {
@@ -150,6 +151,13 @@ class ST40Conf:
                 "te_data": ".profiles.inputs:te",
                 "pe_data": ".profiles.inputs:pe",
                 "R_shift": ".global:rshift",
+            },
+            "zeff_brems": {
+                "R_shift": ".global:rshift",
+                "zeff_avrg": ".global:zeff",
+                "zeff_hi": ".global:zeff_hi",
+                "zeff_low": ".global:zeff_low",
+                "zeff": ".profiles.psi_norm:zeff",
             },
             "astra": {
                 "faxs": ".global:faxs",
