@@ -22,7 +22,7 @@ The overall design work has been completed and the general functionality impleme
 
 3. Install poetry and environment dependencies:
     - *pip install poetry==1.7*
-    - *poetry update*
+    - *poetry install*
 
 4. For mdsplus building and installation, e.g. from a local mdsplus directory:
    - *cp -r /usr/local/mdsplus/mdsobjects/python mdsPython*
