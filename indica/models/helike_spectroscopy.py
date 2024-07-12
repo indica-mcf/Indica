@@ -5,8 +5,8 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
+from indica.defaults.load_defaults import load_default_objects
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
@@ -16,7 +16,6 @@ from indica.utilities import get_element_info
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
 
-# TODO: why resonance lines in upper case, others lower?
 LINE_RANGES = {
     "w": slice(0.39489, 0.39494),
     "n3": slice(0.39543, 0.39574),
@@ -86,7 +85,7 @@ class HelikeSpectrometer(DiagnosticModel):
                 mask[(window > mslice.start) & (window < mslice.stop)] = 1
         else:
             mask[:] = 1
-        self.window = DataArray(mask, coords=[("wavelength", window)])
+        self.window = DataArray(mask, coords={"wavelength": window})
         self._get_atomic_data(self.window)
 
         self.line_emission: dict
@@ -328,15 +327,20 @@ class HelikeSpectrometer(DiagnosticModel):
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
-        if "spectra" in self.quantities and hasattr(self, "measured_spectra"):
-            self.bckc["spectra"] = self.measured_spectra
+        if hasattr(self, "measured_spectra"):
+            self.bckc["raw_spectra"] = self.measured_spectra
 
         if self.moment_analysis:
             for quantity in self.quantities:
-                if quantity == "spectra":
+                datatype = self.quantities[quantity]
+
+                if quantity in [
+                    "raw_spectra",
+                    "spectra",
+                    "background",
+                ]:
                     continue
 
-                datatype = self.quantities[quantity]
                 line = str(quantity.split("_")[1])
                 if "int" in quantity and line in self.measured_intensity.keys():
                     self.bckc[quantity] = self.measured_intensity[line]
@@ -475,29 +479,30 @@ class HelikeSpectrometer(DiagnosticModel):
         plt.figure()
         channels = self.los_transform.x1
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
-        if "spectra" in self.bckc.keys():
-            spectra = self.bckc["spectra"]
-            if "channel" in spectra.dims:
-                spectra = spectra.sel(channel=np.median(channels))
+        if "raw_spectra" in self.bckc.keys():
+            raw_spectra = self.bckc["raw_spectra"]
+            if "channel" in raw_spectra.dims:
+                raw_spectra = raw_spectra.sel(channel=np.median(channels))
             for i, t in enumerate(np.array(self.t, ndmin=1)):
                 plt.plot(
-                    spectra.wavelength,
-                    spectra.sel(t=t),
+                    raw_spectra.wavelength,
+                    raw_spectra.sel(t=t),
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
-            plt.ylabel("Brightness (a.u.)")
+            plt.ylabel("Intensity (count/s.)")
             plt.xlabel("Wavelength (nm)")
             plt.legend()
             set_axis_sci()
 
         # Plot the temperatures profiles
         plt.figure()
-        elem = self.Ti.element[0].values
         for i, t in enumerate(self.t):
             plt.plot(
                 self.plasma.ion_temperature.rho_poloidal,
-                self.plasma.ion_temperature.sel(t=t, element=elem),
+                self.plasma.ion_temperature.sel(
+                    t=t,
+                ),
                 color=cols_time[i],
             )
             plt.plot(
@@ -582,16 +587,13 @@ def helike_transform_example(nchannels):
     return los_transform
 
 
-def example_run(
-    pulse: int = None, plasma=None, plot=False, moment_analysis: bool = False, **kwargs
-):
-    # TODO: LOS sometime crossing bad EFIT reconstruction
+def example_run(plasma=None, plot=False, moment_analysis: bool = False, **kwargs):
+
     if plasma is None:
-        plasma = example_plasma(
-            pulse=pulse, impurities=("ar",), impurity_concentration=(0.001,), n_rad=10
-        )
-        # plasma.time_to_calculate = plasma.t[3:5]
-        # Create new diagnostic
+        plasma = load_default_objects("st40", "plasma")
+        equilibrium = load_default_objects("st40", "equilibrium")
+        plasma.set_equilibrium(equilibrium)
+
     diagnostic_name = "xrcs"
     los_transform = helike_transform_example(3)
     los_transform.set_equilibrium(plasma.equilibrium)

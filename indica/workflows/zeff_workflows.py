@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.plasma import Plasma
 from indica.operators import tomo_1D
@@ -485,7 +485,7 @@ def plot_results(
         R = los_transform.impact_parameter.R
         to_plot = (
             filter_data.sel(t=t)
-            .assign_coords(R=("channel", R))
+            .assign_coords(R=("channel", R.data))
             .swap_dims({"channel": "R"})
         )
         to_plot_err = filter_data.error.sel(t=t)

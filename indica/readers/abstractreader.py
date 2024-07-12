@@ -16,7 +16,6 @@ from indica.converters.transect import TransectCoordinates
 from indica.numpy_typing import OnlyArray
 from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 
 
@@ -84,7 +83,6 @@ class DataReader(BaseIO):
             End of time range for which to get data.
         kwargs
             Any other arguments which should be recorded for the reader.
-
         """
         self._reader_cache_id: str
         self._tstart = tstart
@@ -192,26 +190,23 @@ class DataReader(BaseIO):
     ) -> Dict[str, Any]:
         database_results = self._get_ppts(uid, instrument, revision, quantities)
         database_results["channel"] = np.arange(database_results["length"])
-        database_results["R_midplane"] = database_results[
-            "R"
-        ]  # necessary because of assign_dataarray...
 
-        coords = [
-            ("t", database_results["t"]),
-            ("channel", database_results["channel"]),
-        ]
-        rho_poloidal_coords = xr.DataArray(
+        coords_chan = {"channel": database_results["channel"]}
+        coords = {
+            "t": database_results["t"],
+            "channel": database_results["channel"],
+        }
+        rho_poloidal_data = xr.DataArray(
             database_results["rho_poloidal_data"], coords=coords
         )
-        rho_poloidal_coords = rho_poloidal_coords.sel(t=slice(self._tstart, self._tend))
-
-        rpos_coords = xr.DataArray(database_results["R_data"], coords=[coords[1]])
-        zpos_coords = xr.DataArray(database_results["z_data"], coords=[coords[1]])
+        rho_poloidal_data = rho_poloidal_data.sel(t=slice(self._tstart, self._tend))
+        R_data = xr.DataArray(database_results["R_data"], coords=coords_chan)
+        z_data = xr.DataArray(database_results["z_data"], coords=coords_chan)
 
         data = {}
         for quantity in quantities:
             if "_R" in quantity:
-                dims = ["t", "R_midplane"]
+                dims = ["t", "R"]
             elif "_rho" in quantity:
                 dims = ["t", "rho_poloidal"]
             elif "_data" in quantity:
@@ -228,15 +223,20 @@ class DataReader(BaseIO):
                 dims,
                 transform=None,
             )
+            if "_R" in quantity:
+                data[quantity] = data[quantity].assign_coords(
+                    z=("R", database_results["z"])
+                )
+
             if "_data" in quantity:
                 data[quantity] = data[quantity].assign_coords(
-                    rho_poloidal=(("t", "channel"), rho_poloidal_coords)
+                    rho_poloidal=(("t", "channel"), rho_poloidal_data.data)
                 )
                 data[quantity] = data[quantity].assign_coords(
-                    zpos=("channel", zpos_coords)
+                    z=("channel", z_data.data)
                 )
                 data[quantity] = data[quantity].assign_coords(
-                    rpos=("channel", rpos_coords)
+                    R=("channel", R_data.data)
                 )
         return data
 
@@ -266,10 +266,10 @@ class DataReader(BaseIO):
         """
         Reads Charge-exchange-spectroscopy data
         """
+
         database_results = self._get_charge_exchange(
             uid, instrument, revision, quantities
         )
-
         transform = TransectCoordinates(
             database_results["x"],
             database_results["y"],
@@ -338,30 +338,18 @@ class DataReader(BaseIO):
     ) -> Dict[str, DataArray]:
         """
         Reads spectroscopy data
-        TODO: find better way to filter non-acquired channels
-        TODO: check spectra uncertainty...
         """
         database_results = self._get_spectrometer(uid, instrument, revision, quantities)
 
-        if instrument == "pi":
-            has_data = np.arange(21, 28)
-        else:
-            has_data = np.where(
-                np.isfinite(database_results["spectra"][0, :, 0])
-                * (database_results["spectra"][0, :, 0] > 0)
-            )[0]
-        database_results["spectra"] = database_results["spectra"][:, has_data, :]
-        database_results["spectra_error"] = database_results["spectra"] * 0.0
-
         los_transform = instatiate_line_of_sight(
-            database_results["location"][has_data, :],
-            database_results["direction"][has_data, :],
+            database_results["location"],
+            database_results["direction"],
             instrument,
             database_results["machine_dims"],
             dl,
             passes,
         )
-        database_results["channel"] = np.arange(len(has_data))
+        database_results["channel"] = np.arange(database_results["length"])
 
         data = {}
         for quantity in quantities:
@@ -656,7 +644,7 @@ class DataReader(BaseIO):
 
         data: dict = {}
         for quantity in quantities:
-            if quantity == "spectra":
+            if quantity in ["spectra", "raw_spectra"]:
                 dims = ["t", "wavelength"]
             else:
                 dims = ["t"]
@@ -803,99 +791,37 @@ class DataReader(BaseIO):
             "method.".format(self.__class__.__name__)
         )
 
-    def get_astra(
+    def get_zeff(
         self,
         uid: str,
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
-        **kwargs,
-    ) -> Dict[str, DataArray]:
-        """
-        Reads ASTRA data
+    ) -> Dict[str, Any]:
 
-        TODO: must be fixed post change to new DATATYPES and AVAILABLE_QUANTITIES
-        """
-        database_results = self._get_astra(uid, instrument, revision, quantities)
+        database_results = self._get_zeff(uid, instrument, revision, quantities)
 
-        # Reorganise coordinate system to match Indica default rho-poloidal
-        t = database_results["t"]
-        t = DataArray(t, coords=[("t", t)], attrs={"long_name": "t", "units": "s"})
-        psin = database_results["psin"]
-        rhop_psin = np.sqrt(psin)
-        rhop_interp = np.linspace(0, 1.0, 65)
-        rhot_astra = database_results["rho"] / np.max(database_results["rho"])
-        rhot_rhop = []
-        for it in range(len(database_results["t"])):
-            ftor_tmp = database_results["ftor"][it, :]
-            psi_tmp = database_results["psi_1d"][it, :]
-            rhot_tmp = np.sqrt(ftor_tmp / ftor_tmp[-1])
-            rhop_tmp = np.sqrt((psi_tmp - psi_tmp[0]) / (psi_tmp[-1] - psi_tmp[0]))
-            rhot_xpsn = np.interp(rhop_interp, rhop_tmp, rhot_tmp)
-            rhot_rhop.append(rhot_xpsn)
-
-        rhot_rhop = DataArray(
-            np.array(rhot_rhop),
-            {"t": t, "rho_poloidal": rhop_interp},
-            dims=["t", "rho_poloidal"],
-        ).sel(t=slice(self._tstart, self._tend))
-
-        radial_coords = {
-            "rho_toroidal": rhot_astra,
-            "rho_poloidal": rhop_psin,
-            "R": database_results["psi_r"],
-            "z": database_results["psi_z"],
-            "arbitrary_index": database_results["boundary_index"],
-        }
-
-        data: dict = {}
+        data = {}
         for quantity in quantities:
-            if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
-                name_coords = ["rho_toroidal"]
-            elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
-                name_coords = ["rho_poloidal"]
-            elif "PSI2D" in database_results[f"{quantity}_records"][0]:
-                name_coords = ["z", "R"]
-            elif "BOUNDARY" in database_results[f"{quantity}_records"][0]:
-                name_coords = ["arbitrary_index"]
+            _path: str = database_results[f"{quantity}_records"]
+            print(_path)
+            if "global" in _path.lower():
+                dims = ["t"]
+            elif "profiles" in _path.lower():
+                dims = ["t", "rho_poloidal"]
             else:
-                name_coords = []
+                raise ValueError(f"Unknown quantity: {quantity}")
 
-            coords: list = [("t", t)]
-            if len(name_coords) > 0:
-                for coord in name_coords:
-                    coords.append((coord, radial_coords[coord]))
-
-            if len(np.shape(database_results[quantity])) != len(coords):
-                continue
-
-            quant_data = self.assign_dataarray(
+            data[quantity] = self.assign_dataarray(
                 instrument,
                 quantity,
                 database_results,
-                coords,
-                include_error=False,
+                dims,
+                transform=None,
             )
-
-            # Convert radial coordinate to rho_poloidal
-            # TODO: Check interpolatoin on rho_poloidal array...
-            if "rho_toroidal" in quant_data.dims:
-                rho_toroidal_0 = quant_data.rho_toroidal.min()
-                quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop_vars(
-                    "rho_toroidal"
-                )
-                quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
-                    rho_toroidal=rho_toroidal_0
-                )
-                quant_data = quant_interp.interpolate_na("rho_poloidal")
-            elif "rho_poloidal" in coords:
-                quant_data = quant_data.interp(rho_poloidal=rhop_interp)
-
-            data[quantity] = quant_data
-
         return data
 
-    def _get_astra(
+    def _get_zeff(
         self,
         uid: str,
         instrument: str,
@@ -903,12 +829,150 @@ class DataReader(BaseIO):
         quantities: Set[str],
     ) -> Dict[str, Any]:
         """
-        Reads ASTRA data from database
+        Gets raw data for ZEFF analysis from the database
         """
         raise NotImplementedError(
-            "{} does not implement a '_get_spectroscopy' "
-            "method.".format(self.__class__.__name__)
+            f"{self.__class__.__name__} does not implement a '_get_zeff' " "method."
         )
+
+    # def get_astra(
+    #     self,
+    #     uid: str,
+    #     instrument: str,
+    #     revision: RevisionLike,
+    #     quantities: Set[str],
+    #     **kwargs,
+    # ) -> Dict[str, DataArray]:
+    #     """
+    #     Reads ASTRA data
+    #     --> PSIN from PSI2D is reference coordinate,
+    #         ASTRA profiles interpolated accordingly
+    #     """
+    #     database_results = self._get_astra(uid, instrument, revision, quantities)
+    #
+    #     # Reorganise coordinates
+    #     # --> ASTRA profiles interpolated on reference PSI_NORM.PSIN grid
+    #     database_results["z"] = database_results["psi_z"]
+    #     database_results["R"] = database_results["psi_r"]
+    #     database_results["rho_poloidal"] = np.sqrt(database_results["psin"])
+    #     database_results["rho_toroidal"] = np.sqrt(database_results["ftor"])
+    #     rho_poloidal_astra = np.sqrt(database_results["psin_astra"])
+    #     for quantity in quantities:
+    #
+    #
+    #     if "rbnd" in database_results.keys():
+    #         database_results["arbitrary_index"] = np.arange(
+    #             np.size(database_results["rbnd"][0, :])
+    #         )
+    #
+    #
+    #
+    #     return database_results
+    #
+    #     # Group variables for coordinate assignement
+    #     sep_vars = ["rbnd", "zbnd"]
+    #     flux_vars = ["f", "ftor", "volume", "area"]
+    #
+    #     radial_coords = {
+    #         "rho_toroidal": rhot_astra,
+    #         "rho_poloidal": rhop_psin,
+    #         "R": database_results["psi_r"],
+    #         "z": database_results["psi_z"],
+    #         "arbitrary_index": database_results["boundary_index"],
+    #     }
+    #     data: Dict[str, DataArray] = {}
+    #     for quantity in quantities:
+    #         print(quantity)
+    #         if quantity == "psi":
+    #             dims = ["t", "z", "R"]
+    #         elif quantity in sep_vars:
+    #             dims = ["t", "arbitrary_index"]
+    #         elif quantity in flux_vars:
+    #             dims = ["t", "rho_poloidal"]
+    #         else:  # global quantities
+    #             dims = ["t"]
+    #
+    #         quant_data = self.assign_dataarray(
+    #             instrument,
+    #             quantity,
+    #             database_results,
+    #             dims,
+    #             include_error=False,
+    #         )
+    #
+    #         data[quantity] = quant_data
+    #
+    #     if "faxs" in quantities:
+    #         data["faxs"].coords["R"] = data["rmag"]
+    #         data["faxs"].coords["z"] = data["zmag"]
+    #
+    #
+    #
+    #
+    #     return
+    #
+    #
+    #     data: dict = {}
+    #     for quantity in quantities:
+    #         if "PROFILES.ASTRA" in database_results[f"{quantity}_records"][0]:
+    #             name_coords = ["rho_toroidal"]
+    #         elif "PROFILES.PSI_NORM" in database_results[f"{quantity}_records"][0]:
+    #             name_coords = ["rho_poloidal"]
+    #         elif "PSI2D" in database_results[f"{quantity}_records"][0]:
+    #             name_coords = ["z", "R"]
+    #         elif "BOUNDARY" in database_results[f"{quantity}_records"][0]:
+    #             name_coords = ["arbitrary_index"]
+    #         else:
+    #             name_coords = []
+    #
+    #         coords: dict = {"t": t}
+    #         if len(name_coords) > 0:
+    #             for coord in name_coords:
+    #                 coords[coord] = radial_coords[coord]
+    #
+    #         if len(np.shape(database_results[quantity])) != len(coords.keys()):
+    #             continue
+    #
+    #         quant_data = self.assign_dataarray(
+    #             instrument,
+    #             quantity,
+    #             database_results,
+    #             coords,
+    #             include_error=False,
+    #         )
+    #
+    #         # Convert radial coordinate to rho_poloidal
+    #         # TODO: Check interpolatoin on rho_poloidal array...
+    #         if "rho_toroidal" in quant_data.dims:
+    #             rho_toroidal_0 = quant_data.rho_toroidal.min()
+    #             quant_interp = quant_data.interp(rho_toroidal=rhot_rhop).drop_vars(
+    #                 "rho_toroidal"
+    #             )
+    #             quant_interp.loc[dict(rho_poloidal=0)] = quant_data.sel(
+    #                 rho_toroidal=rho_toroidal_0
+    #             )
+    #             quant_data = quant_interp.interpolate_na("rho_poloidal")
+    #         elif "rho_poloidal" in coords:
+    #             quant_data = quant_data.interp(rho_poloidal=rhop_interp)
+    #
+    #         data[quantity] = quant_data
+    #
+    #     return data
+    #
+    # def _get_astra(
+    #     self,
+    #     uid: str,
+    #     instrument: str,
+    #     revision: RevisionLike,
+    #     quantities: Set[str],
+    # ) -> Dict[str, Any]:
+    #     """
+    #     Reads ASTRA data from database
+    #     """
+    #     raise NotImplementedError(
+    #         "{} does not implement a '_get_spectroscopy' "
+    #         "method.".format(self.__class__.__name__)
+    #     )
 
     def available_quantities(self, instrument) -> dict:
         """Return the quantities which can be read for the specified
@@ -951,9 +1015,9 @@ class DataReader(BaseIO):
         DataArray with assigned coordinates, transform, error, long_name and units
         """
         # Build coordinate dictionary
-        coords = []
+        coords = {}
         for dim in dims:
-            coords.append((dim, format_coord(database_results[dim], dim)))
+            coords[dim] = database_results[dim]
 
         # Build DataArray data with coordinates and long_name + units
         var_name = self.available_quantities(instrument)[quantity]
@@ -971,7 +1035,7 @@ class DataReader(BaseIO):
                 error = error.sel(t=slice(self._tstart, self._tend))
 
         if include_error:
-            data.attrs["error"] = error
+            data = data.assign_coords(error=(data.dims, error.data))
 
         if transform is not None:
             data.attrs["transform"] = transform

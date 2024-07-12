@@ -134,7 +134,7 @@ class Plasma:
         index = np.arange(n_R)
         R_midplane = np.linspace(self.R.min(), self.R.max(), n_R)
         z_midplane = np.full_like(R_midplane, 0.0)
-        coords_midplane = [("index", format_coord(index, "index"))]
+        coords_midplane = {"index": index}
         self.R_midplane = format_dataarray(R_midplane, "R_midplane", coords_midplane)
         self.z_midplane = format_dataarray(z_midplane, "z_midplane", coords_midplane)
 
@@ -152,7 +152,7 @@ class Plasma:
             element_name.append(_name)
             element_symbol.append(_symbol)
 
-        coords_elem = [("element", list(self.elements))]
+        coords_elem = {"element": list(self.elements)}
         self.element_z = format_dataarray(element_z, "atomic_number", coords_elem)
         self.element_a = format_dataarray(element_a, "atomic_weight", coords_elem)
         self.element_name = format_dataarray(element_name, "element_name", coords_elem)
@@ -171,19 +171,19 @@ class Plasma:
         data3d = np.zeros((nel, nt, nr))
         data3d_imp = np.zeros((nimp, nt, nr))
 
-        coords1d_time = [("t", self.t)]
-        coords2d = [("t", self.t), (self.rho_type, self.rho)]
-        coords2d_elem = [("element", list(self.elements)), ("t", self.t)]
-        coords3d = [
-            ("element", list(self.elements)),
-            ("t", self.t),
-            (self.rho_type, self.rho),
-        ]
-        coords3d_imp = [
-            ("element", list(self.impurities)),
-            ("t", self.t),
-            (self.rho_type, self.rho),
-        ]
+        coords1d_time = {"t": self.t}
+        coords2d = {"t": self.t, self.rho_type: self.rho}
+        coords2d_elem = {"element": list(self.elements), "t": self.t}
+        coords3d = {
+            "element": list(self.elements),
+            "t": self.t,
+            self.rho_type: self.rho,
+        }
+        coords3d_imp = {
+            "element": list(self.impurities),
+            "t": self.t,
+            self.rho_type: self.rho,
+        }
 
         # Independent plasma quantities
         self.electron_temperature = format_dataarray(
@@ -287,11 +287,11 @@ class Plasma:
         for elem in self.elements:
             nz = self.element_z.sel(element=elem).values + 1
             ion_charge = format_coord(np.arange(nz), "ion_charge")
-            coords3d_fract = [
-                ("t", self.t),
-                ("rho_poloidal", self.rho),
-                ("ion_charge", ion_charge),
-            ]
+            coords3d_fract = {
+                "t": self.t,
+                "rho_poloidal": self.rho,
+                "ion_charge": ion_charge,
+            }
             data3d_fz = np.full((len(self.t), len(self.rho), nz), 0.0)
             _fz[elem] = format_dataarray(
                 data3d_fz, "fractional_abundance", coords3d_fract, make_copy=True
