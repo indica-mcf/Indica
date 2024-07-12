@@ -15,24 +15,20 @@ from indica.abstractio import BaseIO
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
 from indica.datatypes import ArrayType
+from indica.numpy_typing import OnlyArray
 from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import format_dataarray
 
 
 def instatiate_line_of_sight(
-    database_results: dict,
+    location: OnlyArray,
+    direction: OnlyArray,
     instrument: str,
+    machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]],
     dl: float,
     passes: int,
 ) -> LineOfSightTransform:
-    """
-    Instatiate LOS transform
-    """
-    location = database_results["location"]
-    direction = database_results["direction"]
-    machine_dimensions = database_results["machine_dims"]
-
     return LineOfSightTransform(
         location[:, 0],
         location[:, 1],
@@ -285,8 +281,10 @@ class DataReader(BaseIO):
             machine_dimensions=database_results["machine_dims"],
         )
         los_transform = instatiate_line_of_sight(
-            database_results,
+            database_results["location"],
+            database_results["direction"],
             instrument,
+            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -344,8 +342,10 @@ class DataReader(BaseIO):
         database_results = self._get_spectrometer(uid, instrument, revision, quantities)
 
         los_transform = instatiate_line_of_sight(
-            database_results,
+            database_results["location"],
+            database_results["direction"],
             instrument,
+            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -516,8 +516,10 @@ class DataReader(BaseIO):
             quantities,
         )
         los_transform = instatiate_line_of_sight(
-            database_results,
+            database_results["location"],
+            database_results["direction"],
             instrument,
+            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -571,8 +573,10 @@ class DataReader(BaseIO):
             quantities,
         )
         los_transform = instatiate_line_of_sight(
-            database_results,
+            database_results["location"],
+            database_results["direction"],
             instrument,
+            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -629,8 +633,10 @@ class DataReader(BaseIO):
         )
 
         los_transform = instatiate_line_of_sight(
-            database_results,
+            database_results["location"],
+            database_results["direction"],
             instrument,
+            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -688,8 +694,10 @@ class DataReader(BaseIO):
             quantities,
         )
         los_transform = instatiate_line_of_sight(
-            database_results,
+            database_results["location"],
+            database_results["direction"],
             instrument,
+            database_results["machine_dims"],
             dl,
             passes,
         )
@@ -745,8 +753,10 @@ class DataReader(BaseIO):
             quantities,
         )
         los_transform = instatiate_line_of_sight(
-            database_results,
+            database_results["location"],
+            database_results["direction"],
             instrument,
+            database_results["machine_dims"],
             dl,
             passes,
         )
