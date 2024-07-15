@@ -94,20 +94,27 @@ def _plot_profile_fits(profiles: np.ndarray, projected_profiles: np.ndarray, pro
 
 
 def _plot_KDE_comparison(kernel: gaussian_kde, prior: LinearNDInterpolator, size=1000):
-    sample = kernel.resample(size).T
-
     plt.figure()
     plt.title("KDE Samples")
     if kernel.d == 3:
+        sample = kernel.resample(size=size).T
         axs = plt.axes(projection="3d")
         axs.scatter3D(sample[:, 0], sample[:, 1], sample[:, 2], color="r", label="KDE Samples")
         axs.scatter3D(prior.points[:, 0], prior.points[:, 1], prior.points[:, 2], color="k", label="Prior Samples")
+        plt.legend()
 
     if kernel.d == 2:
-        axs = plt.axes()
-        axs.scatter(sample[:, 0], sample[:, 1], color="r", label="KDE Samples")
-        axs.scatter(prior.points[:, 0], prior.points[:, 1], color="k", label="Prior Samples")
-    plt.legend()
+        xmin = prior.points[:, 0].min()
+        xmax = prior.points[:, 0].max()
+        ymin = prior.points[:, 1].min()
+        ymax = prior.points[:, 1].max()
+        X, Y = np.mgrid[xmin:xmax:50j, ymin:ymax:50j]
+        positions = np.vstack([X.ravel(), Y.ravel()])
+        Z = np.reshape(kernel(positions).T, X.shape)
+        plt.imshow(np.rot90(Z), extent=[xmin, xmax, ymin, ymax], cmap=plt.cm.gist_earth_r, )
+        plt.colorbar()
+        plt.plot(prior.points[:, 0], prior.points[:, 1], "x", color="k", label="Prior Samples")
+        plt.legend()
 
 
 @dataclass
@@ -199,8 +206,8 @@ def sample_gauss_profiles(sample_params: Dict[str, np.ndarray], profilers: dict,
 def main(cfg: DictConfig):
     pca_processor, pca_profilers = pca_workflow(PriorManager(
         basic_prior_info=cfg.basic_prior_info, cond_prior_info=cfg.cond_prior_info,),
-        ["impurity_density:ar", ],
-        np.linspace(0, 1, 30), n_components=2, num_prof_samples=int(5e3))
+        ["ion_temperature", ],
+        np.linspace(0, 1, 30), n_components=2, num_prof_samples=int(3e3))
 
     pca_processor.plot_all()
     plt.show(block=True)
