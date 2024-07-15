@@ -1,0 +1,28 @@
+
+defaults:
+  - priors/default
+  - plasma_settings/default
+  - optimisation_info/emcee_default
+  - data_info/exp
+  - model_info/all_models
+  - write_info/default
+
+write_info:
+  run: RUN04
+  best: True
+  run_info: "Default run"
+  plot: False
+
+#optimisation_info:
+#  nwalkers: 20
+#  param_names: ["impurity_density:ar.y0", "impurity_density:ar.peaking"]
+#  starting_samples: 200
+#  pca_components: 3
+
+#hydra:
+#  mode: MULTIRUN
+#  sweeper:
+#    params:
+#      +pulse_info: glob(p114*, exclude=test)
+
+

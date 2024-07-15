@@ -1,0 +1,18 @@
+phantom: True
+mock: False
+set_ts: False
+apply_rshift: False
+profile_params_to_update: {}
+
+filter_coords:
+  cxff_pi:
+    ti: [ "channel", [ 3, 5 ] ]
+    vtor: [ "channel", [ 3, 5 ] ]
+  cxff_tws_c:
+    ti: [ "channel", [ 1, 2 ] ]
+    vtor: [ "channel", [ 1, 2 ] ]
+
+filter_limits: {}
+revisions: {}
+
+equilibrium: efit

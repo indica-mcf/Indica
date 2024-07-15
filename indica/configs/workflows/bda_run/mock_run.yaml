@@ -1,0 +1,10 @@
+
+defaults:
+  - priors/default
+  - plasma_settings/default
+  - optimisation_info/emcee_test
+  - data_info/exp
+  - model_info/all_models
+  - write_info/test
+  - pulse_info/test
+
