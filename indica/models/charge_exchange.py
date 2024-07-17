@@ -6,10 +6,10 @@ from xarray import DataArray
 
 from indica.converters import TransectCoordinates
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
+from indica.utilities import set_plot_rcparams
 
 
 class ChargeExchange(DiagnosticModel):
@@ -115,96 +115,40 @@ class ChargeExchange(DiagnosticModel):
 
         return self.bckc
 
+    def plot(self, nplot: int = 1):
+        set_plot_rcparams("profiles")
 
-def pi_transform_example(nchannels: int):
-    x_positions = np.linspace(0.2, 0.8, nchannels)
-    y_positions = np.linspace(0.0, 0.0, nchannels)
-    z_positions = np.linspace(0.0, 0.0, nchannels)
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
 
-    transect_transform = TransectCoordinates(
-        x_positions,
-        y_positions,
-        z_positions,
-        "pi",
-        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
-    )
-    return transect_transform
-
-
-def example_run(
-    pulse: int = None,
-    diagnostic_name: str = "cxrs",
-    plasma=None,
-    plot=False,
-):
-    # TODO: LOS sometimes crossing bad EFIT reconstruction
-
-    if plasma is None:
-        from indica.equilibrium import fake_equilibrium
-
-        plasma = example_plasma(pulse=pulse)
-        machine_dims = plasma.machine_dimensions
-        equilibrium = fake_equilibrium(
-            tstart=plasma.tstart,
-            tend=plasma.tend,
-            dt=plasma.dt / 2.0,
-            machine_dims=machine_dims,
-        )
-        plasma.set_equilibrium(equilibrium)
-
-    # Create new interferometers diagnostics
-    transect_transform = pi_transform_example(5)
-    transect_transform.set_equilibrium(plasma.equilibrium)
-    model = ChargeExchange(
-        diagnostic_name,
-    )
-    model.set_transform(transect_transform)
-    model.set_plasma(plasma)
-
-    bckc = model()
-
-    if plot:
-        it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it].values
-
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-
-        model.transect_transform.plot(tplot)
+        self.transect_transform.plot()
 
         # Plot back-calculated profiles
         plt.figure()
-        for i, t in enumerate(plasma.t.values):
-            plasma.toroidal_rotation.sel(t=t, element=model.element).plot(
-                color=cols_time[i],
-                label=f"t={t:1.2f} s",
-                alpha=0.7,
-            )
-            Vtor = bckc["vtor"].sel(t=t, method="nearest")
+        for i, t in enumerate(self.t):
+            if i % nplot:
+                continue
+            Vtor = self.bckc["vtor"].sel(t=t, method="nearest")
             rho = Vtor.transform.rho.sel(t=t, method="nearest")
-            plt.scatter(rho, Vtor, color=cols_time[i], marker="o", alpha=0.7)
+            plt.scatter(
+                rho,
+                Vtor,
+                color=cols_time[i],
+                marker="o",
+                alpha=0.7,
+                label=f"t={t:1.2f} s",
+            )
         plt.xlabel("Channel")
         plt.ylabel("Measured toroidal rotation (rad/s)")
         plt.legend()
 
         plt.figure()
-        for i, t in enumerate(plasma.t.values):
-            plasma.ion_temperature.sel(t=t, element=model.element).plot(
-                color=cols_time[i],
-                label=f"t={t:1.2f} s",
-                alpha=0.7,
-            )
-            Ti = bckc["ti"].sel(t=t, method="nearest")
+        for i, t in enumerate(self.t):
+            if i % nplot:
+                continue
+            Ti = self.bckc["ti"].sel(t=t, method="nearest")
             rho = Ti.transform.rho.sel(t=t, method="nearest")
             plt.scatter(rho, Ti, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured ion temperature (eV)")
         plt.legend()
         plt.show()
-
-    return plasma, model, bckc
-
-
-if __name__ == "__main__":
-    plt.ioff()
-    example_run(plot=True)
-    plt.show()

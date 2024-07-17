@@ -5,9 +5,7 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
-from indica.equilibrium import fake_equilibrium
 from indica.models.abstractdiagnostic import DiagnosticModel
-from indica.models.plasma import example_plasma
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
@@ -167,78 +165,3 @@ class Bolometer(DiagnosticModel):
         plt.xlabel("rho")
         plt.ylabel("Local radiated power (W/m^3)")
         plt.legend()
-
-
-def example_run(
-    pulse: int = None,
-    diagnostic_name: str = "bolo_xy",
-    origin: LabeledArray = None,
-    direction: LabeledArray = None,
-    plasma=None,
-    plot=False,
-    tplot=None,
-    nchannels: int = 11,
-):
-
-    if plasma is None:
-        plasma = example_plasma(pulse=pulse)
-        machine_dims = plasma.machine_dimensions
-        equilibrium = fake_equilibrium(
-            tstart=plasma.tstart,
-            tend=plasma.tend,
-            dt=plasma.dt / 2.0,
-            machine_dims=machine_dims,
-        )
-        plasma.set_equilibrium(equilibrium)
-
-    # return plasma
-    # Create new interferometers diagnostics
-    if origin is None or direction is None:
-        los_end = np.full((nchannels, 3), 0.0)
-        los_end[:, 0] = 0.0
-        los_end[:, 1] = np.linspace(-0.2, -1, nchannels)
-        los_end[:, 2] = 0.0
-        los_start = np.array([[1.5, 0, 0]] * los_end.shape[0])
-        origin = los_start
-        direction = los_end - los_start
-
-        # los_end = np.full((nchannels, 3), 0.0)
-        # los_end[:, 0] = 0.17
-        # los_end[:, 1] = 0.0
-        # los_end[:, 2] = np.linspace(0.6, -0.6, nchannels)
-        # los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
-        # origin = los_start
-        # direction = los_end - los_start
-
-    los_transform = LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        name=diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
-        passes=1,
-        beamlets=16,
-        spot_width=0.03,
-    )
-    los_transform.set_equilibrium(plasma.equilibrium)
-    model = Bolometer(
-        diagnostic_name,
-    )
-    model.set_transform(los_transform)
-    model.set_plasma(plasma)
-
-    bckc = model(sum_beamlets=False)
-
-    if plot:
-        model.plot()
-
-    return plasma, model, bckc
-
-
-if __name__ == "__main__":
-    plt.ioff()
-    example_run(plot=True)
-    plt.show()
