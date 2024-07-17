@@ -149,6 +149,8 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "plt": ("PLT coefficient", "emission_rate"),
     "prb": ("PRB coefficient", "emission_rate"),
     "prc": ("PRC coefficient", "emission_rate"),
+    "pls": ("PLS coefficient", "emission_rate"),
+    "prs": ("PRS coefficient", "emission_rate"),
     "total_radiation_loss_parameter": ("$L_{tot}$", "emission_rate"),
     "sxr_radiation_loss_parameter": ("$L_{sxr}$", "emission_rate"),
     "loop_voltage": ("$V_{loop}$", "voltage"),

@@ -1,5 +1,4 @@
-"""Experimental design for reading data from disk/database.
-"""
+"""Experimental design for reading data from disk/database."""
 
 from typing import Any
 from typing import Dict
@@ -14,7 +13,6 @@ from xarray import DataArray
 from indica.abstractio import BaseIO
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
-from indica.datatypes import ArrayType
 from indica.numpy_typing import OnlyArray
 from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
@@ -64,7 +62,7 @@ class DataReader(BaseIO):
 
     INSTRUMENT_METHODS: Dict[str, str] = {}
     _AVAILABLE_QUANTITIES = AVAILABLE_QUANTITIES
-    _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, ArrayType]] = {}
+    _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, str]] = {}
 
     _RECORD_TEMPLATE = "{}-{}-{}-{}-{}"
     NAMESPACE: Tuple[str, str] = ("experiment", "server")
@@ -158,6 +156,8 @@ class DataReader(BaseIO):
         data = {}
         dims = ["t", "channel"]
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             data[quantity] = self.assign_dataarray(
                 instrument,
                 quantity,
@@ -190,7 +190,6 @@ class DataReader(BaseIO):
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
-
         database_results = self._get_ppts(uid, instrument, revision, quantities)
         database_results["channel"] = np.arange(database_results["length"])
 
@@ -208,6 +207,8 @@ class DataReader(BaseIO):
 
         data = {}
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             if "_R" in quantity:
                 dims = ["t", "R"]
             elif "_rho" in quantity:
@@ -280,14 +281,6 @@ class DataReader(BaseIO):
             f"{instrument}",
             machine_dimensions=database_results["machine_dims"],
         )
-        los_transform = instatiate_line_of_sight(
-            database_results["location"],
-            database_results["direction"],
-            instrument,
-            database_results["machine_dims"],
-            dl,
-            passes,
-        )
 
         database_results["channel"] = np.arange(database_results["length"])
         if "wavelength" in database_results.keys():
@@ -295,6 +288,8 @@ class DataReader(BaseIO):
 
         data = {}
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             if quantity == "spectra" or quantity == "fit":
                 dims = ["t", "channel", "wavelength"]
             else:
@@ -307,7 +302,18 @@ class DataReader(BaseIO):
                 dims,
                 transform=transform,
             )
-            quant_data.attrs["los_transform"] = los_transform
+            if (
+                database_results["location"] is not None
+                and database_results["direction"] is not None
+            ):
+                quant_data.attrs["los_transform"] = instatiate_line_of_sight(
+                    database_results["location"],
+                    database_results["direction"],
+                    instrument,
+                    database_results["machine_dims"],
+                    dl,
+                    passes,
+                )
             data[quantity] = quant_data
 
         return data
@@ -353,6 +359,8 @@ class DataReader(BaseIO):
 
         data = {}
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             if quantity == "spectra":
                 dims = ["t", "channel", "wavelength"]
             else:
@@ -421,6 +429,8 @@ class DataReader(BaseIO):
 
         data: Dict[str, DataArray] = {}
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             if quantity == "psi":
                 dims = ["t", "z", "R"]
             elif quantity in sep_vars:
@@ -528,6 +538,8 @@ class DataReader(BaseIO):
         data = {}
         dims = ["t", "channel"]
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             quant_data = self.assign_dataarray(
                 instrument,
                 quantity,
@@ -586,6 +598,8 @@ class DataReader(BaseIO):
         data = {}
         dims = ["t"]
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             quant_data = self.assign_dataarray(
                 instrument,
                 quantity,
@@ -644,6 +658,8 @@ class DataReader(BaseIO):
 
         data: dict = {}
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             if quantity in ["spectra", "raw_spectra"]:
                 dims = ["t", "wavelength"]
             else:
@@ -706,6 +722,8 @@ class DataReader(BaseIO):
         data: dict = {}
         dims = ["t", "channel"]
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             quant_data = self.assign_dataarray(
                 instrument,
                 quantity,
@@ -765,6 +783,8 @@ class DataReader(BaseIO):
         data: dict = {}
         dims = ["t"]
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             quant_data = self.assign_dataarray(
                 instrument,
                 quantity,
@@ -803,6 +823,8 @@ class DataReader(BaseIO):
 
         data = {}
         for quantity in quantities:
+            if database_results.get(quantity) is None:
+                continue
             _path: str = database_results[f"{quantity}_records"]
             print(_path)
             if "global" in _path.lower():

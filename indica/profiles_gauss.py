@@ -77,7 +77,7 @@ class Profiles:
         Set any of the shaping parameters
         """
         for k, v in kwargs.items():
-            if k in self.parameters:
+            if k in self.profile_parameters:
                 setattr(self, k, v)
 
     def get_parameters(self):
