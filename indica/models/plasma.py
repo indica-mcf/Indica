@@ -5,6 +5,7 @@ from pathlib import Path
 import pickle
 from typing import Callable
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 import numpy as np
@@ -674,7 +675,7 @@ class Plasma:
         self,
         element: str,
         concentration: float,
-        t: LabeledArray = None,
+        t: Optional[LabeledArray] = None,
         flat_zeff: bool = False,
     ):
         """
@@ -935,7 +936,6 @@ def example_plasma(
     load_from_pkl: bool = True,
     **kwargs,
 ):
-
     default_plasma_file = (
         f"{Path(__file__).parent.parent}/data/{machine}_default_plasma_phantom.pkl"
     )

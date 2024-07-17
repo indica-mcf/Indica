@@ -27,6 +27,7 @@ import scipy.constants as sc
 import indica.readers.surf_los as surf_los
 from indica.utilities import CACHE_DIR
 from .abstractreader import DataReader
+from ..numpy_typing import ArrayLike
 from ..numpy_typing import RevisionLike
 from ..utilities import to_filename
 
@@ -86,9 +87,13 @@ class PPFReader(DataReader):
         "efit": "get_equilibrium",
         "eftp": "get_equilibrium",
         "kk3": "get_cyclotron_emissions",
-        "ks3": "get_bremsstrahlung_spectroscopy",
-        "sxr": "get_radiation",
-        "bolo": "get_radiation",
+        "ks3h": "get_bremsstrahlung_spectroscopy",
+        "ks3v": "get_bremsstrahlung_spectroscopy",
+        "sxrh": "get_radiation",
+        "sxrv": "get_radiation",
+        "sxrt": "get_radiation",
+        "kb5h": "get_radiation",
+        "kb5v": "get_radiation",
         "kg10": "get_thomson_scattering",
         **{
             "cx{}m".format(val): "get_charge_exchange"
@@ -98,41 +103,60 @@ class PPFReader(DataReader):
         **{"cx{}4".format(val): "get_charge_exchange" for val in ("s", "d", "f", "h")},
     }
     _IMPLEMENTATION_QUANTITIES = {
-        "kg10": {"ne": ("number_density", "electron")},
-        "sxr": {
-            "h": ("luminous_flux", "sxr"),
-            "t": ("luminous_flux", "sxr"),
-            "v": ("luminous_flux", "sxr"),
+        "hrts": {
+            "ne": "electron_density",
+            "te": "electron_temperature",
         },
-        "bolo": {
-            "kb5h": ("luminous_flux", "bolometric"),
-            "kb5v": ("luminous_flux", "bolometric"),
+        "lidr": {
+            "ne": "electron_density",
+            "te": "electron_temperature",
         },
-        "ks3": {
-            "zefh": ("effective_charge", "plasma"),
-            "zefv": ("effective_charge", "plasma"),
+        "efit": {
+            "f": "poloidal_flux_normalised",  # TODO check this
+            "faxs": "poloidal_flux_axis",
+            "fbnd": "poloidal_flux_boundary",
+            "ftor": "toroidal_flux",
+            "rmji": "major_radius_hfs",
+            "rmjo": "major_radius_lfs",
+            "psi": "poloidal_flux_normalised",
+            "vjac": "volume_jacobian",
+            "ajac": "area_jacobian",
+            "rmag": "major_radius_magnetic_axis",
+            "rgeo": "major_radius_geometric_axis",
+            "rbnd": "major_radius_boundary",
+            "zmag": "z_magnetic_axis",
+            "zbnd": "z_boundary",
+            "wp": "equilibrium_stored_energy",
         },
+        "kg10": {"ne": "electron_density"},
+        "sxrh": {"h": "sxr_radiated_power_emission"},
+        "sxrv": {"v": "sxr_radiated_power_emission"},
+        "sxrt": {"t": "sxr_radiated_power_emission"},
+        "kb5h": {"kb5h": "total_radiated_power_emission"},
+        "kb5v": {"kb5v": "total_radiated_power_emission"},
+        "ks3h": {"zefh": "effective_charge"},
+        "ks3v": {"zefv": "effective_charge"},
         **{
             "cx{}m".format(val): {
-                "angf": ("angular_freq", "ions"),
-                "ti": ("temperature", "ions"),
-                "conc": ("concentration", "ions"),
+                "angf": "toroidal_rotation",
+                "ti": "ion_temperature",
+                "conc": "concentration",
             }
             for val in ("s", "d", "f", "g", "h")
         },
         **{
             "cx{}6".format(val): {
-                "angf": ("angular_freq", "ions"),
-                "ti": ("temperature", "ions"),
-                "conc": ("concentration", "ions"),
+                "angf": "toroidal_rotation",
+                "ti": "ion_temperature",
+                "conc": "concentration",
             }
             for val in ("s", "d", "f", "g")
         },
         **{
             "cx{}4".format(val): {
-                "angf": ("angular_freq", "ions"),
-                "ti": ("temperature", "ions"),
-                "conc": ("concentration", "ions"),
+                "angf": "toroidal_rotation",
+                "ti": "ion_temperature",
+                "conc": "concentration",
             }
             for val in ("s", "d", "f", "h")
         },
@@ -295,36 +319,81 @@ class PPFReader(DataReader):
 
         # We approximate that the positions do not change much in time
         results["R"] = R.data[0, :]
+        results["x"] = results["R"]
+        results["y"] = np.zeros_like(results["R"])
         results["z"] = z.data[0, :]
         results["length"] = R.data.shape[1]
         results["texp"] = texp.data
-        results["time"] = None
+        results["t"] = None
         paths = [R_path, z_path, m_path, t_path]
         if "angf" in quantities:
             angf, a_path = self._get_signal(uid, instrument, "angf", revision)
             afhi, e_path = self._get_signal(uid, instrument, "afhi", revision)
-            if results["time"] is None:
-                results["time"] = angf.dimensions[0].data
+            if results["t"] is None:
+                results["t"] = angf.dimensions[0].data
             results["angf"] = angf.data
             results["angf_error"] = afhi.data - angf.data
             results["angf_records"] = paths + [a_path, e_path]
         if "conc" in quantities:
-            conc, c_path = self._get_signal(uid, instrument, "conc", revision)
-            cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
-            if results["time"] is None:
-                results["time"] = conc.dimensions[0].data
-            results["conc"] = conc.data
-            results["conc_error"] = cohi.data - conc.data
-            results["conc_records"] = paths + [c_path, e_path]
+            try:
+                conc, c_path = self._get_signal(uid, instrument, "conc", revision)
+                cohi, e_path = self._get_signal(uid, instrument, "cohi", revision)
+                if results["t"] is None:
+                    results["t"] = conc.dimensions[0].data
+                results["conc"] = conc.data
+                results["conc_error"] = cohi.data - conc.data
+                results["conc_records"] = paths + [c_path, e_path]
+            except NodeNotFound:
+                # CONC not always produced for JET CXRS
+                results["conc"] = None
+                results["conc_error"] = None
+                results["conc_records"] = paths
         if "ti" in quantities:
             ti, t_path = self._get_signal(uid, instrument, "ti", revision)
             tihi, e_path = self._get_signal(uid, instrument, "tihi", revision)
-            if results["time"] is None:
-                results["time"] = ti.dimensions[0].data
+            if results["t"] is None:
+                results["t"] = ti.dimensions[0].data
             results["ti"] = ti.data
             results["ti_error"] = tihi.data - ti.data
             results["ti_records"] = paths + [t_path, e_path]
 
+        results["location"] = None
+        results["direction"] = None
+
+        # Currently arbitrary, TODO be more specific/justified. Based approximately on
+        # start of JET C38 campaign
+        c38_start = 92671
+        if self.pulse > c38_start:
+            spec = {
+                "cxs": "ks5a",
+                "cxd": "ks5b",
+                "cxf": "ks5c",
+                "cxg": "ks5d",
+                "cxh": "ks5e",
+            }.get(instrument.lower()[:3], None)
+            if spec is None:
+                raise PPFError(
+                    f"Failed to match spectrometer name to instrument {instrument}"
+                )
+            trck, _ = self._get_signal(uid, instrument, "trck", revision)
+            try:
+                location, direction = _get_cxrs_los_geometry(
+                    sav_file=_get_cxrs_los_savfile(pulse=self.pulse, spec=spec),
+                    tracks=_get_cxrs_active_tracks(
+                        pulse=self.pulse, spec=spec, trck=trck.data
+                    ),
+                )
+                results["location"] = location
+                results["direction"] = direction
+            except PPFError:
+                warnings.warn("Can't load CXRS geometry without IDLBridge module")
+        else:
+            warnings.warn(
+                f"CXRS LOS geometry not supported for JPN {self.pulse}, "
+                f"currently only supporting after {c38_start}"
+            )
+
+        results["machine_dims"] = self.MACHINE_DIMS
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
@@ -344,10 +413,13 @@ class PPFReader(DataReader):
         z, z_path = self._get_signal(uid, instrument, "z", revision)
         results["z"] = z.data
         results["R"] = z.dimensions[0].data
+        results["x"] = results["R"]
+        results["y"] = np.zeros_like(results["R"])
         results["length"] = len(z.data)
         if "te" in quantities:
             te, t_path = self._get_signal(uid, instrument, "te", revision)
             results["te"] = te.data
+            results["t"] = te.dimensions[0].data
             if instrument == "lidr":
                 tehi, e_path = self._get_signal(uid, instrument, "teu", revision)
                 results["te_error"] = tehi.data - results["te"]
@@ -358,6 +430,7 @@ class PPFReader(DataReader):
         if "ne" in quantities:
             ne, d_path = self._get_signal(uid, instrument, "ne", revision)
             results["ne"] = ne.data
+            results["t"] = ne.dimensions[0].data
             if instrument == "lidr":
                 nehi, e_path = self._get_signal(uid, instrument, "neu", revision)
                 results["ne_error"] = nehi.data - results["ne"]
@@ -371,6 +444,7 @@ class PPFReader(DataReader):
                 results["ne_records"].append(e_path)
 
         results["revision"] = self._get_revision(uid, instrument, revision)
+        results["machine_dims"] = self.MACHINE_DIMS
         return results
 
     def _get_equilibrium(
@@ -384,20 +458,25 @@ class PPFReader(DataReader):
         """Fetch raw data for plasma equilibrium."""
         results: Dict[str, Any] = {}
         for q in quantities:
+            if q == "psin":
+                continue
             qval, q_path = self._get_signal(uid, instrument, q, revision)
+            if qval.dimensions[0].temporal:
+                results["t"] = qval.dimensions[0].data
             if (
                 len(qval.dimensions) > 1
                 and q not in {"psi", "rbnd", "zbnd"}
                 and "psin" not in results
             ):
                 results["psin"] = qval.dimensions[1].data
+                results["psin_records"] = [q_path]
             if q == "psi":
                 r, r_path = self._get_signal(uid, instrument, "psir", revision)
                 z, z_path = self._get_signal(uid, instrument, "psiz", revision)
                 results["psi_r"] = r.data
                 results["psi_z"] = z.data
                 results["psi"] = qval.data.reshape(
-                    (len(results["time"]), len(z.data), len(r.data))
+                    (len(results["t"]), len(z.data), len(r.data))
                 )
                 results["psi_records"] = [q_path, r_path, z_path]
             else:
@@ -446,8 +525,8 @@ class PPFReader(DataReader):
                 )
                 records.append(q_path)
                 data.append(qval.data)
-                if "time" not in results:
-                    results["time"] = qval.dimensions[0].data
+                if "t" not in results:
+                    results["t"] = qval.dimensions[0].data
             results[q] = np.array(data).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
@@ -471,14 +550,18 @@ class PPFReader(DataReader):
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
+        # HACK: Need a better solution eventually
+        if "sxr" in instrument:
+            instrument = "sxr"
+        elif "kb5" in instrument:
+            instrument = "bolo"
         for q in quantities:
-            qtime = q + "_time"
             records = [SURF_PATH.name]
             if instrument == "bolo":
                 qval, qpath = self._get_signal(uid, instrument, q, revision)
                 records.append(qpath)
-                results["length"][q] = qval.dimensions[1].length
-                results[qtime] = qval.dimensions[0].data
+                results["length"] = qval.dimensions[1].length
+                results["t"] = qval.dimensions[0].data
                 results[q] = qval.data
                 channels: Union[List[int], slice] = slice(None, None)
             else:
@@ -494,8 +577,8 @@ class PPFReader(DataReader):
                     records.append(q_path)
                     luminosities.append(qval.data)
                     channels.append(i - 1)
-                    if qtime not in results:
-                        results[qtime] = qval.dimensions[0].data
+                    if "t" not in results:
+                        results["t"] = qval.dimensions[0].data
                 if len(channels) == 0:
                     # TODO: Try getting information on the INSTRUMENT (DDA in JET),
                     #  to determine if the failure is actually due to requesting
@@ -505,20 +588,18 @@ class PPFReader(DataReader):
                         f"{revision:d}"
                     )
                     raise PPFError(f"No channels available for {instrument}/{q}.")
-                results["length"][q] = len(channels)
+                results["length"] = len(channels)
                 results[q] = np.array(luminosities).T
             results[q + "_error"] = self._default_error * results[q]
             results[q + "_records"] = records
             xstart, xend, zstart, zend, ystart, yend = surf_los.read_surf_los(
                 SURF_PATH, self.pulse, instrument.lower() + "/" + q.lower()
             )
-            results[q + "_xstart"] = xstart[channels]
-            results[q + "_xstop"] = xend[channels]
-            results[q + "_zstart"] = zstart[channels]
-            results[q + "_zstop"] = zend[channels]
-            results[q + "_ystart"] = ystart[channels]
-            results[q + "_ystop"] = yend[channels]
+            location = np.asarray([xstart, ystart, zstart])
+            direction = np.asarray([xend, yend, zend]) - location
 
+        results["location"] = location.transpose()
+        results["direction"] = direction.transpose()
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
@@ -534,23 +615,26 @@ class PPFReader(DataReader):
             "length": {},
             "machine_dims": self.MACHINE_DIMS,
         }
+        if "ks3" in instrument:
+            instrument = "ks3"
         los_instrument = self._BREMSSTRAHLUNG_LOS[instrument]
         for q in quantities:
             qval, q_path = self._get_signal(uid, instrument, q, revision)
             los, l_path = self._get_signal(uid, los_instrument, "los" + q[-1], revision)
-            if "time" not in results:
-                results["time"] = qval.dimensions[0].data
-            results["length"][q] = 1
+            if "t" not in results:
+                results["t"] = qval.dimensions[0].data
+            results["length"] = 1
             results[q] = qval.data
             results[q + "_error"] = 0.0 * results[q]
-            results[q + "_xstart"] = np.array([los.data[1] / 1000])
-            results[q + "_xstop"] = np.array([los.data[4] / 1000])
-            results[q + "_zstart"] = np.array([los.data[2] / 1000])
-            results[q + "_zstop"] = np.array([los.data[5] / 1000])
-            results[q + "_ystart"] = np.zeros_like(results[q + "_xstart"])
-            results[q + "_ystop"] = np.zeros_like(results[q + "_xstop"])
+            location = np.asarray([[(los.data[1] / 1000)], [0], [(los.data[2] / 1000)]])
+            direction = (
+                np.asarray([[(los.data[4] / 1000)], [0], [(los.data[5] / 1000)]])
+                - location
+            )
             results[q + "_records"] = [q_path, l_path]
 
+        results["location"] = location.transpose()
+        results["direction"] = direction.transpose()
         results["revision"] = self._get_revision(uid, instrument, revision)
         return results
 
@@ -624,3 +708,134 @@ class PPFReader(DataReader):
             return True
         except AuthenticationFailed:
             return False
+
+
+def _get_cxrs_los_geometry(sav_file: Path, tracks: ArrayLike) -> Any:
+    """Read IDL save file to get position and direction for KS5 tracks
+
+    Parameters
+    ----------
+
+    sav_file:
+        Path to IDL save file to load
+    tracks:
+        ArrayLike of tracks to select from save file, from JET dtype `TRCK`
+
+    Returns
+    -------
+
+    :
+        Tuple of position and direction arrays
+    """
+    import scipy.io as io
+
+    data = io.readsav(sav_file)
+    fibres = data.ptrfib.fibres[0]
+    numfibview = fibres.numfibview[0].astype(str)
+    origin, direction = [], []
+    for name, pos, vec in zip(
+        numfibview,
+        fibres.losdef[0].virtualposition_roomtemp_rot[0].cartesian_ref[0],
+        fibres.losdef[0].virtualdirection_rot[0].cartesian_ref[0],
+    ):
+        if name in tracks:
+            origin.append(pos / 1000)  # mm -> m
+            direction.append(vec)
+    return (np.asarray(origin), np.asarray(direction))
+
+
+def _setup_idl(pulse: int) -> Any:
+    try:
+        import idlbridge as idlb
+    except ImportError:
+        raise PPFError("Could not find IDLBridge module, required for CXRS geometry")
+
+    idlb.execute(".reset")
+    idlb.execute(
+        "!PATH=!PATH + ':' + "
+        "expand_path( '+~cxs/idl_spectro/' ) + ':' + "
+        "expand_path( '+~cxs/idl_spectro/show' ) + ':' + "
+        "expand_path( '+~cxs/ks6read/' ) + ':' + "
+        "expand_path( '+~cxs/ktread/' ) + ':' + "
+        "expand_path( '+~cxs/kx1read/' ) + ':' + "
+        "expand_path( '+~cxs/idl_spectro/kt3d' ) + ':' + "
+        "expand_path( '+~cxs/utc' ) + ':' + "
+        "expand_path( '+~cxs/instrument_data' ) + ':' + "
+        "expand_path( '+~cxs/calibration' ) + ':' + "
+        "expand_path( '+~cxs/alignment' ) + ':' + "
+        "expand_path( '+/usr/local/idl' ) + ':' + "
+        "expand_path( '+/home/CXSE/cxsfit/idl/' ) + ':' + "
+        "expand_path( '+~/jet/share/lib' ) + ':' + "
+        "expand_path( '+~/jet/share/root/lib' ) + ':' + "
+        "expand_path( '+~/jet/share/idl' )"
+    )
+
+    idlb.execute(
+        "!PATH = !PATH + ':' + expand_path('+/u/cxs/utilities',/all_dirs)+ ':'"
+    )
+
+    idlb.execute(
+        "!PATH = !PATH + ':' + expand_path('+/u/cxs/instrument_data/namelists')+ ':' + "
+        "expand_path('+/u/cxs/instrument_data/jpfnodes')"
+    )
+
+    idlb.execute("!PATH = !PATH + ':' + expand_path('+/usr/local/idl')")
+    idlb.execute("!PATH = !PATH + ':' + expand_path('+/home/CXSE/cxsfit/idl/')")
+    idlb.execute("!PATH = !PATH +':/home/CXSE/cxsfit/idl:'")
+    idlb.execute(".compile plot")
+    idlb.execute(".compile ppfread")
+    idlb.execute(".compile cxf_number_to_text")
+    idlb.execute(".compile cxf_read_switches")
+    idlb.execute(".compile cxf_decompress_history")
+
+    idlb.put("shot", pulse)
+    idlb.execute("julian_date = agm_pulse_to_julian(shot, 'DG')")
+
+    return idlb
+
+
+def _get_cxrs_los_savfile(pulse: int, spec: str) -> Path:
+    """Determine correct sav file for given pulse and spectrometer
+
+    Parameters
+    ----------
+    pulse:
+        Pulse to search for
+    spec:
+        Spectrometer to search for
+
+    Returns
+    -------
+    :
+        Path to save file
+    """
+    octant = {"ks5a": 7, "ks5b": 1, "ks5c": 7, "ks5d": 7, "ks5e": 1}.get(spec.lower())
+    idlb = _setup_idl(pulse=pulse)
+    idlb.execute(
+        "str1 = periscope_oct{}_hist_align(julian_date=julian_date)".format(str(octant))
+    )
+    idlb.execute("file_align = str1.file_align")
+    savfile = Path(str(idlb.get("file_align")))
+    try:
+        assert savfile.exists() and savfile.is_file()
+    except AssertionError:
+        raise PPFError(f"Cannot find savfile {savfile}")
+    return savfile
+
+
+def _get_cxrs_active_tracks(pulse: int, spec: str, trck: ArrayLike) -> ArrayLike:
+    """Translate tracks used to track names as in geometry save file"""
+    idlb = _setup_idl(pulse=pulse)
+    idlb.execute(
+        "str1={}_hist_fibresetup(pulse=pulse,julian_date=julian_date)".format(str(spec))
+    )
+    idlb.execute("viewing_position=str1.pulse_setup.viewing_position")
+    idlb.execute("track_reshuffle=str1.pulse_setup.ks4fit_track_reshuffle")
+    viewing_position = idlb.get("viewing_position")
+    track_reshuffle = idlb.get("track_reshuffle")
+    assert len(viewing_position) == len(track_reshuffle) == len(trck)
+    return [
+        viewing_position[i - 1]
+        for i in track_reshuffle
+        if int(trck[len(trck) - i]) == 1
+    ][::-1]

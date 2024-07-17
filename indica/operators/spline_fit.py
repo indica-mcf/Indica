@@ -6,7 +6,6 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.numpy_typing import ArrayLike
-from indica.readers.read_st40 import ReadST40
 
 
 def fit_profile(
@@ -107,6 +106,8 @@ def example_run(
     knots: list = None,
     plot: bool = True,
 ):
+    from indica.readers.read_st40 import ReadST40
+
     st40 = ReadST40(pulse, tstart=tstart, tend=tend, dt=dt)
     st40(["ts"], set_equilibrium=True, R_shift=R_shift)
 
