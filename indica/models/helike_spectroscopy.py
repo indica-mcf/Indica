@@ -5,7 +5,6 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
-from indica.defaults.load_defaults import load_default_objects
 from indica.models.abstractdiagnostic import DiagnosticModel
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
@@ -561,57 +560,3 @@ class HelikeSpectrometer(DiagnosticModel):
             # plt.legend()
 
         plt.show(block=True)
-
-
-def helike_transform_example(nchannels):
-    los_end = np.full((nchannels, 3), 0.0)
-    los_end[:, 0] = 0.17
-    los_end[:, 1] = 0.0
-    los_end[:, 2] = np.linspace(0.2, -0.5, nchannels)
-    los_start = np.array([[0.9, 0, 0]] * los_end.shape[0])
-    los_start[:, 2] = -0.1
-    origin = los_start
-    direction = los_end - los_start
-
-    los_transform = LineOfSightTransform(
-        origin[0:nchannels, 0],
-        origin[0:nchannels, 1],
-        origin[0:nchannels, 2],
-        direction[0:nchannels, 0],
-        direction[0:nchannels, 1],
-        direction[0:nchannels, 2],
-        name="xrcs",
-        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
-        passes=1,
-    )
-    return los_transform
-
-
-def example_run(plasma=None, plot=False, moment_analysis: bool = False, **kwargs):
-
-    if plasma is None:
-        plasma = load_default_objects("st40", "plasma")
-        equilibrium = load_default_objects("st40", "equilibrium")
-        plasma.set_equilibrium(equilibrium)
-
-    diagnostic_name = "xrcs"
-    los_transform = helike_transform_example(3)
-    los_transform.set_equilibrium(plasma.equilibrium)
-    model = HelikeSpectrometer(
-        diagnostic_name,
-        window_masks=[],
-    )
-    model.set_transform(los_transform)
-    model.set_plasma(plasma)
-
-    bckc = model(moment_analysis=moment_analysis, **kwargs)
-
-    # Plot spectra
-    if plot:
-        model.plot()
-
-    return plasma, model, bckc
-
-
-if __name__ == "__main__":
-    example_run(plot=True, moment_analysis=True)

@@ -1,6 +1,6 @@
 from indica.defaults.load_defaults import load_default_objects
+from indica.examples.example_transforms import helike_transform_example
 import indica.models.helike_spectroscopy as helike
-from indica.models.helike_spectroscopy import helike_transform_example
 
 
 class TestHelike:
