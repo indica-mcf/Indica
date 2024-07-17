@@ -603,22 +603,24 @@ def plot_geometry(
     colors: ArrayLike,
     marker: str = "o",
 ):
+
+    if "LineOfSight" in trans_name:
+        marker = None
+    if hasattr(abscissa, "beamlet"):
+        beamlets = abscissa.beamlet.values
+    else:
+        beamlets = [
+            0,
+        ]
     channels = abscissa.channel.values
-    beamlets = abscissa.beamlet.values
     for channel, beamlet in itertools.product(channels, beamlets):
-        if "LineOfSight" in trans_name:
-            plt.plot(
-                abscissa.sel(channel=channel, beamlet=beamlet),
-                ordinate.sel(channel=channel, beamlet=beamlet),
-                color=colors[channel],
-            )
-        elif "Transect" in trans_name:
-            plt.scatter(
-                abscissa.sel(channel=channel, beamlet=beamlet),
-                ordinate.sel(channel=channel, beamlet=beamlet),
-                color=colors[channel],
-                marker=marker,
-            )
+        col = colors[channel]
+        x = abscissa.sel(channel=channel)
+        y = ordinate.sel(channel=channel)
+        if hasattr(abscissa, "beamlet"):
+            x = x.sel(beamlet=beamlet)
+            y = y.sel(beamlet=beamlet)
+        plt.plot(x, y, color=col, marker=marker)
 
 
 def find_wall_intersections(
