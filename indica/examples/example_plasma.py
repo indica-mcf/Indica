@@ -1,9 +1,12 @@
+from pathlib import Path
 import pickle
+from typing import Tuple
+
+import numpy as np
+
 from indica.models import Plasma
 from indica.models.plasma import PlasmaProfiles
-import numpy as np
-from typing import Tuple
-from pathlib import Path
+
 
 def example_plasma(
     machine: str = "st40",
@@ -80,4 +83,3 @@ def example_plasma(
         pickle.dump(plasma, open(default_plasma_file, "wb"))
 
     return plasma
-

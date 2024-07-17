@@ -1,5 +1,8 @@
 import numpy as np
-from indica.converters import TransectCoordinates, LineOfSightTransform
+
+from indica.converters import LineOfSightTransform
+from indica.converters import TransectCoordinates
+
 
 def pi_transform_example(nchannels: int):
     x_positions = np.linspace(0.2, 0.8, nchannels)
@@ -39,6 +42,7 @@ def helike_transform_example(nchannels):
     )
     return los_transform
 
+
 def smmh1_transform_example(nchannels):
     los_start = np.array([[0.8, 0, 0]]) * np.ones((nchannels, 3))
     los_start[:, 2] = np.linspace(0, -0.2, nchannels)
@@ -58,6 +62,7 @@ def smmh1_transform_example(nchannels):
         passes=2,
     )
     return los_transform
+
 
 def ts_transform_example(nchannels):
     x_positions = np.linspace(0.2, 0.8, nchannels)
