@@ -2,9 +2,11 @@ from typing import Callable
 
 import matplotlib.pylab as plt
 
-from indica.defaults.read_write_defaults import load_default_objects
+from indica.defaults.load_defaults import load_default_objects
 from indica.models import Bolometer
+from indica.models import BremsstrahlungDiode
 from indica.models import ChargeExchange
+from indica.models import EquilibriumReconstruction
 from indica.models import HelikeSpectrometer
 from indica.models import Interferometry
 from indica.models import ThomsonScattering
@@ -85,6 +87,24 @@ def example_interferometer(
     machine = "st40"
     instrument = "smmh"
     _model = Interferometry
+    return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
+
+
+def example_diode_filter(
+    plot=False,
+):
+    machine = "st40"
+    instrument = "brems"
+    _model = BremsstrahlungDiode
+    return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
+
+
+def example_equilibrium(
+    plot=False,
+):
+    machine = "st40"
+    instrument = "efit"
+    _model = EquilibriumReconstruction
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
 
