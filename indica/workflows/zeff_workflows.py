@@ -121,7 +121,9 @@ def calculate_zeff(
         spectra_to_integrate = None
 
     if not hasattr(filter_data, "error"):
-        filter_data.attrs["error"] = filter_data * default_perc_err
+        filter_data = filter_data.assign_coords(
+            error=(filter_data.dims, (filter_data * default_perc_err).data)
+        )
 
     print("Calculate LOS-averaged Zeff")
     zeff_los_avrg = calculate_zeff_los_averaged(
@@ -325,7 +327,7 @@ def calculate_zeff_profile(
         tomo_result["profile"]["sym_emissivity_err"],
         coords=coords,
     )
-    emissivity.attrs["error"] = _error
+    emissivity = emissivity.assign_coords(error=(emissivity.dims, _error.data))
 
     wlnght = filter_wavelength
     _te = te_fit.interp(rho_poloidal=emissivity.rho_poloidal)
@@ -351,8 +353,9 @@ def calculate_zeff_profile(
         bremsstrahlung=emissivity + emissivity.error,
         gaunt_approx="callahan",
     )
-    zeff_profile.attrs["error"] = np.abs(zeff_up - zeff_lo)
-
+    zeff_profile = zeff_profile.assign_coords(
+        error=(zeff_profile.dims, np.abs(zeff_up - zeff_lo).data)
+    )
     return zeff_profile, tomo
 
 
