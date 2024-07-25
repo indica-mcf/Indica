@@ -120,9 +120,9 @@ def plot_data(data, quantity: str, pulse: int, tplot: float, key="raw", color=No
     _data = data[key][quantity][pulse]
     tslice = slice(_data.t.min().values, _data.t.max().values)
     if "error" not in _data.attrs:
-        _data.attrs["error"] = xr.full_like(_data, 0.0)
+        _data = _data.assign_coords(error=(_data.dims, xr.full_like(_data, 0.0).data))
     if "stdev" not in _data.attrs:
-        _data.attrs["stdev"] = xr.full_like(_data, 0.0)
+        _data = _data.assign_coords(stdev=(_data.dims, xr.full_like(_data, 0.0).data))
     _err = np.sqrt(_data.error**2 + _data.stdev**2)
     _err = xr.where(_err / _data.values < 1.0, _err, 0.0)
     if len(_data.dims) > 1:

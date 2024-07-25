@@ -589,14 +589,18 @@ def compare_pulses(
                 _error = raw_data["cxff_pi"]["ti"].error.sel(channel=chan)
                 _error = xr.where(_error > 0, _error, np.nan)
                 raw_data["cxff_pi"]["ti"] = _data
-                raw_data["cxff_pi"]["ti"].attrs["error"] = _error
+                raw_data["cxff_pi"]["ti"] = raw_data["cxff_pi"]["ti"].assign_coords(
+                    error=(raw_data["cxff_pi"]["ti"].dims, _error.data)
+                )
 
                 _data = raw_data["cxff_pi"]["vtor"].sel(channel=chan)
                 _data = xr.where(_data > 0, _data, np.nan)
                 _error = raw_data["cxff_pi"]["vtor"].error.sel(channel=chan)
                 _error = xr.where(_error > 0, _error, np.nan)
                 raw_data["cxff_pi"]["vtor"] = _data
-                raw_data["cxff_pi"]["vtor"].attrs["error"] = _error
+                raw_data["cxff_pi"]["vtor"] = raw_data["cxff_pi"]["vtor"].assign_coords(
+                    error=(raw_data["cxff_pi"]["vtor"].dims, _error.data)
+                )
 
             if "hnbi1" in raw_data.keys():
                 raw_data["nbi"] = {

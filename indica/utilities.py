@@ -276,16 +276,7 @@ def input_check(
     ) or isinstance(var_to_check, bool):
         return
 
-    # Handles dropped channels, if present
     sliced_var_to_check = deepcopy(var_to_check)
-    if (
-        isinstance(var_to_check, (DataArray, Dataset))
-        and "dropped" in var_to_check.attrs
-    ):
-        dropped_coords = var_to_check.attrs["dropped"].coords
-        for icoord in dropped_coords.keys():
-            dropped_coord = dropped_coords[icoord]
-            sliced_var_to_check = var_to_check.drop_sel({icoord: dropped_coord})
 
     if np.any(np.isnan(sliced_var_to_check)):
         raise ValueError(f"{var_name} cannot contain any NaNs.")

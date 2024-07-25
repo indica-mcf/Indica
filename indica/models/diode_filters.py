@@ -132,13 +132,15 @@ class BremsstrahlungDiode(DiagnosticModel):
             spectra_to_integrate = _spectra
             spectra_to_integrate_err = _spectra_err
 
-        spectra_to_integrate.attrs["error"] = spectra_to_integrate_err
+        spectra_to_integrate = spectra_to_integrate.assign_coords(
+            error=(spectra_to_integrate.dims, spectra_to_integrate_err.data)
+        )
 
         integral = (spectra_to_integrate * transmission).sum("wavelength")
         integral_err = (np.sqrt((spectra_to_integrate_err * transmission) ** 2)).sum(
             "wavelength"
         )
-        integral.attrs["error"] = integral_err
+        integral = integral.assign_coords(error=(integral.dims, integral_err.data))
 
         return spectra_to_integrate, integral
 

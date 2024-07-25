@@ -65,7 +65,8 @@ def assert_read_sxr_los(
 
 @given(integers(28792, 63899), lists(booleans(), min_size=1))
 def test_read_sxr_t_los_1(pulse, upper_case):
-    """Test reading of lines of sight for SXR camera T"""
+    """Test reading of lines of sight for SXR camera T
+    TODO: check why this test sometimes fails in CI"""
     assert_read_sxr_los(pulse, upper_case, "t", 2.848, 2.172, 265, -1)
 
 
