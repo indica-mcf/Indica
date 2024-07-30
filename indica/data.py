@@ -8,7 +8,6 @@ objects. These accessors group methods under the namespace
 
 """
 
-from itertools import filterfalse
 from numbers import Number
 from typing import Any
 from typing import Callable
@@ -714,43 +713,6 @@ class InDiCAArrayAccessor:
     def equilibrium(self):
         if hasattr(self._obj.attrs["transform"], "equilibrium"):
             del self._obj.attrs["transform"].equilibrium
-
-    @property
-    def with_ignored_data(self) -> xr.DataArray:
-        """The full version of this data, including the channels which were
-        dropped at read-in.
-
-        """
-        if "dropped" in self._obj.attrs:
-            ddim = self.drop_dim
-            dropped = self._obj.attrs["dropped"]
-            result = self._obj.copy()
-            result.loc[{ddim: dropped.coords[ddim]}] = dropped
-            if "error" in self._obj.attrs:
-                result.attrs["error"] = result.attrs["error"].copy()
-                result.attrs["error"].loc[{ddim: dropped.coords[ddim]}] = dropped.attrs[
-                    "error"
-                ]
-            del result.attrs["dropped"]
-            return result
-        else:
-            return self._obj
-
-    @property
-    def drop_dim(self) -> Optional[str]:
-        """The dimension, if any, which contains dropped channels."""
-        if "dropped" in self._obj.attrs:
-            return str(
-                next(
-                    filterfalse(
-                        lambda dim: self._obj.coords[dim].equals(
-                            self._obj.attrs["dropped"].coords[dim]
-                        ),
-                        self._obj.dims,
-                    )
-                )
-            )
-        return None
 
 
 @xr.register_dataset_accessor("indica")

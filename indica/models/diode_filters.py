@@ -13,6 +13,9 @@ from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
+from indica.utilities import format_coord
+from indica.utilities import set_axis_sci
+from indica.utilities import set_plot_rcparams
 
 
 class BremsstrahlungDiode(AbstractDiagnostic):
@@ -72,7 +75,7 @@ class BremsstrahlungDiode(AbstractDiagnostic):
             self.filter_wavelength - self.filter_fwhm * 2,
             self.filter_wavelength + self.filter_fwhm * 2,
         )
-        self.wavelength = DataArray(wavelength, coords=[("wavelength", wavelength)])
+        self.wavelength = format_coord(wavelength, "wavelength")
 
         # Transmission filter function
         transmission = ph.make_window(
@@ -81,7 +84,7 @@ class BremsstrahlungDiode(AbstractDiagnostic):
             self.filter_fwhm,
             window=self.filter_type,
         )
-        self.transmission = DataArray(transmission, coords=[("wavelength", wavelength)])
+        self.transmission = DataArray(transmission, coords={"wavelength": wavelength})
 
     def integrate_spectra(self, spectra: DataArray, fit_background: bool = True):
         """
@@ -130,13 +133,15 @@ class BremsstrahlungDiode(AbstractDiagnostic):
             spectra_to_integrate = _spectra
             spectra_to_integrate_err = _spectra_err
 
-        spectra_to_integrate.attrs["error"] = spectra_to_integrate_err
+        spectra_to_integrate = spectra_to_integrate.assign_coords(
+            error=(spectra_to_integrate.dims, spectra_to_integrate_err.data)
+        )
 
         integral = (spectra_to_integrate * transmission).sum("wavelength")
         integral_err = (np.sqrt((spectra_to_integrate_err * transmission) ** 2)).sum(
             "wavelength"
         )
-        integral.attrs["error"] = integral_err
+        integral = integral.assign_coords(error=(integral.dims, integral_err.data))
 
         return spectra_to_integrate, integral
 
@@ -225,95 +230,53 @@ class BremsstrahlungDiode(AbstractDiagnostic):
         self._build_bckc_dictionary()
         return self.bckc
 
+    def plot(self, nplot: int = 1):
+        set_plot_rcparams("profiles")
+        if len(self.bckc) == 0:
+            print("No model results to plot")
+            return
 
-def example_geometry(nchannels: int = 12):
+        # Line-of-sight information
+        self.los_transform.plot(np.mean(self.t))
 
-    los_end = np.full((nchannels, 3), 0.0)
-    los_end[:, 0] = 0.0
-    los_end[:, 1] = np.linspace(-0.2, -1, nchannels)
-    los_end[:, 2] = 0.0
-    los_start = np.array([[1.5, 0, 0]] * los_end.shape[0])
-    origin = los_start
-    direction = los_end - los_start
-
-    return origin, direction
-
-
-def example_run(
-    pulse: int = None, nchannels: int = 12, plasma=None, plot: bool = False
-):
-    if plasma is None:
-        from indica.equilibrium import fake_equilibrium
-
-        plasma = load_default_objects("st40", "plasma")
-        machine_dims = plasma.machine_dimensions
-        equilibrium = fake_equilibrium(
-            tstart=plasma.tstart,
-            tend=plasma.tend,
-            dt=plasma.dt / 2.0,
-            machine_dims=machine_dims,
-        )
-        plasma.set_equilibrium(equilibrium)
-
-    # Create new interferometers diagnostics
-    diagnostic_name = "diode_brems"
-    origin, direction = example_geometry(nchannels=nchannels)
-    los_transform = LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        name=diagnostic_name,
-        machine_dimensions=plasma.machine_dimensions,
-        passes=1,
-    )
-    los_transform.set_equilibrium(plasma.equilibrium)
-    model = BremsstrahlungDiode(
-        diagnostic_name,
-    )
-    model.set_transform(los_transform)
-    model.set_plasma(plasma)
-    bckc = model()
-
-    if plot:
-        it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it].values
-
-        model.los_transform.plot(tplot)
-
-        # Plot back-calculated values
+        # Back-calculated profiles
+        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
         plt.figure()
-        cols_chan = cm.gnuplot2(
-            np.linspace(0.1, 0.75, len(model.los_transform.x1), dtype=float)
-        )
-        for chan in model.los_transform.x1:
-            bckc["brightness"].sel(channel=chan).plot(
-                label=f"CH{chan}", color=cols_chan[chan]
-            )
-        plt.xlabel("Time (s)")
-        plt.ylabel("Bremsstrahlung LOS-integrals (W/m^2)")
+        for i, t in enumerate(np.array(self.t)):
+            if i % nplot:
+                continue
+
+            _brightness = self.bckc["brightness"].sel(t=t, method="nearest")
+            if "beamlet" in _brightness.dims:
+                plt.fill_between(
+                    _brightness.channel,
+                    _brightness.max("beamlet"),
+                    _brightness.min("beamlet"),
+                    color=cols_time[i],
+                    alpha=0.5,
+                )
+                brightness = _brightness.mean("beamlet")
+            else:
+                brightness = _brightness
+            brightness.plot(label=f"t={t:1.2f} s", color=cols_time[i])
+        set_axis_sci()
+        plt.title(self.name.upper())
+        plt.xlabel("Channel")
+        plt.ylabel("Measured brightness (W/m^2)")
         plt.legend()
 
-        # Plot the profiles
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
+        # Local emissivity profiles
         plt.figure()
-        for i, t in enumerate(plasma.t.values):
+        for i, t in enumerate(np.array(self.t)):
+            if i % nplot:
+                continue
             plt.plot(
-                model.emissivity.rho_poloidal,
-                model.emissivity.sel(t=t),
+                self.emissivity.rho_poloidal,
+                self.emissivity.sel(t=t),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )
+        set_axis_sci()
         plt.xlabel("rho")
-        plt.ylabel("Bremsstrahlung emission (W/m^3)")
+        plt.ylabel("Local radiated power (W/m^3)")
         plt.legend()
-
-    return plasma, model, bckc
-
-
-if __name__ == "__main__":
-    plt.ioff()
-    example_run(plot=True)
-    plt.show()

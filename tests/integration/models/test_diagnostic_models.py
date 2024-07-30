@@ -1,28 +1,12 @@
 from typing import Callable
-from typing import Dict
-
-import numpy as np
-import pytest
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models.bolometer_camera import example_run as bolo
-from indica.models.charge_exchange import example_run as cxrs
-from indica.models.diode_filters import example_run as diodes
-from indica.models.equilibrium_reconstruction import example_run as equil_recon
-from indica.models.helike_spectroscopy import example_run as helike
-from indica.models.interferometry import example_run as interf
-from indica.models.thomson_scattering import example_run as ts
-
-
-EXAMPLES: Dict[str, Callable] = {
-    "bolometer_camera": bolo,
-    "diode_filters": diodes,
-    "interferometry": interf,
-    "helike_spectroscopy": helike,
-    "thomson_scattering": ts,
-    "charge_exchange": cxrs,
-    "equilibrium_reconstruction": equil_recon,
-}
+from indica.models import Bolometer
+from indica.models import ChargeExchangeSpectrometer
+from indica.models import EquilibriumReconstruction
+from indica.models import HelikeSpectrometer
+from indica.models import Interferometer
+from indica.models import ThomsonScattering
 
 
 class TestModels:
@@ -30,99 +14,42 @@ class TestModels:
 
     def setup_class(self):
         machine = "st40"
-        equilibrium = load_default_objects(machine, "equilibrium")
-        _plasma = load_default_objects(machine, "plasma")
-        _plasma.set_equilibrium(equilibrium)
+        self.machine = machine
+        self.transforms = load_default_objects(machine, "geometry")
+        self.equilibrium = load_default_objects(machine, "equilibrium")
+        self.plasma = load_default_objects(machine, "plasma")
+        self.plasma.set_equilibrium(self.equilibrium)
 
-        self.plasma = _plasma
-        nt = np.size(self.plasma.t)
-        tstart = self.plasma.tstart
-        tend = self.plasma.tend
-        dt = self.plasma.dt
-        it = int(nt / 2.0)
-        self.time_single_pass = float(self.plasma.t[it].values)
-        self.time_single_fail = float(np.max(self.plasma.equilibrium.rho.t) + 1.0)
-        self.time_interp = np.linspace(tstart + dt, tend - dt, num=int(nt / 3))
+    def run_model(self, instrument: str, model: Callable):
+        """
+        Make sure model runs without errors
+        """
 
-    def _test_timepoint_pass(self, model_name: str, **kwargs):
-        """Test that model can be called for single time-point"""
-        _, model, bckc = EXAMPLES[model_name](plasma=self.plasma, **kwargs)
-        model(t=self.time_single_pass)
+        model = model(instrument)
+        if instrument in self.transforms.keys():
+            transform = self.transforms[instrument]
+            transform.set_equilibrium(self.equilibrium)
+            model.set_transform(transform)
+        model.set_plasma(self.plasma)
 
-    def _test_timepoint_fail(self, model_name: str, **kwargs):
-        """Test that model can be called for single time-point"""
-        _, model, bckc = EXAMPLES[model_name](plasma=self.plasma, **kwargs)
-        with pytest.raises(Exception):
-            model(t=self.time_single_fail)
+        bckc = model(sum_beamlets=False)
 
-    def _test_time_interpolation(self, model_name: str, **kwargs):
-        """Test that model correctly interpolates data on new axis"""
-        _, model, bckc = EXAMPLES[model_name](plasma=self.plasma, **kwargs)
-        bckc = model(t=self.time_interp, **kwargs)
+        assert type(bckc) == dict
 
-        for quantity, value in bckc.items():
-            if "t" in value.dims:
-                assert np.array_equal(value.t.values, self.time_interp)
+    def test_interferometer(self):
+        self.run_model("smmh", Interferometer)
 
-    def test_cxrs_timepoint_fail(self):
-        self._test_timepoint_fail("charge_exchange")
+    def test_helike_spectroscopy(self):
+        self.run_model("xrcs", HelikeSpectrometer)
 
-    def test_cxrs_timepoint_pass(self):
-        self._test_timepoint_pass("charge_exchange")
+    def test_thomson_scattering(self):
+        self.run_model("ts", ThomsonScattering)
 
-    def test_cxrs_interpolation(self):
-        self._test_time_interpolation("charge_exchange")
+    def test_charge_exchange(self):
+        self.run_model("cxff_pi", ChargeExchangeSpectrometer)
 
-    def test_ts_timepoint_fail(self):
-        self._test_timepoint_fail("thomson_scattering")
+    def test_equilibrium(self):
+        self.run_model("efit", EquilibriumReconstruction)
 
-    def test_ts_timepoint_pass(self):
-        self._test_timepoint_pass("thomson_scattering")
-
-    def test_ts_interpolation(self):
-        self._test_time_interpolation("thomson_scattering")
-
-    def test_bolo_timepoint_fail(self):
-        self._test_timepoint_fail("bolometer_camera")
-
-    def test_bolo_timepoint_pass(self):
-        self._test_timepoint_pass("bolometer_camera")
-
-    def test_bolo_interpolation(self):
-        self._test_time_interpolation("bolometer_camera")
-
-    def test_interf_timepoint_fail(self):
-        self._test_timepoint_fail("interferometry")
-
-    def test_interf_timepoint_pass(self):
-        self._test_timepoint_pass("interferometry")
-
-    def test_interf_interpolation(self):
-        self._test_time_interpolation("interferometry")
-
-    def test_diodes_timepoint_fail(self):
-        self._test_timepoint_fail("diode_filters")
-
-    def test_diodes_timepoint_pass(self):
-        self._test_timepoint_pass("diode_filters")
-
-    # def test_diodes_interpolation(self):
-    #     self._test_time_interpolation("diode_filters")
-
-    def test_helike_timepoint_fail(self):
-        self._test_timepoint_fail("helike_spectroscopy")
-
-    def test_helike_timepoint_pass(self):
-        self._test_timepoint_pass("helike_spectroscopy")
-
-    # def test_helike_interpolation(self):
-    #     self._test_time_interpolation("helike_spectroscopy")
-
-    def test_equil_recon_timepoint_fail(self):
-        self._test_timepoint_fail("equilibrium_reconstruction")
-
-    def test_equil_recon_timepoint_pass(self):
-        self._test_timepoint_pass("equilibrium_reconstruction")
-
-    def test_equil_recon_interpolation(self):
-        self._test_time_interpolation("equilibrium_reconstruction")
+    def test_bolometer(self):
+        self.run_model("blom_xy1", Bolometer)

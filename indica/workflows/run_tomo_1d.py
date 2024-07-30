@@ -85,7 +85,9 @@ def example_tomo(
         tomo.emiss_err,
         coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)],
     )
-    inverted_emissivity.attrs["error"] = inverted_error
+    inverted_emissivity = inverted_emissivity.assign_coords(
+        error=(inverted_emissivity.dims, inverted_error.data)
+    )
 
     data_tomo = brightness
     bckc_tomo = DataArray(tomo.backprojection, coords=data_tomo.coords)

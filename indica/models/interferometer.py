@@ -1,6 +1,4 @@
-from matplotlib import cm
 import matplotlib.pylab as plt
-import numpy as np
 import xarray as xr
 from xarray import DataArray
 
@@ -9,6 +7,8 @@ from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.defaults.load_defaults import load_default_objects
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+from indica.utilities import set_axis_sci
+from indica.utilities import set_plot_rcparams
 
 
 class Interferometer(AbstractDiagnostic):
@@ -88,90 +88,29 @@ class Interferometer(AbstractDiagnostic):
         self._build_bckc_dictionary()
         return self.bckc
 
+    def plot(self, nplot: int = 1):
+        set_plot_rcparams("profiles")
+        if len(self.bckc) == 0:
+            print("No model results to plot")
+            return
 
-def smmh1_transform_example(nchannels):
-    los_start = np.array([[0.8, 0, 0]]) * np.ones((nchannels, 3))
-    los_start[:, 2] = np.linspace(0, -0.2, nchannels)
-    los_end = np.array([[0.17, 0, 0]]) * np.ones((nchannels, 3))
-    los_end[:, 2] = np.linspace(0, -0.2, nchannels)
-    origin = los_start
-    direction = los_end - los_start
-    los_transform = LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        name="smmh1",
-        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
-        passes=2,
-    )
-    return los_transform
-
-
-def example_run(pulse: int = None, plasma=None, plot=False):
-    if plasma is None:
-        from indica.equilibrium import fake_equilibrium
-
-        plasma = load_default_objects("st40", "plasma")
-        machine_dims = plasma.machine_dimensions
-        equilibrium = fake_equilibrium(
-            tstart=plasma.tstart,
-            tend=plasma.tend,
-            dt=plasma.dt / 2.0,
-            machine_dims=machine_dims,
-        )
-        plasma.set_equilibrium(equilibrium)
-
-    # Create new interferometers diagnostics
-    diagnostic_name = "smmh1"
-    model = Interferometer(
-        diagnostic_name,
-    )
-    los_transform = smmh1_transform_example(3)
-    los_transform.set_equilibrium(plasma.equilibrium)
-    model.set_transform(los_transform)
-    model.set_plasma(plasma)
-
-    bckc = model()
-
-    if plot:
-        it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it].values
-
-        model.los_transform.plot(tplot)
-
-        # Plot back-calculated values
+        # Line-of-sight information
+        self.transform.plot()
         plt.figure()
-        cols_chan = cm.gnuplot2(
-            np.linspace(0.1, 0.75, len(model.los_transform.x1), dtype=float)
-        )
-        for chan in model.los_transform.x1:
-            bckc["ne"].sel(channel=chan).plot(label=f"CH{chan}", color=cols_chan[chan])
-        plt.xlabel("Time (s)")
-        plt.ylabel("Ne LOS-integrals (m^-2)")
-        plt.legend()
-
-        # Plot the profiles
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-        plt.figure()
-        for i, t in enumerate(plasma.t.values):
-            plt.plot(
-                model.Ne.rho_poloidal,
-                model.Ne.sel(t=t),
-                color=cols_time[i],
-                label=f"t={t:1.2f} s",
+        _value = self.bckc["ne"]
+        if "beamlet" in _value.dims:
+            plt.fill_between(
+                _value.t,
+                _value.max("beamlet"),
+                _value.min("beamlet"),
+                alpha=0.5,
             )
-        plt.xlabel("rho")
-        plt.ylabel("Ne (m^-3)")
+            value = _value.mean("beamlet")
+        else:
+            value = _value
+        value.plot()
+        set_axis_sci()
+        plt.title(self.name.upper())
+        plt.xlabel("Time (s)")
+        plt.ylabel("Measured LOS-integrated density (m^-2)")
         plt.legend()
-        plt.show(block=True)
-
-    return plasma, model, bckc
-
-
-if __name__ == "__main__":
-    plt.ioff()
-    example_run(plot=True)
-    plt.show()

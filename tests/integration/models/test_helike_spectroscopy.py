@@ -1,7 +1,6 @@
 from indica.defaults.load_defaults import load_default_objects
-import indica.models.helike_spectroscopy as helike
-from indica.models.helike_spectroscopy import helike_transform_example
-
+from indica.examples.example_transforms import helike_transform_example
+from indica.models import helike_spectrometer
 
 class TestHelike:
     def setup_class(self):
@@ -19,7 +18,7 @@ class TestHelike:
         self.multiple_channel_los_transform.set_equilibrium(self.plasma.equilibrium)
 
     def setup_method(self):
-        self.model = helike.HelikeSpectrometer("diagnostic_name")
+        self.model = helike_spectrometer.HelikeSpectrometer("diagnostic_name")
         self.model.set_plasma(self.plasma)
 
     def test_helike_moment_runs_with_multiple_LOS(

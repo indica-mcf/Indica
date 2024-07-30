@@ -86,7 +86,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 mask[(window > mslice[0]) & (window < mslice[1])] = 1
         else:
             mask[:] = 1
-        self.window = DataArray(mask, coords=[("wavelength", window)])
+        self.window = DataArray(mask, coords={"wavelength": window})
         self._get_atomic_data(self.window)
 
         self.line_emission: dict
@@ -329,17 +329,15 @@ class HelikeSpectrometer(AbstractDiagnostic):
     def _build_bckc_dictionary(self):
         self.bckc = {}
         if hasattr(self, "measured_spectra"):
-            self.bckc["intens"] = self.measured_spectra
+            self.bckc["raw_spectra"] = self.measured_spectra
 
         if self.moment_analysis:
             for quantity in self.quantities:
                 datatype = self.quantities[quantity]
 
                 if quantity in [
-                    "intens",
-                    "spec_rad",
-                    "radiance",
-                    "emission",
+                    "raw_spectra",
+                    "spectra",
                     "background",
                 ]:
                     continue
@@ -483,14 +481,14 @@ class HelikeSpectrometer(AbstractDiagnostic):
         plt.figure()
         channels = self.transform.x1
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
-        if "intens" in self.bckc.keys():
-            intens = self.bckc["intens"]
-            if "channel" in intens.dims:
-                intens = intens.sel(channel=np.median(channels))
+        if "raw_spectra" in self.bckc.keys():
+            raw_spectra = self.bckc["raw_spectra"]
+            if "channel" in raw_spectra.dims:
+                raw_spectra = raw_spectra.sel(channel=np.median(channels))
             for i, t in enumerate(np.array(self.t, ndmin=1)):
                 plt.plot(
-                    intens.wavelength,
-                    intens.sel(t=t),
+                    raw_spectra.wavelength,
+                    raw_spectra.sel(t=t),
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
@@ -566,56 +564,3 @@ class HelikeSpectrometer(AbstractDiagnostic):
 
         plt.show(block=True)
 
-
-def helike_transform_example(nchannels):
-    los_end = np.full((nchannels, 3), 0.0)
-    los_end[:, 0] = 0.17
-    los_end[:, 1] = 0.0
-    los_end[:, 2] = np.linspace(0.2, -0.5, nchannels)
-    los_start = np.array([[0.9, 0, 0]] * los_end.shape[0])
-    los_start[:, 2] = -0.1
-    origin = los_start
-    direction = los_end - los_start
-
-    los_transform = LineOfSightTransform(
-        origin[0:nchannels, 0],
-        origin[0:nchannels, 1],
-        origin[0:nchannels, 2],
-        direction[0:nchannels, 0],
-        direction[0:nchannels, 1],
-        direction[0:nchannels, 2],
-        name="xrcs",
-        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
-        passes=1,
-    )
-    return los_transform
-
-
-def example_run(plasma=None, plot=False, moment_analysis: bool = False, **kwargs):
-
-    if plasma is None:
-        plasma = load_default_objects("st40", "plasma")
-        equilibrium = load_default_objects("st40", "equilibrium")
-        plasma.set_equilibrium(equilibrium)
-
-    diagnostic_name = "xrcs"
-    los_transform = helike_transform_example(3)
-    los_transform.set_equilibrium(plasma.equilibrium)
-    model = HelikeSpectrometer(
-        diagnostic_name,
-        window_masks=[],
-    )
-    model.set_transform(los_transform)
-    model.set_plasma(plasma)
-
-    bckc = model(moment_analysis=moment_analysis, **kwargs)
-
-    # Plot spectra
-    if plot:
-        model.plot()
-
-    return plasma, model, bckc
-
-
-if __name__ == "__main__":
-    example_run(plot=True, moment_analysis=True)

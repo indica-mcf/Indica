@@ -276,16 +276,7 @@ def input_check(
     ) or isinstance(var_to_check, bool):
         return
 
-    # Handles dropped channels, if present
     sliced_var_to_check = deepcopy(var_to_check)
-    if (
-        isinstance(var_to_check, (DataArray, Dataset))
-        and "dropped" in var_to_check.attrs
-    ):
-        dropped_coords = var_to_check.attrs["dropped"].coords
-        for icoord in dropped_coords.keys():
-            dropped_coord = dropped_coords[icoord]
-            sliced_var_to_check = var_to_check.drop_sel({icoord: dropped_coord})
 
     if np.any(np.isnan(sliced_var_to_check)):
         raise ValueError(f"{var_name} cannot contain any NaNs.")
@@ -320,14 +311,13 @@ def format_coord(data: LabeledArray, var_name: str):
     var_name
         Name of the variable to be assigned as coordinate
     """
-    coords = [(var_name, DataArray(data, dims=var_name))]
-    return format_dataarray(data, var_name, coords)
+    return format_dataarray(data, var_name, {var_name: data})
 
 
 def format_dataarray(
     data: LabeledArray,
     var_name: str,
-    coords: List[Tuple[str, Any]] = [],
+    coords: Dict[str, Any] = None,
     make_copy: bool = False,
 ):
     """
@@ -344,7 +334,7 @@ def format_dataarray(
 
     Returns
     -------
-    Formatted data array
+    Formatted data array, including attribute assignement (also to coords)
 
     """
 
@@ -354,12 +344,18 @@ def format_dataarray(
         _data = data
 
     if len(coords) != 0:
-        data_array = DataArray(_data, coords=coords)
+        processed_coords = {
+            name: coord.data if isinstance(coord, DataArray) else coord
+            for name, coord in coords.items()
+        }
+        data_array = DataArray(_data, coords=processed_coords, name=var_name)
     else:
         if type(_data) != DataArray:
             raise ValueError("data must be a DataArray if coordinates are not given")
 
     assign_datatype(data_array, var_name)
+    for dim in data_array.dims:
+        assign_datatype(data_array.coords[dim], dim)
 
     return data_array
 

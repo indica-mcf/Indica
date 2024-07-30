@@ -28,6 +28,7 @@ class ST40Conf:
             "blom_xy1": "get_radiation",
             "astra": "get_astra",
             "ppts": "get_ppts",
+            "zeff_brems": "get_zeff",
         }
         self.UIDS_MDS = {}
         self.QUANTITIES_MDS = {
@@ -55,10 +56,8 @@ class ST40Conf:
                 "ti_z": ".global:ti_z",
                 "te_n3w": ".global:te_n3w",
                 "te_kw": ".global:te_kw",
-                "intens": ":intens",
-                "emission": ":emission",
-                "radiance": ":radiance",
-                "spec_rad": ":spec_rad",
+                "raw_spectra": ":intens",
+                "spectra": ":spec_rad",
                 "int_w": ".global:int_w",
                 "int_k": ".global:int_k",
                 "int_tot": ".global:int_tot",
@@ -153,21 +152,20 @@ class ST40Conf:
                 "pe_data": ".profiles.inputs:pe",
                 "R_shift": ".global:rshift",
             },
+            "zeff_brems": {
+                "R_shift": ".global:rshift",
+                "zeff_avrg": ".global:zeff",
+                "zeff_hi": ".global:zeff_hi",
+                "zeff_low": ".global:zeff_low",
+                "zeff": ".profiles.psi_norm:zeff",
+            },
             "astra": {
-                "f": ".profiles.psi_norm:fpol",
                 "faxs": ".global:faxs",
                 "fbnd": ".global:fbnd",
-                "ftor": ".profiles.psi_norm:ftor",
-                "psi_1d": ".profiles.psi_norm:psi",
-                "psi": ".psi2d:psi",
-                "volume": ".profiles.psi_norm:volume",
-                "area": ".profiles.psi_norm:areat",
                 "rmag": ".global:rmag",
                 "rgeo": ".global:rgeo",
                 "zmag": ".global:zmag",
                 "zgeo": ".global:zgeo",
-                "rbnd": ".p_boundary:rbnd",
-                "zbnd": ".p_boundary:zbnd",
                 "wp": ".global:wth",
                 "ipla": ".global:ipl",
                 "upl": ".global:upl",
@@ -175,6 +173,20 @@ class ST40Conf:
                 "wtherm": ".global:wtherm",
                 "wfast": ".global:wfast",
                 "df": ".global.df",
+                "pnb": ".global:pnb",  # W
+                "pabs": ".global:pabs",  # W
+                "p_oh": ".global:p_oh",  # W
+                "q": ".profiles.psi_norm:q",
+                "f": ".profiles.psi_norm:fpol",
+                "ftor": ".profiles.psi_norm:ftor",
+                "psi_1d": ".profiles.psi_norm:psi",
+                "p": ".profiles.psi_norm:p",
+                "volume": ".profiles.psi_norm:volume",
+                "area": ".profiles.psi_norm:areat",
+                "sigmapar": ".profiles.psi_norm:sigmapar",  # 1/(Ohm*m)
+                "psi": ".psi2d:psi",
+                "rbnd": ".p_boundary:rbnd",
+                "zbnd": ".p_boundary:zbnd",
                 "elon": ".profiles.astra:elon",  #
                 "j_bs": ".profiles.astra:j_bs",  # MA/m2
                 "j_nbi": ".profiles.astra:j_nbi",  # MA/m2
@@ -194,7 +206,7 @@ class ST40Conf:
                 "qnbi": ".profiles.astra:qnbi",  # MW/m3
                 "q_oh": ".profiles.astra:q_oh",  # MW/m3
                 "q_rf": ".profiles.astra:q_rf",  # MW/m3
-                "rho": ".profiles.astra:rho",  # ASTRA rho-toroidal
+                "rhot": ".profiles.astra:rho",  # ASTRA rho-toroidal
                 "rmid": ".profiles.astra:rmid",  # Centre of flux surfaces, m
                 "rminor": ".profiles.astra:rminor",  # minor radius, m
                 "sbm": ".profiles.astra:sbm",  # 10^19/m^3/s
@@ -207,15 +219,8 @@ class ST40Conf:
                 "t_d": ".profiles.astra:t_d",  # keV
                 "t_t": ".profiles.astra:t_t",  # keV
                 "zeff": ".profiles.astra:zeff",
-                "areat": ".profiles.psi_norm:areat",  # Toroidal cross section, m2
-                "p": ".profiles.psi_norm:p",
                 "pblon": ".profiles.astra:pblon",
                 "pbper": ".profiles.astra:pbper",
-                "pnb": ".global:pnb",  # W
-                "pabs": ".global:pabs",  # W
-                "p_oh": ".global:p_oh",  # W
-                "q": ".profiles.psi_norm:q",
-                "sigmapar": ".profiles.psi_norm:sigmapar",  # 1/(Ohm*m)
                 "nn": ".profiles.astra:nn",  # 10^19/m^3
                 "niz1": ".profiles.astra:niz1",  # 10^19/m^3
                 "niz2": ".profiles.astra:niz2",  # 10^19/m^3

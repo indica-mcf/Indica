@@ -554,9 +554,13 @@ def plot_data_bckc_comparison(
             tslice_binned = tslice
 
             if "error" not in _binned.attrs:
-                _binned.attrs["error"] = xr.full_like(_binned, 0.0)
+                _binned = _binned.assign_coords(
+                    error=(_binned.dims, xr.full_like(_binned, 0.0).data)
+                )
             if "stdev" not in _binned.attrs:
-                _binned.attrs["stdev"] = xr.full_like(_binned, 0.0)
+                _binned = _binned.assign_coords(
+                    stdev=(_binned.dims, xr.full_like(_binned, 0.0).data)
+                )
             err = np.sqrt(_binned.error**2 + _binned.stdev**2)
             err = xr.where(err / _binned.values < 1.0, err, 0.0)
 

@@ -848,7 +848,7 @@ def interpolate_results(
     Interpolated values
     """
     dim_old = [d for d in data.dims if d != "ion_charge"][0]
-    _data = data.assign_coords(electron_temperature=(dim_old, Te_data))
+    _data = data.assign_coords(electron_temperature=(dim_old, Te_data.data))
     _data = _data.swap_dims({dim_old: "electron_temperature"}).drop_vars(dim_old)
     result = _data.interp(electron_temperature=Te_interp).drop_vars(
         ("electron_temperature",)
@@ -993,7 +993,7 @@ def cooling_factor_corona(
 
         _cooling_factor: DataArray = _power_loss.sum("ion_charge")
         _cooling_factor = (
-            _cooling_factor.assign_coords(electron_temperature=("index", Te))
+            _cooling_factor.assign_coords(electron_temperature=("index", Te.data))
             .swap_dims({"index": "electron_temperature"})
             .drop_vars("index")
         )

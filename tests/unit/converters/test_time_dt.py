@@ -14,7 +14,7 @@ class Test_time:
     nt = 50
     time = np.linspace(0, 0.1, nt)
     values = np.sin(np.linspace(0, np.pi * 3, nt)) + np.random.random(nt) - 0.5
-    data = DataArray(values, coords=[("t", time)])
+    data = DataArray(values, coords={"t": time})
     channels = np.array([0, 1, 2, 3], dtype=int)
     d = []
     for c in channels:
@@ -23,14 +23,7 @@ class Test_time:
     data = xr.concat(d, "chan").assign_coords(chan=channels)
     error = deepcopy(data)
     error.values = np.sqrt(np.abs(data.values))
-    dropped = xr.full_like(data, np.nan)
-    provenance = {"none": None}
-    partial_provenance = {"none": None}
-    data.attrs = {
-        "error": error,
-        "provenance": provenance,
-        "partial_provenance": partial_provenance,
-    }
+    data = data.assign_coords(error=(data.dims, error.data))
 
     dt_data = (data.t[1] - data.t[0]).values
 
@@ -138,77 +131,6 @@ class Test_time:
         _dt = (_data.error.t[1] - _data.error.t[0]).values
         assert np.all(_data.error.t <= self.data.error.t.max())
         assert np.all(_data.error.t >= self.data.error.t.min())
-        assert _dt == approx(dt)
-
-    def test_binning_dropped(self):
-        """Checks binning including dropped channels"""
-        dt = self.dt_data * 3.0
-
-        tstart = (self.data.t[0] + 5 * self.dt_data).values
-        tend = (self.data.t[-1] - 10 * self.dt_data).values
-
-        chan_to_drop = 1
-        data = deepcopy(self.data)
-        data.attrs["dropped"] = self.dropped
-        data.dropped.loc[dict(chan=chan_to_drop)] = data.sel(chan=chan_to_drop)
-        data.loc[dict(chan=chan_to_drop)] = np.full_like(
-            data.sel(chan=chan_to_drop), np.nan
-        )
-
-        try:
-            _data = convert_in_time_dt(tstart, tend, dt, data)
-        except Exception as e:
-            raise e
-
-        _dt = (_data.t[1] - _data.t[0]).values
-        assert np.all(_data.t <= data.t.max())
-        assert np.all(_data.t >= data.t.min())
-        assert _dt == approx(dt)
-
-        _dt = (_data.error.t[1] - _data.error.t[0]).values
-        assert np.all(_data.error.t <= data.error.t.max())
-        assert np.all(_data.error.t >= data.error.t.min())
-        assert _dt == approx(dt)
-
-        _dt = (_data.dropped.t[1] - _data.dropped.t[0]).values
-        assert np.all(_data.dropped.t <= data.dropped.t.max())
-        assert np.all(_data.dropped.t >= data.dropped.t.min())
-        assert _dt == approx(dt)
-
-    def test_interpolation_dropped(self):
-        """Dropped channels are correctly interpolated"""
-
-        dt = self.dt_data / 3.0
-
-        tstart = (self.data.t[0] + 5 * self.dt_data).values
-        tend = (self.data.t[-1] - 10 * self.dt_data).values
-
-        chan_to_drop = 1
-        data = deepcopy(self.data)
-        data.attrs["dropped"] = self.dropped
-        data.dropped.loc[dict(chan=chan_to_drop)] = data.sel(chan=chan_to_drop)
-        data.loc[dict(chan=chan_to_drop)] = np.full_like(
-            data.sel(chan=chan_to_drop), np.nan
-        )
-
-        try:
-            _data = convert_in_time_dt(tstart, tend, dt, data)
-        except Exception as e:
-            raise e
-
-        _dt = (_data.t[1] - _data.t[0]).values
-        assert np.all(_data.t <= data.t.max())
-        assert np.all(_data.t >= data.t.min())
-        assert _dt == approx(dt)
-
-        _dt = (_data.error.t[1] - _data.error.t[0]).values
-        assert np.all(_data.error.t <= data.error.t.max())
-        assert np.all(_data.error.t >= data.error.t.min())
-        assert _dt == approx(dt)
-
-        _dt = (_data.dropped.t[1] - _data.dropped.t[0]).values
-        assert np.all(_data.dropped.t <= data.dropped.t.max())
-        assert np.all(_data.dropped.t >= data.dropped.t.min())
         assert _dt == approx(dt)
 
     def test_wrong_start_time(self):

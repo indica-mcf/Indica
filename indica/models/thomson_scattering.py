@@ -7,6 +7,7 @@ from xarray import DataArray
 from indica.converters import TransectCoordinates
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.defaults.load_defaults import load_default_objects
+
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
@@ -112,6 +113,7 @@ class ThomsonScattering(AbstractDiagnostic):
         )
         Te_at_channels = Te_at_channels.assign_coords(
             z=("channel", self.transform.z)
+
         )
 
         self.Ne_at_channels = Ne_at_channels
@@ -160,94 +162,3 @@ class ThomsonScattering(AbstractDiagnostic):
         plt.ylabel("Measured electron temperature (eV)")
         plt.legend()
 
-
-def ts_transform_example(nchannels):
-    x_positions = np.linspace(0.2, 0.8, nchannels)
-    y_positions = np.linspace(0.0, 0.0, nchannels)
-    z_positions = np.linspace(0.0, 0.0, nchannels)
-    transform = TransectCoordinates(
-        x_positions,
-        y_positions,
-        z_positions,
-        "ts",
-        machine_dimensions=((0.15, 0.95), (-0.7, 0.7)),
-    )
-    return transform
-
-
-def example_run(
-    pulse: int = None,
-    diagnostic_name: str = "ts",
-    plasma=None,
-    plot=False,
-):
-
-    # TODO: LOS sometime crossing bad EFIT reconstruction and crashing...
-
-    if plasma is None:
-        from indica.equilibrium import fake_equilibrium
-
-        plasma = load_default_objects("st40", "plasma")
-        machine_dims = plasma.machine_dimensions
-        equilibrium = fake_equilibrium(
-            tstart=plasma.tstart,
-            tend=plasma.tend,
-            dt=plasma.dt / 2.0,
-            machine_dims=machine_dims,
-        )
-        plasma.set_equilibrium(equilibrium)
-
-    transect_transform = ts_transform_example(11)
-    transect_transform.set_equilibrium(plasma.equilibrium)
-    model = ThomsonScattering(
-        diagnostic_name,
-    )
-    model.set_transform(transect_transform)
-    model.set_plasma(plasma)
-
-    bckc = model()
-
-    if plot:
-        it = int(len(plasma.t) / 2)
-        tplot = plasma.t[it].values
-
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(plasma.t), dtype=float))
-
-        model.transect_transform.plot(tplot)
-
-        # Plot back-calculated profiles
-        plt.figure()
-        for i, t in enumerate(plasma.t.values):
-            plasma.electron_density.sel(t=t).plot(
-                color=cols_time[i],
-                label=f"t={t:1.2f} s",
-                alpha=0.7,
-            )
-            Ne = bckc["ne"].sel(t=t, method="nearest")
-            rho = Ne.transform.rho.sel(t=t, method="nearest")
-            plt.scatter(rho, Ne, color=cols_time[i], marker="o", alpha=0.7)
-        plt.xlabel("Channel")
-        plt.ylabel("Measured electron density (m^-3)")
-        plt.legend()
-
-        plt.figure()
-        for i, t in enumerate(plasma.t.values):
-            plasma.electron_temperature.sel(t=t).plot(
-                color=cols_time[i],
-                label=f"t={t:1.2f} s",
-                alpha=0.7,
-            )
-            Te = bckc["te"].sel(t=t, method="nearest")
-            rho = Te.transform.rho.sel(t=t, method="nearest")
-            plt.scatter(rho, Te, color=cols_time[i], marker="o", alpha=0.7)
-        plt.xlabel("Channel")
-        plt.ylabel("Measured electron temperature (eV)")
-        plt.legend()
-
-    return plasma, model, bckc
-
-
-if __name__ == "__main__":
-    plt.ioff()
-    example_run(plot=True)
-    plt.show()

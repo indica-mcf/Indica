@@ -490,7 +490,7 @@ class CoordinateTransform(ABC):
 
         if hasattr(self, "equilibrium"):
             if t is None:
-                t = np.float(np.mean(self.equilibrium.rho.t))
+                t = np.float64(np.mean(self.equilibrium.rho.t))
             equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(t)
             x_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.cos(
                 angles
@@ -603,22 +603,24 @@ def plot_geometry(
     colors: ArrayLike,
     marker: str = "o",
 ):
+
+    if "LineOfSight" in trans_name:
+        marker = None
+    if hasattr(abscissa, "beamlet"):
+        beamlets = abscissa.beamlet.values
+    else:
+        beamlets = [
+            0,
+        ]
     channels = abscissa.channel.values
-    beamlets = abscissa.beamlet.values
     for channel, beamlet in itertools.product(channels, beamlets):
-        if "LineOfSight" in trans_name:
-            plt.plot(
-                abscissa.sel(channel=channel, beamlet=beamlet),
-                ordinate.sel(channel=channel, beamlet=beamlet),
-                color=colors[channel],
-            )
-        elif "Transect" in trans_name:
-            plt.scatter(
-                abscissa.sel(channel=channel, beamlet=beamlet),
-                ordinate.sel(channel=channel, beamlet=beamlet),
-                color=colors[channel],
-                marker=marker,
-            )
+        col = colors[channel]
+        x = abscissa.sel(channel=channel)
+        y = ordinate.sel(channel=channel)
+        if hasattr(abscissa, "beamlet"):
+            x = x.sel(beamlet=beamlet)
+            y = y.sel(beamlet=beamlet)
+        plt.plot(x, y, color=col, marker=marker)
 
 
 def find_wall_intersections(

@@ -4,7 +4,6 @@ Quantities that can be read with the current abstract reader implementation
 To each quantity is associated a datatype string corresponding to indica/datatypes.py
 """
 
-
 from typing import Dict
 
 AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
@@ -17,9 +16,9 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "spectra": "spectra",
     },
     "get_charge_exchange": {
-        # "angf": ("angular_freq", "ion"),
         "vtor": "toroidal_rotation",
         "ti": "ion_temperature",
+        "conc": "concentration",
         "spectra": "spectra",
         "fit": "spectra_fit",
     },
@@ -35,10 +34,8 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "int_k": "line_intensity",
         "int_tot": "line_intensity",
         "int_n3": "line_intensity",
-        "intens": "intensity",
-        "emission": "brightness",
-        "radiance": "radiance",
-        "spec_rad": "spectral_radiance",
+        "raw_spectra": "intensity",
+        "spectra": "spectral_radiance",
         "background": "intensity",
     },
     "get_ppts": {
@@ -83,23 +80,30 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
     "get_radiation": {
         "brightness": "brightness",
     },
+    "get_zeff": {
+        "zeff_avrg": "effective_charge",
+        "zeff_hi": "effective_charge",
+        "zeff_low": "effective_charge",
+        "zeff": "effective_charge",
+        "R_shift": "major_radius_shift",
+    },
     "get_astra": {  # TODO: check all units!!!!
+        "f": "equilibrium_f",
         "faxs": "poloidal_flux_axis",
         "fbnd": "poloidal_flux_boundary",
         "ftor": "toroidal_flux",
+        "rhot": "rho_toroidal",
         "psi": "poloidal_flux",
-        "rmji": "major_radius_hfs",
-        "rmjo": "major_radius_lfs",
-        "volume": "volume",
-        "area": "area",
         "rmag": "major_radius_magnetic_axis",
         "rgeo": "major_radius_geometric_axis",
         "rbnd": "major_radius_boundary",
         "zmag": "z_magnetic_axis",
-        "zgeo": "z_geometric",
         "zbnd": "z_boundary",
         "ipla": "plasma_current",
-        "wp": "total_stored_energy",
+        "wp": "equilibrium_stored_energy",
+        "volume": "volume",
+        "area": "area",
+        "zgeo": "z_geometric",
         "upl": "loop_voltage",  # V
         "wth": "equilibrium_stored_energy",
         "wtherm": "thermal_stored_energy",
@@ -113,7 +117,8 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, str]] = {
         "nf": "fast_ion_density",  # 10^19 m^-3
         "omega_tor": "toroidal_angular_frequency",  # 1/s
         "q_oh": "ohmic_power_density",  # MW/m3
-        "q_nbi": "nbi_power_density",  # MW/m3
+        # "qnbi": "nbi_power_density_ions",  # MW/m3
+        # "qnbe": "nbi_power_density_electrons",  # MW/m3
         "sbm": "nbi_particle_source",  # 10^19/m^3/s
         "swall": "wall_particle_source",  # 10^19/m^3/s
         "stot": "total_particle_source",  # 10^19/m^3/s

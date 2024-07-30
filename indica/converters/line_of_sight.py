@@ -606,16 +606,16 @@ class LineOfSightTransform(CoordinateTransform):
         self.check_equilibrium()
         profile = self.check_rho_and_profile(profile_to_map, t, calc_rho)
 
-        coords = profile_to_map.coords
+        dims = profile_to_map.dims
         along_los: DataArray
-        if "R" in coords and "z" in coords:
+        if "R" in dims and "z" in dims:
             R_ = self.R
             z_ = self.z
 
             along_los = profile_to_map.interp(R=R_, z=z_).T
-        elif "rho_poloidal" in coords or "rho_toroidal" in coords:
+        elif "rho_poloidal" in dims or "rho_toroidal" in dims:
             rho_ = self.rho
-            if "theta" in coords:
+            if "theta" in dims:
                 theta_ = self.theta
                 along_los = profile.interp(rho_poloidal=rho_, theta=theta_)
             else:
@@ -630,8 +630,8 @@ class LineOfSightTransform(CoordinateTransform):
         else:
             raise NotImplementedError("Coordinates not recognized...")
 
-        drop_coords = [coord for coord in coords if coord != "t"]
-        along_los = along_los.drop_vars(drop_coords)
+        drop_dims = [dim for dim in dims if dim != "t"]
+        along_los = along_los.drop_vars(drop_dims)
         self.along_los = along_los
         self.profile_to_map = profile_to_map
 

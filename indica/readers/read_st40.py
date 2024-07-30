@@ -16,9 +16,9 @@ from indica.readers import ST40Reader
 
 INSTRUMENTS: list = [
     "efit",
-    "lines",
+    # "lines",
     "nirh1",
-    "smmh1",
+    "smmh",
     "smmh",
     "cxff_pi",
     "cxff_tws_c",
@@ -44,10 +44,8 @@ FILTER_LIMITS: Dict[str, Dict[str, tuple]] = {
         "ti_z": (0, np.inf),
         "te_kw": (0, np.inf),
         "te_n3w": (0, np.inf),
-        "intens": (0, np.inf),
-        "radiance": (0, np.inf),
-        "emission": (0, np.inf),
-        "spec_rad": (0, np.inf),
+        "spectra": (0, np.inf),
+        "raw_spectra": (0, np.inf),
     },
     "brems": {"brightness": (0, np.inf)},
     "halpha": {"brightness": (0, np.inf)},
@@ -74,10 +72,8 @@ FILTER_COORDS: Dict[str, Dict[str, tuple]] = {
     "cxff_pi": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "cxff_tws_c": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "xrcs": {
-        "intens": ("wavelength", (0.0, np.inf)),
-        "radiance": ("wavelength", (0.0, np.inf)),
-        "emission": ("wavelength", (0.0, np.inf)),
-        "sepc_rad": ("wavelength", (0.0, np.inf)),
+        "spectra": ("wavelength", (0.0, np.inf)),
+        "raw_spectra": ("wavelength", (0.0, np.inf)),
     },
     "ts": {"te": ("channel", (0, np.inf)), "ne": ("channel", (0, np.inf))},
 }
@@ -314,17 +310,17 @@ class ReadST40:
             self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
         for instrument in instruments:
             print(f"Reading {instrument}")
-            try:
-                self.get_raw_data(
-                    "",
-                    instrument,
-                    revisions[instrument],
-                    set_equilibrium=set_equilibrium,
-                )
-            except Exception as e:
-                print(f"error reading: {instrument} \nException: {e}")
-                if debug:
-                    raise e
+            # try:
+            self.get_raw_data(
+                "",
+                instrument,
+                revisions[instrument],
+                set_equilibrium=set_equilibrium,
+            )
+            # except Exception as e:
+            #     print(f"error reading: {instrument} \nException: {e}")
+            #     if debug:
+            #         raise e
 
         if raw_only:
             return
@@ -380,7 +376,7 @@ def bin_data_in_time(
                     tstart, tend, dt, raw_data[instr][quant].error
                 )
                 data_quant = data_quant.assign_coords(
-                    error=(raw_data[instr][quant].dims, error)
+                    error=(raw_data[instr][quant].dims, error.data)
                 )
             binned_quantities[quant] = data_quant
         binned_data[instr] = binned_quantities

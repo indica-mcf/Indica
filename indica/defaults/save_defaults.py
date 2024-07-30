@@ -35,7 +35,6 @@ def save_default_objects(
     plasma_file = get_filename_default_objects(machine)["plasma"]
     equilibrium_file = get_filename_default_objects(machine)["equilibrium"]
     geometry_file = get_filename_default_objects(machine)["geometry"]
-
     # Diagnostic geometry transform objects
     transforms: dict = {}
     for instr in _conf.INSTRUMENT_METHODS.keys():
@@ -46,7 +45,6 @@ def save_default_objects(
                 transforms[instr] = _transform
         except Exception as e:
             print(f"Error reading {instr}: {e}")
-
     print(f"\n Writing geometry to: {geometry_file}. \n")
     pickle.dump(transforms, open(geometry_file, "wb"))
 
@@ -124,4 +122,4 @@ def save_default_objects(
 
 
 if __name__ == "__main__":
-    save_default_objects("st40", 11419)
+    save_default_objects("st40", 11560)

@@ -103,17 +103,6 @@ def interpolate_to_time_labels(
         return data
 
     interpolated = data.interp(t=tlabels, method=method)
-    if "error" in data.attrs:
-        interpolated.attrs["error"] = interpolated.attrs["error"].interp(
-            t=tlabels, method=method
-        )
-    if "dropped" in data.attrs:
-        dropped = interpolated.attrs["dropped"].interp(t=tlabels, method=method)
-        if "error" in dropped.attrs:
-            dropped.attrs["error"] = dropped.attrs["error"].interp(
-                t=tlabels, method=method
-            )
-        interpolated.attrs["dropped"] = dropped
 
     return interpolated
 
@@ -145,15 +134,16 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
         "t", tbins, labels=tlabels
     )
     averaged = grouped.mean("t", keep_attrs=True, skipna=True)
+    averaged = averaged.rename(t_bins="t")
+
     stdev = grouped.std("t", keep_attrs=True, skipna=True)
     stdev = np.sqrt(stdev**2)
-    averaged.attrs["stdev"] = stdev.rename(t_bins="t")
+    stdev = stdev.rename(t_bins="t")
+    averaged = averaged.assign_coords(stdev=(data.dims, stdev.data))
 
-    if "error" in data.attrs:
-        grouped = (
-            data.attrs["error"]
-            .sel(t=slice(tbins[0], tbins[-1]))
-            .groupby_bins("t", tbins, labels=tlabels)
+    if "error" in data.coords:
+        grouped = data.error.sel(t=slice(tbins[0], tbins[-1])).groupby_bins(
+            "t", tbins, labels=tlabels
         )
         uncertainty = np.sqrt(
             grouped.reduce(
@@ -161,35 +151,10 @@ def bin_to_time_labels(tlabels: np.ndarray, data: DataArray) -> DataArray:
             )
         )
         error = np.sqrt(uncertainty**2)
-        averaged.attrs["error"] = error.rename(t_bins="t")
+        error = error.rename(t_bins="t")
+        averaged = averaged.assign_coords(error=(data.dims, error.data))
 
-    if "dropped" in data.attrs:
-        grouped = (
-            data.attrs["dropped"]
-            .sel(t=slice(tbins[0], tbins[-1]))
-            .groupby_bins("t", tbins, labels=tlabels)
-        )
-        dropped = grouped.mean("t")
-        stdev = grouped.std("t")
-        averaged.attrs["dropped"] = dropped.rename(t_bins="t")
-        if "error" in data.attrs["dropped"].attrs:
-            grouped = (
-                data.attrs["dropped"]
-                .attrs["error"]
-                .sel(t=slice(tbins[0], tbins[-1]))
-                .groupby_bins("t", tbins, labels=tlabels)
-            )
-            uncertainty = np.sqrt(
-                grouped.reduce(
-                    lambda x, axis: np.sum(x**2, axis) / np.size(x, axis) ** 2, "t"
-                )
-            )
-            error = np.sqrt(uncertainty**2)
-            averaged.attrs["dropped"].attrs["error"] = error.rename(t_bins="t")
-            stdev = np.sqrt(stdev**2)
-            averaged.attrs["dropped"].attrs["stdev"] = stdev.rename(t_bins="t")
-
-    return averaged.rename(t_bins="t")
+    return averaged
 
 
 def interpolate_in_time(
