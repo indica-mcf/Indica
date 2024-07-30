@@ -96,10 +96,10 @@ class ThomsonScattering(AbstractDiagnostic):
             calc_rho=calc_rho,
         )
         Ne_at_channels = Ne_at_channels.assign_coords(
-            R=("channel", self.transform.R)
+            R=("channel", self.transform.R.data)
         )
         Ne_at_channels = Ne_at_channels.assign_coords(
-            z=("channel", self.transform.z)
+            z=("channel", self.transform.z.data)
         )
         Te_at_channels = self.transform.map_profile_to_rho(
             Te,
@@ -107,10 +107,10 @@ class ThomsonScattering(AbstractDiagnostic):
             calc_rho=calc_rho,
         )
         Te_at_channels = Te_at_channels.assign_coords(
-            R=("channel", self.transform.R)
+            R=("channel", self.transform.R.data)
         )
         Te_at_channels = Te_at_channels.assign_coords(
-            z=("channel", self.transform.z)
+            z=("channel", self.transform.z.data)
 
         )
 
