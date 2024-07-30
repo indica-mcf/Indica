@@ -372,6 +372,7 @@ class ST40Reader(DataReader):
                 direction = np.array([direction])
 
             if location.shape[0] != x.shape[0]:
+                print(f"\n {instrument} hardcoded channel indexing \n")
                 if self.pulse > 10200:
                     index = np.arange(18, 36)
                 else:
@@ -390,7 +391,8 @@ class ST40Reader(DataReader):
                     self.QUANTITIES_MDS[instrument][q],
                     results["revision"],
                 )
-            except TreeNODATA:
+            except Exception as e:
+                print(e)
                 continue
 
             try:
