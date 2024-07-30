@@ -3,13 +3,7 @@ from typing import Callable
 import matplotlib.pylab as plt
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import Bolometer
-from indica.models import BremsstrahlungDiode
-from indica.models import ChargeExchange
-from indica.models import EquilibriumReconstruction
-from indica.models import HelikeSpectrometer
-from indica.models import Interferometry
-from indica.models import ThomsonScattering
+from indica.models import *
 
 
 def run_example_diagnostic_model(
@@ -50,7 +44,7 @@ def example_bolometer(
 ):
     machine = "st40"
     instrument = "blom_xy1"
-    _model = Bolometer
+    _model = BolometerCamera
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
 
@@ -59,7 +53,7 @@ def example_axuv_unfiltered(
 ):
     machine = "st40"
     instrument = "sxrc_xy1"
-    _model = Bolometer
+    _model = BolometerCamera
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
 
@@ -68,7 +62,7 @@ def example_charge_exchange(
 ):
     machine = "st40"
     instrument = "cxff_pi"
-    _model = ChargeExchange
+    _model = ChargeExchangeSpectrometer
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
 
@@ -86,7 +80,7 @@ def example_interferometer(
 ):
     machine = "st40"
     instrument = "smmh"
-    _model = Interferometry
+    _model = Interferometer
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
 
