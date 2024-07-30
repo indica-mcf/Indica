@@ -182,6 +182,8 @@ class PlasmaProfiler:
             Special case for impurity density:
                 {"profile_name:element.parameter":value}
         """
+        if parameters is None:
+            parameters = {}
 
         _profiles_to_update: list = []
 
