@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections import Callable
+from collections.abc import Callable
 from dataclasses import dataclass
 import numpy as np
 import xarray as xr
