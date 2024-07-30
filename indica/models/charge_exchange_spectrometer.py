@@ -8,7 +8,8 @@ from indica.converters import TransectCoordinates
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import assign_datatype, set_plot_rcparams
+from indica.utilities import assign_datatype
+from indica.utilities import set_plot_rcparams
 
 
 class ChargeExchangeSpectrometer(AbstractDiagnostic):
@@ -95,9 +96,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         self.Vtor = Vtor
         self.Ti = Ti
 
-        Ti_at_channels = self.transform.map_profile_to_rho(
-            Ti, t=t, calc_rho=calc_rho
-        )
+        Ti_at_channels = self.transform.map_profile_to_rho(Ti, t=t, calc_rho=calc_rho)
         Vtor_at_channels = self.transform.map_profile_to_rho(
             Vtor, t=t, calc_rho=calc_rho
         )
@@ -146,4 +145,3 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         plt.ylabel("Measured ion temperature (eV)")
         plt.legend()
         plt.show()
-

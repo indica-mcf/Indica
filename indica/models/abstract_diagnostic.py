@@ -20,7 +20,6 @@ class AbstractDiagnostic(ABC):
         # TODO: types attribute set during initialisation!
         self.transform = transform
 
-
     def set_plasma(self, plasma: Plasma):
         """
         Assign Plasma class to use for computation of forward model

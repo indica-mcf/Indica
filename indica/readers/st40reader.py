@@ -97,8 +97,10 @@ class ST40Reader(DataReader):
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
-        results: Dict[str, Any] = {"machine_dims": self.MACHINE_DIMS,
-                                   "revision": self._get_revision(uid, instrument, revision)}
+        results: Dict[str, Any] = {
+            "machine_dims": self.MACHINE_DIMS,
+            "revision": self._get_revision(uid, instrument, revision),
+        }
         time, _ = self._get_signal(uid, instrument, ":time", results["revision"])
         results["t"] = time
         results["psin"], results["psin_records"] = self._get_signal(
@@ -154,8 +156,10 @@ class ST40Reader(DataReader):
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
-        results: Dict[str, Any] = {"machine_dims": self.MACHINE_DIMS,
-                                   "revision": self._get_revision(uid, instrument, revision)}
+        results: Dict[str, Any] = {
+            "machine_dims": self.MACHINE_DIMS,
+            "revision": self._get_revision(uid, instrument, revision),
+        }
 
         # Read in dimensions
         results["boundary_index"], _ = self._get_signal(
@@ -214,8 +218,11 @@ class ST40Reader(DataReader):
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
-        results: Dict[str, Any] = {"length": {}, "machine_dims": self.MACHINE_DIMS,
-                                   "revision": self._get_revision(uid, instrument, revision)}
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+            "revision": self._get_revision(uid, instrument, revision),
+        }
 
         location, location_path = self._get_signal(
             uid, instrument, ".geometry:location", results["revision"]
@@ -267,8 +274,11 @@ class ST40Reader(DataReader):
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
-        results: Dict[str, Any] = {"length": {}, "machine_dims": self.MACHINE_DIMS,
-                                   "revision": self._get_revision(uid, instrument, revision)}
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+            "revision": self._get_revision(uid, instrument, revision),
+        }
 
         location, location_path = self._get_signal(
             uid, instrument, ".geometry:location", results["revision"]
@@ -326,8 +336,11 @@ class ST40Reader(DataReader):
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
-        results: Dict[str, Any] = {"length": {}, "machine_dims": self.MACHINE_DIMS,
-                                   "revision": self._get_revision(uid, instrument, revision)}
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+            "revision": self._get_revision(uid, instrument, revision),
+        }
 
         texp, texp_path = self._get_signal(
             uid, instrument, ":exposure", results["revision"]
@@ -422,8 +435,11 @@ class ST40Reader(DataReader):
         if len(uid) == 0 and instrument in self.UIDS_MDS:
             uid = self.UIDS_MDS[instrument]
 
-        results: Dict[str, Any] = {"length": {}, "machine_dims": self.MACHINE_DIMS,
-                                   "revision": self._get_revision(uid, instrument, revision)}
+        results: Dict[str, Any] = {
+            "length": {},
+            "machine_dims": self.MACHINE_DIMS,
+            "revision": self._get_revision(uid, instrument, revision),
+        }
 
         time, _ = self._get_signal(uid, instrument, ":time", results["revision"])
         wavelength, _ = self._get_signal(
@@ -712,8 +728,10 @@ class ST40Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        results: Dict[str, Any] = {"machine_dims": self.MACHINE_DIMS,
-                                   "revision": self._get_revision(uid, instrument, revision)}
+        results: Dict[str, Any] = {
+            "machine_dims": self.MACHINE_DIMS,
+            "revision": self._get_revision(uid, instrument, revision),
+        }
         time, time_path = self._get_signal(
             uid, instrument, ":time", results["revision"]
         )
@@ -784,8 +802,10 @@ class ST40Reader(DataReader):
         quantities: Set[str],
     ) -> Dict[str, Any]:
 
-        results: Dict[str, Any] = {"machine_dims": self.MACHINE_DIMS,
-                                   "revision": self._get_revision(uid, instrument, revision)}
+        results: Dict[str, Any] = {
+            "machine_dims": self.MACHINE_DIMS,
+            "revision": self._get_revision(uid, instrument, revision),
+        }
         time, time_path = self._get_signal(
             uid, instrument, ":time", results["revision"]
         )

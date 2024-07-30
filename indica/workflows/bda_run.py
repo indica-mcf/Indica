@@ -1,28 +1,37 @@
+import logging
+import pprint
+
 import flatdict
 import hydra
+from omegaconf import DictConfig
+from omegaconf import OmegaConf
 
-import pprint
-import numpy as np
-from omegaconf import DictConfig, OmegaConf
-
-from indica.models import *
+from indica.defaults.load_defaults import load_default_objects
+from indica.models import (
+    ChargeExchangeSpectrometer,
+    EquilibriumReconstruction,
+    HelikeSpectrometer,
+    Interferometer,
+    Plasma,
+    ThomsonScattering,
+)
 from indica.readers.read_st40 import ReadST40
 from indica.workflows.bayes_workflow import BayesWorkflow
+from indica.workflows.bayes_workflow import EmceeOptimiser
+from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.optimiser_context import OptimiserEmceeSettings
 from indica.workflows.pca import pca_workflow
-from indica.workflows.plasma_profiler import PlasmaProfiler, initialise_gauss_profilers
-from indica.workflows.model_coordinator import ModelCoordinator
-from indica.workflows.bayes_workflow import EmceeOptimiser
-from indica.defaults.load_defaults import load_default_objects
+from indica.workflows.plasma_profiler import initialise_gauss_profilers
+from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.workflows.priors import PriorManager
-import logging
 
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     # "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
     #                          + (x.where((x.wavelength < 0.392) &
-    #                                     (x.wavelength > 0.388), ).std("wavelength")).fillna(0),  # Background noise
+    #                      (x.wavelength > 0.388),
+    #                      ).std("wavelength")).fillna(0),  # Background noise
     "cxff_pi.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
 }
@@ -60,67 +69,131 @@ INSTRUMENT_MAPPING: dict = {
 }
 
 
-@hydra.main(version_base=None, config_path="../configs/workflows/bda_run", config_name="basic_run",)
+@hydra.main(
+    version_base=None,
+    config_path="../configs/workflows/bda_run",
+    config_name="basic_run",
+)
 def bda_run(
-        cfg: DictConfig,
+    cfg: DictConfig,
 ):
     log = logging.getLogger(__name__)
     log.info(f"Beginning BDA for pulse {cfg.pulse_info.pulse}")
     dirname = f"{cfg.pulse_info.pulse}.{cfg.write_info.run}"
 
     log.info("Initialising plasma and plasma_profiler")
-    plasma = Plasma(tstart=cfg.pulse_info.tstart, tend=cfg.pulse_info.tend, dt=cfg.pulse_info.dt,
-                    **cfg.plasma_settings)
+    plasma = Plasma(
+        tstart=cfg.pulse_info.tstart,
+        tend=cfg.pulse_info.tend,
+        dt=cfg.pulse_info.dt,
+        **cfg.plasma_settings,
+    )
 
     profilers = initialise_gauss_profilers(xspl=plasma.rho)
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
     plasma_profiler(cfg.data_info.profile_params_to_update)
 
     log.info("PPTS reading")
-    ppts_reader = ReadST40(pulse=cfg.pulse_info.pulse+cfg.data_info.ppts_modelling_number, tstart=cfg.pulse_info.tstart, tend=cfg.pulse_info.tend,
-                           dt=cfg.pulse_info.dt, tree="ppts")
-    ppts_reader(["ppts"], revisions=OmegaConf.to_container(cfg.data_info.revisions), fetch_equilbrium=False)
+    ppts_reader = ReadST40(
+        pulse=cfg.pulse_info.pulse + cfg.data_info.ppts_modelling_number,
+        tstart=cfg.pulse_info.tstart,
+        tend=cfg.pulse_info.tend,
+        dt=cfg.pulse_info.dt,
+        tree="ppts",
+    )
+    ppts_reader(
+        ["ppts"],
+        revisions=OmegaConf.to_container(cfg.data_info.revisions),
+        fetch_equilbrium=False,
+    )
 
     if cfg.data_info.set_ts:
         # interp ppts profiles as some are empty
         log.info("Setting profiles from PPTS")
         ppts_profs = ppts_reader.filtered_data["ppts"]
-        ne = ppts_profs["ne_rho"].interpolate_na(dim="t").ffill("t").bfill("t").interp(t=plasma.t, ).interp(rho_poloidal=plasma.rho)
-        te = ppts_profs["te_rho"].interpolate_na(dim="t").ffill("t").bfill("t").interp(t=plasma.t, ).interp(rho_poloidal=plasma.rho)
-        plasma_profiler.set_profiles({"electron_density": ne,
-                                      "electron_temperature": te,
-                                      })
+        ne = (
+            ppts_profs["ne_rho"]
+            .interpolate_na(dim="t")
+            .ffill("t")
+            .bfill("t")
+            .interp(
+                t=plasma.t,
+            )
+            .interp(rho_poloidal=plasma.rho)
+        )
+        te = (
+            ppts_profs["te_rho"]
+            .interpolate_na(dim="t")
+            .ffill("t")
+            .bfill("t")
+            .interp(
+                t=plasma.t,
+            )
+            .interp(rho_poloidal=plasma.rho)
+        )
+        plasma_profiler.set_profiles(
+            {
+                "electron_density": ne,
+                "electron_temperature": te,
+            }
+        )
     plasma_profiler.save_phantoms(phantom=cfg.data_info.phantom)
 
-    # if binned data is used then interpolating onto equil.t and back to plasma.t causes some time points to be lost
+    # if binned data is used then interpolating onto equil.t
+    # and back to plasma.t causes some time points to be lost
     R_shift = 0.0
     if cfg.data_info.apply_rshift:
         R_shift = ppts_reader.raw_data["ppts"]["R_shift"]
         log.info(f"R shift of: {R_shift}")
 
-    equil_reader = ReadST40(pulse=cfg.data_info.equilibrium.modelling_number + cfg.pulse_info.pulse,
-                            tstart=cfg.pulse_info.tstart, tend=cfg.pulse_info.tend, dt=cfg.pulse_info.dt, )
-    equil_reader([cfg.data_info.equilibrium.code], revisions=OmegaConf.to_container(cfg.data_info.equilibrium.revisions), R_shift=R_shift)
+    equil_reader = ReadST40(
+        pulse=cfg.data_info.equilibrium.modelling_number + cfg.pulse_info.pulse,
+        tstart=cfg.pulse_info.tstart,
+        tend=cfg.pulse_info.tend,
+        dt=cfg.pulse_info.dt,
+    )
+    equil_reader(
+        [cfg.data_info.equilibrium.code],
+        revisions=OmegaConf.to_container(cfg.data_info.equilibrium.revisions),
+        R_shift=R_shift,
+    )
     equilibrium = equil_reader.equilibrium
     plasma.set_equilibrium(equilibrium=equilibrium)
 
     # different data handling methods TODO: abstract these to an interface
     if cfg.data_info.phantom:  # Currently broken
         log.info("Using phantom reader strategy")
-        phantom_reader = ReadST40(pulse=cfg.pulse_info.pulse, tstart=cfg.pulse_info.tstart,
-                                  tend=cfg.pulse_info.tend, dt=cfg.pulse_info.dt)
-        phantom_reader(cfg.pulse_info.diagnostics, filter_coords=cfg.data_info.filter_coords,
-                       filter_limits=cfg.data_info.filter_limits,
-                       revisions=OmegaConf.to_container(cfg.data_info.revisions), R_shift=R_shift)
+        phantom_reader = ReadST40(
+            pulse=cfg.pulse_info.pulse,
+            tstart=cfg.pulse_info.tstart,
+            tend=cfg.pulse_info.tend,
+            dt=cfg.pulse_info.dt,
+        )
+        phantom_reader(
+            cfg.pulse_info.diagnostics,
+            filter_coords=cfg.data_info.filter_coords,
+            filter_limits=cfg.data_info.filter_limits,
+            revisions=OmegaConf.to_container(cfg.data_info.revisions),
+            R_shift=R_shift,
+        )
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
-        reader = ModelCoordinator(models, OmegaConf.to_container(cfg.model_info), )
+        reader = ModelCoordinator(
+            models,
+            OmegaConf.to_container(cfg.model_info),
+        )
         if "xrcs" in phantom_reader.binned_data.keys():
-            more_model_settings = {"xrcs": {"window": phantom_reader.binned_data["xrcs"]["intens"].wavelength}}
+            more_model_settings = {
+                "xrcs": {
+                    "window": phantom_reader.binned_data["xrcs"]["intens"].wavelength
+                }
+            }
         else:
             more_model_settings = {}
         reader.init_models(**more_model_settings)
         reader.set_transforms(phantom_reader.transforms)
-        reader.set_equilibrium(equil_reader.equilibrium, )
+        reader.set_equilibrium(
+            equil_reader.equilibrium,
+        )
         reader.set_plasma(plasma)
 
     elif cfg.data_info.mock:
@@ -128,20 +201,33 @@ def bda_run(
         equilibrium = load_default_objects("st40", "equilibrium")
         transforms = load_default_objects("st40", "geometry")
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
-        reader = ModelCoordinator(models, OmegaConf.to_container(cfg.model_info), )
+        reader = ModelCoordinator(
+            models,
+            OmegaConf.to_container(cfg.model_info),
+        )
         reader.set_transforms(transforms)
-        reader.set_equilibrium(equilibrium, )
+        reader.set_equilibrium(
+            equilibrium,
+        )
         reader.set_plasma(plasma)
 
     else:
         log.info("Using default reader strategy")
-        reader = ReadST40(pulse=cfg.pulse_info.pulse, tstart=cfg.pulse_info.tstart,
-                          tend=cfg.pulse_info.tend, dt=cfg.pulse_info.dt, )
+        reader = ReadST40(
+            pulse=cfg.pulse_info.pulse,
+            tstart=cfg.pulse_info.tstart,
+            tend=cfg.pulse_info.tend,
+            dt=cfg.pulse_info.dt,
+        )
 
-    reader(cfg.pulse_info.diagnostics, filter_coords=cfg.data_info.filter_coords,
-           filter_limits=cfg.data_info.filter_limits,
-           revisions=OmegaConf.to_container(cfg.data_info.revisions), R_shift=R_shift, fetch_equilbrium=False)
-
+    reader(
+        cfg.pulse_info.diagnostics,
+        filter_coords=cfg.data_info.filter_coords,
+        filter_limits=cfg.data_info.filter_limits,
+        revisions=OmegaConf.to_container(cfg.data_info.revisions),
+        R_shift=R_shift,
+        fetch_equilbrium=False,
+    )
 
     # post processing (TODO: where should this be)
     flat_data = flatdict.FlatDict(reader.binned_data, ".")
@@ -156,10 +242,11 @@ def bda_run(
         verbose=False,
     )
     if "xrcs" in reader.binned_data.keys():
-        more_model_settings = {"xrcs": {
-            "window": reader.binned_data["xrcs"]["intens"].wavelength,
-            "background": reader.binned_data["xrcs"]["background"],
-        },
+        more_model_settings = {
+            "xrcs": {
+                "window": reader.binned_data["xrcs"]["intens"].wavelength,
+                "background": reader.binned_data["xrcs"]["background"],
+            },
         }
     else:
         more_model_settings = {}
@@ -175,14 +262,25 @@ def bda_run(
 
     if any(cfg.optimisation_info.pca_profiles):
         log.info(f"Using PCA profiles: {cfg.optimisation_info.pca_profiles}")
-        pca_processor, pca_profilers = pca_workflow(prior_manager, cfg.optimisation_info.pca_profiles,
-                                                    plasma.rho, n_components=cfg.optimisation_info.pca_components,
-                                                    num_prof_samples=int(5e3))
+        pca_processor, pca_profilers = pca_workflow(
+            prior_manager,
+            cfg.optimisation_info.pca_profiles,
+            plasma.rho,
+            n_components=cfg.optimisation_info.pca_components,
+            num_prof_samples=int(5e3),
+        )
         prior_manager.update_priors(pca_processor.compound_priors)
         plasma_profiler.update_profilers(pca_profilers)
-        opt_params = [param for param in cfg.optimisation_info.param_names
-                      if param.split(".")[0] not in cfg.optimisation_info.pca_profiles]
-        opt_params.extend(prior_manager.get_param_names_for_profiles(cfg.optimisation_info.pca_profiles))
+        opt_params = [
+            param
+            for param in cfg.optimisation_info.param_names
+            if param.split(".")[0] not in cfg.optimisation_info.pca_profiles
+        ]
+        opt_params.extend(
+            prior_manager.get_param_names_for_profiles(
+                cfg.optimisation_info.pca_profiles
+            )
+        )
         log.info(f"optimising with: {opt_params}")
     else:
         opt_params = list(cfg.optimisation_info.param_names)
@@ -199,9 +297,11 @@ def bda_run(
         stopping_criteria_debug=True,
     )
 
-    optimiser_context = EmceeOptimiser(optimiser_settings=optimiser_settings, prior_manager=prior_manager,
-                                       model_kwargs=model_kwargs,
-                                       )
+    optimiser_context = EmceeOptimiser(
+        optimiser_settings=optimiser_settings,
+        prior_manager=prior_manager,
+        model_kwargs=model_kwargs,
+    )
 
     workflow = BayesWorkflow(
         quant_to_optimise=cfg.pulse_info.quant_to_optimise,
@@ -209,9 +309,8 @@ def bda_run(
         optimiser_context=optimiser_context,
         plasma_profiler=plasma_profiler,
         model_coordinator=model_coordinator,
-        prior_manager=prior_manager
+        prior_manager=prior_manager,
     )
-
 
     log.info("Beginning BDA")
     workflow(

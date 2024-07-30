@@ -1,11 +1,12 @@
-from indica.defaults.load_defaults import load_default_objects
-from indica.profilers import ProfilerGauss, Profiler
-from indica.models.plasma import Plasma
-
 import flatdict
-import xarray as xr
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import xarray as xr
+
+from indica.defaults.load_defaults import load_default_objects
+from indica.models.plasma import Plasma
+from indica.profilers import Profiler
+from indica.profilers import ProfilerGauss
 
 DEFAULT_PROFILE_PARAMS = {
     "electron_density.y0": 5e19,
@@ -91,15 +92,17 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
             continue
 
         midplane_profiles[key] = value.interp(rho_poloidal=rho)
-        # TODO: when sampling is stopped early there are NaN blobs which cause bugs when changed to zeros
+        # TODO: Changing NaN results to zeros messes with distributions
         # midplane_profiles[key] = xr.where(
         #     np.isfinite(_prof_midplane), _prof_midplane, 0.0
         # )
     return midplane_profiles
 
 
-def initialise_gauss_profilers(xspl: np.ndarray, profile_params: dict = None, profiler_names: list = None):
-    # considering whether profilers should be a dataclass or named tuple rather than bare dictionary
+def initialise_gauss_profilers(
+    xspl: np.ndarray, profile_params: dict = None, profiler_names: list = None
+):
+    # Should profilers be a dataclass or named tuple rather than bare dictionary
     if profile_params is None:
         profile_params = DEFAULT_PROFILE_PARAMS
     flat_profile_params = flatdict.FlatDict(profile_params, ".")
@@ -109,10 +112,14 @@ def initialise_gauss_profilers(xspl: np.ndarray, profile_params: dict = None, pr
     else:
         profile_names = profiler_names
 
-    profilers = {profile_name: ProfilerGauss(datatype=profile_name.split(":")[0],
-                                             parameters=flat_profile_params[profile_name],
-                                             xspl=xspl)
-                 for profile_name in profile_names}
+    profilers = {
+        profile_name: ProfilerGauss(
+            datatype=profile_name.split(":")[0],
+            parameters=flat_profile_params[profile_name],
+            xspl=xspl,
+        )
+        for profile_name in profile_names
+    }
 
     return profilers
 
@@ -146,12 +153,19 @@ class PlasmaProfiler:
             t = self.plasma.time_to_calculate
 
         for profile_name, profile in profiles.items():
-            _prof_identifiers = profile_name.split(":")  # impurities have ':' to identify elements
+            _prof_identifiers = profile_name.split(
+                ":"
+            )  # impurities have ':' to identify elements
             if profile_name.__contains__(":"):
                 if _prof_identifiers[1] in self.plasma.elements:
-                    getattr(self.plasma, _prof_identifiers[0]).loc[dict(t=t, element=_prof_identifiers[-1])] = profile
+                    getattr(self.plasma, _prof_identifiers[0]).loc[
+                        dict(t=t, element=_prof_identifiers[-1])
+                    ] = profile
                 else:
-                    print(f"profile {profile_name} can't be set because {_prof_identifiers[1]} not in plasma.elements")
+                    print(
+                        f"profile {profile_name} can't be set because "
+                        f"{_prof_identifiers[1]} not in plasma.elements"
+                    )
             else:
                 getattr(self.plasma, profile_name).loc[dict(t=t)] = profile
 
@@ -168,7 +182,9 @@ class PlasmaProfiler:
     def plasma_attributes(self):
         plasma_attributes = {}
         for attribute in self.plasma_attribute_names:
-            plasma_attributes[attribute] = getattr(self.plasma, attribute).sel(t=self.plasma.time_to_calculate)
+            plasma_attributes[attribute] = getattr(self.plasma, attribute).sel(
+                t=self.plasma.time_to_calculate
+            )
         return plasma_attributes
 
     def __call__(self, parameters: dict = None, t=None):
@@ -195,7 +211,9 @@ class PlasmaProfiler:
                 raise ValueError(
                     f"No parameter {profile_param_name} available for {profile_name}"
                 )
-            self.profilers[profile_name].set_parameters(**{profile_param_name: parameter})
+            self.profilers[profile_name].set_parameters(
+                **{profile_param_name: parameter}
+            )
             _profiles_to_update.append(profile_name)
 
         # Update only desired profiles or if no parameters given update all
@@ -204,19 +222,28 @@ class PlasmaProfiler:
         else:
             profiles_to_update = list(self.profilers.keys())
 
-        updated_profiles = {profile_to_update: self.profilers[profile_to_update]()
-                            for profile_to_update in profiles_to_update}
+        updated_profiles = {
+            profile_to_update: self.profilers[profile_to_update]()
+            for profile_to_update in profiles_to_update
+        }
         self.set_profiles(updated_profiles, t)
         return
 
 
 if __name__ == "__main__":
     example_plasma = load_default_objects("st40", "plasma")
-    gauss_profilers = initialise_gauss_profilers(profile_params=DEFAULT_PROFILE_PARAMS, xspl=example_plasma.rho)
+    gauss_profilers = initialise_gauss_profilers(
+        profile_params=DEFAULT_PROFILE_PARAMS, xspl=example_plasma.rho
+    )
     plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=gauss_profilers)
 
     plasma_profiler(
-        parameters={"electron_density.y0": 10e19, "electron_density.y1": 1e19, "electron_density.yend": 1e19,
-                    "ion_temperature.y0": 1e3})
+        parameters={
+            "electron_density.y0": 10e19,
+            "electron_density.y1": 1e19,
+            "electron_density.yend": 1e19,
+            "ion_temperature.y0": 1e3,
+        }
+    )
     plasma_profiler.profilers["ion_temperature"].plot()
     plt.show()

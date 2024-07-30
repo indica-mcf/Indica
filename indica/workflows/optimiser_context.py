@@ -1,15 +1,18 @@
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
-import numpy as np
-import xarray as xr
-import pandas as pd
-import emcee
+
 from dime_sampler import DIMEMove
-
+import emcee
+import numpy as np
+import pandas as pd
 from scipy.stats import describe
+import xarray as xr
 
-from indica.workflows.priors import sample_from_priors, PriorManager, ln_prior
+from indica.workflows.priors import ln_prior
+from indica.workflows.priors import PriorManager
+from indica.workflows.priors import sample_from_priors
 
 
 def sample_with_moments(
@@ -144,12 +147,12 @@ class OptimiserContext(ABC):
 
 
 class EmceeOptimiser(OptimiserContext):
-
-    def __init__(self,
-                 optimiser_settings: OptimiserEmceeSettings,
-                 prior_manager: PriorManager,
-                 model_kwargs = None,
-                 ):
+    def __init__(
+        self,
+        optimiser_settings: OptimiserEmceeSettings,
+        prior_manager: PriorManager,
+        model_kwargs=None,
+    ):
         self.optimiser_settings = optimiser_settings
         self.prior_manager = prior_manager
         self.model_kwargs = model_kwargs
@@ -163,8 +166,10 @@ class EmceeOptimiser(OptimiserContext):
             # (emcee.moves.DESnookerMove(gammas=1.0), 0.9 * 0.1)
         ]
 
-
-    def init_optimiser(self, blackbox_func: Callable, ):  # type: ignore
+    def init_optimiser(
+        self,
+        blackbox_func: Callable,
+    ):  # type: ignore
 
         self.optimiser = emcee.EnsembleSampler(
             self.optimiser_settings.nwalkers,
@@ -270,7 +275,7 @@ class EmceeOptimiser(OptimiserContext):
 
 
 def sample_from_high_density_region(
-        param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
+    param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
 ):
     num_best_points = 2
     index_best_start = []

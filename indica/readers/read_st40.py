@@ -281,7 +281,7 @@ class ReadST40:
         raw_only: bool = False,
         debug: bool = False,
         set_equilibrium: bool = False,
-        fetch_equilbrium = True,
+        fetch_equilbrium=True,
     ):
         self.debug = debug
 
@@ -388,7 +388,7 @@ def apply_filter(
     filters: Dict[str, Dict[str, tuple]],
     filter_func: Callable,
     filter_func_name="limits",
-    verbose = True,
+    verbose=True,
 ):
 
     filtered_data = {}

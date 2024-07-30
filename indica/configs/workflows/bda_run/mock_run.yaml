@@ -7,4 +7,3 @@ defaults:
   - model_info/all_models
   - write_info/test
   - pulse_info/test
-

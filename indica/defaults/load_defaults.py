@@ -5,6 +5,7 @@ import pickle
 PROJECT_PATH = Path(__file__).parent.parent
 DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
 
+
 def get_filename_default_objects(machine: str):
     _files = {}
     _files["geometry"] = (

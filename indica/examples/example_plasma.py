@@ -3,7 +3,8 @@ import pickle
 from typing import Tuple
 
 from indica.models import Plasma
-from indica.workflows.plasma_profiler import PlasmaProfiler, initialise_gauss_profilers
+from indica.workflows.plasma_profiler import initialise_gauss_profilers
+from indica.workflows.plasma_profiler import PlasmaProfiler
 
 
 def example_plasma(
@@ -41,7 +42,9 @@ def example_plasma(
     )
     plasma.build_atomic_data()
 
-    profilers = initialise_gauss_profilers(plasma.rho, )
+    profilers = initialise_gauss_profilers(
+        plasma.rho,
+    )
     plasma_profiler = PlasmaProfiler(plasma, profilers)
     plasma_profiler()
 

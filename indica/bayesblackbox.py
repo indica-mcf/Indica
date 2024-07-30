@@ -1,6 +1,6 @@
 from copy import deepcopy
-import warnings
 from typing import Callable
+import warnings
 
 from flatdict import FlatDict
 import numpy as np
@@ -98,7 +98,7 @@ class BayesBlackBox:
         plasma_attributes = self.plasma_profiler.plasma_attributes()
 
         self.bckc = FlatDict(
-            self.build_bckc(nested_kwargs = kwargs, **parameters), "."
+            self.build_bckc(nested_kwargs=kwargs, **parameters), "."
         )  # model calls
 
         _ln_likelihood = self.ln_likelihood()  # compare results to data

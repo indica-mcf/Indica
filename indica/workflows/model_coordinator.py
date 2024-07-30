@@ -2,19 +2,22 @@ from typing import Dict
 
 import xarray as xr
 
+from indica.converters.abstractconverter import CoordinateTransform
 from indica.equilibrium import Equilibrium
 from indica.models import Plasma
-from indica.converters.abstractconverter import CoordinateTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
-from indica.readers.read_st40 import apply_filter, limit_condition, coord_condition
+from indica.readers.read_st40 import apply_filter
+from indica.readers.read_st40 import coord_condition
+from indica.readers.read_st40 import limit_condition
 
 
 class ModelCoordinator:
-    def __init__(self,
-                 models: dict[str, AbstractDiagnostic],
-                 model_settings: dict,
-                 verbose=True,
-                 ):
+    def __init__(
+        self,
+        models: dict[str, AbstractDiagnostic],
+        model_settings: dict,
+        verbose=True,
+    ):
 
         self.model_settings = model_settings
         self.models = models
@@ -31,9 +34,11 @@ class ModelCoordinator:
 
         for model_name, model in self.models.items():
             if model_name in self.model_settings.keys():
-                self.models[model_name] = model(name = model_name, **self.model_settings[model_name])
+                self.models[model_name] = model(
+                    name=model_name, **self.model_settings[model_name]
+                )
             else:
-                self.models[model_name] = model(name = model_name)
+                self.models[model_name] = model(name=model_name)
 
     def set_plasma(self, plasma: Plasma):
         self.plasma = plasma
@@ -52,7 +57,6 @@ class ModelCoordinator:
             if hasattr(model, "transform"):
                 model.transform.set_equilibrium(equilibrium, force=True)
 
-
     def get(
         self,
         instrument: str,
@@ -68,28 +72,30 @@ class ModelCoordinator:
             print(f"{instrument} not is self.models")
             return {}
 
-
     def __call__(
-            self,
-            instruments = None,
-            filter_limits: dict = None,
-            filter_coords: dict = None,
-            nested_kwargs: dict = None,
-            *args,
-            **flat_kwargs,
+        self,
+        instruments=None,
+        filter_limits: dict = None,
+        filter_coords: dict = None,
+        nested_kwargs: dict = None,
+        *args,
+        **flat_kwargs,
     ):
         """
         Parameters
         ----------
-        nested_kwargs - dictionary of model __call__ args with format dict(model_name: dict(setting_name: setting))
-        flat_kwargs - dictionary of model __call__ kwargs with format dict(model_name.setting_name: setting)
+        nested_kwargs - model __call__ args as dict(model_name:
+                                                    dict(setting_name: setting))
+        flat_kwargs - model __call__ kwargs as dict(model_name.setting_name: setting)
 
         Returns
         -------
         dictionary of results
         """
 
-        if nested_kwargs is None:  # These can be nuisance parameters passed by optimiser
+        if (
+            nested_kwargs is None
+        ):  # These can be nuisance parameters passed by optimiser
             nested_kwargs = {}
         if flat_kwargs is None:
             flat_kwargs = {}
@@ -118,7 +124,11 @@ class ModelCoordinator:
                 model_kwargs[instrument] = {**_params}
 
         for instrument in instruments:
-            self.data[instrument] = self.get(instrument, *args, **model_kwargs[instrument], )
+            self.data[instrument] = self.get(
+                instrument,
+                *args,
+                **model_kwargs[instrument],
+            )
 
         self.filtered_data = apply_filter(
             self.data,

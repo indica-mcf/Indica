@@ -1,7 +1,8 @@
-import pickle
 from datetime import datetime
 import getpass
 from pathlib import Path
+import pickle
+
 import git
 import numpy as np
 import xarray as xr
@@ -10,7 +11,8 @@ from indica.bayesblackbox import BayesBlackBox
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.optimiser_context import EmceeOptimiser
-from indica.workflows.plasma_profiler import PlasmaProfiler, map_plasma_profile_to_midplane
+from indica.workflows.plasma_profiler import map_plasma_profile_to_midplane
+from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.workflows.priors import PriorManager
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import does_tree_exist
@@ -48,16 +50,14 @@ class BayesWorkflow:
         self.optimiser_context = optimiser_context
 
         self.blackbox = BayesBlackBox(
-            opt_data = self.opt_data,
+            opt_data=self.opt_data,
             quant_to_optimise=quant_to_optimise,
             prior_manager=self.prior_manager,
-            plasma_profiler = self.plasma_profiler,
-            build_bckc = self.model_coordinator.__call__,
-            )
+            plasma_profiler=self.plasma_profiler,
+            build_bckc=self.model_coordinator.__call__,
+        )
 
-        self.optimiser_context.init_optimiser(
-            self.blackbox.ln_posterior
-            )
+        self.optimiser_context.init_optimiser(self.blackbox.ln_posterior)
 
     def _build_inputs_dict(self):
         """
@@ -87,7 +87,8 @@ class BayesWorkflow:
         #     diag_name.upper(): {
         #         # "PULSE": self.pulse,
         #         "USAGE": "".join(
-        #             [quantity[1] for quantity in quant_list if quantity[0] == diag_name]
+        #             [quantity[1] for quantity in quant_list
+        #             if quantity[0] == diag_name]
         #         ),
         #         "RUN": "PLACEHOLDER",
         #     }
@@ -96,9 +97,7 @@ class BayesWorkflow:
 
         result["DIAG_DATA"] = {
             diag_name.upper(): {
-                quantity[1].upper(): self.opt_data[
-                    f"{quantity[0]}.{quantity[1]}"
-                ]
+                quantity[1].upper(): self.opt_data[f"{quantity[0]}.{quantity[1]}"]
                 for quantity in quant_list
                 if quantity[0] == diag_name
             }
@@ -172,28 +171,40 @@ class BayesWorkflow:
             },
             "R_MIDPLANE": {
                 "RPOS": self.plasma_profiler.plasma.R_midplane,
-                "ZPOS":  self.plasma_profiler.plasma.z_midplane,
+                "ZPOS": self.plasma_profiler.plasma.z_midplane,
                 "NE": self.midplane_blobs["electron_density"].median(dim="sample_idx"),
                 "NI": self.midplane_blobs["ion_density"].median(dim="sample_idx"),
-                "TE": self.midplane_blobs["electron_temperature"].median(dim="sample_idx"),
+                "TE": self.midplane_blobs["electron_temperature"].median(
+                    dim="sample_idx"
+                ),
                 "TI": self.midplane_blobs["ion_temperature"].median(dim="sample_idx"),
                 "NFAST": self.midplane_blobs["fast_density"].median(dim="sample_idx"),
-                "NNEUTR": self.midplane_blobs["neutral_density"].median(dim="sample_idx"),
+                "NNEUTR": self.midplane_blobs["neutral_density"].median(
+                    dim="sample_idx"
+                ),
                 "P": self.midplane_blobs["pressure_tot"].median(dim="sample_idx"),
                 "PTH": self.midplane_blobs["pressure_th"].median(dim="sample_idx"),
                 "PFAST": self.midplane_blobs["pressure_fast"].median(dim="sample_idx"),
-                "ZEFF": self.midplane_blobs["zeff"].sum("element").median(dim="sample_idx"),
+                "ZEFF": self.midplane_blobs["zeff"]
+                .sum("element")
+                .median(dim="sample_idx"),
                 "MEANZ": self.midplane_blobs["meanz"].median(dim="sample_idx"),
                 "NE_ERR": self.midplane_blobs["electron_density"].std(dim="sample_idx"),
                 "NI_ERR": self.midplane_blobs["ion_density"].std(dim="sample_idx"),
-                "TE_ERR": self.midplane_blobs["electron_temperature"].std(dim="sample_idx"),
+                "TE_ERR": self.midplane_blobs["electron_temperature"].std(
+                    dim="sample_idx"
+                ),
                 "TI_ERR": self.midplane_blobs["ion_temperature"].std(dim="sample_idx"),
                 "NFAST_ERR": self.midplane_blobs["fast_density"].std(dim="sample_idx"),
-                "NNEUTR_ERR": self.midplane_blobs["neutral_density"].std(dim="sample_idx"),
+                "NNEUTR_ERR": self.midplane_blobs["neutral_density"].std(
+                    dim="sample_idx"
+                ),
                 "P_ERR": self.midplane_blobs["pressure_tot"].std(dim="sample_idx"),
                 "PTH_ERR": self.midplane_blobs["pressure_th"].std(dim="sample_idx"),
                 "PFAST_ERR": self.midplane_blobs["pressure_fast"].std(dim="sample_idx"),
-                "ZEFF_ERR": self.midplane_blobs["zeff"].sum("element").std(dim="sample_idx"),
+                "ZEFF_ERR": self.midplane_blobs["zeff"]
+                .sum("element")
+                .std(dim="sample_idx"),
                 "MEANZ_ERR": self.midplane_blobs["meanz"].std(dim="sample_idx"),
             },
         }
@@ -313,7 +324,9 @@ class BayesWorkflow:
             _blob = [result["blobs"][key] for result in results]
             blobs[key] = xr.concat(_blob, self.plasma_profiler.plasma.t)
         self.blobs = blobs
-        self.midplane_blobs = map_plasma_profile_to_midplane(self.plasma_profiler.plasma, blobs)
+        self.midplane_blobs = map_plasma_profile_to_midplane(
+            self.plasma_profiler.plasma, blobs
+        )
 
         opt_samples = {}
         for key in results[0].keys():

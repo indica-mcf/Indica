@@ -1,3 +1,4 @@
+from abc import ABC
 from copy import deepcopy
 
 import matplotlib.pylab as plt
@@ -8,18 +9,16 @@ from xarray import DataArray
 
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
-from abc import ABC
 
 
 def gaussian(x, A, B, x_0, w):
-    return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w ** 2)) + B
+    return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
 
 
 class Profiler(ABC):
     # protocol for profilers to follow
 
-    def __init__(self,
-                 parameters: dict = None):
+    def __init__(self, parameters: dict = None):
 
         if parameters is None:
             parameters = {}
@@ -55,12 +54,12 @@ class Profiler(ABC):
 
 class ProfilerGauss(Profiler):
     def __init__(
-            self,
-            datatype: str = "electron_temperature",
-            xend: float = 1.05,
-            xspl: np.ndarray = None,
-            coord="poloidal",
-            parameters: dict = None,
+        self,
+        datatype: str = "electron_temperature",
+        xend: float = 1.05,
+        xspl: np.ndarray = None,
+        coord="poloidal",
+        parameters: dict = None,
     ):
         """
         Class to build general gaussian profiles
@@ -105,11 +104,11 @@ class ProfilerGauss(Profiler):
         self.set_parameters(**parameters)
 
     def __call__(
-            self,
-            y0_fix=False,
-            y0_ref=None,
-            wcenter_exp=0.05,
-            debug=False,
+        self,
+        y0_fix=False,
+        y0_ref=None,
+        wcenter_exp=0.05,
+        debug=False,
     ):
         """
         Builds the profiles using the parameters set
@@ -139,8 +138,8 @@ class ProfilerGauss(Profiler):
         edge = self.y1
 
         if peaking2 > 1:
-            centre = y0_ref
-            wcenter = self.wcenter - (peaking2 ** wcenter_exp - 1)
+            center = y0_ref
+            wcenter = self.wcenter - (peaking2**wcenter_exp - 1)
         else:
             wcenter = self.wcenter
 
@@ -149,17 +148,21 @@ class ProfilerGauss(Profiler):
         x = self.x[np.where(self.x <= 1.0)[0]]
 
         # baseline profile shape
-        y_baseline = (center - self.y1) * (1 - x ** self.wped) + self.y1
+        y_baseline = (center - self.y1) * (1 - x**self.wped) + self.y1
 
         if self.peaking != 1:  # add central peaking
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
-            y_peaking1 = gaussian(x, center * (self.peaking - 1), 0, 0, sigma) + y_baseline
+            y_peaking1 = (
+                gaussian(x, center * (self.peaking - 1), 0, 0, sigma) + y_baseline
+            )
         else:
             y_peaking1 = y_baseline
 
         if peaking2 != 1:  # add additional peaking
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
-            y_peaking2 = gaussian(x, y_peaking1[0] * (peaking2 - 1), 0, 0, sigma) + y_peaking1
+            y_peaking2 = (
+                gaussian(x, y_peaking1[0] * (peaking2 - 1), 0, 0, sigma) + y_peaking1
+            )
         else:
             y_peaking2 = y_peaking1
 
@@ -209,14 +212,15 @@ class ProfilerBasis(Profiler):
         normalised radial grid [0, 1]  on which profile is to be built
     """
 
-    def __init__(self,
-                 basis_functions: np.ndarray,
-                 bias: np.ndarray,
-                 ncomps: int = 2,
-                 radial_grid: np.ndarray = None,
-                 coord="rho_poloidal",
-                 parameters: dict = None,
-                 ):
+    def __init__(
+        self,
+        basis_functions: np.ndarray,
+        bias: np.ndarray,
+        ncomps: int = 2,
+        radial_grid: np.ndarray = None,
+        coord="rho_poloidal",
+        parameters: dict = None,
+    ):
         super().__init__(parameters)
         self.basis_functions = basis_functions
         self.bias = bias
@@ -224,18 +228,23 @@ class ProfilerBasis(Profiler):
         self.radial_grid = radial_grid
         self.coord = coord
 
-        # Weights have to be dynamically assigned as attributes so they can be accessed / changed by the profiler
+        # Weights have to be dynamically assigned as attributes so they can be accessed
+        # / changed by the profiler
         for icomp in range(self.ncomps):
             param_name = f"weight_{icomp + 1}"
             self.parameters[param_name] = 0
             setattr(self, param_name, 0)
 
-    def construct_profile(self, ):
-        weights = np.stack([weight for weight_name, weight in self.parameters.items()], axis=-1).T
+    def construct_profile(
+        self,
+    ):
+        weights = np.stack(
+            [weight for weight_name, weight in self.parameters.items()], axis=-1
+        ).T
         return np.dot(weights, self.basis_functions) + self.bias
 
     def __call__(
-            self,
+        self,
     ):
         """
         Builds the profile from basis functions using the parameters set
@@ -297,9 +306,7 @@ def get_defaults(datatype: str) -> dict:
     }
 
     if datatype not in parameters.keys():
-        raise ValueError(
-            f"\n Profile {datatype} not available "
-        )
+        raise ValueError(f"\n Profile {datatype} not available ")
 
     return parameters[datatype]
 
@@ -433,7 +440,7 @@ def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None)
     post = deepcopy(pre)
 
     if volume is None:
-        volume = DataArray(0.85 * pre.xspl ** 3, coords=[("rho_poloidal", pre.xspl)])
+        volume = DataArray(0.85 * pre.xspl**3, coords=[("rho_poloidal", pre.xspl)])
     vol = volume.interp(rho_poloidal=pre.yspl.rho_poloidal)
     vol_int_pre = np.trapz(pre.yspl, vol)
 
@@ -470,13 +477,13 @@ def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None)
 
 
 def density_crash(
-        los_avrg=2.8e19,
-        drop=0.9,
-        rho=np.linspace(0, 1, 20),
-        rho_inv=0.4,
-        identifier="density",
+    los_avrg=2.8e19,
+    drop=0.9,
+    rho=np.linspace(0, 1, 20),
+    rho_inv=0.4,
+    identifier="density",
 ):
-    volume = DataArray(0.85 * rho ** 3, coords=[("rho_poloidal", rho)])
+    volume = DataArray(0.85 * rho**3, coords=[("rho_poloidal", rho)])
 
     pre = ProfilerGauss(datatype=(identifier, "electron"), xspl=rho)
     pre.wcenter = rho_inv / 1.5

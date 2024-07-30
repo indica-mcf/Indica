@@ -9,10 +9,12 @@ from indica.models import Plasma
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import ST40Conf
 from indica.readers import ST40Reader
-from indica.workflows.plasma_profiler import PlasmaProfiler, initialise_gauss_profilers
+from indica.workflows.plasma_profiler import initialise_gauss_profilers
+from indica.workflows.plasma_profiler import PlasmaProfiler
 
 PROJECT_PATH = Path(__file__).parent.parent
 DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
+
 
 def save_default_objects(
     machine: str,

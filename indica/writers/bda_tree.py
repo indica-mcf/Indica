@@ -302,7 +302,6 @@ def write_nodes(pulse_to_write, result, node_info, debug=False):
     )
 
 
-
 if __name__ == "__main__":
 
     pulse = 43000000

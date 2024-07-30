@@ -295,16 +295,16 @@ class HelikeSpectrometer(AbstractDiagnostic):
             measured_intensity[line] = los_integral
             emission_los[line] = emission_los
 
-            Te_along_los = self.transform.map_profile_to_los(
-                self.Te, t=emission.t
-            ).sel(channel=channels)
+            Te_along_los = self.transform.map_profile_to_los(self.Te, t=emission.t).sel(
+                channel=channels
+            )
             measured_Te[line] = (emission_los * Te_along_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
 
-            Ti_along_los = self.transform.map_profile_to_los(
-                self.Ti, t=emission.t
-            ).sel(channel=channels)
+            Ti_along_los = self.transform.map_profile_to_los(self.Ti, t=emission.t).sel(
+                channel=channels
+            )
             measured_Ti[line] = (emission_los * Ti_along_los).sum(
                 "los_position", skipna=True
             ) / emission_sum
@@ -562,4 +562,3 @@ class HelikeSpectrometer(AbstractDiagnostic):
             # plt.legend()
 
         plt.show(block=True)
-

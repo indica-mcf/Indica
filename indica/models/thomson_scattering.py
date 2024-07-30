@@ -111,7 +111,6 @@ class ThomsonScattering(AbstractDiagnostic):
         )
         Te_at_channels = Te_at_channels.assign_coords(
             z=("channel", self.transform.z.data)
-
         )
 
         self.Ne_at_channels = Ne_at_channels
@@ -159,4 +158,3 @@ class ThomsonScattering(AbstractDiagnostic):
         plt.xlabel("Channel")
         plt.ylabel("Measured electron temperature (eV)")
         plt.legend()
-

@@ -1,7 +1,14 @@
 from typing import Callable
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import *
+from indica.models import (
+    BolometerCamera,
+    ChargeExchangeSpectrometer,
+    EquilibriumReconstruction,
+    HelikeSpectrometer,
+    Interferometer,
+    ThomsonScattering,
+)
 
 
 class TestModels:
