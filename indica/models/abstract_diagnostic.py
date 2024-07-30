@@ -20,15 +20,6 @@ class AbstractDiagnostic(ABC):
         # TODO: types attribute set during initialisation!
         self.transform = transform
 
-        # if "LineOfSight" in str(transform):
-        #     self.los_transform = transform
-        # elif "Transect" in str(transform):
-        #     self.transect_transform = transform
-        # elif "Trivial" in str(transform):
-        #     self.trivial_transform = transform
-        # else:
-        #     self._transform = transform
-        #     print(f"{str(transform)} not recognized.")
 
     def set_plasma(self, plasma: Plasma):
         """
