@@ -1,7 +1,6 @@
 import xarray as xr
 
 from indica.models.abstract_diagnostic import AbstractDiagnostic
-from indica.defaults.load_defaults import load_default_objects
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
 from indica.utilities import check_time_present

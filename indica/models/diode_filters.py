@@ -8,7 +8,6 @@ from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
-from indica.defaults.load_defaults import load_default_objects
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
