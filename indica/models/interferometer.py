@@ -23,7 +23,7 @@ class Interferometer(AbstractDiagnostic):
         name: str,
         instrument_method="get_interferometry",
     ):
-        self.los_transform: LineOfSightTransform
+        self.transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -40,7 +40,7 @@ class Interferometer(AbstractDiagnostic):
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
                     "datatype": datatype,
-                    "transform": self.los_transform,
+                    "transform": self.transform,
                     "error": error,
                     "stdev": stdev,
                     "long_name": "Ne",
@@ -77,7 +77,7 @@ class Interferometer(AbstractDiagnostic):
         self.t: DataArray = t
         self.Ne: DataArray = Ne
 
-        los_integral_ne = self.los_transform.integrate_on_los(
+        los_integral_ne = self.transform.integrate_on_los(
             Ne,
             t=self.t,
             calc_rho=calc_rho,

@@ -22,7 +22,7 @@ class BolometerCamera(AbstractDiagnostic):
         name: str,
         instrument_method="get_radiation",
     ):
-        self.los_transform: LineOfSightTransform
+        self.transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -38,7 +38,7 @@ class BolometerCamera(AbstractDiagnostic):
                 error = xr.full_like(self.bckc[quantity], 0.0)
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
-                    "transform": self.los_transform,
+                    "transform": self.transform,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
@@ -105,7 +105,7 @@ class BolometerCamera(AbstractDiagnostic):
         self.emissivity_element = xr.concat(_emissivity, "element")
         self.emissivity = self.emissivity_element.sum("element")
 
-        self.los_integral = self.los_transform.integrate_on_los(
+        self.los_integral = self.transform.integrate_on_los(
             self.emissivity,
             t=t,
             calc_rho=calc_rho,
@@ -122,7 +122,7 @@ class BolometerCamera(AbstractDiagnostic):
             return
 
         # Line-of-sight information
-        self.los_transform.plot(np.mean(self.t))
+        self.transform.plot(np.mean(self.t))
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
