@@ -1,12 +1,7 @@
 from typing import Callable
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import Bolometer
-from indica.models import ChargeExchangeSpectrometer
-from indica.models import EquilibriumReconstruction
-from indica.models import HelikeSpectrometer
-from indica.models import Interferometer
-from indica.models import ThomsonScattering
+from indica.models import *
 
 
 class TestModels:
@@ -52,4 +47,4 @@ class TestModels:
         self.run_model("efit", EquilibriumReconstruction)
 
     def test_bolometer(self):
-        self.run_model("blom_xy1", Bolometer)
+        self.run_model("blom_xy1", BolometerCamera)
