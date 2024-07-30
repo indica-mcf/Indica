@@ -171,7 +171,7 @@ class PlasmaProfiler:
             plasma_attributes[attribute] = getattr(self.plasma, attribute).sel(t=self.plasma.time_to_calculate)
         return plasma_attributes
 
-    def __call__(self, parameters: dict, t=None):
+    def __call__(self, parameters: dict = None, t=None):
         """
         Set parameters of desired profilers and assign to plasma class profiles
 
