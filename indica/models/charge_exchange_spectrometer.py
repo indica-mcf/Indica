@@ -46,6 +46,9 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             elif quant == "fit":
                 # Placeholder
                 continue
+            elif quant == "conc":
+                # Placeholder
+                continue
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
