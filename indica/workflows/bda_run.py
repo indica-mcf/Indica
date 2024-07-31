@@ -70,7 +70,7 @@ INSTRUMENT_MAPPING: dict = {
 @hydra.main(
     version_base=None,
     config_path="../configs/workflows/bda_run",
-    config_name="mock_run",
+    config_name="basic_run",
 )
 def bda_run(
     cfg: DictConfig,
