@@ -12,7 +12,7 @@ class TestBDARun:
             version_base=None, config_path="../../../indica/configs/workflows/bda_run"
         ):
             cfg = compose(
-                config_name="mock_run", overrides=["write_info.mds_write=False"]
+                config_name="mock_run",
             )
         bda_run(cfg)
 
