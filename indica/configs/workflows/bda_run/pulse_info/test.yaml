@@ -12,5 +12,3 @@ quant_to_optimise: [
     "cxff_tws_c.ti",
     "cxff_pi.ti",
 ]
-
-
