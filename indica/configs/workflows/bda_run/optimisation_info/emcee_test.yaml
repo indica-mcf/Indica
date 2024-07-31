@@ -1,6 +1,5 @@
 
-param_names: ["impurity_density:ar.y0"
-]
+param_names: []
 pca_profiles: ["ion_temperature", ]
 pca_components: 2
 
@@ -8,6 +7,6 @@ starting_samples: 50
 iterations: 10
 nwalkers: 10
 stopping_criteria_factor: 0.01
-sample_method: "high_density"
+sample_method: "random"
 stopping_criteria: "mode"
 burn_frac: 0.1

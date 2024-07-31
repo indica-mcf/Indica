@@ -6,7 +6,7 @@ defaults:
   - data_info/exp
   - model_info/all_models
   - write_info/test
-  - pulse_info/p11416
+  - pulse_info/p11089
 
 
 pulse_info:

@@ -46,7 +46,7 @@ def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
             if verbose:
                 print(f"no error function defined for {key}")
             continue
-        # TODO: better way of handling errors for exp + phantom cases
+        # TODO: find better way of handling errors for exp + phantom cases
         # if "error" in value.coords:
         #     if verbose:
         #         print(f"{key} contains error: skipping")
@@ -79,31 +79,37 @@ def bda_run(
     log.info(f"Beginning BDA for pulse {cfg.pulse_info.pulse}")
     dirname = f"{cfg.pulse_info.pulse}.{cfg.write_info.run}"
 
-    log.info("Initialising plasma and plasma_profiler")
-    plasma = Plasma(
-        tstart=cfg.pulse_info.tstart,
-        tend=cfg.pulse_info.tend,
-        dt=cfg.pulse_info.dt,
-        **cfg.plasma_settings,
-    )
+    if cfg.data_info.mock:
+        log.info("Using mock plasma")
+        plasma = load_default_objects("st40", "plasma")
+    else:
+        log.info("Initialising plasma")
+        plasma = Plasma(
+            tstart=cfg.pulse_info.tstart,
+            tend=cfg.pulse_info.tend,
+            dt=cfg.pulse_info.dt,
+            **cfg.plasma_settings,
+        )
 
+    log.info("Initialising plasma_profiler")
     profilers = initialise_gauss_profilers(xspl=plasma.rho)
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
     plasma_profiler(cfg.data_info.profile_params_to_update)
 
-    log.info("PPTS reading")
-    ppts_reader = ReadST40(
-        pulse=cfg.pulse_info.pulse + cfg.data_info.ppts_modelling_number,
-        tstart=cfg.pulse_info.tstart,
-        tend=cfg.pulse_info.tend,
-        dt=cfg.pulse_info.dt,
-        tree="ppts",
-    )
-    ppts_reader(
-        ["ppts"],
-        revisions=OmegaConf.to_container(cfg.data_info.revisions),
-        fetch_equilbrium=False,
-    )
+    if cfg.data_info.set_ts or cfg.data_info.apply_rshift:
+        log.info("PPTS reading")
+        ppts_reader = ReadST40(
+            pulse=cfg.pulse_info.pulse + cfg.data_info.ppts_modelling_number,
+            tstart=cfg.pulse_info.tstart,
+            tend=cfg.pulse_info.tend,
+            dt=cfg.pulse_info.dt,
+            tree="ppts",
+        )
+        ppts_reader(
+            ["ppts"],
+            revisions=OmegaConf.to_container(cfg.data_info.revisions),
+            fetch_equilbrium=False,
+        )
 
     if cfg.data_info.set_ts:
         # interp ppts profiles as some are empty
@@ -144,22 +150,43 @@ def bda_run(
         R_shift = ppts_reader.raw_data["ppts"]["R_shift"]
         log.info(f"R shift of: {R_shift}")
 
-    equil_reader = ReadST40(
-        pulse=cfg.data_info.equilibrium.modelling_number + cfg.pulse_info.pulse,
-        tstart=cfg.pulse_info.tstart,
-        tend=cfg.pulse_info.tend,
-        dt=cfg.pulse_info.dt,
-    )
-    equil_reader(
-        [cfg.data_info.equilibrium.code],
-        revisions=OmegaConf.to_container(cfg.data_info.equilibrium.revisions),
-        R_shift=R_shift,
-    )
-    equilibrium = equil_reader.equilibrium
+    if cfg.data_info.mock:
+        log.info("Using mock equilibrium")
+        equilibrium = load_default_objects("st40", "equilibrium")
+    else:
+        log.info("Reading equilibrium")
+        equil_reader = ReadST40(
+            pulse=cfg.data_info.equilibrium.modelling_number + cfg.pulse_info.pulse,
+            tstart=cfg.pulse_info.tstart,
+            tend=cfg.pulse_info.tend,
+            dt=cfg.pulse_info.dt,
+        )
+        equil_reader(
+            [cfg.data_info.equilibrium.code],
+            revisions=OmegaConf.to_container(cfg.data_info.equilibrium.revisions),
+            R_shift=R_shift,
+        )
+        equilibrium = equil_reader.equilibrium
+
     plasma.set_equilibrium(equilibrium=equilibrium)
 
     # different data handling methods TODO: abstract these to an interface
-    if cfg.data_info.phantom:  # Currently broken
+
+    if cfg.data_info.mock:
+        log.info("Using mock data reader strategy")
+        transforms = load_default_objects("st40", "geometry")
+        models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
+        reader = ModelCoordinator(
+            models,
+            OmegaConf.to_container(cfg.model_info),
+        )
+        reader.set_transforms(transforms)
+        reader.set_equilibrium(
+            equilibrium,
+        )
+        reader.set_plasma(plasma)
+
+    elif cfg.data_info.phantom:  # Currently broken
         log.info("Using phantom reader strategy")
         phantom_reader = ReadST40(
             pulse=cfg.pulse_info.pulse,
@@ -189,21 +216,6 @@ def bda_run(
             more_model_settings = {}
         reader.init_models(**more_model_settings)
         reader.set_transforms(phantom_reader.transforms)
-        reader.set_equilibrium(
-            equil_reader.equilibrium,
-        )
-        reader.set_plasma(plasma)
-
-    elif cfg.data_info.mock:
-        log.info("Using mock reader strategy")
-        equilibrium = load_default_objects("st40", "equilibrium")
-        transforms = load_default_objects("st40", "geometry")
-        models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
-        reader = ModelCoordinator(
-            models,
-            OmegaConf.to_container(cfg.model_info),
-        )
-        reader.set_transforms(transforms)
         reader.set_equilibrium(
             equilibrium,
         )
@@ -295,6 +307,7 @@ def bda_run(
         stopping_criteria_debug=True,
     )
 
+    log.info("Initialising Optimiser Context")
     optimiser_context = EmceeOptimiser(
         optimiser_settings=optimiser_settings,
         prior_manager=prior_manager,
@@ -310,7 +323,7 @@ def bda_run(
         prior_manager=prior_manager,
     )
 
-    log.info("Beginning BDA")
+    log.info("Running BDA")
     workflow(
         pulse_to_write=cfg.pulse_info.pulse_to_write,
         run=cfg.write_info.run,

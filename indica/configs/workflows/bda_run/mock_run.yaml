@@ -3,7 +3,13 @@ defaults:
   - priors/default
   - plasma_settings/default
   - optimisation_info/emcee_test
-  - data_info/exp
+  - data_info/mock
   - model_info/all_models
   - write_info/test
   - pulse_info/test
+
+write_info:
+  mds_write: True
+  run: TEST
+  best: False
+  run_info: Test run
