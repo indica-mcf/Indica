@@ -3,15 +3,13 @@ from typing import Callable
 import matplotlib.pylab as plt
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import (
-    BolometerCamera,
-    BremsstrahlungDiode,
-    ChargeExchangeSpectrometer,
-    EquilibriumReconstruction,
-    HelikeSpectrometer,
-    Interferometer,
-    ThomsonScattering,
-)
+from indica.models import BolometerCamera
+from indica.models import BremsstrahlungDiode
+from indica.models import ChargeExchangeSpectrometer
+from indica.models import EquilibriumReconstruction
+from indica.models import HelikeSpectrometer
+from indica.models import Interferometer
+from indica.models import ThomsonScattering
 
 
 def run_example_diagnostic_model(

@@ -7,14 +7,12 @@ from omegaconf import DictConfig
 from omegaconf import OmegaConf
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import (
-    ChargeExchangeSpectrometer,
-    EquilibriumReconstruction,
-    HelikeSpectrometer,
-    Interferometer,
-    Plasma,
-    ThomsonScattering,
-)
+from indica.models import ChargeExchangeSpectrometer
+from indica.models import EquilibriumReconstruction
+from indica.models import HelikeSpectrometer
+from indica.models import Interferometer
+from indica.models import Plasma
+from indica.models import ThomsonScattering
 from indica.readers.read_st40 import ReadST40
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.bayes_workflow import EmceeOptimiser

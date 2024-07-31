@@ -4,15 +4,13 @@ from typing import List
 
 from xarray import DataArray
 
-from indica.models import (
-    BolometerCamera,
-    BremsstrahlungDiode,
-    ChargeExchangeSpectrometer,
-    HelikeSpectrometer,
-    Interferometer,
-    SXRcamera,
-    ThomsonScattering,
-)
+from indica.models import BolometerCamera
+from indica.models import BremsstrahlungDiode
+from indica.models import ChargeExchangeSpectrometer
+from indica.models import HelikeSpectrometer
+from indica.models import Interferometer
+from indica.models import SXRcamera
+from indica.models import ThomsonScattering
 from indica.models.plasma import Plasma
 from indica.readers import ST40Conf
 
