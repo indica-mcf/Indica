@@ -5,7 +5,7 @@ pca_components: 2
 
 starting_samples: 20
 iterations: 10
-nwalkers: 6
+nwalkers: 10
 stopping_criteria_factor: 0.01
 sample_method: "random"
 stopping_criteria: "mode"
