@@ -79,17 +79,13 @@ def bda_run(
     log.info(f"Beginning BDA for pulse {cfg.pulse_info.pulse}")
     dirname = f"{cfg.pulse_info.pulse}.{cfg.write_info.run}"
 
-    if cfg.data_info.mock:
-        log.info("Using mock plasma")
-        plasma = load_default_objects("st40", "plasma")
-    else:
-        log.info("Initialising plasma")
-        plasma = Plasma(
-            tstart=cfg.pulse_info.tstart,
-            tend=cfg.pulse_info.tend,
-            dt=cfg.pulse_info.dt,
-            **cfg.plasma_settings,
-        )
+    log.info("Initialising plasma")
+    plasma = Plasma(
+        tstart=cfg.pulse_info.tstart,
+        tend=cfg.pulse_info.tend,
+        dt=cfg.pulse_info.dt,
+        **cfg.plasma_settings,
+    )
 
     log.info("Initialising plasma_profiler")
     profilers = initialise_gauss_profilers(xspl=plasma.rho)
@@ -180,6 +176,7 @@ def bda_run(
             models,
             OmegaConf.to_container(cfg.model_info),
         )
+        reader.init_models()
         reader.set_transforms(transforms)
         reader.set_equilibrium(
             equilibrium,
