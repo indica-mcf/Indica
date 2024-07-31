@@ -8,8 +8,3 @@ defaults:
   - write_info/test
   - pulse_info/test
 
-write_info:
-  mds_write: False
-  run: TEST
-  best: False
-  run_info: Test run
