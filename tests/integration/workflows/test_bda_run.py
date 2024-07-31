@@ -8,6 +8,7 @@ from indica.workflows.bda_run import bda_run
 PROJECT_PATH = Path(__file__).parent.parent
 CONFIG_PATH = f"{PROJECT_PATH}/configs"
 
+
 class TestBDARun:
     def test_bda_run(
         self,
