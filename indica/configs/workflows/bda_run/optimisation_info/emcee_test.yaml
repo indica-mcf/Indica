@@ -1,11 +1,11 @@
 
-param_names: []
-pca_profiles: ["ion_temperature", ]
+param_names: ["ion_temperature.y0"]
+pca_profiles: []
 pca_components: 2
 
-starting_samples: 50
+starting_samples: 20
 iterations: 10
-nwalkers: 10
+nwalkers: 6
 stopping_criteria_factor: 0.01
 sample_method: "random"
 stopping_criteria: "mode"
