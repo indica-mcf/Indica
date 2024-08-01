@@ -5,13 +5,13 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import TransectCoordinates
-from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
 
 
-class ThomsonScattering(DiagnosticModel):
+class ThomsonScattering(AbstractDiagnostic):
     """
     Object representing a Thomson scattering diagnostic
     """
@@ -21,7 +21,7 @@ class ThomsonScattering(DiagnosticModel):
         name: str,
         instrument_method="get_thomson_scattering",
     ):
-        self.transect_transform: TransectCoordinates
+        self.transform: TransectCoordinates
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -47,7 +47,7 @@ class ThomsonScattering(DiagnosticModel):
             error = xr.full_like(self.bckc[quantity], 0.0)
             stdev = xr.full_like(self.bckc[quantity], 0.0)
             self.bckc[quantity].attrs = {
-                "transform": self.transect_transform,
+                "transform": self.transform,
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
@@ -90,27 +90,27 @@ class ThomsonScattering(DiagnosticModel):
         self.Ne = Ne
         self.Te = Te
 
-        Ne_at_channels = self.transect_transform.map_profile_to_rho(
+        Ne_at_channels = self.transform.map_profile_to_rho(
             Ne,
             t=self.t,
             calc_rho=calc_rho,
         )
         Ne_at_channels = Ne_at_channels.assign_coords(
-            R=("channel", self.transect_transform.R.data)
+            R=("channel", self.transform.R.data)
         )
         Ne_at_channels = Ne_at_channels.assign_coords(
-            z=("channel", self.transect_transform.z.data)
+            z=("channel", self.transform.z.data)
         )
-        Te_at_channels = self.transect_transform.map_profile_to_rho(
+        Te_at_channels = self.transform.map_profile_to_rho(
             Te,
             t=self.t,
             calc_rho=calc_rho,
         )
         Te_at_channels = Te_at_channels.assign_coords(
-            R=("channel", self.transect_transform.R.data)
+            R=("channel", self.transform.R.data)
         )
         Te_at_channels = Te_at_channels.assign_coords(
-            z=("channel", self.transect_transform.z.data)
+            z=("channel", self.transform.z.data)
         )
 
         self.Ne_at_channels = Ne_at_channels

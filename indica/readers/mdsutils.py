@@ -125,7 +125,7 @@ class MDSUtils(BaseIO):
 
     def get_revision(self, uid: str, instrument: str, revision: RevisionLike) -> str:
         """
-        Return revision name to which BEST is pointing to
+        Return revision name given
         """
         revision_name = self.revision_name(revision)
         if revision_name == "BEST":
