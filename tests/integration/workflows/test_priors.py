@@ -23,7 +23,5 @@ class TestPriors:
 
     def test_sampling_from_priors(self):
         pm = PriorManager(**self.cfg)
-        sample_from_priors(
-            ["electron_density.y0", "electron_density.y1"], pm.priors
-        )
+        sample_from_priors(["electron_density.y0", "electron_density.y1"], pm.priors)
         assert True
