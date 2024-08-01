@@ -251,7 +251,7 @@ def bda_run(
     if "xrcs" in reader.binned_data.keys():
         more_model_settings = {
             "xrcs": {
-                "window": reader.binned_data["xrcs"]["intens"].wavelength,
+                "window": reader.binned_data["xrcs"]["raw_spectra"].wavelength,
                 "background": reader.binned_data["xrcs"]["background"],
             },
         }
