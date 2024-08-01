@@ -1,6 +1,5 @@
-
 from hydra import compose
-from hydra import initialize_config_dir, initialize_config_module, initialize
+from hydra import initialize_config_module
 
 from indica.workflows.bda_run import bda_run
 

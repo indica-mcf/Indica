@@ -219,7 +219,7 @@ class DataReader(BaseIO):
                 dims = ["t"]
             else:
                 raise ValueError(f"Unknown quantity: {quantity}")
-            if quantity is "R_shift":
+            if quantity == "R_shift":
                 include_error = False
             else:
                 include_error = True
