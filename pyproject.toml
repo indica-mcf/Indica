@@ -67,7 +67,7 @@ coverage = {extras = ["toml"], version = "^7.5.1"}
 hypothesis = {extras = ["numpy"], version = "^5.24.2"}
 mypy = "^0.942"
 pre-commit = "^2.9.2"
-pytest = "^6.0.1"
+pytest = "^8.3.2"
 pytest-cov = "^2.10.0"
 pytest-xdist = "^2.0.0"
 types-setuptools = "^57.4.14"
