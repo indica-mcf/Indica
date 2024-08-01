@@ -6,10 +6,11 @@ import numpy as np
 from indica.defaults.load_defaults import get_filename_default_objects
 from indica.equilibrium import Equilibrium
 from indica.models import Plasma
-from indica.models.plasma import PlasmaProfiles
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import ST40Conf
 from indica.readers import ST40Reader
+from indica.workflows.plasma_profiler import initialise_gauss_profilers
+from indica.workflows.plasma_profiler import PlasmaProfiler
 
 PROJECT_PATH = Path(__file__).parent.parent
 DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
@@ -83,11 +84,12 @@ def save_default_objects(
     plasma.power_loss_sxr = power_loss_sxr
 
     # Assign profiles to time-points
-    update_profiles = PlasmaProfiles(plasma)
+    gauss_profilers = initialise_gauss_profilers(xspl=plasma.rho)
+    plasma_profiler = PlasmaProfiler(plasma, gauss_profilers)
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
     te_peaking = np.linspace(1, 2, nt)
-    _y0 = update_profiles.profilers["toroidal_rotation"].y0
+    _y0 = plasma_profiler.profilers["toroidal_rotation"].y0
     vrot0 = np.linspace(
         _y0 * 1.1,
         _y0 * 2.5,
@@ -95,10 +97,10 @@ def save_default_objects(
     )
     vrot_peaking = np.linspace(1, 2, nt)
 
-    _y0 = update_profiles.profilers["ion_temperature"].y0
+    _y0 = plasma_profiler.profilers["ion_temperature"].y0
     ti0 = np.linspace(_y0 * 1.1, _y0 * 2.5, nt)
 
-    _y0 = update_profiles.profilers[f"impurity_density:{plasma.impurities[0]}"].y0
+    _y0 = plasma_profiler.profilers[f"impurity_density:{plasma.impurities[0]}"].y0
     nimp_y0 = _y0 * 5 * np.linspace(1, 8, nt)
     nimp_peaking = np.linspace(1, 5, nt)
     nimp_wcenter = np.linspace(0.4, 0.1, nt)
@@ -114,7 +116,7 @@ def save_default_objects(
             f"impurity_density:{plasma.impurities[1]}.y0": nimp_y0[i],
             f"impurity_density:{plasma.impurities[1]}.wcenter": nimp_wcenter[i],
         }
-        update_profiles(parameters, t=t)
+        plasma_profiler(parameters, t=t)
     print(f"\n Writing plasma object to: {plasma_file}. \n")
     pickle.dump(plasma, open(plasma_file, "wb"))
 

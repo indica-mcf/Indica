@@ -17,7 +17,6 @@ from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import default_atomic_data
 import indica.physics as ph
-from indica.profiles_gauss import Profiles as ProfilesGauss
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
@@ -86,6 +85,7 @@ class Plasma:
             print_like("Only rho_poloidal in input for the time being...")
             raise AssertionError
 
+        self.build_atomic_data()
         self.initialize_variables(n_rad, n_R, n_z)
 
         self.equilibrium: Equilibrium
@@ -118,11 +118,6 @@ class Plasma:
         """
         Initialize all class attributes
         """
-
-        self.optimisation: dict = {}
-        self.forward_models: dict = {}
-        self.power_loss_sxr: dict = {}
-        self.power_loss_tot: dict = {}
 
         # Machine attributes
         R0, R1 = self.machine_dimensions[0]
@@ -834,91 +829,3 @@ class CachedCalculation(TrackDependecies):
         if self.verbose:
             print("Calculating")
         return deepcopy(self.operator())
-
-
-class PlasmaProfiles:
-    def __init__(self, plasma: Plasma, profiler_object: Callable = ProfilesGauss):
-        """
-        Interface a Profiler class with a Plasma object to generate plasma profiles
-        and update them.
-
-        Parameters
-        ----------
-        plasma
-            Plasma object
-        profiler
-            Object to generate profiles
-
-        TODO: currently testing keys == datatypes e.g. "electron_temperature" instead of
-              "Te_prof" so that profiler key = plasma attribute.
-        """
-        self.plasma = plasma
-        impurities = plasma.impurities
-
-        # Ion_temperature and toroidal_rotation currently taken as equal for all ion
-        profile_datatypes = [
-            "electron_temperature",
-            "ion_temperature",
-            "electron_density",
-            "neutral_density",
-            "toroidal_rotation",
-        ]
-        profilers: dict = {}
-        for profile_datatype in profile_datatypes:
-            profilers[profile_datatype] = profiler_object(
-                datatype=profile_datatype, xspl=plasma.rho
-            )
-        # Impurities have separate profilers identified by datatype:element, e.g.
-        # impurity_density:c or impurity_density:ar
-        profile_datatype = "impurity_density"
-        for element in impurities:
-            profilers[f"{profile_datatype}:{element}"] = profiler_object(
-                datatype=profile_datatype, xspl=plasma.rho
-            )
-        self.profilers = profilers
-
-    def __call__(self, parameters: dict, t: float = None):
-        """
-        Set parameters of desired profilers and assign to plasma class profiles
-
-        Parameters
-        ----------
-        parameters
-            Flat dictionary of {"datatype.parameter":value} with:
-            - datatype in profiler_dict.keys()
-            - parameter in profiler.profile_parameters.keys().
-            Special case for impurity density:
-                {"datatype:element.parameter":value}
-        """
-        plasma = self.plasma
-        profilers = self.profilers
-        _profiles_to_update: list = []
-
-        # Set all parameters for all profilers
-        for identifier, value in parameters.items():
-            profile_datatype, parameter = identifier.split(".")
-
-            if profile_datatype not in profilers.keys():
-                raise ValueError(f"No profiler available for {profile_datatype}")
-            if not hasattr(profilers[profile_datatype], parameter):
-                raise ValueError(
-                    f"No parameter {parameter} available for {profile_datatype}"
-                )
-            setattr(profilers[profile_datatype], parameter, value)
-            _profiles_to_update.append(profile_datatype)
-
-        if t is None:
-            t = plasma.time_to_calculate
-
-        # Update only desired profiles, distinguish case of impurity_density
-        profiles_to_update = np.unique(_profiles_to_update)
-        for profile_datatype in profiles_to_update:
-            profiler_output = profilers[profile_datatype]()
-            if "impurity_density" in profile_datatype:
-                datatype, element = profile_datatype.split(":")
-                getattr(plasma, datatype).loc[
-                    dict(t=t, element=element)
-                ] = profiler_output
-            else:
-                datatype = profile_datatype
-                getattr(plasma, datatype).loc[dict(t=t)] = profiler_output

@@ -25,11 +25,10 @@ def plot_profile(
     color="blue",
 ):
     set_plot_rcparams("profiles")
-
     plt.fill_between(
         profile.rho_poloidal,
-        profile.quantile(0.16, dim="index"),
-        profile.quantile(0.84, dim="index"),
+        profile.quantile(0.16, dim="sample_idx"),
+        profile.quantile(0.84, dim="sample_idx"),
         label=f"{label}, 68% Confidence",
         zorder=3,
         color=color,
@@ -38,8 +37,8 @@ def plot_profile(
     if label != "NFAST":
         plt.fill_between(
             profile.rho_poloidal,
-            profile.quantile(0.025, dim="index"),
-            profile.quantile(0.975, dim="index"),
+            profile.quantile(0.025, dim="sample_idx"),
+            profile.quantile(0.975, dim="sample_idx"),
             label=f"{label}, 95% Confidence",
             zorder=2,
             color="grey",
@@ -47,8 +46,8 @@ def plot_profile(
         )
         plt.fill_between(
             profile.rho_poloidal,
-            profile.quantile(0.005, dim="index"),
-            profile.quantile(0.995, dim="index"),
+            profile.quantile(0.005, dim="sample_idx"),
+            profile.quantile(0.995, dim="sample_idx"),
             label=f"{label}, Max-Min",
             zorder=1,
             color="lightgrey",
@@ -93,48 +92,44 @@ def _plot_1d(
     hide_legend=False,
     **kwargs,
 ):
+    set_plot_rcparams("multi")
     plt.figure(figsize=figsize)
-    dims = tuple(name for name in data.dims if name != "index")
+    dims = tuple(name for name in data.dims if name != "sample_idx")
     plt.fill_between(
         data.__getattr__(dims[0]),
-        data.quantile(0.16, dim="index"),
-        data.quantile(0.84, dim="index"),
+        data.quantile(0.16, dim="sample_idx"),
+        data.quantile(0.84, dim="sample_idx"),
         label=f"{label}, 68% Confidence",
         zorder=3,
         color="blue",
     )
     plt.fill_between(
         data.__getattr__(dims[0]),
-        data.quantile(0.025, dim="index"),
-        data.quantile(0.975, dim="index"),
+        data.quantile(0.025, dim="sample_idx"),
+        data.quantile(0.975, dim="sample_idx"),
         label=f"{label}, 95% Confidence",
         zorder=2,
         color="grey",
     )
     plt.fill_between(
         data.__getattr__(dims[0]),
-        data.quantile(0.005, dim="index"),
-        data.quantile(0.995, dim="index"),
+        data.quantile(0.005, dim="sample_idx"),
+        data.quantile(0.995, dim="sample_idx"),
         label=f"{label}, Max-Min",
         zorder=1,
         color="lightgrey",
     )
-    if "channel" in dims:
-        plt.plot(
-            diag_data.__getattr__(dims[0]),
-            diag_data,
-            "k^",
-            label=f"{label} data",
-            zorder=4,
-        )
-    else:
-        plt.plot(
-            diag_data.__getattr__(dims[0]),
-            diag_data,
-            "k-",
-            label=f"{label} data",
-            zorder=4,
-        )
+    plt.errorbar(
+        diag_data.__getattr__(dims[0]),
+        diag_data,
+        diag_data.error,
+        fmt="k*",
+        label=f"{label} data",
+        zorder=4,
+        capsize=3,
+        markersize=5,
+        elinewidth=1,
+    )
 
     plt.gca().set_ylim(bottom=0)
     set_axis_sci()
@@ -150,7 +145,6 @@ def _plot_1d(
 def violinplot(
     data,
     diag_data,
-    diag_data_err,
     filename: str,
     xlabel="",
     ylabel="[a.u.]",
@@ -173,7 +167,7 @@ def violinplot(
     axs.errorbar(
         1,
         y=diag_data,
-        yerr=diag_data_err,
+        yerr=diag_data.error,
         fmt="D",
         ecolor="black",
         capsize=10,
@@ -264,7 +258,7 @@ def plot_bayes_result(
     # Create time directories
     time = results["TIME"]
     element = results["ELEMENT"]
-    for t in time.values:
+    for t in time:
         Path(filepath + f"/t:{t:.2f}").mkdir(parents=True, exist_ok=True)
 
     diag_data = flatdict.FlatDict(results["DIAG_DATA"], ".")
@@ -276,21 +270,9 @@ def plot_bayes_result(
     param_names = results["OPTIMISATION"]["PARAM_NAMES"]
     phantom_profiles = flatdict.FlatDict(results["PHANTOMS"], ".")
 
-    diag_data_err = {}
-    for key, value in diag_data.items():
-        if hasattr(value, "error"):
-            error = value.error
-            if np.any(error == 0):
-                error = value * 0.10
-        elif isinstance(value, flatdict.FlatDict):
-            continue
-        else:
-            error = value * 0.10
-        diag_data_err[key] = error
-
-    # select time index for plotting
+    # select time sample_idx for plotting
     for t_idx, t in enumerate(time):
-        figheader = filepath + f"t:{t.values:.2f}/"
+        figheader = filepath + f"t:{t:.2f}/"
 
         plot_autocorr(
             auto_corr[
@@ -301,15 +283,11 @@ def plot_bayes_result(
             filetype=filetype,
         )
         # set_plot_rcparams("multi")
-
-        # check if model key exists
-
         key = "EFIT.WP"
         if key in model_data.keys():
             violinplot(
                 model_data[key].sel(t=t),
                 diag_data[key].sel(t=t),
-                diag_data_err[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 xlabel=key,
                 figheader=figheader,
@@ -320,7 +298,6 @@ def plot_bayes_result(
             violinplot(
                 model_data[key].sel(t=t),
                 diag_data[key].sel(t=t),
-                diag_data_err[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 figheader=figheader,
                 xlabel=key,
@@ -331,7 +308,6 @@ def plot_bayes_result(
             violinplot(
                 model_data[key].sel(t=t),
                 diag_data[key].sel(t=t),
-                diag_data_err[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 figheader=figheader,
                 xlabel=key,
@@ -342,14 +318,13 @@ def plot_bayes_result(
             violinplot(
                 model_data[key].sel(t=t),
                 diag_data[key].sel(t=t),
-                diag_data_err[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 figheader=figheader,
                 xlabel=key,
                 ylabel="Temperature [eV]",
             )
 
-        key = "XRCS.SPECTRA"
+        key = "XRCS.INTENS"
         if key in model_data.keys():
             _plot_1d(
                 model_data[key].sel(t=t),
@@ -360,7 +335,7 @@ def plot_bayes_result(
                 ylabel="Intensity [a.u.]",
                 xlabel="Wavelength [nm]",
                 xlim=(0.394, 0.401),
-                figsize=(6, 4),
+                figsize=(15, 6),
             )
         key = "CXFF_PI.TI"
         if key in model_data.keys():
@@ -372,7 +347,7 @@ def plot_bayes_result(
                 figheader=figheader,
                 ylabel="Temperature [eV]",
                 xlabel="Channel",
-                hide_legend=True,
+                # hide_legend=True,
             )
         key = "CXFF_TWS_C.TI"
         if key in model_data.keys():
@@ -384,7 +359,7 @@ def plot_bayes_result(
                 figheader=figheader,
                 ylabel="Temperature [eV]",
                 xlabel="Channel",
-                hide_legend=True,
+                # hide_legend=True,
             )
 
         key = "TS.TE"
@@ -512,5 +487,5 @@ def plot_bayes_result(
 
 
 if __name__ == "__main__":
-    filehead = "./results/test/"
+    filehead = "./results/example/"
     plot_bayes_result(filepath=filehead, filetype=".png")

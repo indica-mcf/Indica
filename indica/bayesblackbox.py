@@ -1,9 +1,12 @@
 from copy import deepcopy
+from typing import Callable
 import warnings
 
 from flatdict import FlatDict
 import numpy as np
-from scipy.stats import uniform
+
+from indica.workflows.plasma_profiler import PlasmaProfiler
+from indica.workflows.priors import PriorManager
 
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
@@ -11,41 +14,6 @@ warnings.simplefilter("ignore", category=FutureWarning)
 
 def gaussian(x, mean, sigma):
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-1 / 2 * ((x - mean) / sigma) ** 2)
-
-
-def get_uniform(lower, upper):
-    # Less confusing parameterisation of scipy.stats uniform
-    return uniform(loc=lower, scale=upper - lower)
-
-
-def ln_prior(priors: dict, parameters: dict):
-    ln_prior = 0
-    for prior_name, prior_func in priors.items():
-        param_names_in_prior = [x for x in parameters.keys() if x in prior_name]
-        if param_names_in_prior.__len__() == 0:
-            # if prior assigned but no parameter then skip
-            continue
-        param_values = [parameters[x] for x in param_names_in_prior]
-        if hasattr(prior_func, "pdf"):
-            # for scipy.stats objects use pdf / for lambda functions just call
-            ln_prior += np.log(prior_func.pdf(*param_values))
-        else:
-            # if lambda prior with 2+ args is defined when only 1 of
-            # its parameters is given ignore it
-            if prior_func.__code__.co_argcount != param_values.__len__():
-                continue
-            else:
-                # Sorting to make sure args are given in the same order
-                # as the prior_name string
-                name_index = [
-                    prior_name.find(param_name_in_prior)
-                    for param_name_in_prior in param_names_in_prior
-                ]
-                sorted_name_index, sorted_param_values = (
-                    list(x) for x in zip(*sorted(zip(name_index, param_values)))
-                )
-                ln_prior += np.log(prior_func(*sorted_param_values))
-    return ln_prior
 
 
 class BayesBlackBox:
@@ -57,57 +25,50 @@ class BayesBlackBox:
     ----------
     data
         processed diagnostic data of format [diagnostic].[quantity]
-    plasma_context
-        plasma context has methods for using plasma object
-    model_handler
-        model_handler object to be called by ln_posterior
     quant_to_optimise
-        quantity from data which will be optimised with bckc from diagnostic_models
-    priors
-        prior functions to apply to parameters e.g. scipy.stats.rv_continuous objects
+        quantities from data which will be optimised with bckc from diagnostic_models
+    plasma_profiler
+        plasma interface has methods for setting profiles in plasma
+    build_bckc
+        function to return model data called by ln_posterior
+    prior_manager
+        prior class which calculates ln_prior from given parameters
 
     """
 
     def __init__(
         self,
-        data: dict,
+        opt_data: dict,
         quant_to_optimise: list,
-        priors: dict,
-        plasma_context=None,
-        model_context=None,
-        percent_error: float = 0.10,
+        prior_manager: PriorManager,
+        build_bckc: Callable,
+        plasma_profiler: PlasmaProfiler,
     ):
-        self.data = data
+        self.opt_data = opt_data
         self.quant_to_optimise = quant_to_optimise
-        self.priors = priors
+        self.prior_manager = prior_manager
+        self.build_bckc = build_bckc
+        self.plasma_profiler = plasma_profiler
 
-        self.plasma_context = plasma_context
-        self.model_context = model_context
-
-        self.percent_error = percent_error
-
-        missing_data = list(set(quant_to_optimise).difference(data.keys()))
-        if missing_data:  # gives list of keys in quant_to_optimise but not data
+        missing_data = list(set(quant_to_optimise).difference(opt_data.keys()))
+        if missing_data:
             raise ValueError(f"{missing_data} not found in data given")
 
     def ln_likelihood(self):
         ln_likelihood = 0
-        for key in self.quant_to_optimise:
-            time_coord = self.plasma_context.plasma.time_to_calculate
-            model_data = self.bckc[key]
-            exp_data = self.data[key].sel(t=time_coord)
-            exp_error = exp_data * self.percent_error
+        time_coord = self.plasma_profiler.plasma.time_to_calculate
 
-            if hasattr(self.data[key], "error"):
-                if (self.data[key].error != 0).any():
-                    # TODO: Some models have an error of 0 given
-                    exp_error = self.data[key].error.sel(t=time_coord)
+        for key in self.quant_to_optimise:
+            model_data = self.bckc[key].astype("float128")
+            exp_data = self.opt_data[key].sel(t=time_coord).astype("float128")
+            exp_error = exp_data.error.astype("float128")
 
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
             # treat channel as key dim which isn't averaged like other dims
-            if "channel" in _ln_likelihood.dims:
-                _ln_likelihood = _ln_likelihood.sum(dim="channel", skipna=True)
-            ln_likelihood += _ln_likelihood.mean(skipna=True).values
+            # if "channel" in _ln_likelihood.dims:
+            #     _ln_likelihood = _ln_likelihood.sum(dim="channel", skipna=True)
+            ln_likelihood += _ln_likelihood.sum(skipna=True).values
+
         return ln_likelihood
 
     def ln_posterior(self, parameters: dict, **kwargs):
@@ -129,15 +90,15 @@ class BayesBlackBox:
             model outputs from bckc and kinetic profiles
         """
 
-        _ln_prior = ln_prior(self.priors, parameters)
+        _ln_prior = self.prior_manager.ln_prior(parameters)
         if _ln_prior == -np.inf:  # Don't call models if outside priors
             return -np.inf, {}
 
-        self.plasma_context.update_profiles(parameters)
-        plasma_attributes = self.plasma_context.return_plasma_attrs()
+        self.plasma_profiler(parameters)
+        plasma_attributes = self.plasma_profiler.plasma_attributes()
 
         self.bckc = FlatDict(
-            self.model_context._build_bckc(parameters, **kwargs), "."
+            self.build_bckc(nested_kwargs=kwargs, **parameters), "."
         )  # model calls
 
         _ln_likelihood = self.ln_likelihood()  # compare results to data
