@@ -6,7 +6,7 @@ pca_components: 3
 
 starting_samples: 200
 iterations: 1000
-nwalkers: 20
+nwalkers: 40
 stopping_criteria_factor: 0.005
 sample_method: "high_density"
 stopping_criteria: "mode"

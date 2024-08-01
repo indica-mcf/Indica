@@ -20,14 +20,14 @@ pulse_info:
 
   quant_to_optimise: [
       "cxff_tws_c.ti",
-      "xrcs.intens"
+      "xrcs.raw_spectra"
   ]
 
 optimisation_info:
   param_names: [ "ion_temperature.y0"
   ]
   pca_profiles: [ ]
-  iterations: 100
+  iterations: 40
   stopping_criteria_factor: 0.1
 
 write_info:
