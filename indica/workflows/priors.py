@@ -9,6 +9,7 @@ from omegaconf import DictConfig
 from scipy.stats import gaussian_kde
 from scipy.stats import loguniform
 from scipy.stats import uniform
+from scipy.stats import rv_continuous
 
 
 def greater_than(x1, x2):
@@ -35,7 +36,7 @@ class Prior(ABC):
     ):
         self.prior_func = prior_func
         self.labels = (
-            labels  # to identify mapping between prior names and ndim prior funcs
+            labels  # to identify mapping between prior names and prior func
         )
         self.type = type
 
@@ -49,8 +50,9 @@ class Prior(ABC):
 
 
 class PriorBasic(Prior):
-    def __init__(self, prior_func: Callable = None, labels: tuple = None):
-        super().__init__(prior_func=prior_func, labels=labels, type=PriorType.BASIC)
+    def __init__(self, prior_func: rv_continuous = None, labels: tuple = None):
+        super().__init__(labels=labels, type=PriorType.BASIC)
+        self.prior_func = prior_func
 
     def pdf(self, value):
         return self.prior_func.pdf(value)
