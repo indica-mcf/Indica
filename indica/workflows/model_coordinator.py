@@ -15,30 +15,24 @@ class ModelCoordinator:
     def __init__(
         self,
         models: dict[str, AbstractDiagnostic],
-        model_settings: dict,
+        model_settings: dict = None,
         verbose=True,
     ):
 
-        self.model_settings = model_settings
-        self.models = models
-        self.model_names = list(models.keys())
-        self.equilibrium = None
         self.transforms = None
         self.plasma = None
+        self.equilibrium = None
+        if model_settings is None:
+            model_settings = {}
+        self.model_settings = model_settings
+        self.model_names = list(models.keys())
         self.verbose = verbose
 
-    def init_models(self, **model_kwargs):
-        for instrument in self.model_names:
-            if instrument in model_kwargs.keys():
-                self.model_settings[instrument].update(model_kwargs[instrument])
-
-        for model_name, model in self.models.items():
-            if model_name in self.model_settings.keys():
-                self.models[model_name] = model(
-                    name=model_name, **self.model_settings[model_name]
-                )
-            else:
-                self.models[model_name] = model(name=model_name)
+        self.models: dict[str, AbstractDiagnostic] = {}
+        for model_name, model in models.items():
+            self.models[model_name] = model(
+                name=model_name, **self.model_settings.get(model_name, {})
+            )
 
     def set_plasma(self, plasma: Plasma):
         self.plasma = plasma
@@ -106,8 +100,6 @@ class ModelCoordinator:
         if filter_limits is None:
             filter_limits = {}
 
-        self.data: dict = {}
-
         model_kwargs = {}
 
         for instrument in instruments:
@@ -123,6 +115,7 @@ class ModelCoordinator:
             else:
                 model_kwargs[instrument] = {**_params}
 
+        self.data: dict = {}
         for instrument in instruments:
             self.data[instrument] = self.get(
                 instrument,
