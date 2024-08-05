@@ -8,8 +8,8 @@ import numpy as np
 from omegaconf import DictConfig
 from scipy.stats import gaussian_kde
 from scipy.stats import loguniform
-from scipy.stats import uniform
 from scipy.stats import rv_continuous
+from scipy.stats import uniform
 
 
 def greater_than(x1, x2):
@@ -35,9 +35,7 @@ class Prior(ABC):
         type: PriorType = None,
     ):
         self.prior_func = prior_func
-        self.labels = (
-            labels  # to identify mapping between prior names and prior func
-        )
+        self.labels = labels  # to identify mapping between prior names and prior func
         self.type = type
 
     @abstractmethod
