@@ -15,30 +15,24 @@ class ModelCoordinator:
     def __init__(
         self,
         models: dict[str, AbstractDiagnostic],
-        model_settings: dict,
+        model_settings: dict = None,
         verbose=True,
     ):
 
-        self.model_settings = model_settings
-        self.models = models
-        self.model_names = list(models.keys())
-        self.equilibrium = None
         self.transforms = None
         self.plasma = None
+        self.equilibrium = None
+        if model_settings is None:
+            model_settings = {}
+        self.model_settings = model_settings
+        self.model_names = list(models.keys())
         self.verbose = verbose
 
-    def init_models(self, **model_kwargs):
-        for instrument in self.model_names:
-            if instrument in model_kwargs.keys():
-                self.model_settings[instrument].update(model_kwargs[instrument])
-
-        for model_name, model in self.models.items():
-            if model_name in self.model_settings.keys():
-                self.models[model_name] = model(
-                    name=model_name, **self.model_settings[model_name]
-                )
-            else:
-                self.models[model_name] = model(name=model_name)
+        self.models: dict[str, AbstractDiagnostic] = {}
+        for model_name, model in models.items():
+            self.models[model_name] = model(
+                name=model_name, **self.model_settings.get(model_name, {})
+            )
 
     def set_plasma(self, plasma: Plasma):
         self.plasma = plasma
@@ -60,74 +54,64 @@ class ModelCoordinator:
     def get(
         self,
         instrument: str,
-        *args,
         **kwargs,
     ) -> Dict[str, xr.DataArray]:
         """
         Method set to replicate the get() method of the readers
         """
         if instrument in self.models:
-            return self.models[instrument](*args, **kwargs)
+            return self.models[instrument](**kwargs)
         else:
-            print(f"{instrument} not is self.models")
+            print(f"{instrument} not in self.models")
             return {}
 
     def __call__(
         self,
-        instruments=None,
+        instruments: list = None,
         filter_limits: dict = None,
         filter_coords: dict = None,
-        nested_kwargs: dict = None,
-        *args,
-        **flat_kwargs,
+        flat_kwargs: dict = None,
+        **kwargs,
     ):
         """
         Parameters
         ----------
-        nested_kwargs - model __call__ args as dict(model_name:
-                                                    dict(setting_name: setting))
-        flat_kwargs - model __call__ kwargs as dict(model_name.setting_name: setting)
+        instruments - names of instruments to call
+        filter_limits - filtering data if outside of filter_limits
+        filter_coords - filtering data if coordinates outside of filter_coords
+        flat_kwargs - flat kwargs to call models with
 
         Returns
         -------
-        dictionary of results
+        nested dictionary of results
         """
 
-        if (
-            nested_kwargs is None
-        ):  # These can be nuisance parameters passed by optimiser
-            nested_kwargs = {}
         if flat_kwargs is None:
             flat_kwargs = {}
         if instruments is None:
-            instruments = self.models.keys()
+            instruments = self.model_names
         if filter_coords is None:
             filter_coords = {}
         if filter_limits is None:
             filter_limits = {}
 
-        self.data: dict = {}
-
-        model_kwargs = {}
-
+        call_kwargs = {}
         for instrument in instruments:
-            # reformat e.g. xrcs.background -> background
+            # format the model settings before calling them
+            # reformat structure to remove prefix e.g. xrcs.background -> background
             _params = {
                 param_name.replace(instrument + ".", ""): param_value
                 for param_name, param_value in flat_kwargs.items()
                 if instrument in param_name
             }
-            # TODO: mish mash of nested and flat dicts is confusing here
-            if instrument in nested_kwargs.keys():
-                model_kwargs[instrument] = {**_params, **nested_kwargs[instrument]}
-            else:
-                model_kwargs[instrument] = {**_params}
+            call_kwargs[instrument] = {**_params, **kwargs.get(instrument, {})}
+        self.call_kwargs = call_kwargs
 
+        self.data: dict = {}
         for instrument in instruments:
             self.data[instrument] = self.get(
                 instrument,
-                *args,
-                **model_kwargs[instrument],
+                **call_kwargs[instrument],
             )
 
         self.filtered_data = apply_filter(
@@ -135,14 +119,12 @@ class ModelCoordinator:
             filters=filter_limits,
             filter_func=limit_condition,
             filter_func_name="limits",
-            verbose=self.verbose,
         )
         self.filtered_data = apply_filter(
             self.filtered_data,
             filters=filter_coords,
             filter_func=coord_condition,
             filter_func_name="co-ordinate",
-            verbose=self.verbose,
         )
         self.binned_data = self.filtered_data
 
