@@ -176,7 +176,6 @@ def bda_run(
             models,
             OmegaConf.to_container(cfg.model_info),
         )
-        reader.init_models()
         reader.set_transforms(transforms)
         reader.set_equilibrium(
             equilibrium,
@@ -199,10 +198,6 @@ def bda_run(
             R_shift=R_shift,
         )
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
-        reader = ModelCoordinator(
-            models,
-            OmegaConf.to_container(cfg.model_info),
-        )
         if "xrcs" in phantom_reader.binned_data.keys():
             more_model_settings = {
                 "xrcs": {
@@ -211,7 +206,11 @@ def bda_run(
             }
         else:
             more_model_settings = {}
-        reader.init_models(**more_model_settings)
+
+        reader = ModelCoordinator(
+            models,
+            {**OmegaConf.to_container(cfg.model_info), **more_model_settings},
+        )
         reader.set_transforms(phantom_reader.transforms)
         reader.set_equilibrium(
             equilibrium,
@@ -242,12 +241,6 @@ def bda_run(
     opt_data = add_error_to_opt_data(flat_data, verbose=False)
 
     models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
-    log.info("Initialising ModelCoordinator")
-    model_coordinator = ModelCoordinator(
-        models=models,
-        model_settings=OmegaConf.to_container(cfg.model_info),
-        verbose=False,
-    )
     if "xrcs" in reader.binned_data.keys():
         more_model_settings = {
             "xrcs": {
@@ -257,9 +250,17 @@ def bda_run(
         }
     else:
         more_model_settings = {}
+    log.info("Initialising ModelCoordinator")
+    model_coordinator = ModelCoordinator(
+        models=models,
+        model_settings={
+            **OmegaConf.to_container(cfg.model_info),
+            **more_model_settings,
+        },
+        verbose=False,
+    )
 
-    model_kwargs = {}
-    model_coordinator.init_models(**more_model_settings)
+    model_call_kwargs = {}
     model_coordinator.set_transforms(reader.transforms)
     model_coordinator.set_equilibrium(equilibrium)
     model_coordinator.set_plasma(plasma)
@@ -308,7 +309,7 @@ def bda_run(
     optimiser_context = EmceeOptimiser(
         optimiser_settings=optimiser_settings,
         prior_manager=prior_manager,
-        model_kwargs=model_kwargs,
+        model_kwargs=model_call_kwargs,
     )
 
     workflow = BayesWorkflow(

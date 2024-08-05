@@ -98,7 +98,7 @@ class BayesBlackBox:
         plasma_attributes = self.plasma_profiler.plasma_attributes()
 
         self.bckc = FlatDict(
-            self.build_bckc(nested_kwargs=kwargs, **parameters), "."
+            self.build_bckc(flat_kwargs=parameters, **kwargs), "."
         )  # model calls
 
         _ln_likelihood = self.ln_likelihood()  # compare results to data

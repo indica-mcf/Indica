@@ -16,7 +16,7 @@ class ModelCoordinator:
         self,
         models: dict[str, AbstractDiagnostic],
         model_settings: dict = None,
-        verbose=True,
+        verbose=False,
     ):
 
         self.transforms = None
@@ -119,12 +119,14 @@ class ModelCoordinator:
             filters=filter_limits,
             filter_func=limit_condition,
             filter_func_name="limits",
+            verbose=self.verbose,
         )
         self.filtered_data = apply_filter(
             self.filtered_data,
             filters=filter_coords,
             filter_func=coord_condition,
             filter_func_name="co-ordinate",
+            verbose=self.verbose,
         )
         self.binned_data = self.filtered_data
 

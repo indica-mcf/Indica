@@ -4,7 +4,6 @@ from hydra import initialize_config_module
 from indica.workflows.bda_run import bda_run
 
 
-# TODO: Can't get configs to work properly in CI/CD
 class TestBDARun:
     def test_bda_run(
         self,
