@@ -1,17 +1,25 @@
-from indica.workflows.model_coordinator import ModelCoordinator
-from indica.models import ChargeExchangeSpectrometer, HelikeSpectrometer, ThomsonScattering, SXRcamera
 from indica.defaults.load_defaults import load_default_objects
+from indica.models import ChargeExchangeSpectrometer
+from indica.models import HelikeSpectrometer
+from indica.models import SXRcamera
+from indica.models import ThomsonScattering
+from indica.workflows.model_coordinator import ModelCoordinator
 
 
 def initialise_model_coordinator(model_settings=None):
-    model_coordinator = ModelCoordinator({"cxff_pi": ChargeExchangeSpectrometer, "xrcs": HelikeSpectrometer,
-                                          "ts": ThomsonScattering, "sxrc_xy1": SXRcamera},
-                                         model_settings=model_settings)
+    model_coordinator = ModelCoordinator(
+        {
+            "cxff_pi": ChargeExchangeSpectrometer,
+            "xrcs": HelikeSpectrometer,
+            "ts": ThomsonScattering,
+            "sxrc_xy1": SXRcamera,
+        },
+        model_settings=model_settings,
+    )
     return model_coordinator
 
 
 class TestModelCoordinator:
-
     def setup_class(self):
         self.plasma = load_default_objects("st40", "plasma")
         self.transforms = load_default_objects("st40", "geometry")
