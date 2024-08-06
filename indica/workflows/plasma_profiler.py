@@ -5,7 +5,7 @@ import xarray as xr
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models.plasma import Plasma
-from indica.profilers import Profiler
+from indica.profilers import Profiler, initialise_gauss_profilers
 from indica.profilers import ProfilerGauss
 
 DEFAULT_PROFILE_PARAMS = {
@@ -97,31 +97,6 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
         #     np.isfinite(_prof_midplane), _prof_midplane, 0.0
         # )
     return midplane_profiles
-
-
-def initialise_gauss_profilers(
-    xspl: np.ndarray, profile_params: dict = None, profiler_names: list = None
-):
-    # Should profilers be a dataclass or named tuple rather than bare dictionary
-    if profile_params is None:
-        profile_params = DEFAULT_PROFILE_PARAMS
-    flat_profile_params = flatdict.FlatDict(profile_params, ".")
-
-    if profiler_names is None:
-        profile_names = flat_profile_params.as_dict().keys()
-    else:
-        profile_names = profiler_names
-
-    profilers = {
-        profile_name: ProfilerGauss(
-            datatype=profile_name.split(":")[0],
-            parameters=flat_profile_params[profile_name],
-            xspl=xspl,
-        )
-        for profile_name in profile_names
-    }
-
-    return profilers
 
 
 class PlasmaProfiler:

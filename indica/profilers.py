@@ -1,6 +1,7 @@
 from abc import ABC
 from copy import deepcopy
 
+import flatdict
 import matplotlib.pylab as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
@@ -9,6 +10,7 @@ from xarray import DataArray
 
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
+from indica.workflows.plasma_profiler import DEFAULT_PROFILE_PARAMS
 
 
 def gaussian(x, A, B, x_0, w):
@@ -309,6 +311,30 @@ def get_defaults(datatype: str) -> dict:
         raise ValueError(f"\n Profile {datatype} not available ")
 
     return parameters[datatype]
+
+
+def initialise_gauss_profilers(
+    xspl: np.ndarray, profile_params: dict = None, profiler_names: list = None
+):
+    # Should profilers be a dataclass or named tuple rather than bare dictionary
+    if profile_params is None:
+        profile_params = DEFAULT_PROFILE_PARAMS
+    flat_profile_params = flatdict.FlatDict(profile_params, ".")
+
+    if profiler_names is None:
+        profile_names = flat_profile_params.as_dict().keys()
+    else:
+        profile_names = profiler_names
+
+    profilers = {
+        profile_name: ProfilerGauss(
+            datatype=profile_name.split(":")[0],
+            parameters=flat_profile_params[profile_name],
+            xspl=xspl,
+        )
+        for profile_name in profile_names
+    }
+    return profilers
 
 
 def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
