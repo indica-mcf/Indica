@@ -1,16 +1,16 @@
 from abc import ABC
-from copy import deepcopy
 
 import flatdict
+import hydra
 import matplotlib.pylab as plt
 import numpy as np
+from hydra import initialize_config_module, compose
+from omegaconf import DictConfig
 from scipy.interpolate import CubicSpline
 import xarray as xr
-from xarray import DataArray
 
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
-from indica.workflows.plasma_profiler import DEFAULT_PROFILE_PARAMS
 
 
 def gaussian(x, A, B, x_0, w):
@@ -21,7 +21,6 @@ class Profiler(ABC):
     # protocol for profilers to follow
 
     def __init__(self, parameters: dict = None):
-
         if parameters is None:
             parameters = {}
         self.parameters = parameters
@@ -36,22 +35,29 @@ class Profiler(ABC):
 
     def get_parameters(self):
         """
-        Set any of the shaping parameters
+        get all the shaping parameters
         """
-        parameters_dict: dict = {}
-        for k in self.parameters.keys():
-            parameters_dict[k] = getattr(self, k)
-
-        return parameters_dict
+        return {key: getattr(self, key) for key in self.parameters.keys()}
 
     def plot(self, fig=True):
         self.__call__()
         if fig:
             plt.figure()
-        self.yspl.plot()
+        self.ydata.plot()
 
     def __call__(self, *args, **kwargs):
-        self.yspl = None
+        self.ydata = None
+
+
+def get_defaults_for_profiler_gauss(datatype="electron_temperature", config_name="profiler_gauss"):
+    """
+    Loads config for default parameter values
+    """
+    with initialize_config_module(
+        version_base = None, config_module="indica.configs.profilers"
+    ):
+        cfg = compose(config_name=config_name)
+    return cfg[datatype]
 
 
 class ProfilerGauss(Profiler):
@@ -90,7 +96,7 @@ class ProfilerGauss(Profiler):
             xspl = format_coord(np.linspace(0, 1.0, 30), self.coord)
         self.xspl = xspl
 
-        _parameters = get_defaults(datatype)
+        _parameters = get_defaults_for_profiler_gauss(datatype)
         if parameters is None:
             parameters = _parameters
         elif {
@@ -189,8 +195,8 @@ class ProfilerGauss(Profiler):
         )
         _yspl = self.cubicspline(self.xspl)
         coords = {self.coord: self.xspl}
-        yspl = format_dataarray(_yspl, self.datatype, coords=coords)
-        self.yspl = yspl
+        ydata = format_dataarray(_yspl, self.datatype, coords=coords)
+        self.ydata = ydata
 
         if debug:
             plt.figure()
@@ -198,10 +204,10 @@ class ProfilerGauss(Profiler):
             plt.plot(x, y_peaking1, label="peaking1")
             plt.plot(x, y_peaking2, label="peaking2")
             plt.plot(x, y, label="y0_fix", marker="o")
-            plt.plot(self.xspl, yspl, label="spline")
+            plt.plot(self.xspl, ydata, label="spline")
             plt.legend()
 
-        return yspl
+        return ydata
 
 
 class ProfilerBasis(Profiler):
@@ -252,65 +258,8 @@ class ProfilerBasis(Profiler):
         Builds the profile from basis functions using the parameters set
         """
         y = self.construct_profile()
-        return xr.DataArray(y, coords=[(self.coord, self.radial_grid.data)])
-
-
-def get_defaults(datatype: str) -> dict:
-    parameters = {
-        "electron_density": {  # (m**-3)
-            "y0": 5.0e19,
-            "y1": 5.0e18,
-            "yend": 2.0e18,
-            "peaking": 2,
-            "wcenter": 0.4,
-            "wped": 6,
-        },
-        "impurity_density": {  # (m**-3)
-            "y0": 5.0e16,
-            "y1": 1.0e15,
-            "yend": 1.0e15,
-            "peaking": 2,
-            "wcenter": 0.4,
-            "wped": 6,
-        },
-        "neutral_density": {  # (m**-3)
-            "y0": 1.0e13,
-            "y1": 1.0e15,
-            "yend": 1.0e15,
-            "peaking": 1,
-            "wcenter": 0,
-            "wped": 18,
-        },
-        "electron_temperature": {  # (eV)
-            "y0": 3.0e3,
-            "y1": 50,
-            "yend": 5,
-            "peaking": 1.5,
-            "wcenter": 0.35,
-            "wped": 3,
-        },
-        "ion_temperature": {  # (eV)
-            "y0": 5.0e3,
-            "y1": 50,
-            "yend": 5,
-            "peaking": 1.5,
-            "wcenter": 0.35,
-            "wped": 3,
-        },
-        "toroidal_rotation": {  # (rad/s)
-            "y0": 500.0e3,
-            "y1": 10.0e3,
-            "yend": 0.0,
-            "peaking": 1.5,
-            "wcenter": 0.35,
-            "wped": 3,
-        },
-    }
-
-    if datatype not in parameters.keys():
-        raise ValueError(f"\n Profile {datatype} not available ")
-
-    return parameters[datatype]
+        self.ydata = xr.DataArray(y, coords=[(self.coord, self.radial_grid.data)])
+        return self.ydata
 
 
 def initialise_gauss_profilers(
