@@ -252,7 +252,7 @@ def sample_from_high_density_region(
     config_name="config",
 )
 def main(cfg: DictConfig):
-    pm = PriorManager(**cfg.priors)
+    pm = PriorManager(**cfg)
     post = pm.ln_prior({"electron_density.y0": 1e20, "electron_density.y1": 1e19})
     samples = sample_from_priors(
         ["electron_density.y0", "electron_density.y1"], pm.priors
