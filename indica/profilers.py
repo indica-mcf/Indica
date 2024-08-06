@@ -1,11 +1,10 @@
 from abc import ABC
 
 import flatdict
-import hydra
 import matplotlib.pylab as plt
 import numpy as np
 from hydra import initialize_config_module, compose
-from omegaconf import DictConfig
+from omegaconf import OmegaConf
 from scipy.interpolate import CubicSpline
 import xarray as xr
 
@@ -57,7 +56,7 @@ def get_defaults_for_profiler_gauss(datatype="electron_temperature", config_name
         version_base = None, config_module="indica.configs.profilers"
     ):
         cfg = compose(config_name=config_name)
-    return cfg[datatype]
+    return OmegaConf.to_container(cfg[datatype])
 
 
 class ProfilerGauss(Profiler):
@@ -87,7 +86,6 @@ class ProfilerGauss(Profiler):
         self.peaking: float = None
         self.wcenter: float = None
         self.wped: float = None
-
         self.xend = xend
         self.coord = f"rho_{coord}"
         self.x = np.linspace(0, 1, 15) ** 0.7
@@ -96,19 +94,8 @@ class ProfilerGauss(Profiler):
             xspl = format_coord(np.linspace(0, 1.0, 30), self.coord)
         self.xspl = xspl
 
-        _parameters = get_defaults_for_profiler_gauss(datatype)
-        if parameters is None:
-            parameters = _parameters
-        elif {
-            "y0",
-            "y1",
-            "yend",
-            "wcenter",
-            "wped",
-            "peaking",
-        } >= set(parameters):
-            parameters = dict(_parameters, **parameters)
-
+        default_parameters = get_defaults_for_profiler_gauss(datatype=datatype)
+        parameters = dict(default_parameters, **self.parameters)  # Overwrites defaults
         self.set_parameters(**parameters)
 
     def __call__(
@@ -236,7 +223,7 @@ class ProfilerBasis(Profiler):
         self.radial_grid = radial_grid
         self.coord = coord
 
-        # Weights have to be dynamically assigned as attributes so they can be accessed
+        # Weights have to be dynamically assigned as attributes, so they can be accessed
         # / changed by the profiler
         for icomp in range(self.ncomps):
             param_name = f"weight_{icomp + 1}"
