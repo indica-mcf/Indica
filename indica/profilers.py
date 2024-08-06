@@ -48,17 +48,6 @@ class Profiler(ABC):
         self.ydata = None
 
 
-def get_defaults_for_profiler_gauss(datatype="electron_temperature", config_name="profiler_gauss"):
-    """
-    Loads config for default parameter values
-    """
-    with initialize_config_module(
-        version_base = None, config_module="indica.configs.profilers"
-    ):
-        cfg = compose(config_name=config_name)
-    return OmegaConf.to_container(cfg[datatype])
-
-
 class ProfilerGauss(Profiler):
     def __init__(
         self,
@@ -247,6 +236,17 @@ class ProfilerBasis(Profiler):
         y = self.construct_profile()
         self.ydata = xr.DataArray(y, coords=[(self.coord, self.radial_grid.data)])
         return self.ydata
+
+
+def get_defaults_for_profiler_gauss(datatype="electron_temperature", config_name="profiler_gauss"):
+    """
+    Loads config for default parameter values
+    """
+    with initialize_config_module(
+        version_base = None, config_module="indica.configs.profilers"
+    ):
+        cfg = compose(config_name=config_name)
+    return OmegaConf.to_container(cfg[datatype])
 
 
 def initialise_gauss_profilers(
