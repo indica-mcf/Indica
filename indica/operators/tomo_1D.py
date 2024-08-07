@@ -383,10 +383,14 @@ class SXR_tomography:
             if not np.any(t_ind):
                 continue
 
-            valid = np.all(
-                (np.isfinite(self.data[t_ind, :])) & (self.data[t_ind, :] > 0), axis=0
+            valid = (
+                np.all(
+                    (np.isfinite(self.data[t_ind, :])) & (self.data[t_ind, :] > 0),
+                    axis=0,
+                )
+                * self.valid
             )
-            # valid = self.valid
+
             # weight the contribution matrix and data by the uncertainty
             # print(it,teq,t_ind)#,(self.err[t_ind,:]/self.data[t_ind,:]).shape,valid)
             err = np.atleast_2d(self.err[t_ind, valid]).mean(0)
