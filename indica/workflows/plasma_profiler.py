@@ -5,8 +5,7 @@ import xarray as xr
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models.plasma import Plasma
-from indica.profilers import Profiler, initialise_gauss_profilers
-from indica.profilers import ProfilerGauss
+from indica.profilers import ProfilerGauss, Profiler
 
 DEFAULT_PROFILE_PARAMS = {
     "electron_density.y0": 5e19,
@@ -92,10 +91,6 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
             continue
 
         midplane_profiles[key] = value.interp(rho_poloidal=rho)
-        # TODO: Changing NaN results to zeros messes with distributions
-        # midplane_profiles[key] = xr.where(
-        #     np.isfinite(_prof_midplane), _prof_midplane, 0.0
-        # )
     return midplane_profiles
 
 
@@ -207,10 +202,16 @@ class PlasmaProfiler:
 
 if __name__ == "__main__":
     example_plasma = load_default_objects("st40", "plasma")
-    gauss_profilers = initialise_gauss_profilers(
-        profile_params=DEFAULT_PROFILE_PARAMS, xspl=example_plasma.rho
-    )
-    plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=gauss_profilers)
+
+    profilers = {
+        profile_name: ProfilerGauss(
+            datatype=profile_name.split(":")[0],
+            xspl=example_plasma.rho,
+        )
+        for profile_name in ["electron_density", "ion_temperature"]
+    }
+
+    plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=profilers)
 
     plasma_profiler(
         parameters={
