@@ -5,14 +5,14 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import TransectCoordinates
-from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
 from indica.utilities import set_plot_rcparams
 
 
-class ChargeExchange(DiagnosticModel):
+class ChargeExchangeSpectrometer(AbstractDiagnostic):
     """
     Object representing a CXRS diagnostic
     """
@@ -23,7 +23,7 @@ class ChargeExchange(DiagnosticModel):
         element: str = "c",
         instrument_method="get_charge_exchange",
     ):
-        self.transect_transform: TransectCoordinates
+        self.transform: TransectCoordinates
         self.name = name
         self.element = element
         self.instrument_method = instrument_method
@@ -46,6 +46,9 @@ class ChargeExchange(DiagnosticModel):
             elif quant == "fit":
                 # Placeholder
                 continue
+            elif quant == "conc":
+                # Placeholder
+                continue
             else:
                 print(f"{quant} not available in model for {self.instrument_method}")
                 continue
@@ -53,7 +56,7 @@ class ChargeExchange(DiagnosticModel):
             error = xr.full_like(self.bckc[quantity], 0.0)
             stdev = xr.full_like(self.bckc[quantity], 0.0)
             self.bckc[quantity].attrs = {
-                "transform": self.transect_transform,
+                "transform": self.transform,
                 "error": error,
                 "stdev": stdev,
                 "provenance": str(self),
@@ -92,19 +95,12 @@ class ChargeExchange(DiagnosticModel):
             if Ti is None or Vtor is None:
                 raise ValueError("Give inputs or assign plasma class!")
 
-        if "element" in Vtor.dims:
-            Vtor = Vtor.sel(element=self.element)
-        if "element" in Ti.dims:
-            Ti = Ti.sel(element=self.element)
-
         self.t = t
         self.Vtor = Vtor
         self.Ti = Ti
 
-        Ti_at_channels = self.transect_transform.map_profile_to_rho(
-            Ti, t=t, calc_rho=calc_rho
-        )
-        Vtor_at_channels = self.transect_transform.map_profile_to_rho(
+        Ti_at_channels = self.transform.map_profile_to_rho(Ti, t=t, calc_rho=calc_rho)
+        Vtor_at_channels = self.transform.map_profile_to_rho(
             Vtor, t=t, calc_rho=calc_rho
         )
 
@@ -120,7 +116,7 @@ class ChargeExchange(DiagnosticModel):
 
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
 
-        self.transect_transform.plot()
+        self.transform.plot()
 
         # Plot back-calculated profiles
         plt.figure()

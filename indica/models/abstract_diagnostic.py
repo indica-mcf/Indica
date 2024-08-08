@@ -5,7 +5,7 @@ from indica.converters import CoordinateTransform
 from indica.models.plasma import Plasma
 
 
-class DiagnosticModel(ABC):
+class AbstractDiagnostic(ABC):
     name: str
     bckc: dict
     plasma: Plasma
@@ -17,15 +17,8 @@ class DiagnosticModel(ABC):
         """
         Line-of-sight or Transect coordinate transform
         """
-        if "LineOfSight" in str(transform):
-            self.los_transform = transform
-        elif "Transect" in str(transform):
-            self.transect_transform = transform
-        elif "Trivial" in str(transform):
-            self.trivial_transform = transform
-        else:
-            self._transform = transform
-            print(f"{str(transform)} not recognized.")
+        # TODO: types attribute set during initialisation!
+        self.transform = transform
 
     def set_plasma(self, plasma: Plasma):
         """
@@ -53,12 +46,12 @@ class DiagnosticModel(ABC):
             "'__call__' method.".format(self.__class__.__name__)
         )
 
-    # @abstractmethod
-    # def __call__(self, *args, **kwargs) -> dict:
-    #     """
-    #     Call the model and return back-calculated values
-    #     """
-    #     raise NotImplementedError(
-    #         "{} does not implement a "
-    #         "'__call__' method.".format(self.__class__.__name__)
-    #     )
+    @abstractmethod
+    def __call__(self, *args, **kwargs) -> dict:
+        """
+        Call the model and return back-calculated values
+        """
+        raise NotImplementedError(
+            "{} does not implement a "
+            "'__call__' method.".format(self.__class__.__name__)
+        )

@@ -1,3 +1,4 @@
+from abc import ABC
 from copy import deepcopy
 
 import matplotlib.pylab as plt
@@ -10,7 +11,48 @@ from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 
 
-class Profiles:
+def gaussian(x, A, B, x_0, w):
+    return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
+
+
+class Profiler(ABC):
+    # protocol for profilers to follow
+
+    def __init__(self, parameters: dict = None):
+
+        if parameters is None:
+            parameters = {}
+        self.parameters = parameters
+
+    def set_parameters(self, **kwargs):
+        """
+        Set any of the shaping parameters
+        """
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        self.parameters.update(**kwargs)
+
+    def get_parameters(self):
+        """
+        Set any of the shaping parameters
+        """
+        parameters_dict: dict = {}
+        for k in self.parameters.keys():
+            parameters_dict[k] = getattr(self, k)
+
+        return parameters_dict
+
+    def plot(self, fig=True):
+        self.__call__()
+        if fig:
+            plt.figure()
+        self.yspl.plot()
+
+    def __call__(self, *args, **kwargs):
+        self.yspl = None
+
+
+class ProfilerGauss(Profiler):
     def __init__(
         self,
         datatype: str = "electron_temperature",
@@ -20,23 +62,23 @@ class Profiles:
         parameters: dict = None,
     ):
         """
-        Class to build general profiles
+        Class to build general gaussian profiles
 
         Parameters
         ----------
         datatype
-            Tuple defining what type of profile is to be built
+            str defining what type of profile is to be built
         xspl
-            normalised radial grid [0, 1]  on which profile is to be built
+            normalised radial grid [0, 1] on which profile is to be built
 
         """
-        self.y0: float
-        self.y1: float
-        self.yend: float
-        self.peaking: float
-        self.wcenter: float
-        self.wped: float
-        self.parameters: dict = {}
+        super().__init__(parameters)
+        self.y0: float = None
+        self.y1: float = None
+        self.yend: float = None
+        self.peaking: float = None
+        self.wcenter: float = None
+        self.wped: float = None
 
         self.xend = xend
         self.coord = f"rho_{coord}"
@@ -45,17 +87,10 @@ class Profiles:
         if xspl is None:
             xspl = format_coord(np.linspace(0, 1.0, 30), self.coord)
         self.xspl = xspl
-        self.profile_parameters: list = [
-            "y0",
-            "y1",
-            "yend",
-            "wcenter",
-            "wped",
-            "peaking",
-        ]
 
+        _parameters = get_defaults(datatype)
         if parameters is None:
-            parameters = get_defaults(datatype)
+            parameters = _parameters
         elif {
             "y0",
             "y1",
@@ -64,31 +99,9 @@ class Profiles:
             "wped",
             "peaking",
         } >= set(parameters):
-            _parameters = get_defaults(datatype)
             parameters = dict(_parameters, **parameters)
 
-        for k, p in parameters.items():
-            setattr(self, k, p)
-
-        self.__call__()
-
-    def set_parameters(self, **kwargs):
-        """
-        Set any of the shaping parameters
-        """
-        for k, v in kwargs.items():
-            if k in self.profile_parameters:
-                setattr(self, k, v)
-
-    def get_parameters(self):
-        """
-        Set any of the shaping parameters
-        """
-        parameters_dict: dict = {}
-        for k in self.profile_parameters:
-            parameters_dict[k] = getattr(self, k)
-
-        return parameters_dict
+        self.set_parameters(**parameters)
 
     def __call__(
         self,
@@ -114,67 +127,56 @@ class Profiles:
 
         """
 
-        def gaussian(x, A, B, x_0, w):
-            return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
-
-        centre = deepcopy(self.y0)
-        edge = deepcopy(self.y1)
-        wcenter = deepcopy(self.wcenter)
-        wped = deepcopy(self.wped)
-        peaking = deepcopy(self.peaking)
-
         # Add additional peaking with respect to reference shape
         peaking2 = 1.0
         if y0_ref is not None:
-            if y0_ref < centre:
-                peaking2 = centre / y0_ref
+            if y0_ref < self.y0:
+                peaking2 = self.y0 / y0_ref
         self.peaking2 = peaking2
 
-        if peaking2 > 1:
-            centre = y0_ref
-            wcenter = wcenter - (peaking2**wcenter_exp - 1)
+        center = self.y0
+        edge = self.y1
 
-        centre = centre / peaking
+        if peaking2 > 1:
+            center = y0_ref
+            wcenter = self.wcenter - (peaking2**wcenter_exp - 1)
+        else:
+            wcenter = self.wcenter
+
+        center = center / self.peaking
 
         x = self.x[np.where(self.x <= 1.0)[0]]
 
         # baseline profile shape
-        y = (centre - edge) * (1 - x**wped) + edge
+        y_baseline = (center - self.y1) * (1 - x**self.wped) + self.y1
 
-        if debug:
-            plt.figure()
-            plt.plot(x, y, label="first")
-
-        # add central peaking
-        if peaking != 1:
+        if self.peaking != 1:  # add central peaking
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
-            y += gaussian(x, centre * (peaking - 1), 0, 0, sigma)
+            y_peaking1 = (
+                gaussian(x, center * (self.peaking - 1), 0, 0, sigma) + y_baseline
+            )
+        else:
+            y_peaking1 = y_baseline
 
-        if debug:
-            plt.plot(x, y, label="peaking")
-
-        # add additional peaking
-        if peaking2 != 1:
+        if peaking2 != 1:  # add additional peaking
             sigma = wcenter / (np.sqrt(2 * np.log(2)))
-            y += gaussian(x, y[0] * (peaking2 - 1), 0, 0, sigma)
-
-        if debug:
-            plt.plot(x, y, label="peaking2")
+            y_peaking2 = (
+                gaussian(x, y_peaking1[0] * (peaking2 - 1), 0, 0, sigma) + y_peaking1
+            )
+        else:
+            y_peaking2 = y_peaking1
 
         if y0_fix:
-            y -= edge
-            y /= y[0]
-            y *= centre - edge
-            y += edge
+            y = y_peaking2 - edge
+            y = y / y[0]
+            y = y * (center - edge)
+            y = y + edge
 
-        if debug:
-            plt.plot(x, y, label="y0_fix", marker="o")
+        else:
+            y = y_peaking2
 
         x = np.append(x, self.xend)
         y = np.append(y, self.yend)
-
-        if debug:
-            plt.plot(x, y, label="0 point at 1.05")
 
         self.cubicspline = CubicSpline(
             x,
@@ -184,22 +186,71 @@ class Profiles:
             False,
         )
         _yspl = self.cubicspline(self.xspl)
-
         coords = {self.coord: self.xspl}
         yspl = format_dataarray(_yspl, self.datatype, coords=coords)
         self.yspl = yspl
 
         if debug:
+            plt.figure()
+            plt.plot(x, y_baseline, label="first")
+            plt.plot(x, y_peaking1, label="peaking1")
+            plt.plot(x, y_peaking2, label="peaking2")
+            plt.plot(x, y, label="y0_fix", marker="o")
             plt.plot(self.xspl, yspl, label="spline")
             plt.legend()
 
         return yspl
 
-    def plot(self, fig=True):
-        self.__call__()
-        if fig:
-            plt.figure()
-        self.yspl.plot()
+
+class ProfilerBasis(Profiler):
+    """
+    Class to build pca profiles from basis functions
+
+    Parameters
+    ----------
+    radial_grid
+        normalised radial grid [0, 1]  on which profile is to be built
+    """
+
+    def __init__(
+        self,
+        basis_functions: np.ndarray,
+        bias: np.ndarray,
+        ncomps: int = 2,
+        radial_grid: np.ndarray = None,
+        coord="rho_poloidal",
+        parameters: dict = None,
+    ):
+        super().__init__(parameters)
+        self.basis_functions = basis_functions
+        self.bias = bias
+        self.ncomps = ncomps
+        self.radial_grid = radial_grid
+        self.coord = coord
+
+        # Weights have to be dynamically assigned as attributes so they can be accessed
+        # / changed by the profiler
+        for icomp in range(self.ncomps):
+            param_name = f"weight_{icomp + 1}"
+            self.parameters[param_name] = 0
+            setattr(self, param_name, 0)
+
+    def construct_profile(
+        self,
+    ):
+        weights = np.stack(
+            [weight for weight_name, weight in self.parameters.items()], axis=-1
+        ).T
+        return np.dot(weights, self.basis_functions) + self.bias
+
+    def __call__(
+        self,
+    ):
+        """
+        Builds the profile from basis functions using the parameters set
+        """
+        y = self.construct_profile()
+        return xr.DataArray(y, coords=[(self.coord, self.radial_grid.data)])
 
 
 def get_defaults(datatype: str) -> dict:
@@ -243,7 +294,6 @@ def get_defaults(datatype: str) -> dict:
             "peaking": 1.5,
             "wcenter": 0.35,
             "wped": 3,
-            "ref": True,
         },
         "toroidal_rotation": {  # (rad/s)
             "y0": 500.0e3,
@@ -256,21 +306,16 @@ def get_defaults(datatype: str) -> dict:
     }
 
     if datatype not in parameters.keys():
-        _datatype = "temperature_electron"
-        print(
-            f"\n Profile {datatype} not available "
-            f"\n Using '{_datatype}' as default \n"
-        )
-        datatype = _datatype
+        raise ValueError(f"\n Profile {datatype} not available ")
 
     return parameters[datatype]
 
 
 def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
-    Te = Profiles(datatype="electron_temperature", xspl=rho)
-    Ne = Profiles(datatype="electron_density", xspl=rho)
-    Nimp = Profiles(datatype="impurity_density", xspl=rho)
-    Vrot = Profiles(datatype="toroidal_rotation", xspl=rho)
+    Te = ProfilerGauss(datatype="electron_temperature", xspl=rho)
+    Ne = ProfilerGauss(datatype="electron_density", xspl=rho)
+    Nimp = ProfilerGauss(datatype="impurity_density", xspl=rho)
+    Vrot = ProfilerGauss(datatype="toroidal_rotation", xspl=rho)
 
     Te_list = {}
     Ti_list = {}
@@ -377,21 +422,8 @@ def profile_scans(plot=False, rho=np.linspace(0, 1.0, 41)):
         "Vrot": Vrot_list,
     }
 
-    # import pandas as pd
-    # to_write = {
-    #     "Rho-poloidal": rho,
-    #     "Te broad (eV)": Te_broad.yspl.values,
-    #     "Te peaked (eV)": Te_peak.yspl.values,
-    #     "Ti broad (eV)": Ti_broad.yspl.values,
-    #     "Ti peaked (eV)": Ti_peak.yspl.values,
-    #     "Ne broad (m^-3)": Ne_broad.yspl.values,
-    #     "Ne peaked (m^-3)": Ne_peak.yspl.values,
-    # }
-    # df = pd.DataFrame(to_write)
-    # df.to_csv("/home/marco.sertoli/data/Indica/profiles.csv")
 
-
-def sawtooth_crash(pre: Profiles, rho_inv: float, volume: DataArray = None):
+def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None):
     """
     Model a sawtooth crash, without resetting the internal quantities
 
@@ -453,7 +485,7 @@ def density_crash(
 ):
     volume = DataArray(0.85 * rho**3, coords=[("rho_poloidal", rho)])
 
-    pre = Profiles(datatype=(identifier, "electron"), xspl=rho)
+    pre = ProfilerGauss(datatype=(identifier, "electron"), xspl=rho)
     pre.wcenter = rho_inv / 1.5
     pre()
 

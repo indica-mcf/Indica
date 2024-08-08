@@ -171,6 +171,7 @@ def create_nodes(
     best=True,
     diagnostic_quantities=DIAGNOSTIC_QUANTITY,
     mode="EDIT",
+    debug=True,
 ):
     bda_nodes = BDA_NODES
     quant_list = [
@@ -232,6 +233,7 @@ def create_nodes(
         mode=mode,
         name_of_BEST="BEST",  # name of the structure linked to BEST
         link_BEST_to_run=best,
+        debug=debug,
     )
     return node_info
 

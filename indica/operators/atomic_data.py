@@ -13,7 +13,6 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.numpy_typing import LabeledArray
-from indica.profiles_gauss import Profiles
 from indica.readers.adas import ADASReader
 from indica.readers.adas import ADF11
 from indica.utilities import DATA_PATH
@@ -21,7 +20,7 @@ from indica.utilities import set_plot_colors
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from ..datatypes import DataType
-
+from ..profilers import ProfilerGauss
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
@@ -536,6 +535,11 @@ class FractionalAbundance(Operator):
 
             self.F_z_t = F_z_t
         else:
+
+            # TODO: FIX THIS (Nh is ignored!?!)
+            # Not too mention why does F_z_t have extra dims
+            # (which are dropped..) other than Te / Ne / Nh???
+
             F_z_t = interpolate_results(self.F_z_t, self.Te, Te)
 
         return F_z_t
@@ -876,7 +880,7 @@ def default_atomic_data(
         ccd = adas_reader.get_adf11("ccd", elem, ADF11[elem]["ccd"])
         fract_abu[elem] = FractionalAbundance(scd, acd, ccd=ccd)
         F_z_t = fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
-
+        F_z_t = fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
         plt = adas_reader.get_adf11("plt", elem, ADF11[elem]["plt"])
         prb = adas_reader.get_adf11("prb", elem, ADF11[elem]["prb"])
         prc = adas_reader.get_adf11("prc", elem, ADF11[elem]["prc"])
@@ -894,31 +898,33 @@ def default_atomic_data(
     return fract_abu, power_loss_tot, power_loss_sxr
 
 
-def default_profiles(n_rad: int = 100):
+def default_profiles(n_rad: int = 20):
     """
     Set default plasma profiles to calculate atomic data
     """
     xend = 1.02
     rho_end = 1.01
     rho = np.abs(np.linspace(rho_end, 0, n_rad) ** 1.8 - rho_end - 0.01)
+    rho_coord = xr.DataArray(
+        rho, coords={"rho_poloidal": rho}, dims="rho_poloidal"
+    ).coords
+    Te = xr.DataArray(np.linspace(50, 10e3, n_rad), coords=rho_coord)
+    Ne = xr.DataArray(np.logspace(18, 21, n_rad), coords=rho_coord)
 
-    Te_prof = Profiles(
-        datatype="electron_temperature",
-        xspl=rho,
-        xend=xend,
-    )
-    Te_prof.y0 = 10.0e3
-    Te = Te_prof()
-    Ne_prof = Profiles(datatype="electron_density", xspl=rho, xend=xend)
-    Ne = Ne_prof()
-    Nh_prof = Profiles(
-        datatype="neutral_density",
-        xspl=rho,
-        xend=xend,
+    # TODO: fix FractionalAbundance so that it does 2d interp of Nh and Te
+    params = {
+        "y0": 1e14,
+        "y1": 5e15,
+        "yend": 5e15,
+        "wcenter": 0.01,
+        "wped": 18,
+        "peaking": 1,
+    }
+    Nh_prof = ProfilerGauss(
+        datatype="neutral_density", xspl=rho, xend=xend, parameters=params
     )
     Nh = Nh_prof()
     tau = None
-
     return Te, Ne, Nh, tau
 
 
