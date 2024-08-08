@@ -1,8 +1,9 @@
+import os.path
 from abc import ABC
 
-import flatdict
 import matplotlib.pylab as plt
 import numpy as np
+import yaml
 from hydra import initialize_config_module, compose
 from omegaconf import OmegaConf
 from scipy.interpolate import CubicSpline
@@ -242,33 +243,10 @@ def get_defaults_for_profiler_gauss(datatype="electron_temperature", config_name
     """
     Loads config for default parameter values
     """
-    with initialize_config_module(
-        version_base = None, config_module="indica.configs.profilers"
-    ):
-        cfg = compose(config_name=config_name)
-    return OmegaConf.to_container(cfg[datatype])
+    path = os.path.join(os.path.dirname(__file__), f"configs/profilers/{config_name}.yaml")
+    with open(path) as stream:
+        cfg = yaml.safe_load(stream)
+    return cfg[datatype]
 
 
-def initialise_gauss_profilers(
-    xspl: np.ndarray, profile_params: dict = None, profiler_names: list = None
-):
-    # Should profilers be a dataclass or named tuple rather than bare dictionary
-    if profile_params is None:
-        profile_params = DEFAULT_PROFILE_PARAMS
-    flat_profile_params = flatdict.FlatDict(profile_params, ".")
-
-    if profiler_names is None:
-        profile_names = flat_profile_params.as_dict().keys()
-    else:
-        profile_names = profiler_names
-
-    profilers = {
-        profile_name: ProfilerGauss(
-            datatype=profile_name.split(":")[0],
-            parameters=flat_profile_params[profile_name],
-            xspl=xspl,
-        )
-        for profile_name in profile_names
-    }
-    return profilers
 
