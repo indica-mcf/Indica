@@ -1,11 +1,11 @@
 from typing import Callable
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import Bolometer
-from indica.models import ChargeExchange
+from indica.models import BolometerCamera
+from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
 from indica.models import HelikeSpectrometer
-from indica.models import Interferometry
+from indica.models import Interferometer
 from indica.models import ThomsonScattering
 
 
@@ -37,7 +37,7 @@ class TestModels:
         assert type(bckc) == dict
 
     def test_interferometer(self):
-        self.run_model("smmh", Interferometry)
+        self.run_model("smmh", Interferometer)
 
     def test_helike_spectroscopy(self):
         self.run_model("xrcs", HelikeSpectrometer)
@@ -46,10 +46,10 @@ class TestModels:
         self.run_model("ts", ThomsonScattering)
 
     def test_charge_exchange(self):
-        self.run_model("cxff_pi", ChargeExchange)
+        self.run_model("cxff_pi", ChargeExchangeSpectrometer)
 
     def test_equilibrium(self):
         self.run_model("efit", EquilibriumReconstruction)
 
     def test_bolometer(self):
-        self.run_model("blom_xy1", Bolometer)
+        self.run_model("blom_xy1", BolometerCamera)

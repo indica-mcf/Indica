@@ -7,7 +7,7 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
-from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
@@ -17,7 +17,7 @@ from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
 
 
-class BremsstrahlungDiode(DiagnosticModel):
+class BremsstrahlungDiode(AbstractDiagnostic):
     """
     Object representing an diode filter diagnostic measuring
     Bremsstrahlung radiation in a specified wavelength range
@@ -59,7 +59,7 @@ class BremsstrahlungDiode(DiagnosticModel):
         instrument_method
             Name of indica reader method to read experimental diagnostic data
         """
-        self.los_transform: LineOfSightTransform
+        self.transform: LineOfSightTransform
         self.name = name
         self.filter_wavelength = filter_wavelength
         self.filter_fwhm = filter_fwhm
@@ -155,7 +155,7 @@ class BremsstrahlungDiode(DiagnosticModel):
                 error = xr.full_like(self.bckc[quantity], 0.0)
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
-                    "transform": self.los_transform,
+                    "transform": self.transform,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
@@ -213,7 +213,7 @@ class BremsstrahlungDiode(DiagnosticModel):
             wlength = wlength.expand_dims(dim={dim: self.Ne[dim]})
         self.emission = ph.zeff_bremsstrahlung(Te, Ne, wlength, zeff=Zeff)
         self.emissivity = (self.emission * self.transmission).integrate("wavelength")
-        los_integral = self.los_transform.integrate_on_los(
+        los_integral = self.transform.integrate_on_los(
             self.emissivity,
             t=t,
             calc_rho=calc_rho,
@@ -236,7 +236,7 @@ class BremsstrahlungDiode(DiagnosticModel):
             return
 
         # Line-of-sight information
-        self.los_transform.plot(np.mean(self.t))
+        self.transform.plot(np.mean(self.t))
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
