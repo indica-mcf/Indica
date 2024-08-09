@@ -281,6 +281,7 @@ class ReadST40:
         raw_only: bool = False,
         debug: bool = False,
         set_equilibrium: bool = False,
+        fetch_equilbrium=True,
     ):
         self.debug = debug
 
@@ -305,7 +306,8 @@ class ReadST40:
             filter_coords = FILTER_COORDS
 
         self.reset_data()
-        self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
+        if fetch_equilbrium:
+            self.get_equilibrium(R_shift=R_shift, revision=revisions["efit"])
         for instrument in instruments:
             print(f"Reading {instrument}")
             # try:
@@ -368,7 +370,6 @@ def bin_data_in_time(
 
             if "t" in data_quant.coords:
                 data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
-
             # Using groupedby_bins always removes error from coords so adding it back
             if "error" in raw_data[instr][quant].coords:
                 error = convert_in_time_dt(
@@ -387,12 +388,14 @@ def apply_filter(
     filters: Dict[str, Dict[str, tuple]],
     filter_func: Callable,
     filter_func_name="limits",
+    verbose=True,
 ):
 
     filtered_data = {}
     for instrument, quantities in data.items():
         if instrument not in filters.keys():
-            print(f"no {filter_func_name} filter for {instrument}")
+            if verbose:
+                print(f"no {filter_func_name} filter for {instrument}")
             filtered_data[instrument] = deepcopy(data[instrument])
             continue
 
