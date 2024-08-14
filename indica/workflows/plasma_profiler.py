@@ -1,5 +1,4 @@
 import os
-
 import matplotlib.pyplot as plt
 import xarray as xr
 import yaml
@@ -27,7 +26,7 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
 
 
 class PlasmaProfiler:
-    def __init__(self, plasma: Plasma, profilers: dict[Profiler], cfg: dict = None):
+    def __init__(self, plasma: Plasma, profilers: dict[Profiler], plasma_attribute_names=None):
         """
         Interface Profiler objects with Plasma object to generate plasma profiles
         and update them.
@@ -38,19 +37,11 @@ class PlasmaProfiler:
             Plasma object
         profilers
             dictionary of Profiler objects to generate profiles
-        cfg
-            config dictionary; if None reads from default.yaml
-            TODO: Still considering the cleanest way to include configs here
         """
-        if cfg is None:
-            path = os.path.join(os.path.dirname(__file__), f"../configs/workflows/plasma_profiler/default.yaml")
-            with open(path) as stream:
-                cfg = yaml.safe_load(stream)
-        self.cfg = cfg
 
         self.plasma = plasma
         self.profilers = profilers
-        self.plasma_attribute_names = cfg["plasma_attrs"]
+        self.plasma_attribute_names = plasma_attribute_names
         self.phantom = None
         self.phantom_profiles = None
 
@@ -143,15 +134,21 @@ class PlasmaProfiler:
 if __name__ == "__main__":
     example_plasma = load_default_objects("st40", "plasma")
 
+    path = os.path.join(os.path.dirname(__file__), f"../configs/workflows/plasma_profiler/default.yaml")
+    with open(path) as stream:
+        cfg = yaml.safe_load(stream)
+
     profilers = {
         profile_name: ProfilerGauss(
             datatype=profile_name.split(":")[0],
             xspl=example_plasma.rho,
+            parameters=cfg["profile_params"][profile_name]
         )
         for profile_name in ["electron_density", "ion_temperature"]
     }
 
-    plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=profilers)
+    plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=profilers,
+                                     plasma_attribute_names=cfg["plasma_attrs"])
 
     plasma_profiler(
         parameters={
