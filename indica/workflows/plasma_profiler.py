@@ -1,79 +1,12 @@
-import flatdict
+import os
+
 import matplotlib.pyplot as plt
-import numpy as np
 import xarray as xr
+import yaml
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models.plasma import Plasma
 from indica.profilers import ProfilerGauss, Profiler
-
-DEFAULT_PROFILE_PARAMS = {
-    "electron_density.y0": 5e19,
-    "electron_density.y1": 2e18,
-    "electron_density.yend": 1e18,
-    "electron_density.wped": 3,
-    "electron_density.wcenter": 0.3,
-    "electron_density.peaking": 1.2,
-    "impurity_density:ar.y0": 1e17,
-    "impurity_density:ar.y1": 1e15,
-    "impurity_density:ar.yend": 1e15,
-    "impurity_density:ar.wcenter": 0.3,
-    "impurity_density:ar.wped": 3,
-    "impurity_density:ar.peaking": 2,
-    "impurity_density:c.y0": 5e17,
-    "impurity_density:c.y1": 2e17,
-    "impurity_density:c.yend": 2e17,
-    "impurity_density:c.wcenter": 0.3,
-    "impurity_density:c.wped": 3,
-    "impurity_density:c.peaking": 1.2,
-    "impurity_density:he.y0": 5e17,
-    "impurity_density:he.y1": 2e17,
-    "impurity_density:he.yend": 2e17,
-    "impurity_density:he.wcenter": 0.3,
-    "impurity_density:he.wped": 3,
-    "impurity_density:he.peaking": 1.2,
-    "electron_temperature.y0": 3000,
-    "electron_temperature.y1": 50,
-    "electron_temperature.yend": 10,
-    "electron_temperature.wcenter": 0.2,
-    "electron_temperature.wped": 3,
-    "electron_temperature.peaking": 1.5,
-    "ion_temperature.y0": 5000,
-    "ion_temperature.y1": 50,
-    "ion_temperature.yend": 10,
-    "ion_temperature.wcenter": 0.2,
-    "ion_temperature.wped": 3,
-    "ion_temperature.peaking": 1.5,
-    "neutral_density.y0": 1e14,
-    "neutral_density.y1": 5e15,
-    "neutral_density.yend": 5e15,
-    "neutral_density.wcenter": 0.01,
-    "neutral_density.wped": 18,
-    "neutral_density.peaking": 1,
-    "toroidal_rotation.y0": 500.0e3,
-    "toroidal_rotation.y1": 10.0e3,
-    "toroidal_rotation.yend": 0.0,
-    "toroidal_rotation.peaking": 1.5,
-    "toroidal_rotation.wcenter": 0.35,
-    "toroidal_rotation.wped": 3,
-}
-
-PLASMA_ATTRIBUTE_NAMES = [
-    "electron_temperature",
-    "electron_density",
-    "ion_temperature",
-    "ion_density",
-    "impurity_density",
-    "fast_density",
-    "pressure_fast",
-    "neutral_density",
-    "zeff",
-    "meanz",
-    "wp",
-    "wth",
-    "pressure_tot",
-    "pressure_th",
-]
 
 
 def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
@@ -89,13 +22,12 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
             continue
         if not hasattr(plasma, key):
             continue
-
         midplane_profiles[key] = value.interp(rho_poloidal=rho)
     return midplane_profiles
 
 
 class PlasmaProfiler:
-    def __init__(self, plasma: Plasma, profilers: dict[Profiler]):
+    def __init__(self, plasma: Plasma, profilers: dict[Profiler], cfg: dict = None):
         """
         Interface Profiler objects with Plasma object to generate plasma profiles
         and update them.
@@ -106,11 +38,19 @@ class PlasmaProfiler:
             Plasma object
         profilers
             dictionary of Profiler objects to generate profiles
-
+        cfg
+            config dictionary; if None reads from default.yaml
+            TODO: Still considering the cleanest way to include configs here
         """
+        if cfg is None:
+            path = os.path.join(os.path.dirname(__file__), f"../configs/workflows/plasma_profiler/default.yaml")
+            with open(path) as stream:
+                cfg = yaml.safe_load(stream)
+        self.cfg = cfg
+
         self.plasma = plasma
         self.profilers = profilers
-        self.plasma_attribute_names = PLASMA_ATTRIBUTE_NAMES
+        self.plasma_attribute_names = cfg["plasma_attrs"]
         self.phantom = None
         self.phantom_profiles = None
 
