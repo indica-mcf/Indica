@@ -40,20 +40,23 @@ class Prior(ABC):
         labels: tuple = None,
         type: PriorType = None,
     ):
-        self.prior_func = prior_func
-        self.labels = labels  # to identify mapping between prior names and prior func
-        self.type = type
+        self.prior_func = prior_func  # function to evaluate prior value
+        self.labels = labels  # identity of all dependent parameters and order they are given to prior_func
+        self.type = type  # PriorType
 
     @abstractmethod
-    def pdf(self, value):
+    def pdf(self, value):  # Probability density function 
         return None
 
     @abstractmethod
-    def rvs(self, size):
+    def rvs(self, size):  # Random value sample
         return None
 
 
 class PriorBasic(Prior):
+    """
+    1D Probability Distribution Function
+    """
     def __init__(self, prior_func: rv_continuous = None, labels: tuple = None):
         super().__init__(labels=labels, type=PriorType.BASIC)
         self.prior_func = prior_func
@@ -66,6 +69,9 @@ class PriorBasic(Prior):
 
 
 class PriorCond(Prior):
+    """
+    Generic relationship between 2 or more parameters
+    """
     def __init__(
         self,
         prior_func: Callable = None,
@@ -81,6 +87,9 @@ class PriorCond(Prior):
 
 
 class PriorCompound(Prior):
+    """
+    ND Probability Distribution Function
+    """
     def __init__(
         self,
         prior_func: gaussian_kde = None,
@@ -112,6 +121,7 @@ class PriorManager:
         self.loguniform = loguniform
         self.greater_than = greater_than
 
+        # Initialise prior objects
         self.priors: dict = {}
         for name, prior in self.basic_prior_info.items():
             prior = getattr(self, prior[0])(*prior[1:])
@@ -121,6 +131,8 @@ class PriorManager:
             self.priors[name] = PriorCond(prior, labels=tuple(name.split("/")))
 
     def update_priors(self, new_priors: dict):
+        #  update priors but remove all priors that match the profile names first 
+        
         #  Remove old priors matching new_priors prefixes
         prior_prefixes_to_remove = list(
             set([key.split(".")[0] for key in new_priors.keys()])
@@ -141,7 +153,7 @@ class PriorManager:
         self.priors.update(new_priors)
 
     def get_prior_names_for_profiles(self, profile_names: list) -> list:
-        #  All priors that correspond to the profile_names given
+        #  Get all priors that correspond to the profile_names given
         prior_names = [
             prior_name
             for prior_name, prior in self.priors.items()
@@ -152,7 +164,7 @@ class PriorManager:
         return prior_names
 
     def get_param_names_for_profiles(self, profile_names: list) -> list:
-        #  All param names that correspond to the profile_names given
+        #  Get all parameters that correspond to the profile_names given
         param_names = [
             list(prior.labels)
             for prior_name, prior in self.priors.items()
@@ -188,7 +200,7 @@ def ln_prior(priors: dict, parameters: dict):
     return ln_prior
 
 
-def sample_from_priors(param_names: list, priors: dict, size=10):
+def sample_from_priors(param_names: list, priors: dict, size=10) -> np.ndarray:
     samples = np.empty((param_names.__len__(), 0))
     while samples.size < param_names.__len__() * size:
         # Increase 'size * n' if too slow / looping too much
@@ -221,7 +233,7 @@ def sample_from_priors(param_names: list, priors: dict, size=10):
 
 def sample_from_high_density_region(
     param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
-):
+) -> np.ndarray:
     # TODO: remove repeated code
     start_points = sample_from_priors(param_names, priors, size=nsamples)
 
