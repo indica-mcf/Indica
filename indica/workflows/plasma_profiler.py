@@ -1,11 +1,13 @@
 import os
+
 import matplotlib.pyplot as plt
 import xarray as xr
 import yaml
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models.plasma import Plasma
-from indica.profilers import ProfilerGauss, Profiler
+from indica.profilers import Profiler
+from indica.profilers import ProfilerGauss
 
 
 def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
@@ -25,8 +27,18 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
     return midplane_profiles
 
 
+path = os.path.join(
+    os.path.dirname(__file__), "../configs/workflows/plasma_profiler/default.yaml"
+)
+with open(path) as stream:
+    cfg = yaml.safe_load(stream)
+
+PLASMA_ATTRIBUTE_NAMES = cfg["plasma_attrs"]
+
 class PlasmaProfiler:
-    def __init__(self, plasma: Plasma, profilers: dict[Profiler], plasma_attribute_names=None):
+    def __init__(
+        self, plasma: Plasma, profilers: dict[Profiler], plasma_attribute_names=PLASMA_ATTRIBUTE_NAMES
+    ):
         """
         Interface Profiler objects with Plasma object to generate plasma profiles
         and update them.
@@ -133,28 +145,22 @@ class PlasmaProfiler:
 
 if __name__ == "__main__":
     example_plasma = load_default_objects("st40", "plasma")
-
-    path = os.path.join(os.path.dirname(__file__), f"../configs/workflows/plasma_profiler/default.yaml")
-    with open(path) as stream:
-        cfg = yaml.safe_load(stream)
-
     profilers = {
         profile_name: ProfilerGauss(
             datatype=profile_name.split(":")[0],
             xspl=example_plasma.rho,
-            parameters=cfg["profile_params"][profile_name]
         )
         for profile_name in ["electron_density", "ion_temperature"]
     }
 
-    plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=profilers,
-                                     plasma_attribute_names=cfg["plasma_attrs"])
+    plasma_profiler = PlasmaProfiler(
+        plasma=example_plasma,
+        profilers=profilers,
+    )
 
     plasma_profiler(
         parameters={
             "electron_density.y0": 10e19,
-            "electron_density.y1": 1e19,
-            "electron_density.yend": 1e19,
             "ion_temperature.y0": 1e3,
         }
     )
