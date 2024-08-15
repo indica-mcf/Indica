@@ -1,0 +1,12 @@
+
+defaults:
+  - priors/default
+  - plasma_settings/default
+  - optimisation_info/emcee_default
+  - data_info/phantom
+  - model_info/all_models
+  - write_info/default
+  - pulse_info/11224
+
+pulse_info:
+  pulse_to_write: 43000000
