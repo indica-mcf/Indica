@@ -28,6 +28,7 @@ class PriorType(Enum):
     COND: generic relationship between 2+ parameters of form: func(*parameters)->float
     COMPOUND: ND PDF
     """
+
     BASIC = 1
     COND = 2
     COMPOUND = 3
@@ -41,11 +42,11 @@ class Prior(ABC):
         type: PriorType = None,
     ):
         self.prior_func = prior_func  # function to evaluate prior value
-        self.labels = labels  # identity of all dependent parameters and order they are given to prior_func
+        self.labels = labels  # ordered labels of dependent parameters
         self.type = type  # PriorType
 
     @abstractmethod
-    def pdf(self, value):  # Probability density function 
+    def pdf(self, value):  # Probability density function
         return None
 
     @abstractmethod
@@ -57,6 +58,7 @@ class PriorBasic(Prior):
     """
     1D Probability Distribution Function
     """
+
     def __init__(self, prior_func: rv_continuous = None, labels: tuple = None):
         super().__init__(labels=labels, type=PriorType.BASIC)
         self.prior_func = prior_func
@@ -72,6 +74,7 @@ class PriorCond(Prior):
     """
     Generic relationship between 2 or more parameters
     """
+
     def __init__(
         self,
         prior_func: Callable = None,
@@ -90,6 +93,7 @@ class PriorCompound(Prior):
     """
     ND Probability Distribution Function
     """
+
     def __init__(
         self,
         prior_func: gaussian_kde = None,
@@ -131,8 +135,8 @@ class PriorManager:
             self.priors[name] = PriorCond(prior, labels=tuple(name.split("/")))
 
     def update_priors(self, new_priors: dict):
-        #  update priors but remove all priors that match the profile names first 
-        
+        #  update priors but remove all priors that match the profile names first
+
         #  Remove old priors matching new_priors prefixes
         prior_prefixes_to_remove = list(
             set([key.split(".")[0] for key in new_priors.keys()])
