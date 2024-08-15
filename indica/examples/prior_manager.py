@@ -10,7 +10,7 @@ from indica.workflows.priors import sample_from_priors
     config_path="../configs/workflows/priors/",
     config_name="config",
 )
-def main(cfg: DictConfig):
+def example_prior_manager(cfg: DictConfig):
     pm = PriorManager(**cfg)
     post = pm.ln_prior({"electron_density.y0": 1e20, "electron_density.y1": 1e19})
     samples = sample_from_priors(
