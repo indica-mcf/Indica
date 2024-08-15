@@ -22,6 +22,12 @@ def get_uniform(lower, upper):
 
 
 class PriorType(Enum):
+    """
+    PriorType differentiates between the below prior types.
+    BASIC: 1D PDF
+    COND: generic relationship between 2+ parameters of form: func(*parameters)->float
+    COMPOUND: ND PDF
+    """
     BASIC = 1
     COND = 2
     COMPOUND = 3
