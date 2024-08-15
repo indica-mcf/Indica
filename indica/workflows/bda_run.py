@@ -166,7 +166,7 @@ def bda_run(
 
     plasma.set_equilibrium(equilibrium=equilibrium)
 
-    # different data handling methods TODO: abstract these to an interface
+    # different data handling methods TODO: abstract to an interface
 
     if cfg.data_info.mock:
         log.info("Using mock data reader strategy")
