@@ -1,7 +1,8 @@
 import hydra
 from omegaconf import DictConfig
 
-from indica.workflows.priors import PriorManager, sample_from_priors
+from indica.workflows.priors import PriorManager
+from indica.workflows.priors import sample_from_priors
 
 
 @hydra.main(

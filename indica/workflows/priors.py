@@ -3,9 +3,7 @@ from abc import abstractmethod
 from enum import Enum
 from typing import Callable
 
-import hydra
 import numpy as np
-from omegaconf import DictConfig
 from scipy.stats import gaussian_kde
 from scipy.stats import loguniform
 from scipy.stats import rv_continuous
@@ -266,5 +264,3 @@ def sample_from_high_density_region(
         samples = np.append(samples, accepted_samples, axis=1)
     start_points = samples[:, 0:nwalkers].transpose()
     return start_points
-
-
