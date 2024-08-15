@@ -35,9 +35,13 @@ with open(path) as stream:
 
 PLASMA_ATTRIBUTE_NAMES = cfg["plasma_attrs"]
 
+
 class PlasmaProfiler:
     def __init__(
-        self, plasma: Plasma, profilers: dict[Profiler], plasma_attribute_names=PLASMA_ATTRIBUTE_NAMES
+        self,
+        plasma: Plasma,
+        profilers: dict[Profiler],
+        plasma_attribute_names=PLASMA_ATTRIBUTE_NAMES,
     ):
         """
         Interface Profiler objects with Plasma object to generate plasma profiles

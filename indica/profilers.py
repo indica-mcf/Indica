@@ -1,13 +1,11 @@
-import os.path
 from abc import ABC
+import os.path
 
 import matplotlib.pylab as plt
 import numpy as np
-import yaml
-from hydra import initialize_config_module, compose
-from omegaconf import OmegaConf
 from scipy.interpolate import CubicSpline
 import xarray as xr
+import yaml
 
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
@@ -239,14 +237,15 @@ class ProfilerBasis(Profiler):
         return self.ydata
 
 
-def get_defaults_for_profiler_gauss(datatype="electron_temperature", config_name="profiler_gauss"):
+def get_defaults_for_profiler_gauss(
+    datatype="electron_temperature", config_name="profiler_gauss"
+):
     """
     Loads config for default parameter values
     """
-    path = os.path.join(os.path.dirname(__file__), f"configs/profilers/{config_name}.yaml")
+    path = os.path.join(
+        os.path.dirname(__file__), f"configs/profilers/{config_name}.yaml"
+    )
     with open(path) as stream:
         cfg = yaml.safe_load(stream)
     return cfg[datatype]
-
-
-
