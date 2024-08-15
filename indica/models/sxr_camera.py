@@ -5,12 +5,12 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
-from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 
 
-class SXRcamera(DiagnosticModel):
+class SXRcamera(AbstractDiagnostic):
     """
     Object representing a SXR camera diagnostic
     Currently identical to bolometer model...
@@ -21,7 +21,7 @@ class SXRcamera(DiagnosticModel):
         name: str,
         instrument_method="get_radiation",
     ):
-        self.los_transform: LineOfSightTransform
+        self.transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -38,7 +38,7 @@ class SXRcamera(DiagnosticModel):
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
                     "datatype": datatype,
-                    "transform": self.los_transform,
+                    "transform": self.transform,
                     "error": error,
                     "stdev": stdev,
                     "provenance": str(self),
@@ -105,7 +105,7 @@ class SXRcamera(DiagnosticModel):
         self.emissivity_element = xr.concat(_emissivity, "element")
         self.emissivity = self.emissivity_element.sum("element")
 
-        self.los_integral = self.los_transform.integrate_on_los(
+        self.los_integral = self.transform.integrate_on_los(
             self.emissivity,
             t=t,
             calc_rho=calc_rho,
@@ -121,7 +121,7 @@ class SXRcamera(DiagnosticModel):
             return
 
         # Line-of-sight information
-        self.los_transform.plot(self.t.mean())
+        self.transform.plot(self.t.mean())
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))

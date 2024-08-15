@@ -1,12 +1,12 @@
 import xarray as xr
 
-from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
 from indica.utilities import check_time_present
 
 
-class EquilibriumReconstruction(DiagnosticModel):
+class EquilibriumReconstruction(AbstractDiagnostic):
     """
     Object representing observations from a magnetic reconstruction
     """
@@ -57,6 +57,6 @@ class EquilibriumReconstruction(DiagnosticModel):
 
         check_time_present(t, self.plasma.wp.t)
 
-        self.wp = self.plasma.wp.interp(t=t)
+        self.wp = self.plasma.wp.sel(t=t)
         self._build_bckc_dictionary()
         return self.bckc
