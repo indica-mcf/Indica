@@ -902,16 +902,16 @@ def default_profiles(n_rad: int = 100):
     rho_end = 1.01
     rho = np.abs(np.linspace(rho_end, 0, n_rad) ** 1.8 - rho_end - 0.01)
 
-    Te_prof = Profiles(
+    Te_prof = ProfilerGauss(
         datatype="electron_temperature",
         xspl=rho,
         xend=xend,
     )
     Te_prof.y0 = 10.0e3
     Te = Te_prof()
-    Ne_prof = Profiles(datatype="electron_density", xspl=rho, xend=xend)
+    Ne_prof = ProfilerGauss(datatype="electron_density", xspl=rho, xend=xend)
     Ne = Ne_prof()
-    Nh_prof = Profiles(
+    Nh_prof = ProfilerGauss(
         datatype="neutral_density",
         xspl=rho,
         xend=xend,
