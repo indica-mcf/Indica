@@ -8,6 +8,7 @@ import numpy as np
 from omegaconf import DictConfig
 from scipy.stats import gaussian_kde
 from scipy.stats import loguniform
+
 from scipy.stats import uniform
 
 
@@ -21,6 +22,12 @@ def get_uniform(lower, upper):
 
 
 class PriorType(Enum):
+    """
+    PriorType differentiates between the below prior types.
+    BASIC: 1D PDF
+    COND: generic relationship between 2+ parameters of form: func(*parameters)->float
+    COMPOUND: ND PDF
+    """
     BASIC = 1
     COND = 2
     COMPOUND = 3
@@ -60,6 +67,9 @@ class PriorBasic(Prior):
 
 
 class PriorCond(Prior):
+    """
+    Generic relationship between 2 or more parameters
+    """
     def __init__(
         self,
         prior_func: Callable = None,
@@ -75,6 +85,10 @@ class PriorCond(Prior):
 
 
 class PriorCompound(Prior):
+    """
+    ND Probability Distribution Function
+    """
+
     def __init__(
         self,
         prior_func: gaussian_kde = None,
@@ -106,6 +120,7 @@ class PriorManager:
         self.loguniform = loguniform
         self.greater_than = greater_than
 
+        # Initialise prior objects
         self.priors: dict = {}
         for name, prior in self.basic_prior_info.items():
             prior = getattr(self, prior[0])(*prior[1:])
@@ -115,7 +130,8 @@ class PriorManager:
             self.priors[name] = PriorCond(prior, labels=tuple(name.split("/")))
 
     def update_priors(self, new_priors: dict):
-        #  Remove old priors matching new_priors prefixes
+        #  update priors but remove all priors that match the profile names first
+
         prior_prefixes_to_remove = list(
             set([key.split(".")[0] for key in new_priors.keys()])
         )
@@ -135,7 +151,7 @@ class PriorManager:
         self.priors.update(new_priors)
 
     def get_prior_names_for_profiles(self, profile_names: list) -> list:
-        #  All priors that correspond to the profile_names given
+        #  Get all priors that correspond to the profile_names given
         prior_names = [
             prior_name
             for prior_name, prior in self.priors.items()
@@ -146,7 +162,7 @@ class PriorManager:
         return prior_names
 
     def get_param_names_for_profiles(self, profile_names: list) -> list:
-        #  All param names that correspond to the profile_names given
+        #  Get all parameters that correspond to the profile_names given
         param_names = [
             list(prior.labels)
             for prior_name, prior in self.priors.items()
@@ -182,7 +198,7 @@ def ln_prior(priors: dict, parameters: dict):
     return ln_prior
 
 
-def sample_from_priors(param_names: list, priors: dict, size=10):
+def sample_from_priors(param_names: list, priors: dict, size=10) -> np.ndarray:
     samples = np.empty((param_names.__len__(), 0))
     while samples.size < param_names.__len__() * size:
         # Increase 'size * n' if too slow / looping too much
@@ -215,7 +231,7 @@ def sample_from_priors(param_names: list, priors: dict, size=10):
 
 def sample_from_high_density_region(
     param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
-):
+) -> np.ndarray:
     # TODO: remove repeated code
     start_points = sample_from_priors(param_names, priors, size=nsamples)
 
@@ -245,22 +261,3 @@ def sample_from_high_density_region(
     start_points = samples[:, 0:nwalkers].transpose()
     return start_points
 
-
-@hydra.main(
-    version_base=None,
-    config_path="../configs/workflows/priors/",
-    config_name="config",
-)
-def main(cfg: DictConfig):
-    pm = PriorManager(**cfg)
-    post = pm.ln_prior({"electron_density.y0": 1e20, "electron_density.y1": 1e19})
-    samples = sample_from_priors(
-        ["electron_density.y0", "electron_density.y1"], pm.priors
-    )
-
-    print(post)
-    print(samples)
-
-
-if __name__ == "__main__":
-    main()

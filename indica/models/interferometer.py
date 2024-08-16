@@ -3,14 +3,14 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.converters import LineOfSightTransform
-from indica.models.abstractdiagnostic import DiagnosticModel
+from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
 
 
-class Interferometry(DiagnosticModel):
+class Interferometer(AbstractDiagnostic):
     """
     Object representing an interferometer diagnostics
     """
@@ -23,7 +23,7 @@ class Interferometry(DiagnosticModel):
         name: str,
         instrument_method="get_interferometry",
     ):
-        self.los_transform: LineOfSightTransform
+        self.transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
@@ -40,7 +40,7 @@ class Interferometry(DiagnosticModel):
                 stdev = xr.full_like(self.bckc[quantity], 0.0)
                 self.bckc[quantity].attrs = {
                     "datatype": datatype,
-                    "transform": self.los_transform,
+                    "transform": self.transform,
                     "error": error,
                     "stdev": stdev,
                     "long_name": "Ne",
@@ -77,7 +77,7 @@ class Interferometry(DiagnosticModel):
         self.t: DataArray = t
         self.Ne: DataArray = Ne
 
-        los_integral_ne = self.los_transform.integrate_on_los(
+        los_integral_ne = self.transform.integrate_on_los(
             Ne,
             t=self.t,
             calc_rho=calc_rho,
@@ -94,9 +94,7 @@ class Interferometry(DiagnosticModel):
             return
 
         # Line-of-sight information
-        self.los_transform.plot()
-
-        # Back-calculated profiles
+        self.transform.plot()
         plt.figure()
         _value = self.bckc["ne"]
         if "beamlet" in _value.dims:
