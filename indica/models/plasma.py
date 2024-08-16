@@ -17,7 +17,7 @@ from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import default_atomic_data
 import indica.physics as ph
-from indica.profiles_gauss import Profiles as ProfilesGauss
+from indica.profilers import ProfilerGauss
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
@@ -837,7 +837,7 @@ class CachedCalculation(TrackDependecies):
 
 
 class PlasmaProfiles:
-    def __init__(self, plasma: Plasma, profiler_object: Callable = ProfilesGauss):
+    def __init__(self, plasma: Plasma, profiler_object: Callable = ProfilerGauss):
         """
         Interface a Profiler class with a Plasma object to generate plasma profiles
         and update them.
