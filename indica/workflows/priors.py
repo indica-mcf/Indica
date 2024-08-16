@@ -3,12 +3,9 @@ from abc import abstractmethod
 from enum import Enum
 from typing import Callable
 
-import hydra
 import numpy as np
-from omegaconf import DictConfig
 from scipy.stats import gaussian_kde
 from scipy.stats import loguniform
-
 from scipy.stats import uniform
 
 
@@ -28,6 +25,7 @@ class PriorType(Enum):
     COND: generic relationship between 2+ parameters of form: func(*parameters)->float
     COMPOUND: ND PDF
     """
+
     BASIC = 1
     COND = 2
     COMPOUND = 3
@@ -70,6 +68,7 @@ class PriorCond(Prior):
     """
     Generic relationship between 2 or more parameters
     """
+
     def __init__(
         self,
         prior_func: Callable = None,
@@ -260,4 +259,3 @@ def sample_from_high_density_region(
         samples = np.append(samples, accepted_samples, axis=1)
     start_points = samples[:, 0:nwalkers].transpose()
     return start_points
-
