@@ -10,6 +10,15 @@ from indica.profilers import Profiler
 from indica.profilers import ProfilerGauss
 
 
+path = os.path.join(
+    os.path.dirname(__file__), "../configs/workflows/plasma_profiler/default.yaml"
+)
+with open(path) as stream:
+    cfg = yaml.safe_load(stream)
+
+PLASMA_ATTRIBUTE_NAMES = cfg["plasma_attrs"]
+
+
 def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
     midplane_profiles: dict = {}
 
@@ -25,15 +34,6 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
             continue
         midplane_profiles[key] = value.interp(rho_poloidal=rho)
     return midplane_profiles
-
-
-path = os.path.join(
-    os.path.dirname(__file__), "../configs/workflows/plasma_profiler/default.yaml"
-)
-with open(path) as stream:
-    cfg = yaml.safe_load(stream)
-
-PLASMA_ATTRIBUTE_NAMES = cfg["plasma_attrs"]
 
 
 class PlasmaProfiler:
