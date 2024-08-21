@@ -1,80 +1,22 @@
-import flatdict
+import os
+
 import matplotlib.pyplot as plt
-import numpy as np
 import xarray as xr
+import yaml
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models.plasma import Plasma
 from indica.profilers import Profiler
 from indica.profilers import ProfilerGauss
 
-DEFAULT_PROFILE_PARAMS = {
-    "electron_density.y0": 5e19,
-    "electron_density.y1": 2e18,
-    "electron_density.yend": 1e18,
-    "electron_density.wped": 3,
-    "electron_density.wcenter": 0.3,
-    "electron_density.peaking": 1.2,
-    "impurity_density:ar.y0": 1e17,
-    "impurity_density:ar.y1": 1e15,
-    "impurity_density:ar.yend": 1e15,
-    "impurity_density:ar.wcenter": 0.3,
-    "impurity_density:ar.wped": 3,
-    "impurity_density:ar.peaking": 2,
-    "impurity_density:c.y0": 5e17,
-    "impurity_density:c.y1": 2e17,
-    "impurity_density:c.yend": 2e17,
-    "impurity_density:c.wcenter": 0.3,
-    "impurity_density:c.wped": 3,
-    "impurity_density:c.peaking": 1.2,
-    "impurity_density:he.y0": 5e17,
-    "impurity_density:he.y1": 2e17,
-    "impurity_density:he.yend": 2e17,
-    "impurity_density:he.wcenter": 0.3,
-    "impurity_density:he.wped": 3,
-    "impurity_density:he.peaking": 1.2,
-    "electron_temperature.y0": 3000,
-    "electron_temperature.y1": 50,
-    "electron_temperature.yend": 10,
-    "electron_temperature.wcenter": 0.2,
-    "electron_temperature.wped": 3,
-    "electron_temperature.peaking": 1.5,
-    "ion_temperature.y0": 5000,
-    "ion_temperature.y1": 50,
-    "ion_temperature.yend": 10,
-    "ion_temperature.wcenter": 0.2,
-    "ion_temperature.wped": 3,
-    "ion_temperature.peaking": 1.5,
-    "neutral_density.y0": 1e14,
-    "neutral_density.y1": 5e15,
-    "neutral_density.yend": 5e15,
-    "neutral_density.wcenter": 0.01,
-    "neutral_density.wped": 18,
-    "neutral_density.peaking": 1,
-    "toroidal_rotation.y0": 500.0e3,
-    "toroidal_rotation.y1": 10.0e3,
-    "toroidal_rotation.yend": 0.0,
-    "toroidal_rotation.peaking": 1.5,
-    "toroidal_rotation.wcenter": 0.35,
-    "toroidal_rotation.wped": 3,
-}
 
-PLASMA_ATTRIBUTE_NAMES = [
-    "electron_temperature",
-    "electron_density",
-    "ion_temperature",
-    "ion_density",
-    "impurity_density",
-    "fast_density",
-    "pressure_fast",
-    "neutral_density",
-    "zeff",
-    "meanz",
-    "wp",
-    "wth",
-    "pressure_tot",
-    "pressure_th",
-]
+path = os.path.join(
+    os.path.dirname(__file__), "../configs/workflows/plasma_profiler/default.yaml"
+)
+with open(path) as stream:
+    cfg = yaml.safe_load(stream)
+
+PLASMA_ATTRIBUTE_NAMES = cfg["plasma_attrs"]
 
 
 def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
@@ -90,42 +32,17 @@ def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
             continue
         if not hasattr(plasma, key):
             continue
-
         midplane_profiles[key] = value.interp(rho_poloidal=rho)
-        # TODO: Changing NaN results to zeros messes with distributions
-        # midplane_profiles[key] = xr.where(
-        #     np.isfinite(_prof_midplane), _prof_midplane, 0.0
-        # )
     return midplane_profiles
 
 
-def initialise_gauss_profilers(
-    xspl: np.ndarray, profile_params: dict = None, profiler_names: list = None
-):
-    # Should profilers be a dataclass or named tuple rather than bare dictionary
-    if profile_params is None:
-        profile_params = DEFAULT_PROFILE_PARAMS
-    flat_profile_params = flatdict.FlatDict(profile_params, ".")
-
-    if profiler_names is None:
-        profile_names = flat_profile_params.as_dict().keys()
-    else:
-        profile_names = profiler_names
-
-    profilers = {
-        profile_name: ProfilerGauss(
-            datatype=profile_name.split(":")[0],
-            parameters=flat_profile_params[profile_name],
-            xspl=xspl,
-        )
-        for profile_name in profile_names
-    }
-
-    return profilers
-
-
 class PlasmaProfiler:
-    def __init__(self, plasma: Plasma, profilers: dict[Profiler]):
+    def __init__(
+        self,
+        plasma: Plasma,
+        profilers: dict[Profiler],
+        plasma_attribute_names=PLASMA_ATTRIBUTE_NAMES,
+    ):
         """
         Interface Profiler objects with Plasma object to generate plasma profiles
         and update them.
@@ -136,11 +53,11 @@ class PlasmaProfiler:
             Plasma object
         profilers
             dictionary of Profiler objects to generate profiles
-
         """
+
         self.plasma = plasma
         self.profilers = profilers
-        self.plasma_attribute_names = PLASMA_ATTRIBUTE_NAMES
+        self.plasma_attribute_names = plasma_attribute_names
         self.phantom = None
         self.phantom_profiles = None
 
@@ -232,16 +149,22 @@ class PlasmaProfiler:
 
 if __name__ == "__main__":
     example_plasma = load_default_objects("st40", "plasma")
-    gauss_profilers = initialise_gauss_profilers(
-        profile_params=DEFAULT_PROFILE_PARAMS, xspl=example_plasma.rho
+    profilers = {
+        profile_name: ProfilerGauss(
+            datatype=profile_name.split(":")[0],
+            xspl=example_plasma.rho,
+        )
+        for profile_name in ["electron_density", "ion_temperature"]
+    }
+
+    plasma_profiler = PlasmaProfiler(
+        plasma=example_plasma,
+        profilers=profilers,
     )
-    plasma_profiler = PlasmaProfiler(plasma=example_plasma, profilers=gauss_profilers)
 
     plasma_profiler(
         parameters={
             "electron_density.y0": 10e19,
-            "electron_density.y1": 1e19,
-            "electron_density.yend": 1e19,
             "ion_temperature.y0": 1e3,
         }
     )

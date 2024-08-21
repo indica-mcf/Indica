@@ -3,17 +3,17 @@ from dataclasses import field
 from typing import Dict
 from typing import Tuple
 
-import hydra
+from hydra import compose
+from hydra import initialize_config_module
 import matplotlib.pyplot as plt
 import numpy as np
-from omegaconf import DictConfig
 from scipy.interpolate import LinearNDInterpolator
 from scipy.stats import gaussian_kde
 from sklearn.decomposition import PCA
 import xarray as xr
 
 from indica.profilers import ProfilerBasis
-from indica.workflows.plasma_profiler import initialise_gauss_profilers
+from indica.profilers import ProfilerGauss
 from indica.workflows.priors import PriorCompound
 from indica.workflows.priors import PriorManager
 from indica.workflows.priors import sample_from_priors
@@ -232,6 +232,7 @@ def pca_workflow(
     x_grid: xr.DataArray,
     n_components=2,
     num_prof_samples: int = int(1e5),
+    kde_samples=1e6,
 ):
     param_names = prior_manager.get_param_names_for_profiles(opt_profiles)
     param_samples: np.ndarray = sample_from_priors(
@@ -241,13 +242,20 @@ def pca_workflow(
         param_name: param_samples[:, idx] for idx, param_name in enumerate(param_names)
     }
 
-    profilers = initialise_gauss_profilers(xspl=x_grid, profiler_names=opt_profiles)
+    profilers = {
+        profile_name: ProfilerGauss(
+            datatype=profile_name.split(":")[0],
+            xspl=x_grid,
+        )
+        for profile_name in opt_profiles
+    }
+
     profiles = sample_gauss_profiles(
         param_samples, profilers=profilers, size=num_prof_samples
     )
 
     pca_processor = PCAProcessor(
-        gaussian_profiles=profiles, ncomps=n_components, kde_size=int(1e6)
+        gaussian_profiles=profiles, ncomps=n_components, kde_size=kde_samples
     )
     pca_processor.compound_priors = {
         f"{key}.kde": PriorCompound(
@@ -295,23 +303,22 @@ def sample_gauss_profiles(
     return profiles
 
 
-@hydra.main(
-    version_base=None,
-    config_path="../configs/workflows/priors/",
-    config_name="config",
-)
-def main(cfg: DictConfig):
+def main():
+    with initialize_config_module(
+        version_base=None, config_module="indica.configs.workflows.priors"
+    ):
+        cfg = compose(config_name="config")
+
     pca_processor, pca_profilers = pca_workflow(
         PriorManager(
             basic_prior_info=cfg.basic_prior_info,
             cond_prior_info=cfg.cond_prior_info,
         ),
-        [
-            "ion_temperature",
-        ],
+        ["ion_temperature"],
         np.linspace(0, 1, 30),
         n_components=2,
-        num_prof_samples=int(3e3),
+        num_prof_samples=int(5e3),
+        kde_samples=int(1e5),
     )
 
     pca_processor.plot_all()
