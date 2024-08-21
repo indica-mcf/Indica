@@ -69,20 +69,23 @@ INSTRUMENT_MAPPING: dict = {
 @hydra.main(
     version_base=None,
     config_path="../configs/workflows/bda_run",
-    config_name="basic_run",
+    config_name="test_exp",
 )
 def bda_run(
         cfg: DictConfig,
 ):
+    if cfg.writer.pulse_to_write is None:
+        cfg.writer.pulse_to_write = cfg.pulse
+
     log = logging.getLogger(__name__)
-    log.info(f"Beginning BDA for pulse {cfg.pulse_info.pulse}")
-    dirname = f"{cfg.pulse_info.pulse}.{cfg.write_info.run}"
+    log.info(f"Beginning BDA for pulse {cfg.pulse}")
+    dirname = f"{cfg.pulse}.{cfg.writer.run}"
 
     log.info("Initialising plasma")
     plasma = Plasma(
-        tstart=cfg.pulse_info.tstart,
-        tend=cfg.pulse_info.tend,
-        dt=cfg.pulse_info.dt,
+        tstart=cfg.tstart,
+        tend=cfg.tend,
+        dt=cfg.dt,
         **cfg.plasma.settings,
     )
 
@@ -92,24 +95,23 @@ def bda_run(
         profile_names=cfg.plasma.profiles.keys(),
         profile_params=OmegaConf.to_container(cfg.plasma.profiles))
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
-    plasma_profiler(cfg.data_info.profile_params_to_update)
 
-    if cfg.data_info.set_ts or cfg.data_info.apply_rshift:
+    if cfg.reader.set_ts or cfg.reader.apply_rshift:
         log.info("PPTS reading")
         ppts_reader = ReadST40(
-            pulse=cfg.pulse_info.pulse + cfg.data_info.ppts_modelling_number,
-            tstart=cfg.pulse_info.tstart,
-            tend=cfg.pulse_info.tend,
-            dt=cfg.pulse_info.dt,
+            pulse=cfg.pulse + cfg.reader.ppts_modelling_number,
+            tstart=cfg.tstart,
+            tend=cfg.tend,
+            dt=cfg.dt,
             tree="ppts",
         )
         ppts_reader(
             ["ppts"],
-            revisions=OmegaConf.to_container(cfg.data_info.revisions),
+            revisions=OmegaConf.to_container(cfg.reader.revisions),
             fetch_equilbrium=False,
         )
 
-    if cfg.data_info.set_ts:
+    if cfg.reader.set_ts:
         # interp ppts profiles as some are empty
         log.info("Setting profiles from PPTS")
         ppts_profs = ppts_reader.filtered_data["ppts"]
@@ -139,29 +141,29 @@ def bda_run(
                 "electron_temperature": te,
             }
         )
-    plasma_profiler.save_phantoms(phantom=cfg.data_info.phantom)
+    plasma_profiler.save_phantoms(phantom=cfg.reader.phantom)
 
     # if binned data is used then interpolating onto equil.t
     # and back to plasma.t causes some time points to be lost
     R_shift = 0.0
-    if cfg.data_info.apply_rshift:
+    if cfg.reader.apply_rshift:
         R_shift = ppts_reader.raw_data["ppts"]["R_shift"]
         log.info(f"R shift of: {R_shift}")
 
-    if cfg.data_info.mock:
+    if cfg.reader.mock:
         log.info("Using mock equilibrium")
         equilibrium = load_default_objects("st40", "equilibrium")
     else:
         log.info("Reading equilibrium")
         equil_reader = ReadST40(
-            pulse=cfg.data_info.equilibrium.modelling_number + cfg.pulse_info.pulse,
-            tstart=cfg.pulse_info.tstart,
-            tend=cfg.pulse_info.tend,
-            dt=cfg.pulse_info.dt,
+            pulse=cfg.reader.equilibrium.modelling_number + cfg.pulse,
+            tstart=cfg.tstart,
+            tend=cfg.tend,
+            dt=cfg.dt,
         )
         equil_reader(
-            [cfg.data_info.equilibrium.code],
-            revisions=OmegaConf.to_container(cfg.data_info.equilibrium.revisions),
+            [cfg.reader.equilibrium.code],
+            revisions=OmegaConf.to_container(cfg.reader.equilibrium.revisions),
             R_shift=R_shift,
         )
         equilibrium = equil_reader.equilibrium
@@ -170,13 +172,13 @@ def bda_run(
 
     # different data handling methods TODO: abstract to an interface
 
-    if cfg.data_info.mock:
+    if cfg.reader.mock:
         log.info("Using mock data reader strategy")
         transforms = load_default_objects("st40", "geometry")
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
         reader = ModelCoordinator(
             models,
-            OmegaConf.to_container(cfg.model_info),
+            OmegaConf.to_container(cfg.model.settings),
         )
         reader.set_transforms(transforms)
         reader.set_equilibrium(
@@ -184,20 +186,19 @@ def bda_run(
         )
         reader.set_plasma(plasma)
 
-    elif cfg.data_info.phantom:  # Currently broken
+    elif cfg.reader.phantom:
         log.info("Using phantom reader strategy")
         phantom_reader = ReadST40(
-            pulse=cfg.pulse_info.pulse,
-            tstart=cfg.pulse_info.tstart,
-            tend=cfg.pulse_info.tend,
-            dt=cfg.pulse_info.dt,
+            pulse=cfg.pulse,
+            tstart=cfg.tstart,
+            tend=cfg.tend,
+            dt=cfg.dt,
         )
         phantom_reader(
-            cfg.pulse_info.diagnostics,
-            filter_coords=cfg.data_info.filter_coords,
-            filter_limits=cfg.data_info.filter_limits,
+            cfg.diagnostics,
             revisions=OmegaConf.to_container(cfg.data_info.revisions),
             R_shift=R_shift,
+            **cfg.reader.filters
         )
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
         if "xrcs" in phantom_reader.binned_data.keys():
@@ -211,7 +212,7 @@ def bda_run(
 
         reader = ModelCoordinator(
             models,
-            {**OmegaConf.to_container(cfg.model_info), **more_model_settings},
+            {**OmegaConf.to_container(cfg.model.settings), **more_model_settings},
         )
         reader.set_transforms(phantom_reader.transforms)
         reader.set_equilibrium(
@@ -222,19 +223,18 @@ def bda_run(
     else:
         log.info("Using default reader strategy")
         reader = ReadST40(
-            pulse=cfg.pulse_info.pulse,
-            tstart=cfg.pulse_info.tstart,
-            tend=cfg.pulse_info.tend,
-            dt=cfg.pulse_info.dt,
+            pulse=cfg.pulse,
+            tstart=cfg.tstart,
+            tend=cfg.tend,
+            dt=cfg.dt,
         )
 
     reader(
-        cfg.pulse_info.diagnostics,
-        filter_coords=cfg.data_info.filter_coords,
-        filter_limits=cfg.data_info.filter_limits,
-        revisions=OmegaConf.to_container(cfg.data_info.revisions),
+        cfg.model.diagnostics,
+        revisions=OmegaConf.to_container(cfg.reader.revisions),
         R_shift=R_shift,
         fetch_equilbrium=False,
+        **cfg.reader.filters
     )
 
     # post processing (TODO: where should this be)
@@ -242,7 +242,7 @@ def bda_run(
     log.info("Applying error to opt_data")
     opt_data = add_error_to_opt_data(flat_data, verbose=False)
 
-    models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
+    models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.model.diagnostics}
     if "xrcs" in reader.binned_data.keys():
         more_model_settings = {
             "xrcs": {
@@ -256,7 +256,7 @@ def bda_run(
     model_coordinator = ModelCoordinator(
         models=models,
         model_settings={
-            **OmegaConf.to_container(cfg.model_info),
+            **OmegaConf.to_container(cfg.model.settings),
             **more_model_settings,
         },
         verbose=False,
@@ -270,40 +270,40 @@ def bda_run(
     log.info("initialising PriorManager")
     prior_manager = PriorManager(**cfg.priors)
 
-    if any(cfg.optimisation_info.pca_profiles):
-        log.info(f"Using PCA profiles: {cfg.optimisation_info.pca_profiles}")
+    if any(cfg.optimisation.pca_profiles):
+        log.info(f"Using PCA profiles: {cfg.optimisation.pca_profiles}")
         pca_processor, pca_profilers = pca_workflow(
             prior_manager,
-            cfg.optimisation_info.pca_profiles,
+            cfg.optimisation.pca_profiles,
             plasma.rho,
-            n_components=cfg.optimisation_info.pca_components,
+            n_components=cfg.optimisation.pca_components,
             num_prof_samples=int(5e3),
         )
         prior_manager.update_priors(pca_processor.compound_priors)
         plasma_profiler.update_profilers(pca_profilers)
         opt_params = [
             param
-            for param in cfg.optimisation_info.param_names
-            if param.split(".")[0] not in cfg.optimisation_info.pca_profiles
+            for param in cfg.optimisation.param_names
+            if param.split(".")[0] not in cfg.optimisation.pca_profiles
         ]
         opt_params.extend(
             prior_manager.get_param_names_for_profiles(
-                cfg.optimisation_info.pca_profiles
+                cfg.optimisation.pca_profiles
             )
         )
         log.info(f"optimising with: {opt_params}")
     else:
-        opt_params = list(cfg.optimisation_info.param_names)
+        opt_params = list(cfg.optimisation.param_names)
 
     optimiser_settings = OptimiserEmceeSettings(
         param_names=opt_params,
-        nwalkers=cfg.optimisation_info.nwalkers,
-        iterations=cfg.optimisation_info.iterations,
-        sample_method=cfg.optimisation_info.sample_method,
-        starting_samples=cfg.optimisation_info.starting_samples,
-        burn_frac=cfg.optimisation_info.burn_frac,
-        stopping_criteria=cfg.optimisation_info.stopping_criteria,
-        stopping_criteria_factor=cfg.optimisation_info.stopping_criteria_factor,
+        nwalkers=cfg.optimisation.nwalkers,
+        iterations=cfg.optimisation.iterations,
+        sample_method=cfg.optimisation.sample_method,
+        starting_samples=cfg.optimisation.starting_samples,
+        burn_frac=cfg.optimisation.burn_frac,
+        stopping_criteria=cfg.optimisation.stopping_criteria,
+        stopping_criteria_factor=cfg.optimisation.stopping_criteria_factor,
         stopping_criteria_debug=True,
     )
 
@@ -315,7 +315,7 @@ def bda_run(
     )
 
     workflow = BayesWorkflow(
-        quant_to_optimise=cfg.pulse_info.quant_to_optimise,
+        quant_to_optimise=cfg.model.quantities,
         opt_data=opt_data,
         optimiser_context=optimiser_context,
         plasma_profiler=plasma_profiler,
@@ -325,12 +325,12 @@ def bda_run(
 
     log.info("Running BDA")
     workflow(
-        pulse_to_write=cfg.pulse_info.pulse_to_write,
-        run=cfg.write_info.run,
-        run_info=cfg.write_info.run_info,
-        best=cfg.write_info.best,
-        mds_write=cfg.write_info.mds_write,
-        plot=cfg.write_info.plot,
+        pulse_to_write=cfg.writer.pulse_to_write,
+        run=cfg.writer.run,
+        run_info=cfg.writer.run_info,
+        best=cfg.writer.best,
+        mds_write=cfg.writer.mds_write,
+        plot=cfg.writer.plot,
         filepath=f"./results/{dirname}/",
         config=pprint.pformat(dict(cfg)),
     )

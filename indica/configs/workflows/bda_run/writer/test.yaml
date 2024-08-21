@@ -1,4 +1,4 @@
-
+pulse_to_write: 43000000
 mds_write: False
 best: False
 plot: False
