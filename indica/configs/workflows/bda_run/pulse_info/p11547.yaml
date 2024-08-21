@@ -1,0 +1,15 @@
+
+pulse: 11547
+pulse_to_write: 11547
+tstart: 0.05
+tend: 0.11
+dt: 0.01
+diagnostics: [
+  "xrcs",
+  "cxff_pi",
+]
+
+quant_to_optimise: [
+  "xrcs.intens",
+  "cxff_pi.ti",
+]
