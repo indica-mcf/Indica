@@ -19,8 +19,7 @@ from indica.workflows.bayes_workflow import EmceeOptimiser
 from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.optimiser_context import OptimiserEmceeSettings
 from indica.workflows.pca import pca_workflow
-from indica.workflows.plasma_profiler import initialise_gauss_profilers
-from indica.workflows.plasma_profiler import PlasmaProfiler
+from indica.workflows.plasma_profiler import PlasmaProfiler, initialise_gauss_profilers
 from indica.workflows.priors import PriorManager
 
 ERROR_FUNCTIONS = {
@@ -73,7 +72,7 @@ INSTRUMENT_MAPPING: dict = {
     config_name="basic_run",
 )
 def bda_run(
-    cfg: DictConfig,
+        cfg: DictConfig,
 ):
     log = logging.getLogger(__name__)
     log.info(f"Beginning BDA for pulse {cfg.pulse_info.pulse}")
@@ -84,11 +83,14 @@ def bda_run(
         tstart=cfg.pulse_info.tstart,
         tend=cfg.pulse_info.tend,
         dt=cfg.pulse_info.dt,
-        **cfg.plasma_settings,
+        **cfg.plasma.settings,
     )
 
     log.info("Initialising plasma_profiler")
-    profilers = initialise_gauss_profilers(xspl=plasma.rho)
+    profilers = initialise_gauss_profilers(
+        plasma.rho,
+        profile_names=cfg.plasma.profiles.keys(),
+        profile_params=OmegaConf.to_container(cfg.plasma.profiles))
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
     plasma_profiler(cfg.data_info.profile_params_to_update)
 
