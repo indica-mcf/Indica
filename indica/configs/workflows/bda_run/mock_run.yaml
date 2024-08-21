@@ -1,9 +1,0 @@
-
-defaults:
-  - priors/default
-  - plasma/default
-  - optimisation_info/emcee_test
-  - data_info/mock
-  - model_info/all_models
-  - write_info/test
-  - pulse_info/test

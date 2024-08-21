@@ -1,0 +1,12 @@
+pulse: 11089
+tstart: 0.05
+tend: 0.11
+dt: 0.01
+
+defaults:
+  - model/tws
+  - optimisation/emcee_default
+  - plasma/default
+  - priors/default
+  - reader/exp
+  - writer/default
