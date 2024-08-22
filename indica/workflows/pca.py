@@ -232,7 +232,7 @@ def pca_workflow(
     x_grid: xr.DataArray,
     n_components=2,
     num_prof_samples: int = int(1e5),
-    kde_samples=1e6,
+    kde_samples: int = int(1e6),
 ):
     param_names = prior_manager.get_param_names_for_profiles(opt_profiles)
     param_samples: np.ndarray = sample_from_priors(
