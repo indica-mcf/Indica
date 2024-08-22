@@ -6,10 +6,10 @@ dt: 0.01
 
 
 defaults:
-  - model/xrcs
-  - optimisation/emcee_test
-  - plasma/default
-  - priors/default
-  - reader/mock
-  - writer/test
+  - model: xrcs
+  - optimisation: emcee_test
+  - plasma: default
+  - priors: default
+  - reader: mock
+  - writer: test
 
