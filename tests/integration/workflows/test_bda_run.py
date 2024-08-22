@@ -12,7 +12,7 @@ class TestBDARun:
             version_base=None, config_module="indica.configs.workflows.bda_run"
         ):
             cfg = compose(
-                config_name="mock_run",
+                config_name="test_mock",
             )
         bda_run(cfg)
 
