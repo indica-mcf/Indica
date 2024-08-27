@@ -440,8 +440,11 @@ class HelikeSpectrometer(AbstractDiagnostic):
             ):
                 raise ValueError("Give inputs or assign plasma class!")
 
-        if background is None and self.background is not None:
-            background = self.background.sel(t=t)
+        if background is None:
+            if hasattr(self.background, "sel"):
+                background = self.background.sel(t=t)
+            else:
+                background = self.background
 
         self.t = t
         self.Te = Te
