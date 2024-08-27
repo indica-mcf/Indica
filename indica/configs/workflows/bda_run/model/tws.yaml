@@ -1,0 +1,13 @@
+defaults:
+  - settings/default
+
+
+diagnostics: [
+  "xrcs",
+  "cxff_tws_c",
+ ]
+
+quantities: [
+  "xrcs.raw_spectra",
+  "cxff_tws_c.ti",
+  ]

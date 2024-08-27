@@ -1,0 +1,9 @@
+filter_coords:
+  cxff_pi:
+    ti: [ "channel", [ 3, 5 ] ]
+    vtor: [ "channel", [ 3, 5 ] ]
+  cxff_tws_c:
+    ti: [ "channel", [ 1, 2 ] ]
+    vtor: [ "channel", [ 1, 2 ] ]
+
+filter_limits: {}
