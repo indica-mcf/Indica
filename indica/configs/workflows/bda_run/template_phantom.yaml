@@ -12,5 +12,3 @@ defaults:
   - priors: default
   - reader: phantom
   - writer: default
-
-

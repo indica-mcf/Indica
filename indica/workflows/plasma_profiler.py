@@ -19,6 +19,7 @@ with open(path) as stream:
 PLASMA_ATTRIBUTE_NAMES = cfg["plasma_attrs"]
 DEFAULT_PROFILE_PARAMS = cfg["profile_params"]
 
+
 def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
     midplane_profiles: dict = {}
 
@@ -147,7 +148,9 @@ class PlasmaProfiler:
         return
 
 
-def initialise_gauss_profilers(x_coord, profile_params: dict = None, profile_names: list = None):
+def initialise_gauss_profilers(
+    x_coord, profile_params: dict = None, profile_names: list = None
+):
     if profile_params is None:
         profile_params = DEFAULT_PROFILE_PARAMS
     if profile_names is None:
@@ -157,7 +160,7 @@ def initialise_gauss_profilers(x_coord, profile_params: dict = None, profile_nam
         profile_name: ProfilerGauss(
             datatype=profile_name.split(":")[0],
             xspl=x_coord,
-            parameters=profile_params.get(profile_name, {})
+            parameters=profile_params.get(profile_name, {}),
         )
         for profile_name in profile_names
     }
@@ -166,7 +169,9 @@ def initialise_gauss_profilers(x_coord, profile_params: dict = None, profile_nam
 
 if __name__ == "__main__":
     example_plasma = load_default_objects("st40", "plasma")
-    profilers = initialise_gauss_profilers(example_plasma.rho, profile_names=["electron_density", "ion_temperature"])
+    profilers = initialise_gauss_profilers(
+        example_plasma.rho, profile_names=["electron_density", "ion_temperature"]
+    )
 
     plasma_profiler = PlasmaProfiler(
         plasma=example_plasma,

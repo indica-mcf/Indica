@@ -3,6 +3,7 @@ import pprint
 
 import flatdict
 import hydra
+import numpy as np
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
 
@@ -19,18 +20,21 @@ from indica.workflows.bayes_workflow import EmceeOptimiser
 from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.optimiser_context import OptimiserEmceeSettings
 from indica.workflows.pca import pca_workflow
-from indica.workflows.plasma_profiler import PlasmaProfiler, initialise_gauss_profilers
+from indica.workflows.plasma_profiler import initialise_gauss_profilers
+from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.workflows.priors import PriorManager
-
-import numpy as np
 
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "xrcs.raw_spectra": lambda x: np.sqrt(x)  # Poisson noise
-                             + (x.where((x.wavelength < 0.392) &
-                         (x.wavelength > 0.388),
-                         ).std("wavelength")).fillna(0),  # Background noise
+    + (
+        x.where(
+            (x.wavelength < 0.392) & (x.wavelength > 0.388),
+        ).std("wavelength")
+    ).fillna(
+        0
+    ),  # Background noise
     "cxff_pi.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
 }
@@ -74,7 +78,7 @@ INSTRUMENT_MAPPING: dict = {
     config_name="test_mock",
 )
 def bda_run(
-        cfg: DictConfig,
+    cfg: DictConfig,
 ):
     if cfg.writer.pulse_to_write is None:
         cfg.writer.pulse_to_write = cfg.pulse
@@ -95,7 +99,8 @@ def bda_run(
     profilers = initialise_gauss_profilers(
         plasma.rho,
         profile_names=cfg.plasma.profiles.keys(),
-        profile_params=OmegaConf.to_container(cfg.plasma.profiles))
+        profile_params=OmegaConf.to_container(cfg.plasma.profiles),
+    )
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
 
     if cfg.reader.set_ts or cfg.reader.apply_rshift:
@@ -172,7 +177,6 @@ def bda_run(
 
     plasma.set_equilibrium(equilibrium=equilibrium)
 
-
     if cfg.reader.mock:
         log.info("Using mock data reader strategy")
         transforms = load_default_objects("st40", "geometry")
@@ -199,7 +203,7 @@ def bda_run(
             cfg.diagnostics,
             revisions=OmegaConf.to_container(cfg.data_info.revisions),
             R_shift=R_shift,
-            **cfg.reader.filters
+            **cfg.reader.filters,
         )
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
         if "xrcs" in phantom_reader.binned_data.keys():
@@ -235,7 +239,7 @@ def bda_run(
         revisions=OmegaConf.to_container(cfg.reader.revisions),
         R_shift=R_shift,
         fetch_equilbrium=False,
-        **cfg.reader.filters
+        **cfg.reader.filters,
     )
 
     # post processing (TODO: where should this be)
@@ -288,9 +292,7 @@ def bda_run(
             if param.split(".")[0] not in cfg.optimisation.pca_profiles
         ]
         opt_params.extend(
-            prior_manager.get_param_names_for_profiles(
-                cfg.optimisation.pca_profiles
-            )
+            prior_manager.get_param_names_for_profiles(cfg.optimisation.pca_profiles)
         )
         log.info(f"optimising with: {opt_params}")
     else:

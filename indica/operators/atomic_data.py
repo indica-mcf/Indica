@@ -21,7 +21,6 @@ from indica.utilities import set_plot_colors
 from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
 from ..datatypes import DataType
-from ..profilers import ProfilerGauss
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
