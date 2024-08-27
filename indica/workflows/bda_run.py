@@ -22,13 +22,15 @@ from indica.workflows.pca import pca_workflow
 from indica.workflows.plasma_profiler import PlasmaProfiler, initialise_gauss_profilers
 from indica.workflows.priors import PriorManager
 
+import numpy as np
+
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
-    # "xrcs.intens": lambda x: np.sqrt(x)  # Poisson noise
-    #                          + (x.where((x.wavelength < 0.392) &
-    #                      (x.wavelength > 0.388),
-    #                      ).std("wavelength")).fillna(0),  # Background noise
+    "xrcs.raw_spectra": lambda x: np.sqrt(x)  # Poisson noise
+                             + (x.where((x.wavelength < 0.392) &
+                         (x.wavelength > 0.388),
+                         ).std("wavelength")).fillna(0),  # Background noise
     "cxff_pi.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
 }
@@ -170,12 +172,11 @@ def bda_run(
 
     plasma.set_equilibrium(equilibrium=equilibrium)
 
-    # different data handling methods TODO: abstract to an interface
 
     if cfg.reader.mock:
         log.info("Using mock data reader strategy")
         transforms = load_default_objects("st40", "geometry")
-        models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.pulse_info.diagnostics}
+        models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.model.diagnostics}
         reader = ModelCoordinator(
             models,
             OmegaConf.to_container(cfg.model.settings),
@@ -247,7 +248,7 @@ def bda_run(
         more_model_settings = {
             "xrcs": {
                 "window": reader.binned_data["xrcs"]["raw_spectra"].wavelength,
-                "background": reader.binned_data["xrcs"]["background"],
+                "background": reader.binned_data["xrcs"].get("background", 0),
             },
         }
     else:
