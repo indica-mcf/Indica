@@ -1,0 +1,23 @@
+
+defaults:
+  - model: xrcs
+  - plasma: default
+  - priors: default
+  - optimisation: bo_test
+  - reader: mock
+  - writer: test
+
+pulse: null
+tstart: 0.05
+tend: 0.06
+dt: 0.01
+
+model:
+  diagnostics: ["cxff_pi", "cxff_tws_c", ]
+  quantities: [ "cxff_pi.ti", "cxff_tws_c.ti", ]
+
+#reader:
+#  filters:
+#    filter_coords:
+#      cxff_pi:
+#        ti: ["channel", [3, 5]]
