@@ -253,7 +253,6 @@ def bda_run(
             "xrcs": {
                 "window": reader.binned_data["xrcs"]["raw_spectra"].wavelength,
                 "background": reader.binned_data["xrcs"].get("background", 0),
-                "norm_y": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength"),
             },
         }
     else:
@@ -268,7 +267,8 @@ def bda_run(
         verbose=False,
     )
 
-    model_call_kwargs = {}
+    model_call_kwargs = {"xrcs": {"norm_y": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength")}
+                         }
     model_coordinator.set_transforms(reader.transforms)
     model_coordinator.set_equilibrium(equilibrium)
     model_coordinator.set_plasma(plasma)
