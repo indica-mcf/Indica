@@ -10,6 +10,10 @@ n_initial_points: 10
 noise: 1.0E-10
 acq_func: "LCB"
 xi: 0.20
-kappa: 2
+kappa: 5
 initial_point_generator: "lhs"
 use_previous_best: True
+
+boundary_samples: 1000
+model_samples: 50
+posterior_samples: 100000

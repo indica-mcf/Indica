@@ -3,7 +3,6 @@ import pprint
 
 import flatdict
 import hydra
-import numpy as np
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
 
@@ -266,9 +265,12 @@ def bda_run(
         },
         verbose=False,
     )
+    if "xrcs" in reader.binned_data.keys():
+        model_call_kwargs = {"xrcs": {"norm_y": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength")}
+                            }
+    else:
+        model_call_kwargs = {}
 
-    model_call_kwargs = {"xrcs": {"norm_y": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength")}
-                         }
     model_coordinator.set_transforms(reader.transforms)
     model_coordinator.set_equilibrium(equilibrium)
     model_coordinator.set_plasma(plasma)
@@ -327,6 +329,9 @@ def bda_run(
                                         noise=cfg.optimisation.noise,
                                         initial_point_generator=cfg.optimisation.initial_point_generator,
                                         use_previous_best=cfg.optimisation.use_previous_best,
+                                        model_samples=cfg.optimisation.model_samples,
+                                        boundary_samples=cfg.optimisation.boundary_samples,
+                                        posterior_samples=cfg.optimisation.posterior_samples,
                                         )
         log.info("Initialising BO Optimiser Context")
         optimiser_context = BOOptimiser(optimiser_settings,

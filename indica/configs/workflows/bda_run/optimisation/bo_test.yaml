@@ -1,15 +1,18 @@
 method: "bo"
 
-param_names: ["ion_temperature.y0", "ion_temperature.peaking", "ion_temperature.wcenter",
-]
-pca_profiles: ["ion_temperature"]
+param_names: ["ion_temperature.y0", ]
+pca_profiles: []
 pca_components: 2
 
-n_calls: 12
-n_initial_points: 10
+n_calls: 2
+n_initial_points: 1
 noise: 1.0E-10
 acq_func: "LCB"
 xi: 0.20
-kappa: 2
+kappa: 5
 initial_point_generator: "lhs"
 use_previous_best: False
+
+boundary_samples: 1000
+model_samples: 10
+posterior_samples: 1000

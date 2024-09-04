@@ -339,6 +339,9 @@ class BOSettings:
     noise: float = 1e-10
     initial_point_generator: str = "lhs"
     use_previous_best: bool = True
+    boundary_samples: int = int(1e3)
+    model_samples: int = 50
+    posterior_samples: int = int(1e5)
 
 
 class BOOptimiser(OptimiserContext):
@@ -356,7 +359,7 @@ class BOOptimiser(OptimiserContext):
         self.ndim = len(self.optimiser_settings.param_names)
 
         param_samples = sample_from_priors(self.optimiser_settings.param_names, self.prior_manager.priors,
-                                           size=int(1e3))
+                                           size=self.optimiser_settings.boundary_samples)
         self.bounds = [(param_samples[:, idx].min(), param_samples[:, idx].max())
                        for idx, _ in enumerate(self.optimiser_settings.param_names)]
 
@@ -398,15 +401,14 @@ class BOOptimiser(OptimiserContext):
                                      initial_point_generator=self.optimiser_settings.initial_point_generator,
                                      )
 
-    def post_process_results(self,
-                             model_sample_size: int = 50):
+    def post_process_results(self,):
         results = {"gp_regression": self.result}
         model = self.result.models[-1]
 
         log = logging.getLogger()
         log.info("kde posterior estimating")
-        sample_size = int(1e5)
-        real_samples = np.array(self.result.space.rvs(n_samples=sample_size))
+
+        real_samples = np.array(self.result.space.rvs(n_samples=self.optimiser_settings.posterior_samples))
         normed_samples = self.result.space.transform(real_samples)
 
         obj_func = model.predict(normed_samples)
@@ -415,10 +417,10 @@ class BOOptimiser(OptimiserContext):
         posterior[posterior == np.nan] = np.nanmin(posterior)
         posterior_fit = gaussian_kde(real_samples.T, weights=posterior)
 
-        params = posterior_fit.resample(size=model_sample_size)
+        params = posterior_fit.resample(size=self.optimiser_settings.model_samples)
 
         blobs = []
-        for model_sample_idx in range(model_sample_size):
+        for model_sample_idx in range(self.optimiser_settings.model_samples):
             _params = {param_name: params[name_idx, model_sample_idx] for name_idx, param_name
                        in enumerate(self.optimiser_settings.param_names)}
 
@@ -445,5 +447,4 @@ class BOOptimiser(OptimiserContext):
 
         results["post_sample"] = posterior_fit.resample(size=int(2e3)).T
         results["auto_corr"] = np.zeros(shape=(10, len(self.optimiser_settings.param_names)))
-
         return results
