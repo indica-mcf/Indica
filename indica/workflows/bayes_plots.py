@@ -7,7 +7,7 @@ import flatdict
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-
+from skopt.plots import plot_objective, plot_evaluations
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
 
@@ -90,6 +90,9 @@ def _plot_1d(
     xlim=None,
     figsize=(6.4, 4.8),
     hide_legend=False,
+    capsize=3,
+    markersize=4,
+    elinewidth=2,
     **kwargs,
 ):
     set_plot_rcparams("multi")
@@ -126,9 +129,9 @@ def _plot_1d(
         fmt="k*",
         label=f"{label} data",
         zorder=4,
-        capsize=3,
-        markersize=5,
-        elinewidth=1,
+        capsize=capsize,
+        markersize=markersize,
+        elinewidth=elinewidth,
     )
 
     plt.gca().set_ylim(bottom=0)
@@ -266,6 +269,7 @@ def plot_bayes_result(
     profiles = flatdict.FlatDict(results["PROFILE_STAT"], ".")
     post_sample = results["OPTIMISATION"]["POST_SAMPLE"]
     prior_sample = results["OPTIMISATION"]["PRIOR_SAMPLE"]
+    gp_regression = results["OPTIMISATION"].get("GP_REGRESSION", {})
     auto_corr = results["OPTIMISATION"]["AUTO_CORR"]
     param_names = results["OPTIMISATION"]["PARAM_NAMES"]
     phantom_profiles = flatdict.FlatDict(results["PHANTOMS"], ".")
@@ -273,6 +277,14 @@ def plot_bayes_result(
     # select time sample_idx for plotting
     for t_idx, t in enumerate(time):
         figheader = filepath + f"t:{t:.2f}/"
+
+        if any(gp_regression):
+            plot_evaluations(gp_regression[t_idx], dimensions=param_names)
+            plt.savefig(figheader + "gp_evaluations")
+            plt.close()
+            # plot_objective(gp_regression[t_idx], )
+            # plt.savefig(figheader + "gp_objective")
+            # plt.close()
 
         plot_autocorr(
             auto_corr[
@@ -324,7 +336,7 @@ def plot_bayes_result(
                 ylabel="Temperature [eV]",
             )
 
-        key = "XRCS.INTENS"
+        key = "XRCS.RAW_SPECTRA"
         if key in model_data.keys():
             _plot_1d(
                 model_data[key].sel(t=t),
@@ -332,10 +344,12 @@ def plot_bayes_result(
                 f"{key.replace('.', '_')}" + filetype,
                 label=key,
                 figheader=figheader,
-                ylabel="Intensity [a.u.]",
+                ylabel="Intensity [count/s]",
                 xlabel="Wavelength [nm]",
                 xlim=(0.394, 0.401),
                 figsize=(15, 6),
+                elinewidth=0,
+                capsize=0,
             )
         key = "CXFF_PI.TI"
         if key in model_data.keys():
