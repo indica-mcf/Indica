@@ -11,17 +11,17 @@ basic_prior_info:
   electron_density.wcenter: ["get_uniform", 0.2, 0.4]
   electron_density.peaking: ["get_uniform", 1, 4]
 
-  electron_temperature.y0: ["get_uniform", 1000, 5000]
+  electron_temperature.y0: ["get_uniform", 1000, 4000]
   electron_temperature.y1: ["get_uniform", 50, 50.1]
   electron_temperature.wped: ["get_uniform", 1, 10]
   electron_temperature.wcenter: ["get_uniform", 0.2, 0.4]
   electron_temperature.peaking: ["get_uniform", 1, 4]
 
-  impurity_density:ar.y0: ["loguniform", 2e16, 1e18]
+  impurity_density:ar.y0: ["loguniform", 2e16, 5e17]
   impurity_density:ar.y1: ["loguniform", 1e16, 1.01e16]
   impurity_density:ar.wped: ["get_uniform", 1, 2]
   impurity_density:ar.wcenter: ["get_uniform", 0.2, 0.4]
-  impurity_density:ar.peaking: ["get_uniform", 1, 4]
+  impurity_density:ar.peaking: ["get_uniform", 1.5, 3]
 
   neutral_density.y0: ["loguniform", 1e13, 1e15]
   neutral_density.y1: ["loguniform", 1e13, 1e16]
