@@ -27,7 +27,7 @@ impurity_density:he:
   wped: 3
   peaking: 1.2
 electron_temperature:
-  y0: 3000
+  y0: 2000
   y1: 50
   yend: 10
   wcenter: 0.2
@@ -37,8 +37,8 @@ ion_temperature:
   y0: 5.0e+3
   y1: 50
   yend: 10
-  wcenter: 0.2
-  wped: 3
+  wcenter: 0.25
+  wped: 1.5
   peaking: 1.5
 neutral_density:
   y0: 1.0e+14
