@@ -7,7 +7,6 @@ import numpy as np
 
 from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.workflows.priors import PriorManager
-
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
 
@@ -59,15 +58,12 @@ class BayesBlackBox:
         time_coord = self.plasma_profiler.plasma.time_to_calculate
 
         for key in self.quant_to_optimise:
-            model_data = self.bckc[key].astype("float128")
+            model_data = self.bckc[key].astype("float128")  # floating point precision not good enough
             exp_data = self.opt_data[key].sel(t=time_coord).astype("float128")
-            exp_error = exp_data.error.astype("float128")
+            exp_error = self.opt_data[key].sel(t=time_coord).error.astype("float128")
 
             _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
-            # treat channel as key dim which isn't averaged like other dims
-            # if "channel" in _ln_likelihood.dims:
-            #     _ln_likelihood = _ln_likelihood.sum(dim="channel", skipna=True)
-            ln_likelihood += _ln_likelihood.sum(skipna=True).values
+            ln_likelihood += np.nansum(_ln_likelihood)
 
         return ln_likelihood
 
