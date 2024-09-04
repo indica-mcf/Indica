@@ -326,6 +326,7 @@ def bda_run(
                                         xi=cfg.optimisation.xi,
                                         noise=cfg.optimisation.noise,
                                         initial_point_generator=cfg.optimisation.initial_point_generator,
+                                        use_previous_best=cfg.optimisation.use_previous_best,
                                         )
         log.info("Initialising BO Optimiser Context")
         optimiser_context = BOOptimiser(optimiser_settings,
