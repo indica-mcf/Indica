@@ -25,16 +25,28 @@ from indica.workflows.plasma_profiler import initialise_gauss_profilers
 from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.workflows.priors import PriorManager
 
+
+def deep_update(mapping: dict, *updating_mappings: dict) -> dict:
+    updated_mapping = mapping.copy()
+    for updating_mapping in updating_mappings:
+        for k, v in updating_mapping.items():
+            if k in updated_mapping and isinstance(updated_mapping[k], dict) and isinstance(v, dict):
+                updated_mapping[k] = deep_update(updated_mapping[k], v)
+            else:
+                updated_mapping[k] = v
+    return updated_mapping
+
+
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "xrcs.raw_spectra": lambda x: x * 0.05
-    + 0.01 * x.max(dim="wavelength")
-    + (
-        x.where(
-            (x.wavelength < 0.392) & (x.wavelength > 0.388),
-        ).std("wavelength")
-    ).fillna(0),
+                                  + 0.01 * x.max(dim="wavelength")
+                                  + (
+                                      x.where(
+                                          (x.wavelength < 0.392) & (x.wavelength > 0.388),
+                                      ).std("wavelength")
+                                  ).fillna(0),
     "cxff_pi.ti": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
 }
@@ -75,17 +87,17 @@ INSTRUMENT_MAPPING: dict = {
 @hydra.main(
     version_base=None,
     config_path="../configs/workflows/bda_run",
-    config_name="test_mock",
+    config_name="template_bo",
 )
 def bda_run(
-    cfg: DictConfig,
+        cfg: DictConfig,
 ):
     if cfg.writer.pulse_to_write is None:
         cfg.writer.pulse_to_write = cfg.pulse
 
     log = logging.getLogger(__name__)
     log.info(f"Beginning BDA for pulse {cfg.pulse}")
-    dirname = f"{cfg.pulse}.{cfg.writer.run}"
+    dirname = f"{cfg.writer.pulse_to_write}.{cfg.writer.run}"
 
     log.info("Initialising plasma")
     plasma = Plasma(
@@ -261,10 +273,10 @@ def bda_run(
     log.info("Initialising ModelCoordinator")
     model_coordinator = ModelCoordinator(
         models=models,
-        model_settings={
-            **OmegaConf.to_container(cfg.model.settings),
-            **more_model_settings,
-        },
+        model_settings=deep_update(
+            OmegaConf.to_container(cfg.model.settings),
+            more_model_settings,
+        ),
         verbose=False,
     )
     if "xrcs" in reader.binned_data.keys():
@@ -369,6 +381,7 @@ def bda_run(
         plot=cfg.writer.plot,
         filepath=f"./results/{dirname}/",
         config=pprint.pformat(dict(cfg)),
+        logger=log,
     )
 
 

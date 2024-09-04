@@ -1,29 +1,19 @@
 
 defaults:
-  - model: xrcs
+  - model: tws
   - plasma: default
   - priors: default
   - optimisation: bo_default
-  - reader: mock
-  - writer: test
+  - reader: exp
+  - writer: default
 
-pulse: null
+pulse: 11089
 tstart: 0.05
-tend: 0.06
+tend: 0.10
 dt: 0.01
 
 writer:
   pulse_to_write: 43000001
   run: "test"
-  plot: True
-  mds_write: True
+  run_info: "Bayesian Optimisation test"
 
-model:
-  diagnostics: ["cxff_pi", "cxff_tws_c", "xrcs"]
-  quantities: [ "cxff_pi.ti", "cxff_tws_c.ti", "xrcs.raw_spectra", ]
-
-#reader:
-#  filters:
-#    filter_coords:
-#      cxff_pi:
-#        ti: ["channel", [3, 5]]
