@@ -45,7 +45,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         window: np.array = None,
         window_masks=None,
         line_labels=None,
-        background=None,
+        background=0,
     ):
         """
         Read all atomic data and initialise objects
@@ -383,6 +383,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         moment_analysis: bool = False,
         background: float = None,
         pixel_offset: int = None,
+        norm_y: xr.DataArray = None,
         **kwargs,
     ):
         """
@@ -464,8 +465,11 @@ class HelikeSpectrometer(AbstractDiagnostic):
 
         dt = np.gradient(self.plasma.t).mean()  # Temp hack for count -> count / s
         self.measured_spectra = self.measured_spectra / dt
-        if background is not None:
-            self.measured_spectra += background
+
+        if norm_y is not None:
+            self.measured_spectra = self.measured_spectra/self.measured_spectra.max() * (norm_y.sel(t=t) - background)
+
+        self.measured_spectra += background
 
         if pixel_offset is not None:
             self.measured_spectra = self.measured_spectra.shift(
