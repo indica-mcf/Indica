@@ -7,6 +7,7 @@ import numpy as np
 
 from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.workflows.priors import PriorManager
+
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
 
@@ -58,7 +59,9 @@ class BayesBlackBox:
         time_coord = self.plasma_profiler.plasma.time_to_calculate
 
         for key in self.quant_to_optimise:
-            model_data = self.bckc[key].astype("float128")  # floating point precision not good enough
+            model_data = self.bckc[key].astype(
+                "float128"
+            )  # floating point precision not good enough
             exp_data = self.opt_data[key].sel(t=time_coord).astype("float128")
             exp_error = self.opt_data[key].sel(t=time_coord).error.astype("float128")
 

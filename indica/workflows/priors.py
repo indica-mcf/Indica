@@ -33,10 +33,10 @@ class PriorType(Enum):
 
 class Prior(ABC):
     def __init__(
-            self,
-            prior_func: Callable = None,
-            labels: tuple = None,
-            type: PriorType = None,
+        self,
+        prior_func: Callable = None,
+        labels: tuple = None,
+        type: PriorType = None,
     ):
         self.prior_func = prior_func
         self.labels = (
@@ -70,9 +70,9 @@ class PriorCond(Prior):
     """
 
     def __init__(
-            self,
-            prior_func: Callable = None,
-            labels: tuple = None,
+        self,
+        prior_func: Callable = None,
+        labels: tuple = None,
     ):
         super().__init__(prior_func=prior_func, labels=labels, type=PriorType.COND)
 
@@ -89,9 +89,9 @@ class PriorCompound(Prior):
     """
 
     def __init__(
-            self,
-            prior_func: gaussian_kde = None,
-            labels: tuple = None,
+        self,
+        prior_func: gaussian_kde = None,
+        labels: tuple = None,
     ):
         super().__init__(labels=labels, type=PriorType.COMPOUND)
         self.prior_func = prior_func
@@ -108,9 +108,9 @@ class PriorCompound(Prior):
 
 class PriorManager:
     def __init__(
-            self,
-            basic_prior_info: dict = None,
-            cond_prior_info: dict = None,
+        self,
+        basic_prior_info: dict = None,
+        cond_prior_info: dict = None,
     ):
 
         self.compound_prior_funcs = {}  # initialised later
@@ -231,7 +231,9 @@ def sample_from_priors(param_names: list, priors: dict, size=10) -> np.ndarray:
     return samples.transpose()
 
 
-def sample_best_half(param_names: list, priors: dict, wrappedblackbox: callable, size=10) -> np.ndarray:
+def sample_best_half(
+    param_names: list, priors: dict, wrappedblackbox: callable, size=10
+) -> np.ndarray:
     start_points = sample_from_priors(param_names, priors, size=2 * size)
     ln_post = []
     for idx in range(start_points.shape[0]):
@@ -242,7 +244,7 @@ def sample_best_half(param_names: list, priors: dict, wrappedblackbox: callable,
 
 
 def sample_from_high_density_region(
-        param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
+    param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
 ) -> np.ndarray:
     # TODO: remove repeated code
     start_points = sample_from_priors(param_names, priors, size=nsamples)

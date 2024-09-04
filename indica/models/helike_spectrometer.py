@@ -467,7 +467,11 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.measured_spectra = self.measured_spectra / dt
 
         if norm_y is not None:
-            self.measured_spectra = self.measured_spectra/self.measured_spectra.max() * (norm_y.sel(t=t) - background)
+            self.measured_spectra = (
+                self.measured_spectra
+                / self.measured_spectra.max()
+                * (norm_y.sel(t=t) - background)
+            )
 
         self.measured_spectra += background
 

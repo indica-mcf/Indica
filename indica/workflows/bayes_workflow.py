@@ -1,6 +1,6 @@
-import logging
 from datetime import datetime
 import getpass
+import logging
 from pathlib import Path
 import pickle
 
@@ -11,7 +11,7 @@ import xarray as xr
 from indica.bayesblackbox import BayesBlackBox
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.workflows.model_coordinator import ModelCoordinator
-from indica.workflows.optimiser_context import EmceeOptimiser, BOOptimiser
+from indica.workflows.optimiser_context import EmceeOptimiser
 from indica.workflows.plasma_profiler import map_plasma_profile_to_midplane
 from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.workflows.priors import PriorManager
@@ -41,13 +41,13 @@ def save_pickle(result, filepath):
 
 class BayesWorkflow:
     def __init__(
-            self,
-            quant_to_optimise: list,
-            opt_data: dict,
-            plasma_profiler: PlasmaProfiler,
-            prior_manager: PriorManager,
-            model_coordinator: ModelCoordinator,
-            optimiser_context: EmceeOptimiser,
+        self,
+        quant_to_optimise: list,
+        opt_data: dict,
+        plasma_profiler: PlasmaProfiler,
+        prior_manager: PriorManager,
+        model_coordinator: ModelCoordinator,
+        optimiser_context: EmceeOptimiser,
     ):
         self.quant_to_optimise = quant_to_optimise
         self.opt_data = opt_data
@@ -114,7 +114,7 @@ class BayesWorkflow:
         return result
 
     def _build_result_dict(
-            self,
+        self,
     ):
         result = {}
         quant_list = [item.split(".") for item in self.quant_to_optimise]
@@ -298,16 +298,16 @@ class BayesWorkflow:
         return result
 
     def __call__(
-            self,
-            filepath="./results/test/",
-            run="RUN01",
-            run_info="Default run",
-            mds_write=False,
-            best=True,
-            pulse_to_write=None,
-            plot=False,
-            config=None,
-            logger=logging.getLogger(),
+        self,
+        filepath="./results/test/",
+        run="RUN01",
+        run_info="Default run",
+        mds_write=False,
+        best=True,
+        pulse_to_write=None,
+        plot=False,
+        config=None,
+        logger=logging.getLogger(),
     ):
         self.config = config
         self.result = self._build_inputs_dict()
@@ -372,8 +372,3 @@ class BayesWorkflow:
         if plot:
             plot_bayes_result(filepath=filepath)
         return
-
-
-
-
-

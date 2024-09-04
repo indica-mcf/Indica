@@ -1,33 +1,36 @@
-import logging
 from abc import ABC
 from abc import abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from functools import partial
+import logging
 from operator import itemgetter
 
-import skopt
 from dime_sampler import DIMEMove
 import emcee
 import numpy as np
 import pandas as pd
-from scipy.stats import describe, gaussian_kde
+from scipy.stats import describe
+from scipy.stats import gaussian_kde
+import skopt
 import xarray as xr
 
-from indica.workflows.priors import ln_prior, sample_best_half
+from indica.workflows.priors import ln_prior
 from indica.workflows.priors import PriorManager
+from indica.workflows.priors import sample_best_half
 from indica.workflows.priors import sample_from_priors
 
 
 def sample_with_moments(
-        sampler,
-        start_points,
-        iterations,
-        n_params,
-        auto_sample=10,
-        stopping_factor=0.01,
-        tune=False,
-        debug=False,
+    sampler,
+    start_points,
+    iterations,
+    n_params,
+    auto_sample=10,
+    stopping_factor=0.01,
+    tune=False,
+    debug=False,
 ):
     # TODO: Compare old_chain to new_chain
     #  if moments are different then keep going / convergence diagnostics here
@@ -36,11 +39,11 @@ def sample_with_moments(
     old_mean = np.inf
     success_flag = False  # requires succeeding check twice in a row
     for sample in sampler.sample(
-            start_points,
-            iterations=iterations,
-            progress=True,
-            skip_initial_state_check=False,
-            tune=tune,
+        start_points,
+        iterations=iterations,
+        progress=True,
+        skip_initial_state_check=False,
+        tune=tune,
     ):
         if sampler.iteration % auto_sample:
             continue
@@ -67,25 +70,25 @@ def sample_with_moments(
         old_mean = new_mean
 
     autocorr = autocorr[
-               : sampler.iteration,
-               ]
+        : sampler.iteration,
+    ]
     return autocorr
 
 
 def sample_with_autocorr(
-        sampler,
-        start_points,
-        iterations,
-        n_params,
-        auto_sample=5,
+    sampler,
+    start_points,
+    iterations,
+    n_params,
+    auto_sample=5,
 ):
     autocorr = np.ones(shape=(iterations, n_params)) * np.nan
     old_tau = np.inf
     for sample in sampler.sample(
-            start_points,
-            iterations=iterations,
-            progress=True,
-            skip_initial_state_check=False,
+        start_points,
+        iterations=iterations,
+        progress=True,
+        skip_initial_state_check=False,
     ):
         if sampler.iteration % auto_sample:
             continue
@@ -99,13 +102,13 @@ def sample_with_autocorr(
             break
         old_tau = new_tau
     autocorr = autocorr[
-               : sampler.iteration,
-               ]
+        : sampler.iteration,
+    ]
     return autocorr
 
 
 def sample_from_high_density_region(
-        param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
+    param_names: list, priors: dict, optimiser, nwalkers: int, nsamples=100
 ):
     num_best_points = 2
     index_best_start = []
@@ -203,15 +206,15 @@ class EmceeSettings:
     stopping_criteria_factor: float = 0.01
     stopping_criteria_sample: int = 10
     stopping_criteria_debug: bool = False
-    move: list = field(default_factory = lambda: [(DIMEMove(aimh_prob=0.2), 1.0)])
+    move: list = field(default_factory=lambda: [(DIMEMove(aimh_prob=0.2), 1.0)])
 
 
 class EmceeOptimiser(OptimiserContext):
     def __init__(
-            self,
-            optimiser_settings: EmceeSettings,
-            prior_manager: PriorManager,
-            model_kwargs=None,
+        self,
+        optimiser_settings: EmceeSettings,
+        prior_manager: PriorManager,
+        model_kwargs=None,
     ):
         super().__init__()
         self.autocorr = None
@@ -221,8 +224,8 @@ class EmceeOptimiser(OptimiserContext):
         self.ndim = len(self.optimiser_settings.param_names)
 
     def init_optimiser(
-            self,
-            blackbox_func: Callable,
+        self,
+        blackbox_func: Callable,
     ):  # type: ignore
 
         self.optimiser = emcee.EnsembleSampler(
@@ -235,7 +238,7 @@ class EmceeOptimiser(OptimiserContext):
         )
 
     def sample_start_points(
-            self,
+        self,
     ):
 
         if self.optimiser_settings.sample_method == "high_density":
@@ -259,7 +262,7 @@ class EmceeOptimiser(OptimiserContext):
             )
 
     def run(
-            self,
+        self,
     ):
 
         if self.optimiser_settings.stopping_criteria == "mode":
@@ -345,7 +348,12 @@ class BOSettings:
 
 
 class BOOptimiser(OptimiserContext):
-    def __init__(self, optimiser_settings: BOSettings, prior_manager: PriorManager, model_kwargs: dict = None):
+    def __init__(
+        self,
+        optimiser_settings: BOSettings,
+        prior_manager: PriorManager,
+        model_kwargs: dict = None,
+    ):
 
         super().__init__()
         if model_kwargs is None:
@@ -358,19 +366,28 @@ class BOOptimiser(OptimiserContext):
         self.prior_manager = prior_manager
         self.ndim = len(self.optimiser_settings.param_names)
 
-        param_samples = sample_from_priors(self.optimiser_settings.param_names, self.prior_manager.priors,
-                                           size=self.optimiser_settings.boundary_samples)
-        self.bounds = [(param_samples[:, idx].min(), param_samples[:, idx].max())
-                       for idx, _ in enumerate(self.optimiser_settings.param_names)]
+        param_samples = sample_from_priors(
+            self.optimiser_settings.param_names,
+            self.prior_manager.priors,
+            size=self.optimiser_settings.boundary_samples,
+        )
+        self.bounds = [
+            (param_samples[:, idx].min(), param_samples[:, idx].max())
+            for idx, _ in enumerate(self.optimiser_settings.param_names)
+        ]
 
     def init_optimiser(
-            self,
-            blackbox_func: Callable,
+        self,
+        blackbox_func: Callable,
     ):  # type: ignore
         self.optimiser = skopt.gp_minimize
         self.blackbox_func = partial(blackbox_func, **self.model_kwargs)
-        self.wrapped_blackbox_func = partial(bo_wrapper, dims=self.optimiser_settings.param_names,
-                                             blackbox=blackbox_func, **self.model_kwargs)
+        self.wrapped_blackbox_func = partial(
+            bo_wrapper,
+            dims=self.optimiser_settings.param_names,
+            blackbox=blackbox_func,
+            **self.model_kwargs,
+        )
 
     def reset_optimiser(self):
         self.optimiser = skopt.gp_minimize
@@ -379,41 +396,58 @@ class BOOptimiser(OptimiserContext):
     def sample_start_points(self, *args, **kwargs):
 
         if self.optimiser_settings.use_previous_best and self.result is not None:
-            best_indices = np.argsort(self.result.func_vals)[:self.optimiser_settings.n_initial_points]
-            self.start_points = list(itemgetter(*best_indices)(self.result.x_iters, ))
+            best_indices = np.argsort(self.result.func_vals)[
+                : self.optimiser_settings.n_initial_points
+            ]
+            self.start_points = list(
+                itemgetter(*best_indices)(
+                    self.result.x_iters,
+                )
+            )
         else:
-            start_points = sample_best_half(self.optimiser_settings.param_names, self.prior_manager.priors,
-                                            self.wrapped_blackbox_func, self.optimiser_settings.n_initial_points)
+            start_points = sample_best_half(
+                self.optimiser_settings.param_names,
+                self.prior_manager.priors,
+                self.wrapped_blackbox_func,
+                self.optimiser_settings.n_initial_points,
+            )
             self.start_points = start_points.tolist()
 
     def run(
-            self,
+        self,
     ):
-        self.result = self.optimiser(self.wrapped_blackbox_func,
-                                     self.bounds,
-                                     acq_func=self.optimiser_settings.acq_func,
-                                     x0=self.start_points,
-                                     xi=self.optimiser_settings.xi,
-                                     kappa=self.optimiser_settings.kappa,
-                                     n_calls=self.optimiser_settings.n_calls,
-                                     n_initial_points=0,
-                                     noise=self.optimiser_settings.noise,
-                                     initial_point_generator=self.optimiser_settings.initial_point_generator,
-                                     )
+        self.result = self.optimiser(
+            self.wrapped_blackbox_func,
+            self.bounds,
+            acq_func=self.optimiser_settings.acq_func,
+            x0=self.start_points,
+            xi=self.optimiser_settings.xi,
+            kappa=self.optimiser_settings.kappa,
+            n_calls=self.optimiser_settings.n_calls,
+            n_initial_points=0,
+            noise=self.optimiser_settings.noise,
+            initial_point_generator=self.optimiser_settings.initial_point_generator,
+        )
 
-    def post_process_results(self,):
+    def post_process_results(
+        self,
+    ):
         results = {"gp_regression": self.result}
         model = self.result.models[-1]
 
         log = logging.getLogger()
         log.info("kde posterior estimating")
 
-        real_samples = np.array(self.result.space.rvs(n_samples=self.optimiser_settings.posterior_samples))
+        real_samples = np.array(
+            self.result.space.rvs(n_samples=self.optimiser_settings.posterior_samples)
+        )
         normed_samples = self.result.space.transform(real_samples)
 
         obj_func = model.predict(normed_samples)
         normed_obj_func = obj_func - obj_func.min() + 0.001
-        posterior = np.exp(-normed_obj_func.astype("float128"))  # log of objective function -> posterior probability
+        posterior = np.exp(
+            -normed_obj_func.astype("float128")
+        )  # log of objective function -> posterior probability
         posterior[posterior == np.nan] = np.nanmin(posterior)
         posterior_fit = gaussian_kde(real_samples.T, weights=posterior)
 
@@ -421,8 +455,12 @@ class BOOptimiser(OptimiserContext):
 
         blobs = []
         for model_sample_idx in range(self.optimiser_settings.model_samples):
-            _params = {param_name: params[name_idx, model_sample_idx] for name_idx, param_name
-                       in enumerate(self.optimiser_settings.param_names)}
+            _params = {
+                param_name: params[name_idx, model_sample_idx]
+                for name_idx, param_name in enumerate(
+                    self.optimiser_settings.param_names
+                )
+            }
 
             post, _blobs = self.blackbox_func(_params)
             if _blobs:
@@ -446,5 +484,7 @@ class BOOptimiser(OptimiserContext):
         )
 
         results["post_sample"] = posterior_fit.resample(size=int(2e3)).T
-        results["auto_corr"] = np.zeros(shape=(10, len(self.optimiser_settings.param_names)))
+        results["auto_corr"] = np.zeros(
+            shape=(10, len(self.optimiser_settings.param_names))
+        )
         return results

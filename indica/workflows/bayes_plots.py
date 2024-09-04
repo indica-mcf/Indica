@@ -6,8 +6,9 @@ import corner
 import flatdict
 import matplotlib.pyplot as plt
 import numpy as np
+from skopt.plots import plot_evaluations
 import xarray as xr
-from skopt.plots import plot_objective, plot_evaluations
+
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
 
