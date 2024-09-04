@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 import getpass
 from pathlib import Path
@@ -10,7 +11,7 @@ import xarray as xr
 from indica.bayesblackbox import BayesBlackBox
 from indica.workflows.bayes_plots import plot_bayes_result
 from indica.workflows.model_coordinator import ModelCoordinator
-from indica.workflows.optimiser_context import EmceeOptimiser
+from indica.workflows.optimiser_context import EmceeOptimiser, BOOptimiser
 from indica.workflows.plasma_profiler import map_plasma_profile_to_midplane
 from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.workflows.priors import PriorManager
@@ -32,15 +33,21 @@ def dict_of_dataarray_to_numpy(dict_of_dataarray):
     return dict_of_dataarray
 
 
+def save_pickle(result, filepath):
+    Path(filepath).mkdir(parents=True, exist_ok=True)
+    with open(filepath + "results.pkl", "wb") as handle:
+        pickle.dump(result, handle)
+
+
 class BayesWorkflow:
     def __init__(
-        self,
-        quant_to_optimise: list,
-        opt_data: dict,
-        plasma_profiler: PlasmaProfiler,
-        prior_manager: PriorManager,
-        model_coordinator: ModelCoordinator,
-        optimiser_context: EmceeOptimiser,
+            self,
+            quant_to_optimise: list,
+            opt_data: dict,
+            plasma_profiler: PlasmaProfiler,
+            prior_manager: PriorManager,
+            model_coordinator: ModelCoordinator,
+            optimiser_context: EmceeOptimiser,
     ):
         self.quant_to_optimise = quant_to_optimise
         self.opt_data = opt_data
@@ -107,7 +114,7 @@ class BayesWorkflow:
         return result
 
     def _build_result_dict(
-        self,
+            self,
     ):
         result = {}
         quant_list = [item.split(".") for item in self.quant_to_optimise]
@@ -230,7 +237,8 @@ class BayesWorkflow:
             "PRIOR_SAMPLE": self.opt_samples["prior_sample"],
             "POST_SAMPLE": self.opt_samples["post_sample"],
             "AUTO_CORR": self.opt_samples["auto_corr"],
-            "PARAM_NAMES": self.optimiser_context.optimiser_settings.param_names
+            "PARAM_NAMES": self.optimiser_context.optimiser_settings.param_names,
+            "GP_REGRESSION": self.opt_samples.get("gp_regression", {})
             # "GELMAN_RUBIN": gelman_rubin(self.sampler.get_chain(flat=False))
         }
 
@@ -289,21 +297,17 @@ class BayesWorkflow:
         }
         return result
 
-    def save_pickle(self, result, filepath):
-        Path(filepath).mkdir(parents=True, exist_ok=True)
-        with open(filepath + "results.pkl", "wb") as handle:
-            pickle.dump(result, handle)
-
     def __call__(
-        self,
-        filepath="./results/test/",
-        run="RUN01",
-        run_info="Default run",
-        mds_write=False,
-        best=True,
-        pulse_to_write=None,
-        plot=False,
-        config=None,
+            self,
+            filepath="./results/test/",
+            run="RUN01",
+            run_info="Default run",
+            mds_write=False,
+            best=True,
+            pulse_to_write=None,
+            plot=False,
+            config=None,
+            logger=logging.getLogger(),
     ):
         self.config = config
         self.result = self._build_inputs_dict()
@@ -312,11 +316,11 @@ class BayesWorkflow:
 
         for time in time_iterator:
             self.plasma_profiler.plasma.time_to_calculate = time
-            print(f"Time: {time.values:.2f}")
+            logger.info(f"Time: {time.values:.2f}")
             self.optimiser_context.sample_start_points()
             self.optimiser_context.run()
-            results.append(self.optimiser_context.format_results())
-            self.optimiser_context.optimiser.reset()
+            results.append(self.optimiser_context.post_process_results())
+            self.optimiser_context.reset_optimiser()
 
         # unpack results and add time axis
         blobs = {}
@@ -340,7 +344,7 @@ class BayesWorkflow:
         self.result = dict(self.result, **result)
 
         if mds_write or plot:
-            self.save_pickle(
+            save_pickle(
                 self.result,
                 filepath=filepath,
             )
@@ -348,7 +352,7 @@ class BayesWorkflow:
         self.result = dict_of_dataarray_to_numpy(self.result)
 
         if mds_write:
-            print(f"Writing MDS+ for pulse: {pulse_to_write}")
+            logger.info(f"Writing MDS+ for pulse: {pulse_to_write}")
             tree_exists = does_tree_exist(pulse_to_write)
             if tree_exists:
                 mode = "EDIT"
@@ -368,3 +372,8 @@ class BayesWorkflow:
         if plot:
             plot_bayes_result(filepath=filepath)
         return
+
+
+
+
+
