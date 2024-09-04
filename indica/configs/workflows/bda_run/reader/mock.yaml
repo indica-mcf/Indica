@@ -2,7 +2,7 @@ defaults:
   - equilibrium: efit
   - filters: default
 
-phantom: False
+phantom: True
 mock: True
 
 ppts_modelling_number: 0
