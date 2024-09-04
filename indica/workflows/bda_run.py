@@ -17,8 +17,8 @@ from indica.readers.read_st40 import ReadST40
 from indica.workflows.bayes_workflow import BayesWorkflow
 from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.optimiser_context import BOOptimiser
-from indica.workflows.optimiser_context import EmceeOptimiser
 from indica.workflows.optimiser_context import BOSettings
+from indica.workflows.optimiser_context import EmceeOptimiser
 from indica.workflows.optimiser_context import EmceeSettings
 from indica.workflows.pca import pca_workflow
 from indica.workflows.plasma_profiler import initialise_gauss_profilers
