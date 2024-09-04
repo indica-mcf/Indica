@@ -1,3 +1,4 @@
+method: "emcee"
 
 param_names: ["impurity_density:ar.y0", "impurity_density:ar.peaking"
 ]

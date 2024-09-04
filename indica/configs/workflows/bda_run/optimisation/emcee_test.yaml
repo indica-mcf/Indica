@@ -1,3 +1,4 @@
+method: "emcee"
 
 param_names: ["ion_temperature.y0"]
 pca_profiles: []
