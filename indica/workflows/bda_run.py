@@ -16,9 +16,9 @@ from indica.models import Plasma
 from indica.models import ThomsonScattering
 from indica.readers.read_st40 import ReadST40
 from indica.workflows.bayes_workflow import BayesWorkflow
-from indica.workflows.bayes_workflow import EmceeOptimiser
+from indica.workflows.bayes_workflow import EmceeOptimiser, BOOptimiser
 from indica.workflows.model_coordinator import ModelCoordinator
-from indica.workflows.optimiser_context import OptimiserEmceeSettings
+from indica.workflows.optimiser_context import EmceeSettings, BOSettings
 from indica.workflows.pca import pca_workflow
 from indica.workflows.plasma_profiler import initialise_gauss_profilers
 from indica.workflows.plasma_profiler import PlasmaProfiler
@@ -27,16 +27,15 @@ from indica.workflows.priors import PriorManager
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
-    "xrcs.raw_spectra": lambda x: np.sqrt(x)  # Poisson noise
-    + (
+    "xrcs.raw_spectra": lambda x: x * 0.05 + 0.01 * x.max(dim="wavelength") + (
         x.where(
             (x.wavelength < 0.392) & (x.wavelength > 0.388),
         ).std("wavelength")
     ).fillna(
         0
-    ),  # Background noise
-    "cxff_pi.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
-    "cxff_tws_c.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
+    ),
+    "cxff_pi.ti": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
+    "cxff_tws_c.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
 }
 
 
@@ -102,6 +101,7 @@ def bda_run(
         profile_params=OmegaConf.to_container(cfg.plasma.profiles),
     )
     plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
+    plasma_profiler()
 
     if cfg.reader.set_ts or cfg.reader.apply_rshift:
         log.info("PPTS reading")
@@ -253,6 +253,7 @@ def bda_run(
             "xrcs": {
                 "window": reader.binned_data["xrcs"]["raw_spectra"].wavelength,
                 "background": reader.binned_data["xrcs"].get("background", 0),
+                "norm_y": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength"),
             },
         }
     else:
@@ -298,24 +299,40 @@ def bda_run(
     else:
         opt_params = list(cfg.optimisation.param_names)
 
-    optimiser_settings = OptimiserEmceeSettings(
-        param_names=opt_params,
-        nwalkers=cfg.optimisation.nwalkers,
-        iterations=cfg.optimisation.iterations,
-        sample_method=cfg.optimisation.sample_method,
-        starting_samples=cfg.optimisation.starting_samples,
-        burn_frac=cfg.optimisation.burn_frac,
-        stopping_criteria=cfg.optimisation.stopping_criteria,
-        stopping_criteria_factor=cfg.optimisation.stopping_criteria_factor,
-        stopping_criteria_debug=True,
-    )
+    if cfg.optimisation.method == "emcee":
+        optimiser_settings = EmceeSettings(
+            param_names=opt_params,
+            nwalkers=cfg.optimisation.nwalkers,
+            iterations=cfg.optimisation.iterations,
+            sample_method=cfg.optimisation.sample_method,
+            starting_samples=cfg.optimisation.starting_samples,
+            burn_frac=cfg.optimisation.burn_frac,
+            stopping_criteria=cfg.optimisation.stopping_criteria,
+            stopping_criteria_factor=cfg.optimisation.stopping_criteria_factor,
+            stopping_criteria_debug=True,
+        )
 
-    log.info("Initialising Optimiser Context")
-    optimiser_context = EmceeOptimiser(
-        optimiser_settings=optimiser_settings,
-        prior_manager=prior_manager,
-        model_kwargs=model_call_kwargs,
-    )
+        log.info("Initialising Ecmee Optimiser Context")
+        optimiser_context = EmceeOptimiser(
+            optimiser_settings=optimiser_settings,
+            prior_manager=prior_manager,
+            model_kwargs=model_call_kwargs,
+        )
+    elif cfg.optimisation.method == "bo":
+        optimiser_settings = BOSettings(param_names=opt_params,
+                                        n_calls=cfg.optimisation.n_calls,
+                                        n_initial_points=cfg.optimisation.n_initial_points,
+                                        acq_func=cfg.optimisation.acq_func,
+                                        xi=cfg.optimisation.xi,
+                                        noise=cfg.optimisation.noise,
+                                        initial_point_generator=cfg.optimisation.initial_point_generator,
+                                        )
+        log.info("Initialising BO Optimiser Context")
+        optimiser_context = BOOptimiser(optimiser_settings,
+                                        prior_manager,
+                                        model_kwargs=model_call_kwargs, )
+    else:
+        raise ValueError(f"cfg.optimisation.method: {cfg.optimisation.method} not implemented")
 
     workflow = BayesWorkflow(
         quant_to_optimise=cfg.model.quantities,
