@@ -1,0 +1,15 @@
+method: "bo"
+
+param_names: ["ion_temperature.y0", "ion_temperature.peaking", "ion_temperature.wcenter", "impurity_density:ar.peaking",
+]
+pca_profiles: ["ion_temperature"]
+pca_components: 3
+
+n_calls: 40
+n_initial_points: 10
+noise: 1.0E-10
+acq_func: "LCB"
+xi: 0.20
+kappa: 2
+initial_point_generator: "lhs"
+use_previous_best: True
