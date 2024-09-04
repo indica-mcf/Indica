@@ -2,7 +2,7 @@ import logging
 from abc import ABC
 from abc import abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from operator import itemgetter
 
@@ -203,7 +203,7 @@ class EmceeSettings:
     stopping_criteria_factor: float = 0.01
     stopping_criteria_sample: int = 10
     stopping_criteria_debug: bool = False
-    move: tuple = (DIMEMove(aimh_prob=0.2), 1.0)
+    move: list = field(default_factory = lambda: [(DIMEMove(aimh_prob=0.2), 1.0)])
 
 
 class EmceeOptimiser(OptimiserContext):
