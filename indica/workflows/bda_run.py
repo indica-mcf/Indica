@@ -172,7 +172,7 @@ def bda_run(
     R_shift = 0.0
     if cfg.reader.apply_rshift:
         R_shift = ppts_reader.raw_data["ppts"]["R_shift"]
-        log.info(f"R shift of: {R_shift}")
+        log.info("R shift being used")
 
     if cfg.reader.mock:
         log.info("Using mock equilibrium")
