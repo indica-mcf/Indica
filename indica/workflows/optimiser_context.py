@@ -426,6 +426,7 @@ class BOOptimiser(OptimiserContext):
             n_calls=self.optimiser_settings.n_calls,
             n_initial_points=0,
             noise=self.optimiser_settings.noise,
+            acq_optimizer="lbfgs",
             initial_point_generator=self.optimiser_settings.initial_point_generator,
         )
 
