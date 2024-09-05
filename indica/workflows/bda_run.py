@@ -282,7 +282,7 @@ def bda_run(
     if "xrcs" in reader.binned_data.keys():
         model_call_kwargs = {
             "xrcs": {
-                "norm_y": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength")
+                # "norm_y": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength")
             }
         }
     else:
