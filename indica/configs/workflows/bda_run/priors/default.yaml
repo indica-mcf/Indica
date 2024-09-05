@@ -3,7 +3,7 @@ basic_prior_info:
   ion_temperature.y1: ["get_uniform", 50, 50.1]
   ion_temperature.wped: ["get_uniform", 1, 2]
   ion_temperature.wcenter: ["get_uniform", 0.2, 0.4]
-  ion_temperature.peaking: ["get_uniform", 1, 10]
+  ion_temperature.peaking: ["get_uniform", 1, 3]
 
   electron_density.y0: ["get_uniform", 2e19, 2e20]
   electron_density.y1: ["get_uniform", 1e18, 1e19]
