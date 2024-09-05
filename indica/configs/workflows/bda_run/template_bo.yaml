@@ -16,4 +16,3 @@ writer:
   pulse_to_write: 43000000
   run: "test"
   run_info: "Bayesian Optimisation test"
-

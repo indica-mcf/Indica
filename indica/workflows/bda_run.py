@@ -30,7 +30,11 @@ def deep_update(mapping: dict, *updating_mappings: dict) -> dict:
     updated_mapping = mapping.copy()
     for updating_mapping in updating_mappings:
         for k, v in updating_mapping.items():
-            if k in updated_mapping and isinstance(updated_mapping[k], dict) and isinstance(v, dict):
+            if (
+                k in updated_mapping
+                and isinstance(updated_mapping[k], dict)
+                and isinstance(v, dict)
+            ):
                 updated_mapping[k] = deep_update(updated_mapping[k], v)
             else:
                 updated_mapping[k] = v
@@ -41,12 +45,12 @@ ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "xrcs.raw_spectra": lambda x: x * 0.05
-                                  + 0.01 * x.max(dim="wavelength")
-                                  + (
-                                      x.where(
-                                          (x.wavelength < 0.392) & (x.wavelength > 0.388),
-                                      ).std("wavelength")
-                                  ).fillna(0),
+    + 0.01 * x.max(dim="wavelength")
+    + (
+        x.where(
+            (x.wavelength < 0.392) & (x.wavelength > 0.388),
+        ).std("wavelength")
+    ).fillna(0),
     "cxff_pi.ti": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
 }
@@ -90,7 +94,7 @@ INSTRUMENT_MAPPING: dict = {
     config_name="template_bo",
 )
 def bda_run(
-        cfg: DictConfig,
+    cfg: DictConfig,
 ):
     if cfg.writer.pulse_to_write is None:
         cfg.writer.pulse_to_write = cfg.pulse
