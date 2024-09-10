@@ -13,7 +13,5 @@ tend: 0.010
 dt: 0.01
 
 writer:
-  run: "RUN02B"
+  pulse_to_write: 43000000
   run_info: "Bayesian Optimisation test"
-  best: False
-  plot: False
