@@ -1,6 +1,6 @@
 
 defaults:
-  - model: tws
+  - model: xrcs
   - plasma: default
   - priors: default
   - optimisation: bo_default
@@ -9,10 +9,11 @@ defaults:
 
 pulse: 11089
 tstart: 0.05
-tend: 0.11
+tend: 0.010
 dt: 0.01
 
 writer:
-  pulse_to_write: 43000000
-  run: "test"
+  run: "RUN02B"
   run_info: "Bayesian Optimisation test"
+  best: False
+  plot: False
