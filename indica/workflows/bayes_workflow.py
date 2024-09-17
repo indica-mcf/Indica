@@ -9,7 +9,7 @@ import numpy as np
 import xarray as xr
 
 from indica.bayesblackbox import BayesBlackBox
-from indica.workflows.bayes_plots import plot_bayes_result
+from indica.plotters.plot_bda import plot_bayes_result
 from indica.workflows.model_coordinator import ModelCoordinator
 from indica.workflows.optimiser_context import EmceeOptimiser
 from indica.workflows.plasma_profiler import map_plasma_profile_to_midplane
