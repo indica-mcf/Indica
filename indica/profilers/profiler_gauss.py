@@ -6,7 +6,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 import xarray as xr
 import yaml
-
+import indica
 from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
@@ -161,7 +161,7 @@ def get_defaults_for_profiler_gauss(
     Loads config for default parameter values
     """
     path = os.path.join(
-        os.path.dirname(__file__), f"configs/profilers/{config_name}.yaml"
+        os.path.dirname(indica.__file__), f"configs/profilers/{config_name}.yaml"
     )
     with open(path) as stream:
         cfg = yaml.safe_load(stream)
