@@ -160,6 +160,7 @@ def violinplot(
         1,
         1,
     )
+    data = data[~np.isnan(data)]
     _data = data[((data > np.quantile(data, 0.16)) & (data < np.quantile(data, 0.84)))]
 
     violin = axs.violinplot(
@@ -283,7 +284,7 @@ def plot_bayes_result(
             plot_evaluations(gp_regression[t_idx], dimensions=param_names)
             plt.savefig(figheader + "gp_evaluations")
             plt.close()
-            # plot_objective(gp_regression[t_idx], )
+            # plot_objective(gp_regression[t_idx], dimensions=param_names )
             # plt.savefig(figheader + "gp_objective")
             # plt.close()
 
@@ -352,27 +353,22 @@ def plot_bayes_result(
                 elinewidth=0,
                 capsize=0,
             )
-        key = "CXFF_PI.TI"
-        if key in model_data.keys():
+
+        cxff_quantites = [key for key in model_data.keys() if "CXFF" in key]
+        for key in cxff_quantites:
+            if "TI" in key:
+                ylabel = "Temperature [eV]"
+            elif "VTOR" in key:
+                ylabel = "Toroidal Velocity [m/s]"
+            else:
+                ylabel = "[None]"
             _plot_1d(
                 model_data[key].sel(t=t),
                 diag_data[key].sel(t=t),
                 f"{key.replace('.', '_')}" + filetype,
                 label=key,
                 figheader=figheader,
-                ylabel="Temperature [eV]",
-                xlabel="Channel",
-                # hide_legend=True,
-            )
-        key = "CXFF_TWS_C.TI"
-        if key in model_data.keys():
-            _plot_1d(
-                model_data[key].sel(t=t),
-                diag_data[key].sel(t=t),
-                f"{key.replace('.', '_')}" + filetype,
-                label=key,
-                figheader=figheader,
-                ylabel="Temperature [eV]",
+                ylabel=ylabel,
                 xlabel="Channel",
                 # hide_legend=True,
             )
@@ -502,5 +498,5 @@ def plot_bayes_result(
 
 
 if __name__ == "__main__":
-    filehead = "./results/example/"
+    filehead = "./../results/example/"
     plot_bayes_result(filepath=filehead, filetype=".png")
