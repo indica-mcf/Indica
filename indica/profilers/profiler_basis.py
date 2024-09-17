@@ -1,16 +1,7 @@
-from abc import ABC
-import os.path
-
-import matplotlib.pylab as plt
 import numpy as np
-from scipy.interpolate import CubicSpline
 import xarray as xr
-import yaml
 
 from indica.profilers.profiler_base import ProfilerBase
-from indica.utilities import format_coord
-from indica.utilities import format_dataarray
-
 
 
 class ProfilerBasis(ProfilerBase):

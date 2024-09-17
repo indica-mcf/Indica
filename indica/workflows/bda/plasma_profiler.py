@@ -1,13 +1,10 @@
-import os
-
 import matplotlib.pyplot as plt
 import xarray as xr
-import yaml
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models.plasma import Plasma
 from indica.profilers.profiler_base import ProfilerBase
-from indica.profilers.profiler_gauss import ProfilerGauss, initialise_gauss_profilers
+from indica.profilers.profiler_gauss import initialise_gauss_profilers
 
 PLASMA_ATTRIBUTE_NAMES = [
     "electron_temperature",

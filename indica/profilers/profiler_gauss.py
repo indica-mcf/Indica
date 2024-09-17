@@ -1,11 +1,10 @@
-from abc import ABC
 import os.path
 
 import matplotlib.pylab as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
-import xarray as xr
 import yaml
+
 import indica
 from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
@@ -14,6 +13,7 @@ from indica.utilities import format_dataarray
 
 def gaussian(x, A, B, x_0, w):
     return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
+
 
 class ProfilerGauss(ProfilerBase):
     def __init__(
@@ -153,7 +153,6 @@ class ProfilerGauss(ProfilerBase):
         return ydata
 
 
-
 def get_defaults_for_profiler_gauss(
     datatype="electron_temperature", config_name="profiler_gauss"
 ):
@@ -182,4 +181,3 @@ def initialise_gauss_profilers(
         for profile_name in profile_names
     }
     return _profilers
-

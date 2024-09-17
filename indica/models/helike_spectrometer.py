@@ -46,7 +46,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         window_masks=None,
         line_labels=None,
         background=0,
-        instrumental_broadening:float = 100,
+        instrumental_broadening: float = 100,
     ):
         """
         Read all atomic data and initialise objects

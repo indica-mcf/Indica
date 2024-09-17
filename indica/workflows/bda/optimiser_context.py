@@ -9,6 +9,7 @@ from operator import itemgetter
 
 from dime_sampler import DIMEMove
 import emcee
+import mpmath as mp
 import numpy as np
 import pandas as pd
 from scipy.stats import describe
@@ -20,7 +21,6 @@ from indica.workflows.bda.priors import ln_prior
 from indica.workflows.bda.priors import PriorManager
 from indica.workflows.bda.priors import sample_best_half
 from indica.workflows.bda.priors import sample_from_priors
-import mpmath as mp
 
 exp = np.frompyfunc(mp.exp, 1, 1)
 to_float = np.frompyfunc(float, 1, 1)

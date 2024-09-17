@@ -8,8 +8,8 @@ import git
 import numpy as np
 import xarray as xr
 
-from indica.workflows.bda.bayesblackbox import BayesBlackBox
 from indica.plotters.plot_bda import plot_bayes_result
+from indica.workflows.bda.bayesblackbox import BayesBlackBox
 from indica.workflows.bda.model_coordinator import ModelCoordinator
 from indica.workflows.bda.optimiser_context import EmceeOptimiser
 from indica.workflows.bda.plasma_profiler import map_plasma_profile_to_midplane

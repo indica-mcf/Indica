@@ -3,8 +3,8 @@ from typing import Callable
 import warnings
 
 from flatdict import FlatDict
-import numpy as np
 import mpmath as mp
+import numpy as np
 
 from indica.workflows.bda.plasma_profiler import PlasmaProfiler
 from indica.workflows.bda.priors import PriorManager

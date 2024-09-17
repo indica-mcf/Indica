@@ -1,6 +1,6 @@
 from abc import ABC
+
 import matplotlib.pylab as plt
-import numpy as np
 
 
 class ProfilerBase(ABC):
