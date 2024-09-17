@@ -3,10 +3,6 @@ import matplotlib.pylab as plt
 import numpy as np
 
 
-def gaussian(x, A, B, x_0, w):
-    return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
-
-
 class ProfilerBase(ABC):
     # protocol for profilers to follow
 

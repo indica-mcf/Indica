@@ -7,10 +7,13 @@ from scipy.interpolate import CubicSpline
 import xarray as xr
 import yaml
 
-from indica.profilers.profiler_base import ProfilerBase, gaussian
+from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 
+
+def gaussian(x, A, B, x_0, w):
+    return (A - B) * np.exp(-((x - x_0) ** 2) / (2 * w**2)) + B
 
 class ProfilerGauss(ProfilerBase):
     def __init__(
