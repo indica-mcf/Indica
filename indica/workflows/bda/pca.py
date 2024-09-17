@@ -12,8 +12,8 @@ from scipy.stats import gaussian_kde
 from sklearn.decomposition import PCA
 import xarray as xr
 
-from indica.profilers import ProfilerBasis
-from indica.profilers import ProfilerGauss
+from indica.profilers.profiler_basis import ProfilerBasis
+from indica.profilers.profiler_gauss import ProfilerGauss
 from indica.workflows.bda.priors import PriorCompound
 from indica.workflows.bda.priors import PriorManager
 from indica.workflows.bda.priors import sample_from_priors
