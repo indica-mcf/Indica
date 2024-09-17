@@ -237,8 +237,8 @@ def sample_best_half(
     start_points = sample_from_priors(param_names, priors, size=2 * size)
     ln_post = []
     for idx in range(start_points.shape[0]):
-        ln_post.append(-wrappedblackbox(start_points[idx, :]))
-    index_best_half = np.argsort(ln_post)[-size:]
+        ln_post.append(wrappedblackbox(start_points[idx, :]))
+    index_best_half = np.argsort(ln_post)[:size]
     best_points = start_points[index_best_half, :]
     return best_points
 
