@@ -14,9 +14,9 @@ import xarray as xr
 
 from indica.profilers import ProfilerBasis
 from indica.profilers import ProfilerGauss
-from indica.workflows.priors import PriorCompound
-from indica.workflows.priors import PriorManager
-from indica.workflows.priors import sample_from_priors
+from indica.workflows.bda.priors import PriorCompound
+from indica.workflows.bda.priors import PriorManager
+from indica.workflows.bda.priors import sample_from_priors
 
 
 def fit_pca(profiles: np.ndarray, ncomps, verbose=True) -> Tuple[np.ndarray, PCA]:
