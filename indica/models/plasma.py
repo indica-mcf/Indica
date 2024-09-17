@@ -17,7 +17,7 @@ from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import default_atomic_data
 import indica.physics as ph
-from indica.profilers import ProfilerGauss
+from indica.profiler.profiler_gauss import ProfilerGauss
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info

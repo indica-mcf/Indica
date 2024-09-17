@@ -249,3 +249,22 @@ def get_defaults_for_profiler_gauss(
     with open(path) as stream:
         cfg = yaml.safe_load(stream)
     return cfg[datatype]
+
+if __name__ == "__main__":
+
+
+    prof = ProfilerGauss(parameters={"y0": 1e3, "peaking": 1,  }, datatype="ion_temperature")
+    prof().plot()
+    prof = ProfilerGauss(parameters={"y0":1e3,"peaking":2, "wcenter":0.2, }, datatype="ion_temperature")
+    prof().plot()
+    prof = ProfilerGauss(parameters={"y0": 1e3, "peaking": 2, "wcenter": 0.4, }, datatype="ion_temperature")
+    prof().plot()
+    prof = ProfilerGauss(parameters={"y0":1e3,"peaking":1.1, "wcenter":0.4, }, datatype="ion_temperature")
+    prof().plot()
+    # prof = ProfilerGauss(parameters={"y0":1e3,"peaking":2, "wcenter":0.4, }, datatype="ion_temperature")
+    # prof().plot(marker="x")
+    # prof = ProfilerGauss(parameters={"y0":1e3,"peaking":5, "wcenter":0.2, }, datatype="ion_temperature")
+    # prof().plot()
+    # prof = ProfilerGauss(parameters={"y0":1e3,"peaking":10, "wcenter":0.2, }, datatype="ion_temperature")
+    plt.show(block=True)
+    print()
