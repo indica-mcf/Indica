@@ -44,6 +44,7 @@ def deep_update(mapping: dict, *updating_mappings: dict) -> dict:
 ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
+    "efit.wp": lambda x: x * 0.10,
     "xrcs.raw_spectra": lambda x: x * 0.05
     + 0.01 * x.max(dim="wavelength")
     + (
@@ -51,8 +52,9 @@ ERROR_FUNCTIONS = {
             (x.wavelength < 0.392) & (x.wavelength > 0.388),
         ).std("wavelength")
     ).fillna(0),
-    "cxff_pi.ti": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
+    "cxff_pi.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
+    "cxff_tws_b.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
 }
 
 
@@ -67,12 +69,6 @@ def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
             if verbose:
                 print(f"no error function defined for {key}")
             continue
-        # TODO: find better way of handling errors for exp + phantom cases
-        # if "error" in value.coords:
-        #     if verbose:
-        #         print(f"{key} contains error: skipping")
-        #     opt_data_with_error[key] = value
-        #     continue
         error = error_functions[key](value)
         opt_data_with_error[key] = value.assign_coords({"error": error})
     return opt_data_with_error
@@ -82,6 +78,7 @@ INSTRUMENT_MAPPING: dict = {
     "xrcs": HelikeSpectrometer,
     "cxff_pi": ChargeExchangeSpectrometer,
     "cxff_tws_c": ChargeExchangeSpectrometer,
+    "cxff_tws_b": ChargeExchangeSpectrometer,
     "smmh1": Interferometer,
     "efit": EquilibriumReconstruction,
     "ts": ThomsonScattering,
@@ -102,6 +99,7 @@ def bda_run(
     log = logging.getLogger(__name__)
     log.info(f"Beginning BDA for pulse {cfg.pulse}")
     dirname = f"{cfg.writer.pulse_to_write}.{cfg.writer.run}"
+    log.info(f"Will write to {cfg.writer.pulse_to_write}.{cfg.writer.run}")
 
     log.info("Initialising plasma")
     plasma = Plasma(
@@ -195,7 +193,7 @@ def bda_run(
     plasma.set_equilibrium(equilibrium=equilibrium)
 
     if cfg.reader.mock:
-        log.info("Using mock data reader strategy")
+        log.info("Using mock data reader")
         transforms = load_default_objects("st40", "geometry")
         models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.model.diagnostics}
         reader = ModelCoordinator(
@@ -209,7 +207,7 @@ def bda_run(
         reader.set_plasma(plasma)
 
     elif cfg.reader.phantom:
-        log.info("Using phantom reader strategy")
+        log.info("Using phantom reader")
         phantom_reader = ReadST40(
             pulse=cfg.pulse,
             tstart=cfg.tstart,
@@ -243,7 +241,7 @@ def bda_run(
         reader.set_plasma(plasma)
 
     else:
-        log.info("Using default reader strategy")
+        log.info("Using default reader")
         reader = ReadST40(
             pulse=cfg.pulse,
             tstart=cfg.tstart,
@@ -286,7 +284,8 @@ def bda_run(
     if "xrcs" in reader.binned_data.keys():
         model_call_kwargs = {
             "xrcs": {
-                # "norm_y": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength")
+                "pixel_offset": -1,
+                "norm_spectra": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength")
             }
         }
     else:

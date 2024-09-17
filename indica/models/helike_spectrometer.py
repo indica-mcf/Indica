@@ -46,6 +46,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         window_masks=None,
         line_labels=None,
         background=0,
+        instrumental_broadening:float = 100,
     ):
         """
         Read all atomic data and initialise objects
@@ -76,6 +77,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.line_ranges = LINE_RANGES
         self.line_labels = line_labels
         self.background = background
+        self.instrumental_broadening = instrumental_broadening
 
         if window is None:
             window = np.linspace(window_lim[0], window_lim[1], window_len)
@@ -184,7 +186,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
             self.intensity,
             self.intensity.wavelength,
             self.ion_mass,
-            self.Ti,
+            self.Ti + self.instrumental_broadening,
         )
         _spectra = _spectra.sum("line_name")
         # extend spectra to same coords as self.window.wavelength with NaNs
@@ -383,7 +385,8 @@ class HelikeSpectrometer(AbstractDiagnostic):
         moment_analysis: bool = False,
         background: float = None,
         pixel_offset: int = None,
-        norm_y: xr.DataArray = None,
+        norm_spectra: xr.DataArray = None,
+        scale_spectra: float = 1.0,
         **kwargs,
     ):
         """
@@ -466,11 +469,11 @@ class HelikeSpectrometer(AbstractDiagnostic):
         dt = np.gradient(self.plasma.t).mean()  # Temp hack for count -> count / s
         self.measured_spectra = self.measured_spectra / dt
 
-        if norm_y is not None:
+        if norm_spectra is not None:
             self.measured_spectra = (
                 self.measured_spectra
                 / self.measured_spectra.max()
-                * (norm_y.sel(t=t) - background)
+                * (norm_spectra.sel(t=t) * scale_spectra - background)
             )
 
         self.measured_spectra += background
