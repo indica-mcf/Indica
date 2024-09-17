@@ -3,8 +3,8 @@ electron_density:
     y0: 5.0e+19
     y1: 5.0e+18
     yend: 2.0e+18
-    peaking: 2
-    wcenter: 0.4
+    peaking: 1.2
+    wcenter: 0.3
     wped: 6
 
 
@@ -13,7 +13,7 @@ impurity_density:
     y1: 1.0e+15
     yend: 1.0e+15
     peaking: 3
-    wcenter: 0.4
+    wcenter: 0.3
     wped: 6
 
 
@@ -21,7 +21,7 @@ neutral_density:
     y0: 1.0e+13
     y1: 1.0e+15
     yend: 1.0e+15
-    peaking: 1.0
+    peaking: 20
     wcenter: 0.0
     wped: 18
 
@@ -30,17 +30,17 @@ electron_temperature:
     y0: 3.0e+3
     y1: 50
     yend: 5
-    peaking: 0.3
-    wcenter: 2
+    peaking: 1.5
+    wcenter: 0.25
     wped: 3
 
 
 ion_temperature:
     y0: 5.0e+3
     y1: 50
-    yend: 5
-    peaking: 0.3
-    wcenter: 2
+    yend: 10
+    peaking: 1.5
+    wcenter: 0.25
     wped: 3
 
 
@@ -49,5 +49,5 @@ toroidal_rotation:
     y1: 10.0e+3
     yend: 0.0
     peaking: 0.3
-    wcenter: 2
+    wcenter: 0.25
     wped: 3

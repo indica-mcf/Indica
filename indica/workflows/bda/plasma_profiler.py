@@ -10,14 +10,22 @@ from indica.profilers.profiler_base import ProfilerBase
 from indica.profilers.profiler_gauss import ProfilerGauss
 
 
-path = os.path.join(
-    os.path.dirname(__file__), "../configs/workflows/plasma_profiler/default.yaml"
-)
-with open(path) as stream:
-    cfg = yaml.safe_load(stream)
-
-PLASMA_ATTRIBUTE_NAMES = cfg["plasma_attrs"]
-DEFAULT_PROFILE_PARAMS = cfg["profile_params"]
+PLASMA_ATTRIBUTE_NAMES = [
+    "electron_temperature",
+    "electron_density",
+    "ion_temperature",
+    "ion_density",
+    "impurity_density",
+    "fast_density",
+    "pressure_fast",
+    "neutral_density",
+    "zeff",
+    "meanz",
+    "wp",
+    "wth",
+    "pressure_tot",
+    "pressure_th",
+]
 
 
 def map_plasma_profile_to_midplane(plasma: Plasma, profiles: dict):
@@ -42,7 +50,7 @@ class PlasmaProfiler:
         self,
         plasma: Plasma,
         profilers: dict[ProfilerBase],
-        plasma_attribute_names=PLASMA_ATTRIBUTE_NAMES,
+        plasma_attribute_names=None,
     ):
         """
         Interface Profiler objects with Plasma object to generate plasma profiles
@@ -56,6 +64,8 @@ class PlasmaProfiler:
             dictionary of Profiler objects to generate profiles
         """
 
+        if plasma_attribute_names is None:
+            plasma_attribute_names = PLASMA_ATTRIBUTE_NAMES
         self.plasma = plasma
         self.profilers = profilers
         self.plasma_attribute_names = plasma_attribute_names
@@ -151,13 +161,10 @@ class PlasmaProfiler:
 
 
 def initialise_gauss_profilers(
-    x_coord, profile_params: dict = None, profile_names: list = None
+    x_coord, profile_names: list, profile_params: dict = None
 ):
     if profile_params is None:
-        profile_params = DEFAULT_PROFILE_PARAMS
-    if profile_names is None:
-        profile_names = DEFAULT_PROFILE_PARAMS.keys()
-
+        profile_params = {}
     _profilers = {
         profile_name: ProfilerGauss(
             datatype=profile_name.split(":")[0],
@@ -174,7 +181,6 @@ if __name__ == "__main__":
     profilers = initialise_gauss_profilers(
         example_plasma.rho, profile_names=["electron_density", "ion_temperature"]
     )
-
     plasma_profiler = PlasmaProfiler(
         plasma=example_plasma,
         profilers=profilers,
