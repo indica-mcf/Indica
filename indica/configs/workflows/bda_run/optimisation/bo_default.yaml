@@ -1,19 +1,19 @@
 method: "bo"
 
 param_names: ["ion_temperature.y0", "ion_temperature.peaking", "ion_temperature.wcenter", "impurity_density:ar.peaking",
-"impurity_density:ar.y0"]
+"xrcs.scale_spectra"]
 pca_profiles: ["ion_temperature"]
 pca_components: 2
 
-n_calls: 50
+n_calls: 60
 n_initial_points: 10
-noise: 1.0E-10
+noise: 1.0E-20
 acq_func: "LCB"
 xi: 0.20
-kappa: 5
+kappa: 2
 initial_point_generator: "lhs"
 use_previous_best: True
 
 boundary_samples: 3000
-model_samples: 50
+model_samples: 100
 posterior_samples: 100000
