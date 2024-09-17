@@ -4,6 +4,7 @@ import warnings
 
 from flatdict import FlatDict
 import numpy as np
+import mpmath as mp
 
 from indica.workflows.plasma_profiler import PlasmaProfiler
 from indica.workflows.priors import PriorManager
@@ -11,9 +12,22 @@ from indica.workflows.priors import PriorManager
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
 
+# using mpmath to handle small numbers as floats insufficient
+# wrapping mp functions to process numpy arrays
+gaussian = np.frompyfunc(mp.npdf, 3, 1)
+log = np.frompyfunc(mp.log, 1, 1)
+to_float = np.frompyfunc(float, 1, 1)
 
-def gaussian(x, mean, sigma):
-    return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-1 / 2 * ((x - mean) / sigma) ** 2)
+
+def mp_log_gauss_wrapper(x, mean, sigma):
+    # dropping nans to speed up calculation
+    nan_idx = np.isnan(x) | np.isnan(mean) | np.isnan(sigma)
+    x_star = x[~nan_idx] * mp.mpf(1)  # change dtype to mp float
+    mean_star = mean[~nan_idx] * mp.mpf(1)
+    sigma_star = sigma[~nan_idx] * mp.mpf(1)
+    y = gaussian(x_star, mean_star, sigma_star)
+    ln_y = to_float(log(y))  # mpf -> float
+    return np.hstack(ln_y[:]).astype(float)  # convert from datatype object to float
 
 
 class BayesBlackBox:
@@ -59,13 +73,11 @@ class BayesBlackBox:
         time_coord = self.plasma_profiler.plasma.time_to_calculate
 
         for key in self.quant_to_optimise:
-            model_data = self.bckc[key].astype(
-                "float128"
-            )  # floating point precision not good enough
-            exp_data = self.opt_data[key].sel(t=time_coord).astype("float128")
-            exp_error = self.opt_data[key].sel(t=time_coord).error.astype("float128")
+            model_data = self.bckc[key].values
+            exp_data = self.opt_data[key].sel(t=time_coord).values
+            exp_error = self.opt_data[key].sel(t=time_coord).error.values
 
-            _ln_likelihood = np.log(gaussian(model_data, exp_data, exp_error))
+            _ln_likelihood = mp_log_gauss_wrapper(model_data, exp_data, exp_error)
             ln_likelihood += np.nansum(_ln_likelihood)
 
         return ln_likelihood

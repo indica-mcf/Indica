@@ -20,6 +20,17 @@ from indica.workflows.priors import ln_prior
 from indica.workflows.priors import PriorManager
 from indica.workflows.priors import sample_best_half
 from indica.workflows.priors import sample_from_priors
+import mpmath as mp
+
+exp = np.frompyfunc(mp.exp, 1, 1)
+to_float = np.frompyfunc(float, 1, 1)
+
+
+def exp_wrapper(x: np.ndarray):
+    x_star = x * mp.mpf(1)
+    y_star = exp(x_star)
+    # y = to_float(y_star)
+    return np.hstack(y_star[:])
 
 
 def sample_with_moments(
@@ -445,11 +456,13 @@ class BOOptimiser(OptimiserContext):
         normed_samples = self.result.space.transform(real_samples)
 
         obj_func = model.predict(normed_samples)
-        normed_obj_func = obj_func - obj_func.min() + 0.001
-        posterior = np.exp(
-            -normed_obj_func.astype("float128")
+        posterior = exp_wrapper(
+            -obj_func
         )  # log of objective function -> posterior probability
-        posterior[posterior == np.nan] = np.nanmin(posterior)
+        posterior /= posterior.max()
+        posterior = to_float(posterior)
+        posterior[posterior == 0] = 1e-100
+
         posterior_fit = gaussian_kde(real_samples.T, weights=posterior)
 
         params = posterior_fit.resample(size=self.optimiser_settings.model_samples)
