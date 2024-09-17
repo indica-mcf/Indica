@@ -1,24 +1,19 @@
 import pytest
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.profilers import ProfilerGauss
-from indica.workflows.plasma_profiler import PlasmaProfiler
+from indica.profilers.profiler_gauss import initialise_gauss_profilers
+from indica.workflows.bda.plasma_profiler import PlasmaProfiler
 
 
 class TestPlasmaProfiler:
     def setup_method(self):
         self.plasma = load_default_objects("st40", "plasma")
-        self.profilers = {
-            profile_name: ProfilerGauss(
-                datatype=profile_name.split(":")[0],
-                xspl=self.plasma.rho,
-            )
-            for profile_name in [
+        self.profilers = initialise_gauss_profilers(self.plasma.rho, [
                 "electron_density",
                 "ion_temperature",
                 "impurity_density:ar",
-            ]
-        }
+            ])
+
         self.plasma_profiler = PlasmaProfiler(
             plasma=self.plasma,
             profilers=self.profilers,

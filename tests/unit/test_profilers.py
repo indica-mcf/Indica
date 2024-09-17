@@ -1,7 +1,7 @@
 from hydra import compose
 from hydra import initialize_config_module
 
-from indica.profilers import ProfilerGauss
+from indica.profilers.profiler_gauss import ProfilerGauss
 
 
 class TestProfilerGauss:
