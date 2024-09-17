@@ -8,7 +8,7 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.numpy_typing import LabeledArray
-from indica.profilers import ProfilerGauss
+from indica.profilers.profiler_gauss import ProfilerGauss
 from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
