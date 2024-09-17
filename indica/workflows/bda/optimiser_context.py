@@ -16,10 +16,10 @@ from scipy.stats import gaussian_kde
 import skopt
 import xarray as xr
 
-from indica.workflows.priors import ln_prior
-from indica.workflows.priors import PriorManager
-from indica.workflows.priors import sample_best_half
-from indica.workflows.priors import sample_from_priors
+from indica.workflows.bda.priors import ln_prior
+from indica.workflows.bda.priors import PriorManager
+from indica.workflows.bda.priors import sample_best_half
+from indica.workflows.bda.priors import sample_from_priors
 import mpmath as mp
 
 exp = np.frompyfunc(mp.exp, 1, 1)

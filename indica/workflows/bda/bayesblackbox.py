@@ -6,8 +6,8 @@ from flatdict import FlatDict
 import numpy as np
 import mpmath as mp
 
-from indica.workflows.plasma_profiler import PlasmaProfiler
-from indica.workflows.priors import PriorManager
+from indica.workflows.bda.plasma_profiler import PlasmaProfiler
+from indica.workflows.bda.priors import PriorManager
 
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)

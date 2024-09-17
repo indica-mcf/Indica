@@ -8,13 +8,13 @@ import git
 import numpy as np
 import xarray as xr
 
-from indica.bayesblackbox import BayesBlackBox
+from indica.workflows.bda.bayesblackbox import BayesBlackBox
 from indica.plotters.plot_bda import plot_bayes_result
-from indica.workflows.model_coordinator import ModelCoordinator
-from indica.workflows.optimiser_context import EmceeOptimiser
-from indica.workflows.plasma_profiler import map_plasma_profile_to_midplane
-from indica.workflows.plasma_profiler import PlasmaProfiler
-from indica.workflows.priors import PriorManager
+from indica.workflows.bda.model_coordinator import ModelCoordinator
+from indica.workflows.bda.optimiser_context import EmceeOptimiser
+from indica.workflows.bda.plasma_profiler import map_plasma_profile_to_midplane
+from indica.workflows.bda.plasma_profiler import PlasmaProfiler
+from indica.workflows.bda.priors import PriorManager
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import does_tree_exist
 from indica.writers.bda_tree import write_nodes

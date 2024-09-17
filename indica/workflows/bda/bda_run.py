@@ -14,16 +14,16 @@ from indica.models import Interferometer
 from indica.models import Plasma
 from indica.models import ThomsonScattering
 from indica.readers.read_st40 import ReadST40
-from indica.workflows.bayes_workflow import BayesWorkflow
-from indica.workflows.model_coordinator import ModelCoordinator
-from indica.workflows.optimiser_context import BOOptimiser
-from indica.workflows.optimiser_context import BOSettings
-from indica.workflows.optimiser_context import EmceeOptimiser
-from indica.workflows.optimiser_context import EmceeSettings
-from indica.workflows.pca import pca_workflow
-from indica.workflows.plasma_profiler import initialise_gauss_profilers
-from indica.workflows.plasma_profiler import PlasmaProfiler
-from indica.workflows.priors import PriorManager
+from indica.workflows.bda.bayes_workflow import BayesWorkflow
+from indica.workflows.bda.model_coordinator import ModelCoordinator
+from indica.workflows.bda.optimiser_context import BOOptimiser
+from indica.workflows.bda.optimiser_context import BOSettings
+from indica.workflows.bda.optimiser_context import EmceeOptimiser
+from indica.workflows.bda.optimiser_context import EmceeSettings
+from indica.workflows.bda.pca import pca_workflow
+from indica.workflows.bda.plasma_profiler import initialise_gauss_profilers
+from indica.workflows.bda.plasma_profiler import PlasmaProfiler
+from indica.workflows.bda.priors import PriorManager
 
 
 def deep_update(mapping: dict, *updating_mappings: dict) -> dict:
@@ -87,7 +87,7 @@ INSTRUMENT_MAPPING: dict = {
 
 @hydra.main(
     version_base=None,
-    config_path="../configs/workflows/bda_run",
+    config_path="../../configs/workflows/bda_run",
     config_name="template_bo",
 )
 def bda_run(
