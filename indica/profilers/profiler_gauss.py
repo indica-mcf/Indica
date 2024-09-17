@@ -166,3 +166,20 @@ def get_defaults_for_profiler_gauss(
     with open(path) as stream:
         cfg = yaml.safe_load(stream)
     return cfg[datatype]
+
+
+def initialise_gauss_profilers(
+    x_coord, profile_names: list, profile_params: dict = None
+):
+    if profile_params is None:
+        profile_params = {}
+    _profilers = {
+        profile_name: ProfilerGauss(
+            datatype=profile_name.split(":")[0],
+            xspl=x_coord,
+            parameters=profile_params.get(profile_name, {}),
+        )
+        for profile_name in profile_names
+    }
+    return _profilers
+
