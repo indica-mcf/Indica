@@ -2,9 +2,10 @@ from pathlib import Path
 import pickle
 from typing import Tuple
 
+import numpy as np
+
 from indica.models import Plasma
-from indica.profilers.profiler_gauss import initialise_gauss_profilers
-from indica.workflows.bda.plasma_profiler import PlasmaProfiler
+from indica.models.plasma import PlasmaProfiles
 
 
 def example_plasma(
@@ -42,11 +43,40 @@ def example_plasma(
     )
     plasma.build_atomic_data()
 
-    profilers = initialise_gauss_profilers(
-        plasma.rho,
+    update_profiles = PlasmaProfiles(plasma)
+
+    # Assign profiles to time-points
+    nt = len(plasma.t)
+    ne_peaking = np.linspace(1, 2, nt)
+    te_peaking = np.linspace(1, 2, nt)
+    _y0 = update_profiles.profilers["toroidal_rotation"].y0
+    vrot0 = np.linspace(
+        _y0 * 1.1,
+        _y0 * 2.5,
+        nt,
     )
-    plasma_profiler = PlasmaProfiler(plasma, profilers)
-    plasma_profiler()
+    vrot_peaking = np.linspace(1, 2, nt)
+
+    _y0 = update_profiles.profilers["ion_temperature"].y0
+    ti0 = np.linspace(_y0 * 1.1, _y0 * 2.5, nt)
+
+    _y0 = update_profiles.profilers[f"impurity_density:{impurities[0]}"].y0
+    nimp_y0 = _y0 * 5 * np.linspace(1, 8, nt)
+    nimp_peaking = np.linspace(1, 5, nt)
+    nimp_wcenter = np.linspace(0.4, 0.1, nt)
+    for i, t in enumerate(plasma.t):
+        parameters = {
+            "electron_temperature.peaking": te_peaking[i],
+            "ion_temperature.peaking": te_peaking[i],
+            "ion_temperature.y0": ti0[i],
+            "toroidal_rotation.peaking": vrot_peaking[i],
+            "toroidal_rotation.y0": vrot0[i],
+            "electron_density.peaking": ne_peaking[i],
+            "impurity_density:ar.peaking": nimp_peaking[i],
+            "impurity_density:ar.y0": nimp_y0[i],
+            "impurity_density:ar.wcenter": nimp_wcenter[i],
+        }
+        update_profiles(parameters, t=t)
 
     if load_from_pkl and pulse is not None:
         print(f"\n Saving phantom plasma class in {default_plasma_file} \n")
