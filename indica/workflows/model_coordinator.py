@@ -42,7 +42,7 @@ class ModelCoordinator:
     def set_transforms(self, transforms: dict[CoordinateTransform]):
         self.transforms = transforms
         for model_name, model in self.models.items():
-            if hasattr(model, "set_transform"):
+            if model_name in transforms.keys():
                 model.set_transform(transforms[model_name])
 
     def set_equilibrium(self, equilibrium: Equilibrium):
