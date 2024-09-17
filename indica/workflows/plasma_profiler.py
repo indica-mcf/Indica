@@ -124,6 +124,8 @@ class PlasmaProfiler:
         # set params for all profilers
         for parameter_name, parameter in parameters.items():
             profile_name, profile_param_name = parameter_name.split(".")
+            if profile_name not in self.profilers.keys():
+                continue
 
             if not hasattr(self.profilers[profile_name], profile_param_name):
                 raise ValueError(
