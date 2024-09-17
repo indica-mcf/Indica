@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - override /model: tws
+  - override /model: tws_c
 
 pulse: 11089
 tstart: 0.05
