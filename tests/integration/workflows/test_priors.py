@@ -1,8 +1,8 @@
 from hydra import compose
 from hydra import initialize_config_module
 
-from indica.workflows.priors import PriorManager
-from indica.workflows.priors import sample_from_priors
+from indica.workflows.bda.priors import PriorManager
+from indica.workflows.bda.priors import sample_from_priors
 
 
 class TestPriors:

@@ -1,7 +1,7 @@
 from hydra import compose
 from hydra import initialize_config_module
 
-from indica.workflows.bda_run import bda_run
+from indica.workflows.bda.bda_run import bda_run
 
 
 class TestBDARun:
