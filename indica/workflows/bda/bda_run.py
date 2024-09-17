@@ -21,7 +21,7 @@ from indica.workflows.bda.optimiser_context import BOSettings
 from indica.workflows.bda.optimiser_context import EmceeOptimiser
 from indica.workflows.bda.optimiser_context import EmceeSettings
 from indica.workflows.bda.pca import pca_workflow
-from indica.workflows.bda.plasma_profiler import initialise_gauss_profilers
+from indica.profilers.profiler_gauss import initialise_gauss_profilers
 from indica.workflows.bda.plasma_profiler import PlasmaProfiler
 from indica.workflows.bda.priors import PriorManager
 

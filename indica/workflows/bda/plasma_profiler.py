@@ -7,8 +7,7 @@ import yaml
 from indica.defaults.load_defaults import load_default_objects
 from indica.models.plasma import Plasma
 from indica.profilers.profiler_base import ProfilerBase
-from indica.profilers.profiler_gauss import ProfilerGauss
-
+from indica.profilers.profiler_gauss import ProfilerGauss, initialise_gauss_profilers
 
 PLASMA_ATTRIBUTE_NAMES = [
     "electron_temperature",
@@ -158,22 +157,6 @@ class PlasmaProfiler:
         }
         self.set_profiles(updated_profiles, t)
         return
-
-
-def initialise_gauss_profilers(
-    x_coord, profile_names: list, profile_params: dict = None
-):
-    if profile_params is None:
-        profile_params = {}
-    _profilers = {
-        profile_name: ProfilerGauss(
-            datatype=profile_name.split(":")[0],
-            xspl=x_coord,
-            parameters=profile_params.get(profile_name, {}),
-        )
-        for profile_name in profile_names
-    }
-    return _profilers
 
 
 if __name__ == "__main__":

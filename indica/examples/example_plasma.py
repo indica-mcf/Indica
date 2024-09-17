@@ -3,8 +3,8 @@ import pickle
 from typing import Tuple
 
 from indica.models import Plasma
-from indica.workflows.plasma_profiler import initialise_gauss_profilers
-from indica.workflows.plasma_profiler import PlasmaProfiler
+from indica.profilers.profiler_gauss import initialise_gauss_profilers
+from indica.workflows.bda.plasma_profiler import PlasmaProfiler
 
 
 def example_plasma(
