@@ -21,7 +21,7 @@ neutral_density:
     y0: 1.0e+13
     y1: 1.0e+15
     yend: 1.0e+15
-    peaking: 20
+    peaking: 1
     wcenter: 0.0
     wped: 18
 
