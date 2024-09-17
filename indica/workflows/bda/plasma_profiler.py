@@ -6,8 +6,8 @@ import yaml
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models.plasma import Plasma
-from indica.profilers import Profiler
-from indica.profilers import ProfilerGauss
+from indica.profilers.profiler_base import ProfilerBase
+from indica.profilers.profiler_gauss import ProfilerGauss
 
 
 path = os.path.join(
@@ -41,7 +41,7 @@ class PlasmaProfiler:
     def __init__(
         self,
         plasma: Plasma,
-        profilers: dict[Profiler],
+        profilers: dict[ProfilerBase],
         plasma_attribute_names=PLASMA_ATTRIBUTE_NAMES,
     ):
         """
