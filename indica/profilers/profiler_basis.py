@@ -7,7 +7,7 @@ from scipy.interpolate import CubicSpline
 import xarray as xr
 import yaml
 
-from indica.profiler.profiler_base import ProfilerBase
+from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 
