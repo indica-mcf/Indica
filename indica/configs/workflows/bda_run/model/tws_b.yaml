@@ -1,0 +1,15 @@
+defaults:
+  - settings: default
+
+
+diagnostics: [
+  "xrcs",
+  "cxff_tws_b",
+#  "efit",
+ ]
+
+quantities: [
+  "xrcs.raw_spectra",
+  "cxff_tws_b.ti",
+#  "efit.wp",
+  ]
