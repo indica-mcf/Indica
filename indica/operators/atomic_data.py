@@ -13,7 +13,7 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.numpy_typing import LabeledArray
-from indica.profilers import ProfilerGauss
+from indica.profilers.profiler_gauss import ProfilerGauss
 from indica.readers.adas import ADASReader
 from indica.readers.adas import ADF11
 from indica.utilities import DATA_PATH
