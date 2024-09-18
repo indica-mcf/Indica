@@ -13,13 +13,13 @@ DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
 
 
 def save_default_objects(
-        machine: str,
-        pulse: int,
-        tstart: float = 0.02,
-        tend: float = 0.1,
-        dt: float = 0.01,
-        dl: float = 0.005,
-        equilibrium_instrument: str = "efit",
+    machine: str,
+    pulse: int,
+    tstart: float = 0.02,
+    tend: float = 0.1,
+    dt: float = 0.01,
+    dl: float = 0.005,
+    equilibrium_instrument: str = "efit",
 ):
     """
     Write geometries for specified machine to file for future use as defaults
@@ -60,21 +60,22 @@ def save_default_objects(
         raise Exception("\n st40 is currently only the only supported machine \n")
 
     # Plasma object
-    plasma = example_plasma(machine=machine,
-                            pulse=pulse,
-                            tstart=tstart,
-                            tend=tend,
-                            dt=dt,
-                            main_ion="h",
-                            impurities=("c", "ar", "he"),
-                            load_from_pkl=False,
-                            machine_dimensions=machine_dimensions,
-                            impurity_concentration=(0.02, 0.001),  # should be deleted!
-                            full_run=False,
-                            n_rad=41,
-                            n_R=100,
-                            n_z=100,
-                            )
+    plasma = example_plasma(
+        machine=machine,
+        pulse=pulse,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        main_ion="h",
+        impurities=("c", "ar", "he"),
+        load_from_pkl=False,
+        machine_dimensions=machine_dimensions,
+        impurity_concentration=(0.02, 0.001),  # should be deleted!
+        full_run=False,
+        n_rad=41,
+        n_R=100,
+        n_z=100,
+    )
     fract_abu, power_loss_tot, power_loss_sxr = default_atomic_data(plasma.elements)
     plasma.fract_abu = fract_abu
     plasma.power_loss_tot = power_loss_tot

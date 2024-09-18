@@ -13,6 +13,7 @@ from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
 from indica.models import Plasma
 from indica.models import ThomsonScattering
+from indica.models.plasma import PlasmaProfiler
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
 from indica.readers.read_st40 import ReadST40
 from indica.workflows.bda.bayes_workflow import BayesWorkflow
@@ -22,7 +23,6 @@ from indica.workflows.bda.optimiser_context import BOSettings
 from indica.workflows.bda.optimiser_context import EmceeOptimiser
 from indica.workflows.bda.optimiser_context import EmceeSettings
 from indica.workflows.bda.pca import pca_workflow
-from indica.models.plasma import PlasmaProfiler
 from indica.workflows.bda.priors import PriorManager
 
 

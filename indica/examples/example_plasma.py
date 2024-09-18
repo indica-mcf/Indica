@@ -45,8 +45,16 @@ def example_plasma(
     plasma.build_atomic_data()
 
     profilers = initialise_gauss_profilers(
-        plasma.rho, profile_names=["electron_density", "ion_temperature", "toroidal_rotation", "electron_temperature",
-                                   "impurity_density:ar", "impurity_density:c", "impurity_density:he"]
+        plasma.rho,
+        profile_names=[
+            "electron_density",
+            "ion_temperature",
+            "toroidal_rotation",
+            "electron_temperature",
+            "impurity_density:ar",
+            "impurity_density:c",
+            "impurity_density:he",
+        ],
     )
     plasma_profiler = PlasmaProfiler(
         plasma=plasma,
@@ -85,14 +93,13 @@ def example_plasma(
             "impurity_density:ar.wcenter": nimp_wcenter[i],
         }
 
-        plasma_profiler(
-            parameters=parameters, t=t
-        )
+        plasma_profiler(parameters=parameters, t=t)
 
     if load_from_pkl and pulse is not None:
         print(f"\n Saving phantom plasma class in {default_plasma_file} \n")
         pickle.dump(plasma, open(default_plasma_file, "wb"))
 
     return plasma
+
 
 example_plasma()

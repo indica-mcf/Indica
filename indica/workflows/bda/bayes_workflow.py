@@ -8,11 +8,11 @@ import git
 import numpy as np
 import xarray as xr
 
+from indica.models.plasma import PlasmaProfiler
 from indica.plotters.plot_bda import plot_bayes_result
 from indica.workflows.bda.bayesblackbox import BayesBlackBox
 from indica.workflows.bda.model_coordinator import ModelCoordinator
 from indica.workflows.bda.optimiser_context import EmceeOptimiser
-from indica.models.plasma import PlasmaProfiler
 from indica.workflows.bda.priors import PriorManager
 from indica.writers.bda_tree import create_nodes
 from indica.writers.bda_tree import does_tree_exist
@@ -327,9 +327,7 @@ class BayesWorkflow:
             _blob = [result["blobs"][key] for result in results]
             blobs[key] = xr.concat(_blob, self.plasma_profiler.plasma.t)
         self.blobs = blobs
-        self.midplane_blobs = self.plasma_profiler.map_plasma_profile_to_midplane(
-            blobs
-        )
+        self.midplane_blobs = self.plasma_profiler.map_plasma_profile_to_midplane(blobs)
 
         opt_samples = {}
         for key in results[0].keys():
