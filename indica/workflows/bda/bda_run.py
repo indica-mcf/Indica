@@ -1,4 +1,5 @@
 import logging
+import os
 import pprint
 
 import flatdict
@@ -6,6 +7,7 @@ import hydra
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
 
+import indica
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
@@ -376,6 +378,9 @@ def bda_run(
         prior_manager=prior_manager,
     )
 
+    filepath = os.path.join(
+        os.path.dirname(indica.__file__), f"/results/{dirname}/"
+    )
     log.info("Running BDA")
     workflow(
         pulse_to_write=cfg.writer.pulse_to_write,
@@ -384,7 +389,7 @@ def bda_run(
         best=cfg.writer.best,
         mds_write=cfg.writer.mds_write,
         plot=cfg.writer.plot,
-        filepath=f"./results/{dirname}/",
+        filepath=filepath,
         config=pprint.pformat(dict(cfg)),
         logger=log,
     )
