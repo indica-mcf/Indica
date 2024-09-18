@@ -536,10 +536,6 @@ class FractionalAbundance(Operator):
             self.F_z_t = F_z_t
         else:
 
-            # TODO: FIX THIS (Nh is ignored!?!)
-            # Not too mention why does F_z_t have extra dims
-            # (which are dropped..) other than Te / Ne / Nh???
-
             F_z_t = interpolate_results(self.F_z_t, self.Te, Te)
 
         return F_z_t
