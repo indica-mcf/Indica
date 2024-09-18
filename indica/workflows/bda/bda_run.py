@@ -171,7 +171,7 @@ def bda_run(
     # and back to plasma.t causes some time points to be lost
     R_shift = 0.0
     if cfg.reader.apply_rshift:
-        R_shift = ppts_reader.raw_data["ppts"]["R_shift"]
+        R_shift = ppts_reader.raw_data["ppts"]["R_shift"].drop_vars("error")
         log.info("R shift being used")
 
     if cfg.reader.mock:

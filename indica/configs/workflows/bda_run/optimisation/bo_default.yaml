@@ -2,10 +2,10 @@ method: "bo"
 
 param_names: ["ion_temperature.y0", "ion_temperature.peaking", "ion_temperature.wcenter", "impurity_density:ar.peaking",
 "xrcs.scale_spectra"]
-pca_profiles: ["ion_temperature"]
+pca_profiles: []
 pca_components: 2
 
-n_calls: 60
+n_calls: 40
 n_initial_points: 10
 noise: 1.0E-20
 acq_func: "LCB"

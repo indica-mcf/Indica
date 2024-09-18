@@ -219,10 +219,6 @@ class DataReader(BaseIO):
                 dims = ["t"]
             else:
                 raise ValueError(f"Unknown quantity: {quantity}")
-            if quantity == "R_shift":
-                include_error = False
-            else:
-                include_error = True
 
             data[quantity] = self.assign_dataarray(
                 instrument,
@@ -230,7 +226,6 @@ class DataReader(BaseIO):
                 database_results,
                 dims,
                 transform=None,
-                include_error=include_error,
             )
 
             if "_R" in quantity:
