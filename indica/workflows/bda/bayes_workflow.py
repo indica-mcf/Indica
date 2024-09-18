@@ -143,6 +143,7 @@ class BayesWorkflow:
             "PTH": self.plasma_profiler.phantom_profiles["pressure_th"],
             "PFAST": self.plasma_profiler.phantom_profiles["pressure_fast"],
             "P": self.plasma_profiler.phantom_profiles["pressure_tot"],
+            "VTOR": self.plasma_profiler.phantom_profiles["toroidal_rotation"],
         }
 
         result["PROFILES"] = {
@@ -174,6 +175,8 @@ class BayesWorkflow:
                 "PFAST_ERR": self.blobs["pressure_fast"].std(dim="sample_idx"),
                 "ZEFF_ERR": self.blobs["zeff"].sum("element").std(dim="sample_idx"),
                 "MEANZ_ERR": self.blobs["meanz"].std(dim="sample_idx"),
+                "VTOR": self.blobs["toroidal_rotation"].median(dim="sample_idx"),
+                "VTOR_ERR": self.blobs["toroidal_rotation"].std(dim="sample_idx"),
             },
             "R_MIDPLANE": {
                 "RPOS": self.plasma_profiler.plasma.R_midplane,
@@ -212,6 +215,12 @@ class BayesWorkflow:
                 .sum("element")
                 .std(dim="sample_idx"),
                 "MEANZ_ERR": self.midplane_blobs["meanz"].std(dim="sample_idx"),
+                "VTOR": self.midplane_blobs["toroidal_rotation"].median(
+                    dim="sample_idx"
+                ),
+                "VTOR_ERR": self.midplane_blobs["toroidal_rotation"].std(
+                    dim="sample_idx"
+                ),
             },
         }
 
@@ -229,6 +238,7 @@ class BayesWorkflow:
             "PFAST": self.blobs["pressure_fast"],
             "ZEFF": self.blobs["zeff"].sum("element"),
             "MEANZ": self.blobs["meanz"],
+            "VTOR": self.blobs["toroidal_rotation"],
         }
 
         result["OPTIMISATION"] = {
@@ -293,12 +303,18 @@ class BayesWorkflow:
             "NNEUTRB_ERR": self.blobs["neutral_density"]
             .sel(rho_poloidal=1, method="nearest")
             .std(dim="sample_idx"),
+            "VTOR0": self.blobs["toroidal_rotation"]
+            .sel(rho_poloidal=0, method="nearest")
+            .median(dim="sample_idx"),
+            "VTOR0_ERR": self.blobs["toroidal_rotation"]
+            .sel(rho_poloidal=0, method="nearest")
+            .std(dim="sample_idx"),
         }
         return result
 
     def __call__(
         self,
-        filepath="./results/test/",
+        filepath="./results/test",
         run="RUN01",
         run_info="Default run",
         mds_write=False,

@@ -53,6 +53,8 @@ BDA_NODES = {
             "PTH_ERR": ("SIGNAL", "Thermal particle pressure error"),
             "PFAST_ERR": ("SIGNAL", "Fast particle pressure error"),
             "P_ERR": ("SIGNAL", "Total pressure error"),
+            "VTOR": ("SIGNAL", "Toroidal rotation"),
+            "VTOR_ERR": ("SIGNAL", "Toroidal rotation error"),
         },
         "R_MIDPLANE": {
             "RPOS": ("NUMERIC", "Major radius position of profile"),
@@ -79,6 +81,8 @@ BDA_NODES = {
             "PTH_ERR": ("SIGNAL", "Thermal particle pressure error"),
             "PFAST_ERR": ("SIGNAL", "Fast particle pressure error"),
             "P_ERR": ("SIGNAL", "Total pressure error"),
+            "VTOR": ("SIGNAL", "Toroidal rotation"),
+            "VTOR_ERR": ("SIGNAL", "Toroidal rotation error"),
         },
     },
     "PROFILE_STAT": {
@@ -106,6 +110,8 @@ BDA_NODES = {
         "PTH_ERR": ("SIGNAL", "Thermal particle pressure error"),
         "PFAST_ERR": ("SIGNAL", "Fast particle pressure error"),
         "P_ERR": ("SIGNAL", "Total pressure error"),
+        "VTOR": ("SIGNAL", "Toroidal rotation"),
+        "VTOR_ERR": ("SIGNAL", "Toroidal rotation error"),
     },
     "GLOBAL": {
         "VOLUME": ("SIGNAL", "Plasma volume"),
@@ -127,6 +133,8 @@ BDA_NODES = {
         "WP_ERR": ("SIGNAL", "Total stored energy error"),
         "WTH_ERR": ("SIGNAL", "Thermal component of stored energy error"),
         "ZEFF_AVG_ERR": ("SIGNAL", "Average Zeff along midplane error"),
+        "VTOR0": ("SIGNAL", "Central toroidal rotation"),
+        "VTOR0_ERR": ("SIGNAL", "Central toroidal rotation error"),
     },
     "PHANTOM": {
         "FLAG": ("TEXT", "True if phantom profiles used"),
@@ -145,10 +153,11 @@ BDA_NODES = {
         "PTH": ("SIGNAL", "Thermal particle pressure"),
         "PFAST": ("SIGNAL", "Fast particle pressure"),
         "P": ("SIGNAL", "Total pressure"),
+        "VTOR": ("SIGNAL", "Toroidal rotation"),
     },
     "OPTIMISATION": {
-        "ACCEPT_FRAC": ("NUMERIC", "Fraction of samples accepted during optimisation"),
-        "AUTO_CORR": ("NUMERIC", "Auto-correlation time traces"),
+        # "ACCEPT_FRAC": ("NUMERIC", "Fraction of accepted samples"),
+        # "AUTO_CORR": ("NUMERIC", "Auto-correlation time traces"),
         "POST_SAMPLE": ("NUMERIC", "Samples of posterior probability"),
         "PRIOR_SAMPLE": ("NUMERIC", "Samples of prior probability"),
         "PARAM_NAMES": ("TEXT", "Optimised parameter names")
@@ -169,10 +178,12 @@ def create_nodes(
     run="RUN01",
     run_info="Default run",
     best=True,
-    diagnostic_quantities=DIAGNOSTIC_QUANTITY,
+    diagnostic_quantities=None,
     mode="EDIT",
     debug=True,
 ):
+    if diagnostic_quantities is None:
+        diagnostic_quantities = DIAGNOSTIC_QUANTITY
     bda_nodes = BDA_NODES
     quant_list = [
         item.upper().split(".") for item in diagnostic_quantities

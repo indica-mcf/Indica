@@ -49,8 +49,8 @@ neutral_density:
   peaking: 1
 toroidal_rotation:
   y0: 500.0e+3
-  y1: 10.0e+3
-  yend: 0.0
+  y1: 1.0e+3
+  yend: 1.0e+3
   peaking: 0.4
   wcenter: 2
   wped: 3

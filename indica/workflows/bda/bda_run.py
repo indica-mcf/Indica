@@ -92,7 +92,7 @@ INSTRUMENT_MAPPING: dict = {
     config_path="../../configs/workflows/bda_run",
     config_name="template_bo",
 )
-def bda_run(
+def bda_run(  # noqa: C901
     cfg: DictConfig,
 ):
     if cfg.writer.pulse_to_write is None:
@@ -117,7 +117,9 @@ def bda_run(
         profile_names=cfg.plasma.profiles.keys(),
         profile_params=OmegaConf.to_container(cfg.plasma.profiles),
     )
-    plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers)
+    plasma_profiler = PlasmaProfiler(
+        plasma=plasma, profilers=profilers, map_vtor=cfg.reader.map_vtor
+    )
     plasma_profiler()
 
     if cfg.reader.set_ts or cfg.reader.apply_rshift:
@@ -165,6 +167,7 @@ def bda_run(
                 "electron_temperature": te,
             }
         )
+
     plasma_profiler.save_phantoms(phantom=cfg.reader.phantom)
 
     # if binned data is used then interpolating onto equil.t
@@ -258,6 +261,21 @@ def bda_run(
         fetch_equilbrium=False,
         **cfg.reader.filters,
     )
+
+    vtor = None
+    if cfg.reader.map_vtor:
+        for diagnostic in cfg.model.diagnostics:
+            if "cxff" in diagnostic:
+                vtor = reader.binned_data[diagnostic]["vtor"]
+        if vtor is None:
+            raise ValueError("map_vtor is True but no vtor data to use")
+        for t in plasma.t:
+            plasma_profiler(
+                parameters={
+                    "toroidal_rotation.y0": vtor.max("channel").sel(t=t).values
+                },
+                t=t,
+            )
 
     # post processing (TODO: where should this be)
     flat_data = flatdict.FlatDict(reader.binned_data, ".")
@@ -378,7 +396,7 @@ def bda_run(
         prior_manager=prior_manager,
     )
 
-    filepath = os.path.join(os.path.dirname(indica.__file__), f"/results/{dirname}/")
+    filepath = os.path.dirname(indica.__file__) + f"/../results/{dirname}/"
     log.info("Running BDA")
     workflow(
         pulse_to_write=cfg.writer.pulse_to_write,

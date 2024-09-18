@@ -423,6 +423,22 @@ def plot_bayes_result(
             linestyle="dotted",
         )
 
+        key = "VTOR"
+        plot_profile(
+            profiles[key].sel(
+                t=t,
+            ),
+            phantom_profiles[key].sel(
+                t=t,
+            ),
+            key,
+            figheader=figheader,
+            filename="toroidal_rotation",
+            filetype=filetype,
+            color="blue",
+            linestyle="dotted",
+        )
+
         key = "NE"
         plot_profile(
             profiles[key].sel(t=t),

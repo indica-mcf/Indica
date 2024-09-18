@@ -808,6 +808,7 @@ class PlasmaProfiler:
         plasma: Plasma,
         profilers: dict[ProfilerBase],
         plasma_attribute_names=None,
+        map_vtor: bool = False,
     ):
         """
         Interface Profiler objects with Plasma object to generate plasma profiles
@@ -842,6 +843,7 @@ class PlasmaProfiler:
         self.plasma = plasma
         self.profilers = profilers
         self.plasma_attribute_names = plasma_attribute_names
+        self.map_vtor = map_vtor
         self.phantom = None
         self.phantom_profiles = None
 
@@ -907,6 +909,16 @@ class PlasmaProfiler:
             )
         return plasma_attributes
 
+    def map_toroidal_rotation_to_ion_temperature(
+        self,
+    ):
+
+        self.plasma.toroidal_rotation = (
+            self.plasma.ion_temperature
+            / self.plasma.ion_temperature.max("rho_poloidal")
+            * self.plasma.toroidal_rotation.max("rho_poloidal")
+        )
+
     def __call__(self, parameters: dict = None, t=None):
         """
         Set parameters of given profilers and assign to plasma profiles
@@ -942,6 +954,7 @@ class PlasmaProfiler:
         if _profiles_to_update:
             profiles_to_update = list(set(_profiles_to_update))
         else:
+            print("no profile params given so updating all")
             profiles_to_update = list(self.profilers.keys())
 
         updated_profiles = {
@@ -949,3 +962,6 @@ class PlasmaProfiler:
             for profile_to_update in profiles_to_update
         }
         self.set_profiles(updated_profiles, t)
+
+        if "ion_temperature" in _profiles_to_update and self.map_vtor:
+            self.map_toroidal_rotation_to_ion_temperature()
