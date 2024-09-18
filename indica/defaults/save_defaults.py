@@ -1,12 +1,9 @@
 from pathlib import Path
 import pickle
 
-import numpy as np
-
 from indica.defaults.load_defaults import get_filename_default_objects
 from indica.equilibrium import Equilibrium
-from indica.models import Plasma
-from indica.models.plasma import PlasmaProfiles
+from indica.examples.example_plasma import example_plasma
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import ST40Conf
 from indica.readers import ST40Reader
@@ -16,13 +13,13 @@ DEFAULTS_PATH = f"{PROJECT_PATH}/defaults/"
 
 
 def save_default_objects(
-    machine: str,
-    pulse: int,
-    tstart: float = 0.02,
-    tend: float = 0.1,
-    dt: float = 0.01,
-    dl: float = 0.005,
-    equilibrium_instrument: str = "efit",
+        machine: str,
+        pulse: int,
+        tstart: float = 0.02,
+        tend: float = 0.1,
+        dt: float = 0.01,
+        dl: float = 0.005,
+        equilibrium_instrument: str = "efit",
 ):
     """
     Write geometries for specified machine to file for future use as defaults
@@ -62,59 +59,26 @@ def save_default_objects(
     else:
         raise Exception("\n st40 is currently only the only supported machine \n")
 
-    kwargs = dict(
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        main_ion="h",
-        impurities=("c", "ar", "he"),
-        machine_dimensions=machine_dimensions,
-        impurity_concentration=(0.02, 0.001),  # should be deleted!
-        full_run=False,
-        n_rad=41,
-        n_R=100,
-        n_z=100,
-    )
     # Plasma object
-    plasma = Plasma(**kwargs)
+    plasma = example_plasma(machine=machine,
+                            pulse=pulse,
+                            tstart=tstart,
+                            tend=tend,
+                            dt=dt,
+                            main_ion="h",
+                            impurities=("c", "ar", "he"),
+                            load_from_pkl=False,
+                            machine_dimensions=machine_dimensions,
+                            impurity_concentration=(0.02, 0.001),  # should be deleted!
+                            full_run=False,
+                            n_rad=41,
+                            n_R=100,
+                            n_z=100,
+                            )
     fract_abu, power_loss_tot, power_loss_sxr = default_atomic_data(plasma.elements)
     plasma.fract_abu = fract_abu
     plasma.power_loss_tot = power_loss_tot
     plasma.power_loss_sxr = power_loss_sxr
-
-    # Assign profiles to time-points
-    update_profiles = PlasmaProfiles(plasma)
-    nt = len(plasma.t)
-    ne_peaking = np.linspace(1, 2, nt)
-    te_peaking = np.linspace(1, 2, nt)
-    _y0 = update_profiles.profilers["toroidal_rotation"].y0
-    vrot0 = np.linspace(
-        _y0 * 1.1,
-        _y0 * 2.5,
-        nt,
-    )
-    vrot_peaking = np.linspace(1, 2, nt)
-
-    _y0 = update_profiles.profilers["ion_temperature"].y0
-    ti0 = np.linspace(_y0 * 1.1, _y0 * 2.5, nt)
-
-    _y0 = update_profiles.profilers[f"impurity_density:{plasma.impurities[0]}"].y0
-    nimp_y0 = _y0 * 5 * np.linspace(1, 8, nt)
-    nimp_peaking = np.linspace(1, 5, nt)
-    nimp_wcenter = np.linspace(0.4, 0.1, nt)
-    for i, t in enumerate(plasma.t):
-        parameters = {
-            "electron_temperature.peaking": te_peaking[i],
-            "ion_temperature.peaking": te_peaking[i],
-            "ion_temperature.y0": ti0[i],
-            "toroidal_rotation.peaking": vrot_peaking[i],
-            "toroidal_rotation.y0": vrot0[i],
-            "electron_density.peaking": ne_peaking[i],
-            f"impurity_density:{plasma.impurities[1]}.peaking": nimp_peaking[i],
-            f"impurity_density:{plasma.impurities[1]}.y0": nimp_y0[i],
-            f"impurity_density:{plasma.impurities[1]}.wcenter": nimp_wcenter[i],
-        }
-        update_profiles(parameters, t=t)
     print(f"\n Writing plasma object to: {plasma_file}. \n")
     pickle.dump(plasma, open(plasma_file, "wb"))
 
