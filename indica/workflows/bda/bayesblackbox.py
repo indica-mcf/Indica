@@ -6,7 +6,7 @@ from flatdict import FlatDict
 import mpmath as mp
 import numpy as np
 
-from indica.workflows.bda.plasma_profiler import PlasmaProfiler
+from indica.models.plasma import PlasmaProfiler
 from indica.workflows.bda.priors import PriorManager
 
 np.seterr(all="ignore")

@@ -2,7 +2,7 @@ import pytest
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
-from indica.workflows.bda.plasma_profiler import PlasmaProfiler
+from indica.models.plasma import PlasmaProfiler
 
 
 class TestPlasmaProfiler:

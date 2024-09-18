@@ -5,7 +5,8 @@ from typing import Tuple
 import numpy as np
 
 from indica.models import Plasma
-from indica.models.plasma import PlasmaProfiles
+from indica.models.plasma import PlasmaProfiler
+from indica.profilers.profiler_gauss import initialise_gauss_profilers
 
 
 def example_plasma(
@@ -43,13 +44,20 @@ def example_plasma(
     )
     plasma.build_atomic_data()
 
-    update_profiles = PlasmaProfiles(plasma)
+    profilers = initialise_gauss_profilers(
+        plasma.rho, profile_names=["electron_density", "ion_temperature", "toroidal_rotation", "electron_temperature",
+                                   "impurity_density:ar", "impurity_density:c", "impurity_density:he"]
+    )
+    plasma_profiler = PlasmaProfiler(
+        plasma=example_plasma,
+        profilers=profilers,
+    )
 
     # Assign profiles to time-points
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
     te_peaking = np.linspace(1, 2, nt)
-    _y0 = update_profiles.profilers["toroidal_rotation"].y0
+    _y0 = plasma_profiler.profilers["toroidal_rotation"].y0
     vrot0 = np.linspace(
         _y0 * 1.1,
         _y0 * 2.5,
@@ -57,10 +65,10 @@ def example_plasma(
     )
     vrot_peaking = np.linspace(1, 2, nt)
 
-    _y0 = update_profiles.profilers["ion_temperature"].y0
+    _y0 = plasma_profiler.profilers["ion_temperature"].y0
     ti0 = np.linspace(_y0 * 1.1, _y0 * 2.5, nt)
 
-    _y0 = update_profiles.profilers[f"impurity_density:{impurities[0]}"].y0
+    _y0 = plasma_profiler.profilers[f"impurity_density:{impurities[0]}"].y0
     nimp_y0 = _y0 * 5 * np.linspace(1, 8, nt)
     nimp_peaking = np.linspace(1, 5, nt)
     nimp_wcenter = np.linspace(0.4, 0.1, nt)
@@ -76,7 +84,12 @@ def example_plasma(
             "impurity_density:ar.y0": nimp_y0[i],
             "impurity_density:ar.wcenter": nimp_wcenter[i],
         }
-        update_profiles(parameters, t=t)
+
+        plasma_profiler(
+            parameters={
+                parameters
+            }, t=t
+        )
 
     if load_from_pkl and pulse is not None:
         print(f"\n Saving phantom plasma class in {default_plasma_file} \n")
