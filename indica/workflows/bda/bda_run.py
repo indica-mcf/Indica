@@ -378,9 +378,7 @@ def bda_run(
         prior_manager=prior_manager,
     )
 
-    filepath = os.path.join(
-        os.path.dirname(indica.__file__), f"/results/{dirname}/"
-    )
+    filepath = os.path.join(os.path.dirname(indica.__file__), f"/results/{dirname}/")
     log.info("Running BDA")
     workflow(
         pulse_to_write=cfg.writer.pulse_to_write,
