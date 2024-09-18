@@ -876,7 +876,6 @@ def default_atomic_data(
         ccd = adas_reader.get_adf11("ccd", elem, ADF11[elem]["ccd"])
         fract_abu[elem] = FractionalAbundance(scd, acd, ccd=ccd)
         F_z_t = fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
-        F_z_t = fract_abu[elem](Ne=Ne, Te=Te, Nh=Nh, tau=tau)
         plt = adas_reader.get_adf11("plt", elem, ADF11[elem]["plt"])
         prb = adas_reader.get_adf11("prb", elem, ADF11[elem]["prb"])
         prc = adas_reader.get_adf11("prc", elem, ADF11[elem]["prc"])
