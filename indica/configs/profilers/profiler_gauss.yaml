@@ -7,26 +7,10 @@ electron_density:
     wcenter: 0.3
     wped: 6
 
-impurity_density:ar:
+impurity_density:
   y0: 1.0e+17
   y1: 1.0e+15
   yend: 1.0e+15
-  wcenter: 0.3
-  wped: 3
-  peaking: 3
-
-impurity_density:c:
-  y0: 1.0e+17
-  y1: 1.0e+16
-  yend: 1.0e+16
-  wcenter: 0.3
-  wped: 3
-  peaking: 3
-
-impurity_density:he:
-  y0: 1.0e+17
-  y1: 1.0e+16
-  yend: 1.0e+16
   wcenter: 0.3
   wped: 3
   peaking: 3

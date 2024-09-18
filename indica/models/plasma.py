@@ -839,6 +839,7 @@ class PlasmaProfiler:
                 "wth",
                 "pressure_tot",
                 "pressure_th",
+                "toroidal_rotation",
             ]
         self.plasma = plasma
         self.profilers = profilers

@@ -49,7 +49,7 @@ def example_plasma(
                                    "impurity_density:ar", "impurity_density:c", "impurity_density:he"]
     )
     plasma_profiler = PlasmaProfiler(
-        plasma=example_plasma,
+        plasma=plasma,
         profilers=profilers,
     )
 
@@ -86,9 +86,7 @@ def example_plasma(
         }
 
         plasma_profiler(
-            parameters={
-                parameters
-            }, t=t
+            parameters=parameters, t=t
         )
 
     if load_from_pkl and pulse is not None:
@@ -96,3 +94,5 @@ def example_plasma(
         pickle.dump(plasma, open(default_plasma_file, "wb"))
 
     return plasma
+
+example_plasma()
