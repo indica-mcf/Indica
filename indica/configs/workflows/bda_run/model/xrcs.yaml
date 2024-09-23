@@ -1,0 +1,11 @@
+defaults:
+  - settings: default
+
+
+diagnostics: [
+  "xrcs",
+ ]
+
+quantities: [
+  "xrcs.raw_spectra",
+  ]

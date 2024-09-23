@@ -1,0 +1,13 @@
+
+defaults:
+  - model: pi
+  - optimisation: bo_default
+  - plasma: default
+  - priors: default
+  - reader: mock
+  - writer: default
+
+pulse: None
+tstart: 0.05
+tend: 0.06
+dt: 0.01

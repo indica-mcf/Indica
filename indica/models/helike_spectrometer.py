@@ -45,7 +45,8 @@ class HelikeSpectrometer(AbstractDiagnostic):
         window: np.array = None,
         window_masks=None,
         line_labels=None,
-        background=None,
+        background=0,
+        instrumental_broadening: float = 100,
     ):
         """
         Read all atomic data and initialise objects
@@ -76,6 +77,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.line_ranges = LINE_RANGES
         self.line_labels = line_labels
         self.background = background
+        self.instrumental_broadening = instrumental_broadening
 
         if window is None:
             window = np.linspace(window_lim[0], window_lim[1], window_len)
@@ -184,7 +186,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
             self.intensity,
             self.intensity.wavelength,
             self.ion_mass,
-            self.Ti,
+            self.Ti + self.instrumental_broadening,
         )
         _spectra = _spectra.sum("line_name")
         # extend spectra to same coords as self.window.wavelength with NaNs
@@ -383,6 +385,8 @@ class HelikeSpectrometer(AbstractDiagnostic):
         moment_analysis: bool = False,
         background: float = None,
         pixel_offset: int = None,
+        norm_spectra: xr.DataArray = None,
+        scale_spectra: float = 1.0,
         **kwargs,
     ):
         """
@@ -440,8 +444,11 @@ class HelikeSpectrometer(AbstractDiagnostic):
             ):
                 raise ValueError("Give inputs or assign plasma class!")
 
-        if background is None and self.background is not None:
-            background = self.background.sel(t=t)
+        if background is None:
+            if hasattr(self.background, "sel"):
+                background = self.background.sel(t=t)
+            else:
+                background = self.background
 
         self.t = t
         self.Te = Te
@@ -461,8 +468,15 @@ class HelikeSpectrometer(AbstractDiagnostic):
 
         dt = np.gradient(self.plasma.t).mean()  # Temp hack for count -> count / s
         self.measured_spectra = self.measured_spectra / dt
-        if background is not None:
-            self.measured_spectra += background
+
+        if norm_spectra is not None:
+            self.measured_spectra = (
+                self.measured_spectra
+                / self.measured_spectra.max()
+                * (norm_spectra.sel(t=t) * scale_spectra - background)
+            )
+
+        self.measured_spectra += background
 
         if pixel_offset is not None:
             self.measured_spectra = self.measured_spectra.shift(

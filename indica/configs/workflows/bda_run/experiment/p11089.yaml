@@ -1,0 +1,9 @@
+# @package _global_
+
+defaults:
+  - override /model: tws_c
+
+pulse: 11089
+tstart: 0.05
+tend: 0.11
+dt: 0.01

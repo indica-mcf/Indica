@@ -227,6 +227,7 @@ class DataReader(BaseIO):
                 dims,
                 transform=None,
             )
+
             if "_R" in quantity:
                 data[quantity] = data[quantity].assign_coords(
                     z=("R", database_results["z"])
@@ -1055,6 +1056,8 @@ class DataReader(BaseIO):
             )
             if "t" in error.dims:
                 error = error.sel(t=slice(self._tstart, self._tend))
+
+        data = data.sortby(dims)
 
         if include_error:
             data = data.assign_coords(error=(data.dims, error.data))

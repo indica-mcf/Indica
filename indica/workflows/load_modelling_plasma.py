@@ -8,11 +8,11 @@ import numpy as np
 import xarray as xr
 
 from indica.equilibrium import Equilibrium
-from indica.models.bolometer_camera import Bolometer
-from indica.models.charge_exchange import ChargeExchange
+from indica.models.bolometer_camera import BolometerCamera
+from indica.models.charge_exchange_spectrometer import ChargeExchangeSpectrometer
 from indica.models.diode_filters import BremsstrahlungDiode
-from indica.models.helike_spectroscopy import HelikeSpectrometer
-from indica.models.interferometry import Interferometry
+from indica.models.helike_spectrometer import HelikeSpectrometer
+from indica.models.interferometer import Interferometer
 from indica.models.plasma import Plasma
 from indica.models.sxr_camera import SXRcamera
 from indica.models.thomson_scattering import ThomsonScattering
@@ -29,19 +29,19 @@ from indica.utilities import set_plot_rcparams
 CMAP, COLORS = set_plot_colors()
 
 DIAGNOSTIC_MODELS = {
-    "smmh": Interferometry,
-    "smmh1": Interferometry,
-    "nirh1": Interferometry,
+    "smmh": Interferometer,
+    "smmh1": Interferometer,
+    "nirh1": Interferometer,
     "xrcs": HelikeSpectrometer,
     "ts": ThomsonScattering,
-    "cxff_pi": ChargeExchange,
-    "cxff_tws_c": ChargeExchange,
-    "cxqf_tws_c": ChargeExchange,
+    "cxff_pi": ChargeExchangeSpectrometer,
+    "cxff_tws_c": ChargeExchangeSpectrometer,
+    "cxqf_tws_c": ChargeExchangeSpectrometer,
     "brems": BremsstrahlungDiode,
-    "sxrc_xy1": Bolometer,
+    "sxrc_xy1": BolometerCamera,
     "sxrc_xy2": SXRcamera,
     "sxr_spd": SXRcamera,
-    "blom_xy1": Bolometer,
+    "blom_xy1": BolometerCamera,
 }
 INSTRUMENTS: list = [
     "smmh",

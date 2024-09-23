@@ -13,6 +13,7 @@ class ST40Conf:
             "tws_c": "get_spectrometer",
             "cxff_pi": "get_charge_exchange",
             "cxff_tws_c": "get_charge_exchange",
+            "cxff_tws_b": "get_charge_exchange",
             "cxqf_tws_c": "get_charge_exchange",
             "lines": "get_diode_filters",
             "smmh": "get_interferometry",
@@ -122,6 +123,13 @@ class ST40Conf:
                 "fit": ":full_fit",
             },
             "cxff_tws_c": {
+                "int": ".profiles:int",
+                "ti": ".profiles:ti",
+                "vtor": ".profiles:vtor",
+                "spectra": ":spectra",
+                "fit": ":full_fit",
+            },
+            "cxff_tws_b": {
                 "int": ".profiles:int",
                 "ti": ".profiles:ti",
                 "vtor": ".profiles:vtor",

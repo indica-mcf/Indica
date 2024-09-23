@@ -3,7 +3,6 @@ from functools import lru_cache
 import hashlib
 import pickle
 from typing import Callable
-from typing import List
 from typing import Optional
 from typing import Tuple
 
@@ -17,7 +16,7 @@ from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import default_atomic_data
 import indica.physics as ph
-from indica.profiles_gauss import Profiles as ProfilesGauss
+from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
@@ -86,6 +85,7 @@ class Plasma:
             print_like("Only rho_poloidal in input for the time being...")
             raise AssertionError
 
+        self.build_atomic_data()
         self.initialize_variables(n_rad, n_R, n_z)
 
         self.equilibrium: Equilibrium
@@ -118,11 +118,6 @@ class Plasma:
         """
         Initialize all class attributes
         """
-
-        self.optimisation: dict = {}
-        self.forward_models: dict = {}
-        self.power_loss_sxr: dict = {}
-        self.power_loss_tot: dict = {}
 
         # Machine attributes
         R0, R1 = self.machine_dimensions[0]
@@ -724,35 +719,6 @@ class Plasma:
         self.power_loss_tot = power_loss_tot
         self.power_loss_sxr = power_loss_sxr
 
-    def map_to_midplane(self, attrs: List[str]):
-        """
-        Map profiles from flux space to real space on z=0
-
-        TODO: _HI and _LOW from old implementation should be substituted with
-              somethiing  more memorable and sensible, e.g. _ERR?
-              check with Michael how this is implemented on his end
-        """
-
-        R = self.R_midplane
-        z = self.z_midplane
-
-        midplane_profiles: dict = {}
-        for attr in attrs:
-            if not hasattr(self, attr):
-                continue
-
-            midplane_profiles[attr] = []
-            _prof = getattr(self, attr)
-            _rho = self.equilibrium.rho.interp(t=self.t).interp(R=R, z=z)
-            rho = _rho.swap_dims({"index": "R"}).drop_vars("index")
-
-            _prof_midplane = _prof.interp(rho_poloidal=rho)
-            midplane_profiles[attr] = xr.where(
-                np.isfinite(_prof_midplane), _prof_midplane, 0.0
-            )
-
-        return midplane_profiles
-
     # TODO: if ion asymmetry parameters are not == 0, calculate 2D (R, z) maps
     def map_to_2d(self):
         """
@@ -836,89 +802,166 @@ class CachedCalculation(TrackDependecies):
         return deepcopy(self.operator())
 
 
-class PlasmaProfiles:
-    def __init__(self, plasma: Plasma, profiler_object: Callable = ProfilesGauss):
+class PlasmaProfiler:
+    def __init__(
+        self,
+        plasma: Plasma,
+        profilers: dict[ProfilerBase],
+        plasma_attribute_names=None,
+        map_vtor: bool = False,
+    ):
         """
-        Interface a Profiler class with a Plasma object to generate plasma profiles
+        Interface Profiler objects with Plasma object to generate plasma profiles
         and update them.
 
         Parameters
         ----------
         plasma
             Plasma object
-        profiler
-            Object to generate profiles
-
-        TODO: currently testing keys == datatypes e.g. "electron_temperature" instead of
-              "Te_prof" so that profiler key = plasma attribute.
+        profilers
+            dictionary of Profiler objects to generate profiles
         """
+
+        if plasma_attribute_names is None:
+            plasma_attribute_names = [
+                "electron_temperature",
+                "electron_density",
+                "ion_temperature",
+                "ion_density",
+                "impurity_density",
+                "fast_density",
+                "pressure_fast",
+                "neutral_density",
+                "zeff",
+                "meanz",
+                "wp",
+                "wth",
+                "pressure_tot",
+                "pressure_th",
+                "toroidal_rotation",
+            ]
         self.plasma = plasma
-        impurities = plasma.impurities
-
-        # Ion_temperature and toroidal_rotation currently taken as equal for all ion
-        profile_datatypes = [
-            "electron_temperature",
-            "ion_temperature",
-            "electron_density",
-            "neutral_density",
-            "toroidal_rotation",
-        ]
-        profilers: dict = {}
-        for profile_datatype in profile_datatypes:
-            profilers[profile_datatype] = profiler_object(
-                datatype=profile_datatype, xspl=plasma.rho
-            )
-        # Impurities have separate profilers identified by datatype:element, e.g.
-        # impurity_density:c or impurity_density:ar
-        profile_datatype = "impurity_density"
-        for element in impurities:
-            profilers[f"{profile_datatype}:{element}"] = profiler_object(
-                datatype=profile_datatype, xspl=plasma.rho
-            )
         self.profilers = profilers
+        self.plasma_attribute_names = plasma_attribute_names
+        self.map_vtor = map_vtor
+        self.phantom = None
+        self.phantom_profiles = None
 
-    def __call__(self, parameters: dict, t: float = None):
+    def update_profilers(self, profilers: dict):
+        for profile_name, profiler in profilers.items():
+            self.profilers[profile_name] = profiler
+
+    def set_profiles(self, profiles: dict[xr.DataArray], t: float = None):
+        if t is None:
+            t = self.plasma.time_to_calculate
+
+        for profile_name, profile in profiles.items():
+            _prof_identifiers = profile_name.split(
+                ":"
+            )  # impurities have ':' to identify elements
+            if profile_name.__contains__(":"):
+                if _prof_identifiers[1] in self.plasma.elements:
+                    getattr(self.plasma, _prof_identifiers[0]).loc[
+                        dict(t=t, element=_prof_identifiers[-1])
+                    ] = profile
+                else:
+                    print(
+                        f"profile {profile_name} can't be set because "
+                        f"{_prof_identifiers[1]} not in plasma.elements"
+                    )
+            else:
+                getattr(self.plasma, profile_name).loc[dict(t=t)] = profile
+
+    def save_phantoms(self, phantom=False):
+        #  if phantoms return profiles otherwise return empty arrays
+        self.phantom = phantom
+        phantom_profiles = self.plasma_attributes()
+        if not phantom:
+            for key, value in phantom_profiles.items():
+                phantom_profiles[key] = value * 0
+        self.phantom_profiles = phantom_profiles
+        return phantom_profiles
+
+    def map_plasma_profile_to_midplane(self, profiles: dict):
         """
-        Set parameters of desired profilers and assign to plasma class profiles
+        Map profiles from flux space to real space on z=0
+        """
+        midplane_profiles: dict = {}
 
-        Parameters
-        ----------
+        R = self.plasma.R_midplane
+        z = self.plasma.z_midplane
+        _rho, _, _ = self.plasma.equilibrium.flux_coords(R, z, self.plasma.t)
+        rho = _rho.swap_dims({"index": "R"}).drop_vars("index")
+
+        for key, value in profiles.items():
+            if "rho_poloidal" not in value.dims:
+                continue
+            if not hasattr(self.plasma, key):
+                continue
+            midplane_profiles[key] = value.interp(rho_poloidal=rho)
+        return midplane_profiles
+
+    def plasma_attributes(self):
+        plasma_attributes = {}
+        for attribute in self.plasma_attribute_names:
+            plasma_attributes[attribute] = getattr(self.plasma, attribute).sel(
+                t=self.plasma.time_to_calculate
+            )
+        return plasma_attributes
+
+    def map_toroidal_rotation_to_ion_temperature(
+        self,
+    ):
+
+        self.plasma.toroidal_rotation = (
+            self.plasma.ion_temperature
+            / self.plasma.ion_temperature.max("rho_poloidal")
+            * self.plasma.toroidal_rotation.max("rho_poloidal")
+        )
+
+    def __call__(self, parameters: dict = None, t=None):
+        """
+        Set parameters of given profilers and assign to plasma profiles
+
         parameters
-            Flat dictionary of {"datatype.parameter":value} with:
-            - datatype in profiler_dict.keys()
-            - parameter in profiler.profile_parameters.keys().
+            Flat dictionary of {"profile_name.param_name":value}
             Special case for impurity density:
-                {"datatype:element.parameter":value}
+                {"profile_name:element.param_name":value}
+        t
+            time points to apply changes
         """
-        plasma = self.plasma
-        profilers = self.profilers
+        if parameters is None:
+            parameters = {}
+
         _profiles_to_update: list = []
 
-        # Set all parameters for all profilers
-        for identifier, value in parameters.items():
-            profile_datatype, parameter = identifier.split(".")
+        # set params for all profilers
+        for parameter_name, parameter in parameters.items():
+            profile_name, profile_param_name = parameter_name.split(".")
+            if profile_name not in self.profilers.keys():
+                continue
 
-            if profile_datatype not in profilers.keys():
-                raise ValueError(f"No profiler available for {profile_datatype}")
-            if not hasattr(profilers[profile_datatype], parameter):
+            if not hasattr(self.profilers[profile_name], profile_param_name):
                 raise ValueError(
-                    f"No parameter {parameter} available for {profile_datatype}"
+                    f"No parameter {profile_param_name} available for {profile_name}"
                 )
-            setattr(profilers[profile_datatype], parameter, value)
-            _profiles_to_update.append(profile_datatype)
+            self.profilers[profile_name].set_parameters(
+                **{profile_param_name: parameter}
+            )
+            _profiles_to_update.append(profile_name)
 
-        if t is None:
-            t = plasma.time_to_calculate
+        # Update only desired profiles or if no parameters given update all
+        if _profiles_to_update:
+            profiles_to_update = list(set(_profiles_to_update))
+        else:
+            print("no profile params given so updating all")
+            profiles_to_update = list(self.profilers.keys())
 
-        # Update only desired profiles, distinguish case of impurity_density
-        profiles_to_update = np.unique(_profiles_to_update)
-        for profile_datatype in profiles_to_update:
-            profiler_output = profilers[profile_datatype]()
-            if "impurity_density" in profile_datatype:
-                datatype, element = profile_datatype.split(":")
-                getattr(plasma, datatype).loc[
-                    dict(t=t, element=element)
-                ] = profiler_output
-            else:
-                datatype = profile_datatype
-                getattr(plasma, datatype).loc[dict(t=t)] = profiler_output
+        updated_profiles = {
+            profile_to_update: self.profilers[profile_to_update]()
+            for profile_to_update in profiles_to_update
+        }
+        self.set_profiles(updated_profiles, t)
+
+        if "ion_temperature" in _profiles_to_update and self.map_vtor:
+            self.map_toroidal_rotation_to_ion_temperature()

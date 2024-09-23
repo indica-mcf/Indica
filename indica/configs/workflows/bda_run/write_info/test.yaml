@@ -1,6 +1,0 @@
-
-mds_write: False
-best: False
-plot: False
-run: "TEST"
-run_info: "Testing run"

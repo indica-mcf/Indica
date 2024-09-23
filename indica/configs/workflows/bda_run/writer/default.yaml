@@ -1,0 +1,6 @@
+pulse_to_write: null
+mds_write: True
+best: True
+plot: True
+run: "RUN01"
+run_info: "Default run"
