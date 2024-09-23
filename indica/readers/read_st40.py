@@ -22,6 +22,7 @@ INSTRUMENTS: list = [
     "smmh",
     "cxff_pi",
     "cxff_tws_c",
+    "cxff_tws_b",
     "cxqf_tws_c",
     "sxr_spd",
     "sxr_camera_4",
@@ -38,6 +39,7 @@ INSTRUMENTS: list = [
 FILTER_LIMITS: Dict[str, Dict[str, tuple]] = {
     "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},
     "cxff_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
+    "cxff_tws_b": {"ti": (0, np.inf), "vtor": (0, np.inf)},
     "cxqf_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
     "xrcs": {
         "ti_w": (0, np.inf),
@@ -71,6 +73,7 @@ FILTER_LIMITS: Dict[str, Dict[str, tuple]] = {
 FILTER_COORDS: Dict[str, Dict[str, tuple]] = {
     "cxff_pi": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "cxff_tws_c": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
+    "cxff_tws_b": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "xrcs": {
         "spectra": ("wavelength", (0.0, np.inf)),
         "raw_spectra": ("wavelength", (0.0, np.inf)),
@@ -83,6 +86,7 @@ LINESTYLES = {
     "ppts": "dashed",
     "cxff_pi": "solid",
     "cxff_tws_c": "dashed",
+    "cxff_tws_b": "dashed",
     "cxqf_tws_c": "dotted",
     "pi": "solid",
     "tws_c": "dashed",
@@ -92,6 +96,7 @@ MARKERS = {
     "ppts": "x",
     "cxff_pi": "s",
     "cxff_tws_c": "*",
+    "cxff_tws_b": "^",
     "cxqf_tws_c": "x",
     "pi": "s",
     "tws_c": "*",

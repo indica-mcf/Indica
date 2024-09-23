@@ -1,0 +1,13 @@
+defaults:
+  - equilibrium: efit
+  - filters: default
+
+phantom: False
+mock: False
+
+ppts_modelling_number: 0
+set_ts: True
+apply_rshift: True
+map_vtor: True
+
+revisions: {}

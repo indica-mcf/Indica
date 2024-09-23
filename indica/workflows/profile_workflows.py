@@ -8,7 +8,7 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.numpy_typing import LabeledArray
-from indica.profiles_gauss import Profiles
+from indica.profilers.profiler_gauss import ProfilerGauss
 from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
@@ -66,7 +66,7 @@ def profile_scans_pca(
     if parameter_limits is None:
         parameter_limits = PARAMETER_LIMITS[datatype]
 
-    profiler = Profiles(datatype=datatype, xspl=rho)
+    profiler = ProfilerGauss(datatype=datatype, xspl=rho)
 
     _profile_scans: list = []
     parameter_scans: dict = {}
@@ -117,10 +117,10 @@ def profile_scans_pca(
 
 
 def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
-    Te = Profiles(datatype="electron_temperature", xspl=rho)
-    Ne = Profiles(datatype="electron_density", xspl=rho)
-    Nimp = Profiles(datatype="impurity_density", xspl=rho)
-    Vrot = Profiles(datatype="toroidal_rotation", xspl=rho)
+    Te = ProfilerGauss(datatype="electron_temperature", xspl=rho)
+    Ne = ProfilerGauss(datatype="electron_density", xspl=rho)
+    Nimp = ProfilerGauss(datatype="impurity_density", xspl=rho)
+    Vrot = ProfilerGauss(datatype="toroidal_rotation", xspl=rho)
 
     Te_list = {}
     Ti_list = {}
@@ -241,7 +241,7 @@ def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
     # df.to_csv("/home/marco.sertoli/data/Indica/profiles.csv")
 
 
-def sawtooth_crash(pre: Profiles, rho_inv: float, volume: DataArray = None):
+def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None):
     """
     Model a sawtooth crash, without resetting the internal quantities
 
@@ -303,7 +303,7 @@ def density_crash(
 ):
     volume = DataArray(0.85 * rho**3, coords=[("rho_poloidal", rho)])
 
-    pre = Profiles(datatype=(identifier, "electron"), xspl=rho)
+    pre = ProfilerGauss(datatype=(identifier, "electron"), xspl=rho)
     pre.wcenter = rho_inv / 1.5
     pre()
 

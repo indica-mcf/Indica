@@ -1,6 +1,0 @@
-
-mds_write: True
-best: True
-plot: True
-run: "RUN02"
-run_info: "Default run"
