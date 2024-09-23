@@ -4,7 +4,7 @@ param_names: ["ion_temperature.y0"]
 pca_profiles: []
 pca_components: 2
 
-starting_samples: 10
+starting_samples: 20
 iterations: 2
 nwalkers: 8
 stopping_criteria_factor: 0.5
