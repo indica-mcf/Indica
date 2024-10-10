@@ -35,7 +35,7 @@ def save_default_objects(
     geometry_file = get_filename_default_objects(machine)["geometry"]
     # Diagnostic geometry transform objects
     transforms: dict = {}
-    for instr in _conf.INSTRUMENT_METHODS.keys():
+    for instr in _conf.INSTRUMENT_NAMES.keys():
         try:
             data = _reader.get("", instr, 0, dl=dl)
             if hasattr(data[list(data)[0]], "transform"):

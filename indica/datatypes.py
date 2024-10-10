@@ -58,9 +58,11 @@ UNITS: Dict[str, str] = {
     "wavelength": "nm",
 }
 
+# Dictionary of Indica datatypes
+#   {"Variable Name" : ("DataArray LongName", "Unit string identifier")}
 DATATYPES: Dict[str, Tuple[str, str]] = {
     "index": ("Index", "none"),
-    "arbitrary_index": ("Index", "none"),
+    "label": ("Label", "none"),
     "t": ("Time", "time"),
     "channel": ("Channel", "number"),
     "wavelength": ("Wavelength", "wavelength"),
@@ -68,6 +70,8 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "y": ("y", "length"),
     "z": ("z", "length"),
     "R": ("R", "length"),
+    "location": ("Location", "length"),  # this is an array (x, y, z)
+    "direction": ("Direction", "length"),  # this is an array (dx, dy, dz)
     "z_midplane": ("z-midplane", "length"),
     "R_midplane": ("R-midplane", "length"),
     "element": ("Element", "none"),
@@ -101,6 +105,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "sxr_radiated_power": ("$P_{rad, sxr}$", "power"),
     "brightness": ("Brightness", "brightness"),
     "line_intensity": ("Line intensity", "brightness"),
+    "raw_spectra": ("Spectra", "counts"),
     "spectra": ("Spectra", "brightness"),
     "spectra_fit": ("Spectra (fit)", "brightness"),
     "chi_squared": (r"$\chi^2$", "none"),
@@ -131,7 +136,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "rho_poloidal": (r"$\rho_{pol}$", "none"),
     "rho_toroidal": (r"$\rho_{tor}$", "none"),
     "major_radius_magnetic_axis": ("$R_{mag}$", "length"),
-    "major_radius_geometric_axis": ("$R_{geo}$", "length"),
+    "major_radius_geometric": ("$R_{geo}$", "length"),
     "major_radius_boundary": ("$R_{boundary}$", "length"),
     "minor_radius": ("$r_{min}$", "length"),
     "minor_radius_boundary": ("a", "length"),

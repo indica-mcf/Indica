@@ -5,6 +5,7 @@ from typing import Dict
 from typing import List
 from typing import Set
 from typing import Tuple
+from abc import ABC
 
 import numpy as np
 import xarray as xr
@@ -41,36 +42,17 @@ def instatiate_line_of_sight(
     )
 
 
-class DataReader(BaseIO):
-    """Abstract base class to read data in from a database.
-
-    This defines the interface used by all concrete objects which read
-    data from the disc, a database, etc. It is a `context manager
-    <https://protect-eu.mimecast.com/s/f7vJCpzxoFzjOpcPXjtX?domain=docs.python.org>`_
-    and can be used in a `with statement
-    <https://protect-eu.mimecast.com/s/ITLqCq2ypIOpkJuX7qUj?domain=docs.python.org>`_.
-
-    Attributes
-    ----------
-    INSTRUMENT_METHODS: Dict[str, str]
-        Mapping between instrument (DDA in JET) names and method to use to assemble that
-        data. Implementation-specific.
-    NAMESPACE: Classvar[Tuple[str, str]]
-        The abbreviation and full URL for the namespace of the database
-        the class reads from.
-    """
-
-    INSTRUMENT_METHODS: Dict[str, str] = {}
-    _AVAILABLE_QUANTITIES = AVAILABLE_QUANTITIES
-    _IMPLEMENTATION_QUANTITIES: Dict[str, Dict[str, str]] = {}
-
-    _RECORD_TEMPLATE = "{}-{}-{}-{}-{}"
-    NAMESPACE: Tuple[str, str] = ("experiment", "server")
-
+class DataReader(ABC):
+    """Abstract base class to read data in from a database."""
     def __init__(
         self,
+        pulse: int,
         tstart: float,
         tend: float,
+        conf: Callable,
+        utils: Callable,  
+        default_error: float = 0.05,
+        verbose:bool = False,
         **kwargs: Any,
     ):
         """This should be called by constructors on subtypes.
@@ -84,80 +66,149 @@ class DataReader(BaseIO):
         kwargs
             Any other arguments which should be recorded for the reader.
         """
-        self._reader_cache_id: str
-        self._tstart = tstart
-        self._tend = tend
-        self._start_time = None
+        self.verbose = verbose
+        self.pulse = pulse
+        self.tstart = tstart
+        self.tend = tend        
+        self.utils = utils
+        self.conf = conf()
+        self.default_error = default_error
+        self.verbose = verbose
+        self.kwargs = kwargs
 
     def get(
         self,
         uid: str,
         instrument: str,
         revision: RevisionLike = 0,
-        quantities: Set[str] = set(),
-        **kwargs,
     ) -> Dict[str, DataArray]:
-        """Reads data for the requested instrument. In general this will be
-        the method you want to use when reading.
-
-        Parameters
-        ----------
-        uid
-            User ID (i.e., which user created this data)
-        instrument
-            The instrument which measured this data (DDA at JET)
-        revision
-            An object (of implementation-dependent type) specifying what
-            version of data to get. Default is the most recent.
-        quantities
-            Which physical quantitie(s) to read from the database. Defaults to
-            all available quantities for that instrument.
-
-        Returns
-        -------
-        :
-            A dictionary containing the requested physical quantities.
-        """
-        if instrument not in self.INSTRUMENT_METHODS:
+        """General method that reads and organizes data for a requested instrument."""
+        if instrument not in self.conf.INSTRUMENT_NAMES.keys():
             raise ValueError(
                 "{} does not support reading for instrument {}".format(
                     self.__class__.__name__, instrument
                 )
             )
-        method = getattr(self, self.INSTRUMENT_METHODS[instrument])
-        if not quantities:
-            quantities = set(self.available_quantities(instrument))
-        return method(uid, instrument, revision, quantities, **kwargs)
+        method = getattr(self, self.conf.INSTRUMENT_NAMES[instrument])
+
+        return method(uid, instrument, revision)
+
+    def read_database(
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantities:Dict[str, str],
+    ):
+        """
+        Read all raw database quantities and errors
+        Exception handling is non-specific to guarantee generality across readers.
+        """
+        method = self.conf.INSTRUMENT_NAMES[instrument]
+        quantities = self.conf.QUANTITIES_PATH[method]
+
+        revision = self.utils.get_revision(uid, instrument, revision)
+        results: Dict[str, Any] = {
+            "machine_dims": self.conf.MACHINE_DIMS,
+            "revision": revision,
+        }
+        for _key, _path in quantities.items():
+            try:
+                q_val, q_path = self.utils.get_signal(
+                    uid,
+                    instrument,
+                    _path,
+                    revision,
+                )
+            except Exception as e:
+                if self.verbose:
+                    print(f"Error reading {_path}: {e}")                
+                continue
+            results[_key + "_records"] = q_path
+            results[_key] = q_val
+
+            try:
+                q_err, q_err_path = self.utils.get_signal(
+                    uid,
+                    instrument,
+                    _path "_err",
+                    revision,
+                )
+            except Exception as e:
+                q_err = np.full_like(results[_key], 0.0)
+                q_err_path = ""
+            results[_key + "_error"] = q_err
+            results[_key + "_error" + "_records"] = q_err_path
+    def available_quantities(self, instrument) -> dict:
+        """Return the quantities which can be read for the specified instrument."""
+        return AVAILABLE_QUANTITIES[self.conf.INSTRUMENT_NAMES[instrument]]
+
+    def assign_dataarray(
+        self,
+        instrument: str,
+        database_results: Dict[str, LabeledArray],
+        transform=None,
+        include_error: bool = True,
+    ) -> DataArray:
+        """
+        Organizes database data in DataArray format with coordinates, long_name and units
+        """
+        available_quantities = AVAILABLE_QUANTITIES[self.conf.INSTRUMENT_NAMES[instrument]]  
+        for quantity in available_quantities.keys():  
+            if quantity not in database_results:
+                continue
+
+            # Find datatype and dimension identifiers
+            coords = {}
+            datatype, dims = available_quantities[quantity]
+            for dim in dims:
+                coords[dim] = database_results[dim]
+
+            # Build DataArray data with coordinates and long_name + units
+            data = format_dataarray(database_results[quantity], quantity, coords)
+            if "t" in data.dims:
+                data = data.sel(t=slice(self._tstart, self._tend))
+
+            # ..do the same with the error
+            error = xr.zeros_like(data)
+            if quantity + "_error" in database_results:
+                error = format_dataarray(
+                    database_results[quantity + "_error"], quantity, coords
+                )
+                if "t" in error.dims:
+                    error = error.sel(t=slice(self._tstart, self._tend))
+
+            data = data.sortby(dims)
+
+            # Include error for data only, not for coordinates
+            if include_error and len(dims) != 0:
+                data = data.assign_coords(error=(data.dims, error.data))
+
+            if transform is not None:
+                data.attrs["transform"] = transform
+
+        return data
 
     def get_thomson_scattering(
         self,
         uid: str,
         instrument: str,
         revision: RevisionLike,
-        quantities: Set[str],
-        **kwargs,
     ) -> Dict[str, DataArray]:
         """
-        Reads data based on Thomson Scattering.
+        Thomson Scattering
         """
-        database_results = self._get_thomson_scattering(
-            uid, instrument, revision, quantities
-        )
-
+        database_results = self._get_thomson_scattering(uid, instrument, revision, quantities)
+        database_results["channel"] = np.arange(database_results["R"])
         transform = TransectCoordinates(
             database_results["x"],
             database_results["y"],
             database_results["z"],
             f"{instrument}",
-            machine_dimensions=database_results["machine_dims"],
+            machine_dimensions=self.conf["machine_dims"],
         )
-        database_results["channel"] = np.arange(database_results["length"])
 
-        data = {}
-        dims = ["t", "channel"]
         for quantity in quantities:
-            if database_results.get(quantity) is None:
-                continue
             data[quantity] = self.assign_dataarray(
                 instrument,
                 quantity,
@@ -173,24 +224,24 @@ class DataReader(BaseIO):
         uid: str,
         instrument: str,
         revision: RevisionLike,
-        quantities: Set[str],
     ) -> Dict[str, Any]:
         """
-        Gets raw data for Thomson scattering from the database
+        Machine-specific method
         """
         raise NotImplementedError(
             "{} does not implement a '_get_thomson_scattering' "
             "method.".format(self.__class__.__name__)
         )
 
-    def get_ppts(
+    def get_profile_fits(
         self,
         uid: str,
         instrument: str,
         revision: RevisionLike,
         quantities: Set[str],
     ) -> Dict[str, Any]:
-        database_results = self._get_ppts(uid, instrument, revision, quantities)
+        # TODO:
+        database_results = self._get_profile_fits(uid, instrument, revision, quantities)
         database_results["channel"] = np.arange(database_results["length"])
 
         coords_chan = {"channel": database_results["channel"]}
@@ -245,20 +296,6 @@ class DataReader(BaseIO):
                 )
         return data
 
-    def _get_ppts(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-    ) -> Dict[str, Any]:
-        """
-        Gets raw data for PPTS analysis from the database
-        """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement a '_get_ppts' " "method."
-        )
-
     def get_charge_exchange(
         self,
         uid: str,
@@ -272,9 +309,8 @@ class DataReader(BaseIO):
         Reads Charge-exchange-spectroscopy data
         """
 
-        database_results = self._get_charge_exchange(
-            uid, instrument, revision, quantities
-        )
+        database_results = self._read_instrument(uid, instrument, revision)
+
         transform = TransectCoordinates(
             database_results["x"],
             database_results["y"],
@@ -478,32 +514,6 @@ class DataReader(BaseIO):
         """
         raise NotImplementedError(
             "{} does not implement a '_get_equilibrium' "
-            "method.".format(self.__class__.__name__)
-        )
-
-    def get_cyclotron_emissions(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-        dl: float = 0.005,
-        passes: int = 1,
-    ) -> Dict[str, DataArray]:
-        raise NotImplementedError("Needs to be reimplemented")
-
-    def _get_cyclotron_emissions(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
-        quantities: Set[str],
-    ) -> Dict[str, Any]:
-        """
-        Gets raw data for electron cyclotron emission diagnostic data from the database.
-        """
-        raise NotImplementedError(
-            "{} does not implement a '_get_cyclotron' "
             "method.".format(self.__class__.__name__)
         )
 
@@ -997,72 +1007,3 @@ class DataReader(BaseIO):
     #         "method.".format(self.__class__.__name__)
     #     )
 
-    def available_quantities(self, instrument) -> dict:
-        """Return the quantities which can be read for the specified
-        instrument."""
-        if instrument not in self.INSTRUMENT_METHODS:
-            raise ValueError("Can not read data for instrument {}".format(instrument))
-        if instrument in self._IMPLEMENTATION_QUANTITIES:
-            return self._IMPLEMENTATION_QUANTITIES[instrument]
-        else:
-            return self._AVAILABLE_QUANTITIES[self.INSTRUMENT_METHODS[instrument]]
-
-    def assign_dataarray(
-        self,
-        instrument: str,
-        quantity: str,
-        database_results: Dict[str, DataArray],
-        dims: List[str],
-        transform=None,
-        include_error: bool = True,
-    ) -> DataArray:
-        """
-
-        Parameters
-        ----------
-        instrument
-            The instrument name
-        quantity
-            The physical quantity to assign
-        database_results
-            Dictionary output of private reader methods
-        coords
-            List of coordinate names from database_results.
-        transform
-            Coordinate transform.
-        include_error
-            Add error to DataArray attributes
-
-        Returns
-        -------
-        DataArray with assigned coordinates, transform, error, long_name and units
-        """
-        # Build coordinate dictionary
-        coords = {}
-        for dim in dims:
-            coords[dim] = database_results[dim]
-
-        # Build DataArray data with coordinates and long_name + units
-        var_name = self.available_quantities(instrument)[quantity]
-        data = format_dataarray(database_results[quantity], var_name, coords)
-        if "t" in data.dims:
-            data = data.sel(t=slice(self._tstart, self._tend))
-
-        # ..do the same with the error
-        error = xr.zeros_like(data)
-        if quantity + "_error" in database_results:
-            error = format_dataarray(
-                database_results[quantity + "_error"], var_name, coords
-            )
-            if "t" in error.dims:
-                error = error.sel(t=slice(self._tstart, self._tend))
-
-        data = data.sortby(dims)
-
-        if include_error:
-            data = data.assign_coords(error=(data.dims, error.data))
-
-        if transform is not None:
-            data.attrs["transform"] = transform
-
-        return data

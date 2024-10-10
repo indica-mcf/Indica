@@ -53,7 +53,7 @@ def run_reader_get_methods(
     uid, instrument, revision, quantities = INSTRUMENT_INFO[instrument_name]
 
     print(f"Reading {uid}, {instrument}, {revision}")
-    instrument_method = READER.INSTRUMENT_METHODS[instrument]
+    instrument_method = READER.INSTRUMENT_NAMES[instrument]
     database_quantities = READER.available_quantities(instrument)
     if quantities:
         database_quantities = quantities

@@ -81,7 +81,7 @@ class PPFReader(DataReader):
 
     """
 
-    INSTRUMENT_METHODS = {
+    INSTRUMENT_NAMES = {
         "hrts": "get_thomson_scattering",
         "lidr": "get_thomson_scattering",
         "efit": "get_equilibrium",
@@ -122,7 +122,7 @@ class PPFReader(DataReader):
             "vjac": "volume_jacobian",
             "ajac": "area_jacobian",
             "rmag": "major_radius_magnetic_axis",
-            "rgeo": "major_radius_geometric_axis",
+            "rgeo": "major_radius_geometric",
             "rbnd": "major_radius_boundary",
             "zmag": "z_magnetic_axis",
             "zbnd": "z_boundary",

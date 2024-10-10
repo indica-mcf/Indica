@@ -26,7 +26,7 @@
 #     """Class to read fake data"""
 #
 #     MACHINE_DIMS = ((1.83, 3.9), (-1.75, 2.0))
-#     INSTRUMENT_METHODS = {
+#     INSTRUMENT_NAMES = {
 #         "thomson_scattering": "get_thomson_scattering",
 #         "equilibrium": "get_equilibrium",
 #         "cyclotron_emissions": "get_cyclotron_emissions",
@@ -449,7 +449,7 @@
 #             TEND,
 #         )
 #
-#         quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_METHODS[instrument]])
+#         quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_NAMES[instrument]])
 #
 #         results = reader.get("", instrument, 0, quantities)
 #
