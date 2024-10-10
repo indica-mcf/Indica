@@ -12,7 +12,6 @@ from typing import Hashable
 from typing import List
 from typing import Optional
 from typing import Tuple
-from typing import Union
 
 from matplotlib import cm
 from matplotlib import rcParams
@@ -22,8 +21,6 @@ import periodictable
 from scipy.interpolate import CubicSpline
 from xarray import apply_ufunc
 from xarray import DataArray
-from xarray.core.dataset import Dataset
-from xarray.core.variable import Variable
 
 from indica.datatypes import DATATYPES
 from indica.datatypes import UNITS

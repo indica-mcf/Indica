@@ -1,35 +1,38 @@
 """Experimental design for reading data from disk/database."""
 
+from abc import ABC
 from typing import Any
 from typing import Dict
 from typing import Set
 from typing import Tuple
-from abc import ABC
 
 import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.abstractio import BaseIO
+from indica.configs.readers.st40conf import MachineConf
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
-from indica.configs.readers.st40conf import MachineConf
+from indica.numpy_typing import LabeledArray
 from indica.numpy_typing import OnlyArray
-from indica.numpy_typing import RevisionLike, LabeledArray
+from indica.numpy_typing import RevisionLike
 from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import format_dataarray, get_function_name
+from indica.utilities import format_dataarray
 
 
 class DataReader(ABC):
     """Abstract base class to read data in from a database."""
+
     def __init__(
         self,
         pulse: int,
         tstart: float,
         tend: float,
-        conf: MachineConf,
-        utils: MachineConf,  
+        machine_conf: MachineConf,
+        reader_utils: BaseIO,
         default_error: float = 0.05,
-        verbose:bool = False,
+        verbose: bool = False,
         **kwargs: Any,
     ):
         """This should be called by constructors on subtypes.
@@ -46,12 +49,12 @@ class DataReader(ABC):
         self.verbose = verbose
         self.pulse = pulse
         self.tstart = tstart
-        self.tend = tend        
-        self.utils = utils
-        self.conf = conf()
-        self.instrument_methods = self.conf.INSTRUMENT_METHODS
-        self.machine_dims = self.conf.MACHINE_DIMS
-        self.quantities_path = self.conf.QUANTITIES_PATH
+        self.tend = tend
+        self.reader_utils = reader_utils
+        self.machine_conf = machine_conf()
+        self.instrument_methods = self.machine_conf.INSTRUMENT_METHODS
+        self.machine_dims = self.machine_conf.MACHINE_DIMS
+        self.quantities_path = self.machine_conf.QUANTITIES_PATH
         self.default_error = default_error
         self.verbose = verbose
         self.kwargs = kwargs
@@ -61,7 +64,7 @@ class DataReader(ABC):
         uid: str,
         instrument: str,
         revision: RevisionLike = 0,
-        include_error:bool=True,
+        include_error: bool = True,
     ) -> Dict[str, DataArray]:
         """General method that reads data for a requested instrument."""
         if instrument not in self.instrument_methods.keys():
@@ -72,13 +75,15 @@ class DataReader(ABC):
             )
         # Read data from database
         database_results = self._read_database(uid, instrument, revision)
-        
+
         # Rearrange data and generate coordinate transform
         method = self.instrument_methods[instrument]
         database_results, transform = getattr(self, method)(database_results)
-        
+
         # Build Indica-native DataArray structures
-        data = self._build_dataarrays(database_results, transform, include_error=include_error)
+        data = self._build_dataarrays(
+            database_results, transform, include_error=include_error
+        )
 
         return data
 
@@ -88,25 +93,25 @@ class DataReader(ABC):
         instrument: str,
         revision: RevisionLike,
     ) -> dict:
-        """ Read and return all raw database quantities and errors
+        """Read and return all raw database quantities and errors
         Exception handling is non-specific to guarantee generality across readers.
 
         Include in data dictionary also the UID, INSTRUMENT, MACHINE_DIMS and REVISION
-        to guarantee data traceability across data-structures. """
+        to guarantee data traceability across data-structures."""
         method = self.instrument_methods[instrument]
         quantities_paths = self.quantities_path[method]
-        
-        revision = self.utils.get_revision(uid, instrument, revision)
+
+        revision = self.reader_utils.get_revision(uid, instrument, revision)
         results: Dict[str, Any] = {
-            "uid":uid,
-            "instrument":instrument,
+            "uid": uid,
+            "instrument": instrument,
             "machine_dims": self.machine_dims,
             "revision": revision,
         }
         for _key, _path in quantities_paths.items():
             # Read quantity value
             try:
-                q_val, q_path = self.utils.get_signal(
+                q_val, q_path = self.reader_utils.get_signal(
                     uid,
                     instrument,
                     _path,
@@ -114,14 +119,14 @@ class DataReader(ABC):
                 )
             except Exception as e:
                 if self.verbose:
-                    print(f"Error reading {_path}: {e}")                
+                    print(f"Error reading {_path}: {e}")
                 continue
             results[_key + "_records"] = q_path
             results[_key] = q_val
 
             # Read quantity error
             try:
-                q_err, q_err_path = self.utils.get_signal(
+                q_err, q_err_path = self.reader_utils.get_signal(
                     uid,
                     instrument,
                     _path + "_err",
@@ -129,7 +134,7 @@ class DataReader(ABC):
                 )
             except Exception as e:
                 q_err = np.full_like(results[_key], 0.0)
-                q_err_path = ""
+                q_err_path = f"{e}"
             results[_key + "_error"] = q_err
             results[_key + "_error" + "_records"] = q_err_path
 
@@ -141,12 +146,13 @@ class DataReader(ABC):
         transform=None,
         include_error: bool = True,
     ) -> Dict[str, DataArray]:
-        """Organizes database data in DataArray format with coordinates, long_name and units"""
-        data:dict = {}
+        """Organizes database data in DataArray format with
+        coordinates, long_name and units"""
+        data: dict = {}
         uid = database_results["uid"]
         instrument = database_results["instrument"]
         revision = database_results["revision"]
-        datatype_dims = AVAILABLE_QUANTITIES[self.instrument_methods[instrument]]        
+        datatype_dims = AVAILABLE_QUANTITIES[self.instrument_methods[instrument]]
         for quantity in datatype_dims.keys():
             if quantity not in database_results.keys():
                 continue
@@ -176,7 +182,9 @@ class DataReader(ABC):
 
             # Check that times are unique
             if "t" in database_results:
-                t_unique, ind_unique = np.unique(database_results["t"], return_index=True)
+                t_unique, ind_unique = np.unique(
+                    database_results["t"], return_index=True
+                )
                 if len(database_results["t"]) != len(t_unique):
                     _data = _data.isel(t=ind_unique)
 
@@ -191,26 +199,26 @@ class DataReader(ABC):
 
     def get_thomson_scattering(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, DataArray]:
         database_results = self._get_thomson_scattering(database_results)
         transform = TransectCoordinates(
             database_results["x"],
             database_results["y"],
             database_results["z"],
-            machine_dimensions=self.conf["machine_dims"],
+            machine_dimensions=self.machine_conf["machine_dims"],
         )
         return database_results, transform
 
     def _get_thomson_scattering(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
     def get_profile_fits(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         database_results = self._get_profile_fits(database_results)
         transform = None
@@ -218,13 +226,13 @@ class DataReader(ABC):
 
     def _get_profile_fits(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
     def get_charge_exchange(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, DataArray]:
         database_results = self._get_charge_exchange(database_results)
         transform = TransectCoordinates(
@@ -237,13 +245,13 @@ class DataReader(ABC):
 
     def _get_charge_exchange(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
     def get_spectrometer(
         self,
-        database_results:dict,
+        database_results: dict,
         dl: float = 0.005,
         passes: int = 1,
     ) -> Dict[str, DataArray]:
@@ -259,13 +267,13 @@ class DataReader(ABC):
 
     def _get_spectrometer(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
     def get_equilibrium(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, DataArray]:
         database_results = self._get_equilibrium(database_results)
 
@@ -279,13 +287,13 @@ class DataReader(ABC):
 
     def _get_equilibrium(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
     def get_radiation(
         self,
-        database_results:dict,
+        database_results: dict,
         dl: float = 0.005,
         passes: int = 1,
     ) -> Dict[str, DataArray]:
@@ -301,13 +309,13 @@ class DataReader(ABC):
 
     def _get_radiation(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
     def get_helike_spectroscopy(
         self,
-        database_results:dict,
+        database_results: dict,
         dl: float = 0.005,
         passes: int = 1,
     ) -> Dict[str, DataArray]:
@@ -323,13 +331,13 @@ class DataReader(ABC):
 
     def _get_helike_spectroscopy(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
     def get_diode_filters(
         self,
-        database_results:dict,
+        database_results: dict,
         dl: float = 0.005,
         passes: int = 1,
     ) -> Dict[str, DataArray]:
@@ -348,13 +356,13 @@ class DataReader(ABC):
 
     def _get_diode_filters(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         raise NotImplementedError
-    
+
     def get_interferometry(
         self,
-        database_results:dict,
+        database_results: dict,
         dl: float = 0.005,
         passes: int = 2,
     ) -> Dict[str, DataArray]:
@@ -370,7 +378,7 @@ class DataReader(ABC):
 
     def _get_interferometry(
         self,
-        database_results:dict,
+        database_results: dict,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
@@ -420,6 +428,7 @@ class DataReader(ABC):
             f"{self.__class__.__name__} does not implement a '_get_zeff' " "method."
         )
 
+
 def instatiate_line_of_sight(
     location: OnlyArray,
     direction: OnlyArray,
@@ -438,4 +447,3 @@ def instatiate_line_of_sight(
         dl=dl,
         passes=passes,
     )
-
