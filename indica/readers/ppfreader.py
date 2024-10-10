@@ -81,7 +81,7 @@ class PPFReader(DataReader):
 
     """
 
-    INSTRUMENT_NAMES = {
+    INSTRUMENT_METHODS = {
         "hrts": "get_thomson_scattering",
         "lidr": "get_thomson_scattering",
         "efit": "get_equilibrium",

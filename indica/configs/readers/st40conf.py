@@ -3,11 +3,22 @@
 # TODO: Make BaseConf class with all the details of what a configuration class should contain?
 # TODO: why a class and not a simple JSON file or a dictionary?
 
+from abc import ABC
+from typing import Dict
+from typing import Tuple
 
-class ST40Conf:
+
+class MachineConf(ABC):
+    def __init__(self):
+        self.MACHINE_DIMS: Tuple[Tuple[float, float], Tuple[float, float]] = ()
+        self.INSTRUMENT_METHODS: Dict[str, str] = {}
+        self.QUANTITIES_PATH: Dict[str, Dict[str, str]] = {}
+
+
+class ST40Conf(MachineConf):
     def __init__(self):
         self.MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
-        self.INSTRUMENT_NAMES = {
+        self.INSTRUMENT_METHODS = {
             "efit": "get_equilibrium",
             "xrcs": "get_helike_spectroscopy",
             "pi": "get_spectrometer",
@@ -30,10 +41,10 @@ class ST40Conf:
         }
         self.QUANTITIES_PATH = {
             "get_equilibrium": {
-                "t":":time",
-                "psin":".profiles.psi_norm:xpsn",
-                "psi_r":".psi2d:rgrid",
-                "psi_z":".psi2d:zgrid",
+                "t": ":time",
+                "psin": ".profiles.psi_norm:xpsn",
+                "R": ".psi2d:rgrid",
+                "z": ".psi2d:zgrid",
                 "f": ".profiles.psi_norm:f",
                 "faxs": ".global:faxs",
                 "fbnd": ".global:fbnd",
@@ -53,10 +64,10 @@ class ST40Conf:
                 "df": ".constraints.df:cvalue",
             },
             "get_helike_spectroscopy": {
-                "t":":time",
-                "wavelength":":wavelen",
-                "location":":location",
-                "direction":":direction",
+                "t": ":time",
+                "wavelength": ":wavelen",
+                "location": ".geometry:location",
+                "direction": ".geometry:location",
                 "ti_w": ".global:ti_w",
                 "ti_z": ".global:ti_z",
                 "te_n3w": ".global:te_n3w",
@@ -70,23 +81,33 @@ class ST40Conf:
                 "background": ".global:back_avg",
             },
             "get_interferometry": {
+                "t": ":time",
+                "location": ".geometry:location",
+                "direction": ".geometry:location",
                 "ne": ".global:ne_int",
             },
             "get_diode_filters": {
+                "t": ":time",
+                "label": ":label",
+                "location": ".geometry:location",
+                "direction": ".geometry:location",
                 "brightness": ":emission",
             },
             "get_radiation": {
+                "t": ":time",
+                "location": ".geometry:location",
+                "direction": ".geometry:location",
                 "brightness": ".profiles:emission",
             },
             "get_charge_exchange": {
-                "t":":time",
-                "wavelength":":wavelen",
-                "x":":x",
-                "y":":y",
-                "z":":z",
-                "R":":R",
-                "location":".geometry:location",
-                "direction":".geometry:direction",
+                "t": ":time",
+                "wavelength": ":wavelen",
+                "x": ":x",
+                "y": ":y",
+                "z": ":z",
+                "R": ":R",
+                "location": ".geometry:location",
+                "direction": ".geometry:direction",
                 "int": ".profiles:int",
                 "ti": ".profiles:ti",
                 "vtor": ".profiles:vtor",
@@ -94,18 +115,18 @@ class ST40Conf:
                 "fit": ":full_fit",
             },
             "get_spectrometer": {
-                "t":":time",
-                "location":".geometry:location",
-                "direction":".geometry:direction",
-                "wavelength":":wavelen",
+                "t": ":time",
+                "location": ".geometry:location",
+                "direction": ".geometry:direction",
+                "wavelength": ":wavelen",
                 "spectra": ":emission",
             },
             "get_thomson_scattering": {
-                "t":":time",
-                "x":":x",
-                "y":":y",
-                "z":":z",
-                "R":":R",
+                "t": ":time",
+                "x": ":x",
+                "y": ":y",
+                "z": ":z",
+                "R": ":R",
                 "ne": ".profiles:ne",
                 "te": ".profiles:te",
                 "pe": ".profiles:pe",
@@ -124,6 +145,7 @@ class ST40Conf:
                 "R_shift": ".global:rshift",
             },
             "get_zeff": {
+                "t": ":time",
                 "R_shift": ".global:rshift",
                 "zeff_avrg": ".global:zeff",
                 "zeff_hi": ".global:zeff_hi",

@@ -4,11 +4,11 @@ Quantities read by each reader method of the abstractreader class.
 Dictionary structure:
     {"Name of the reader method":
         "Quantity name" :{
-            ("Datatype identified", 
+            ("Datatype identified",
                 ["Coord1 quantity name", "Coord2  quantity name", ...])
         }
 
-For the Datatype identifier string see indica/datatypes.py. 
+For the Datatype identifier string see indica/datatypes.py.
 
 """
 
@@ -55,7 +55,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "channel":("channel", []),
         "wavelength":("wavelength", []),
         "location":("location", []),,
-        "direction":("direction", []),        
+        "direction":("direction", []),
         "ti_w": "ion_temperature",
         "ti_z": "ion_temperature",
         "te_n3w": "electron_temperature",
@@ -91,22 +91,22 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "channel":("channel", []),
         "label":("label", []),
         "location":("location", []),,
-        "direction":("direction", []),  
-        "brightness": ("brightness", ["t"]),
+        "direction":("direction", []),
+        "brightness": ("brightness", ["t", "channel"]),
     },
     "get_interferometry": {
         "t":("time", []),
         "channel":("channel", []),
         "location":("location", []),,
-        "direction":("direction", []),  
+        "direction":("direction", []),
         "ne": ("electron_density_integrated", ["t"]),
     },
     "get_equilibrium": {
         "t":("time", []),
         "psin":("poloidal_flux_normalised", []),
         "index":("index", []),
-        "psi_r":("R", []),
-        "psi_z":("z", []),
+        "R":("R", []),
+        "z":("z", []),
         "f": ("equilibrium_f", ["t", "psin"]),
         "ftor": ("toroidal_flux", ["t", "psin"]),
         "psi": ("poloidal_flux", ["t", "z", "R"]),
@@ -129,7 +129,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "channel":("channel", []),
         "label":("label", []),
         "location":("location", []),
-        "direction":("direction", []),  
+        "direction":("direction", []),
         "brightness": ("brightness", ["t", "channel"]),
     },
     "get_zeff": {

@@ -244,8 +244,8 @@ def calculate_zeff_los_averaged(
 
     if dR_limit > 0:
         equilibrium = los_transform.equilibrium
-        Rlfs = equilibrium.rbnd.max("arbitrary_index").interp(t=filter_data.t)
-        Rhfs = equilibrium.rbnd.min("arbitrary_index").interp(t=filter_data.t)
+        Rlfs = equilibrium.rbnd.max("boundary_index").interp(t=filter_data.t)
+        Rhfs = equilibrium.rbnd.min("boundary_index").interp(t=filter_data.t)
         lfs_bound = los_transform.impact_parameter.R + dR_limit
         hfs_bound = los_transform.impact_parameter.R - dR_limit
         good_channels = (hfs_bound > Rhfs) * (lfs_bound < Rlfs)

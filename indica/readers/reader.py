@@ -10,10 +10,10 @@ from typing import Dict
 from typing import Set
 from typing import Tuple
 
-from indica.configs.readers.st40conf import ST40Conf
-from indica.readers.mdsutils import MDSUtils
 import numpy as np
 
+from indica.configs.readers.st40conf import ST40Conf
+from indica.readers.mdsutils import MDSUtils
 from ..numpy_typing import RevisionLike
 
 
@@ -56,10 +56,10 @@ class Reader:
         server: str = "smaug",
         tree: str = "ST40",
         reader_conf: Callable = ST40Conf,
-        reader_utils: Callable = MDSUtils, 
+        reader_utils: Callable = MDSUtils,
         default_error: float = 0.05,
-        verbose:bool = False,
-        **kwargs:Any,
+        verbose: bool = False,
+        **kwargs: Any,
     ):
         self._reader_cache_id = f"st40:{server.replace('-', '_')}:{pulse}"
         self.NAMESPACE: Tuple[str, str] = ("st40", server)

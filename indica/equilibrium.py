@@ -78,7 +78,7 @@ class Equilibrium:
         else:
             raise ValueError("No volume or area information")
 
-        self.zx = self.zbnd.min("arbitrary_index")
+        self.zx = self.zbnd.min("boundary_index")
         self.rhotor = np.sqrt(
             (self.ftor - self.ftor.sel(rho_poloidal=0.0))
             / (self.ftor.sel(rho_poloidal=1.0) - self.ftor.sel(rho_poloidal=0.0))
@@ -950,7 +950,7 @@ def fake_equilibrium_data(
     result["fbnd"].attrs["datatype"] = ("magnetic_flux", "separtrix")
 
     thetas = DataArray(
-        np.linspace(0.0, 2 * np.pi, nspace, endpoint=False), dims=["arbitrary_index"]
+        np.linspace(0.0, 2 * np.pi, nspace, endpoint=False), dims=["boundary_index"]
     )
 
     r = np.linspace(machine_dims[0][0], machine_dims[0][1], nspace)

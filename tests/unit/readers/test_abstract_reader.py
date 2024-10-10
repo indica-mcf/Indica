@@ -13,7 +13,7 @@
 # from indica import session
 # from indica.numpy_typing import RevisionLike
 # from indica.readers import DataReader
-# from indica.readers.available_quantities import AVAILABLE_QUANTITIES
+# from indica.readers.available_quantities import INSTRUMENT_DATASTRUCTURE
 #
 #
 # # TODO these values should come from the machine dimensions variable of the reader
@@ -26,7 +26,7 @@
 #     """Class to read fake data"""
 #
 #     MACHINE_DIMS = ((1.83, 3.9), (-1.75, 2.0))
-#     INSTRUMENT_NAMES = {
+#     INSTRUMENT_METHODS = {
 #         "thomson_scattering": "get_thomson_scattering",
 #         "equilibrium": "get_equilibrium",
 #         "cyclotron_emissions": "get_cyclotron_emissions",
@@ -449,7 +449,7 @@
 #             TEND,
 #         )
 #
-#         quantities = set(AVAILABLE_QUANTITIES[reader.INSTRUMENT_NAMES[instrument]])
+#         quantities = set(INSTRUMENT_DATASTRUCTURE[reader.INSTRUMENT_METHODS[instrument]])
 #
 #         results = reader.get("", instrument, 0, quantities)
 #
