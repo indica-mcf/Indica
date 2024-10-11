@@ -20,7 +20,7 @@ class ProfilerBasis(ProfilerBase):
         bias: np.ndarray,
         ncomps: int = 2,
         radial_grid: np.ndarray = None,
-        coord="rho_poloidal",
+        coord="rhop",
         parameters: dict = None,
     ):
         super().__init__(parameters)

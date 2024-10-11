@@ -900,9 +900,7 @@ def default_profiles(n_rad: int = 20):
     xend = 1.02
     rho_end = 1.01
     rho = np.abs(np.linspace(rho_end, 0, n_rad) ** 1.8 - rho_end - 0.01)
-    rho_coord = xr.DataArray(
-        rho, coords={"rho_poloidal": rho}, dims="rho_poloidal"
-    ).coords
+    rho_coord = xr.DataArray(rho, coords={"rhop": rho}, dims="rhop").coords
     Te = xr.DataArray(np.linspace(50, 10e3, n_rad), coords=rho_coord)
     Ne = xr.DataArray(np.logspace(18, 21, n_rad), coords=rho_coord)
 

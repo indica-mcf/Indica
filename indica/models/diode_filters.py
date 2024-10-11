@@ -270,7 +270,7 @@ class BremsstrahlungDiode(AbstractDiagnostic):
             if i % nplot:
                 continue
             plt.plot(
-                self.emissivity.rho_poloidal,
+                self.emissivity.rhop,
                 self.emissivity.sel(t=t),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",

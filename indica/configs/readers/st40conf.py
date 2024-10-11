@@ -36,7 +36,7 @@ class ST40Conf(MachineConf):
             "sxrc_xy2": "get_radiation",
             "blom_xy1": "get_radiation",
             "astra": "get_astra",
-            "ppts": "get_ppts",
+            "ppts": "get_profile_fits",
             "zeff_brems": "get_zeff",
         }
         self.QUANTITIES_PATH = {
@@ -72,7 +72,7 @@ class ST40Conf(MachineConf):
                 "ti_z": ".global:ti_z",
                 "te_n3w": ".global:te_n3w",
                 "te_kw": ".global:te_kw",
-                "raw_spectra": ":intens",
+                "spectra_raw": ":intens",
                 "spectra": ":spec_rad",
                 "int_w": ".global:int_w",
                 "int_k": ".global:int_k",
@@ -91,7 +91,7 @@ class ST40Conf(MachineConf):
                 "label": ":label",
                 "location": ".geometry:location",
                 "direction": ".geometry:location",
-                "brightness": ":emission",
+                "brightness": ":data",
             },
             "get_radiation": {
                 "t": ":time",
@@ -133,6 +133,12 @@ class ST40Conf(MachineConf):
                 "chi2": ".profiles:chi2",
             },
             "get_profile_fits": {
+                "t": ":time",
+                "rhop_fit": ".profiles.psi_norm:rhop",
+                "R_fit": ".profiles.r_midplane:rpos",
+                "rhop": ".profiles.inputs:rhop",
+                "R": ".profiles.inputs:rpos",
+                "z": ".profiles.inputs:zpos",
                 "ne_rho": ".profiles.psi_norm:ne",
                 "te_rho": ".profiles.psi_norm:te",
                 "pe_rho": ".profiles.psi_norm:pe",
@@ -146,6 +152,7 @@ class ST40Conf(MachineConf):
             },
             "get_zeff": {
                 "t": ":time",
+                "rhop": ".profiles.psi_norm:rhop",
                 "R_shift": ".global:rshift",
                 "zeff_avrg": ".global:zeff",
                 "zeff_hi": ".global:zeff_hi",

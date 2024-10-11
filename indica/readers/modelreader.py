@@ -4,6 +4,7 @@ from typing import List
 
 from xarray import DataArray
 
+from indica.configs.readers.st40conf import ST40Conf
 from indica.models import BolometerCamera
 from indica.models import BremsstrahlungDiode
 from indica.models import ChargeExchangeSpectrometer
@@ -12,7 +13,6 @@ from indica.models import Interferometer
 from indica.models import SXRcamera
 from indica.models import ThomsonScattering
 from indica.models.plasma import Plasma
-from indica.readers import ST40Conf
 
 # TODO: First stab, but need to check Michael Gemmell implementation
 

@@ -217,9 +217,9 @@ def calculate_zeff_los_averaged(
     filter_data
         Filtered diode output given the input spectra.
     te_fit
-        Te profile (pon rho_poloidal)
+        Te profile (pon rhop)
     ne_fit
-        Ne profile (pon rho_poloidal)
+        Ne profile (pon rhop)
     filter_wavelength
         Centroid of the interference filter
     dR_limit
@@ -244,8 +244,8 @@ def calculate_zeff_los_averaged(
 
     if dR_limit > 0:
         equilibrium = los_transform.equilibrium
-        Rlfs = equilibrium.rbnd.max("boundary_index").interp(t=filter_data.t)
-        Rhfs = equilibrium.rbnd.min("boundary_index").interp(t=filter_data.t)
+        Rlfs = equilibrium.rbnd.max("index").interp(t=filter_data.t)
+        Rhfs = equilibrium.rbnd.min("index").interp(t=filter_data.t)
         lfs_bound = los_transform.impact_parameter.R + dR_limit
         hfs_bound = los_transform.impact_parameter.R - dR_limit
         good_channels = (hfs_bound > Rhfs) * (lfs_bound < Rlfs)
@@ -268,9 +268,9 @@ def calculate_zeff_profile(
     filter_data
         Filtered diode output given the input spectra.
     te_fit
-        Te profile (pon rho_poloidal)
+        Te profile (pon rhop)
     ne_fit
-        Ne profile (pon rho_poloidal)
+        Ne profile (pon rhop)
     filter_wavelength
         Centroid of the interference filter
     reg_level_guess
@@ -317,7 +317,7 @@ def calculate_zeff_profile(
 
     coords = [
         ("t", tomo_result["t"]),
-        ("rho_poloidal", tomo_result["profile"]["rho_poloidal"][0, :]),
+        ("rhop", tomo_result["profile"]["rhop"][0, :]),
     ]
     emissivity = DataArray(
         tomo_result["profile"]["sym_emissivity"],
@@ -330,8 +330,8 @@ def calculate_zeff_profile(
     emissivity = emissivity.assign_coords(error=(emissivity.dims, _error.data))
 
     wlnght = filter_wavelength
-    _te = te_fit.interp(rho_poloidal=emissivity.rho_poloidal)
-    _ne = ne_fit.interp(rho_poloidal=emissivity.rho_poloidal)
+    _te = te_fit.interp(rhop=emissivity.rhop)
+    _ne = ne_fit.interp(rhop=emissivity.rhop)
     zeff_profile = ph.zeff_bremsstrahlung(
         _te,
         _ne,
@@ -393,7 +393,7 @@ def plot_results(
 
         zeff_profile.sel(t=t).plot(color=cols[i], label=f"t={int(t*1.e3)} ms")
         plt.fill_between(
-            zeff_profile.rho_poloidal,
+            zeff_profile.rhop,
             (zeff_profile - zeff_profile.error).sel(t=t),
             (zeff_profile + zeff_profile.error).sel(t=t),
             color=cols[i],

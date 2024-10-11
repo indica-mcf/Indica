@@ -45,7 +45,7 @@ class TransectCoordinates(CoordinateTransform):
         x_positions: OnlyArray,
         y_positions: OnlyArray,
         z_positions: OnlyArray,
-        name: str,
+        name: str = "",
         machine_dimensions: Tuple[Tuple[float, float], Tuple[float, float]] = (
             (1.83, 3.9),
             (-1.75, 2.0),
@@ -199,13 +199,13 @@ class TransectCoordinates(CoordinateTransform):
             z_ = self.z
 
             value_at_channels = profile.interp(R=R_, z=z_).T
-        elif "rho_poloidal" in coords or "rho_toroidal" in coords:
+        elif "rhop" in coords or "rho_toroidal" in coords:
             rho_ = self.rho
             if "theta" in coords:
                 theta_ = self.theta
-                value_at_channels = profile.interp(rho_poloidal=rho_, theta=theta_)
+                value_at_channels = profile.interp(rhop=rho_, theta=theta_)
             else:
-                value_at_channels = profile.interp(rho_poloidal=rho_)
+                value_at_channels = profile.interp(rhop=rho_)
 
             if limit_to_sep:
                 value_at_channels = xr.where(

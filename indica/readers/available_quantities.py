@@ -10,6 +10,9 @@ Dictionary structure:
 
 For the Datatype identifier string see indica/datatypes.py.
 
+Dimensions (having Coordinates == []) names
+must be equal to their datatype identifier
+
 """
 
 from typing import Dict
@@ -17,7 +20,7 @@ from typing import Tuple
 
 AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
     "get_thomson_scattering": {
-        "t": ("time", []),
+        "t": ("t", []),
         "channel": ("channel", []),
         "x": ("x", []),
         "y": ("y", []),
@@ -28,7 +31,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "chi2": ("chi_squared", ["t", "channel"]),
     },
     "get_spectrometer": {
-        "t": ("time", []),
+        "t": ("t", []),
         "channel": ("channel", []),
         "location": ("location", []),
         "direction": ("direction", []),
@@ -36,7 +39,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "spectra": ("spectra", ["t", "channel", "wavelength"]),
     },
     "get_charge_exchange": {
-        "t": ("time", []),
+        "t": ("t", []),
         "channel": ("channel", []),
         "wavelength": ("wavelength", []),
         "x": ("x", []),
@@ -52,43 +55,45 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "fit": ("spectra_fit", ["t", "channel", "wavelength"]),
     },
     "get_helike_spectroscopy": {
-        "t": ("time", []),
+        "t": ("t", []),
         "channel": ("channel", []),
         "wavelength": ("wavelength", []),
         "location": ("location", []),
         "direction": ("direction", []),
-        "ti_w": "ion_temperature",
-        "ti_z": "ion_temperature",
-        "te_n3w": "electron_temperature",
-        "te_kw": "electron_temperature",
-        "int_w": "line_intensity",
-        "int_k": "line_intensity",
-        "int_tot": "line_intensity",
-        "int_n3": "line_intensity",
-        "raw_spectra": ("raw_spectra", ["t", "channel", "wavelength"]),
-        "spectra": ("spectra", ["t", "channel", "wavelength"]),
-        "background": ("intensity", ["t", "channel", "wavelength"]),
+        "ti_w": ("ion_temperature", ["t"]),
+        "ti_z": ("ion_temperature", ["t"]),
+        "te_n3w": ("electron_temperature", ["t"]),
+        "te_kw": ("electron_temperature", ["t"]),
+        "int_w": ("line_intensity", ["t"]),
+        "int_k": ("line_intensity", ["t"]),
+        "int_tot": ("line_intensity", ["t"]),
+        "int_n3": ("line_intensity", ["t"]),
+        "spectra_raw": ("spectra_raw", ["t", "wavelength"]),
+        "spectra": ("spectra", ["t", "wavelength"]),
+        "background": ("intensity", ["t"]),
     },
     "get_profile_fits": {
-        "t": ("time", []),
+        "t": ("t", []),
         "channel": ("channel", []),
+        "rhop_fit": ("rhop_fit", []),
+        "R_fit": ("R_fit", []),
+        "rhop": ("rhop", []),
         "R": ("R", []),
         "z": ("z", []),
-        "rhop": ("rho_poloidal", []),
         "Rshift": ("major_radius_shift", ["t"]),
-        "ne_rho": ("electron_density", ["t", "rhop"]),
-        "te_rho": ("electron_temperature", ["t", "rhop"]),
-        "pe_rho": ("electron_pressure", ["t", "rhop"]),
-        "ne_R": ("electron_density", ["t", "R"]),
-        "te_R": ("electron_temperature", ["t", "R"]),
-        "pe_R": ("electron_pressure", ["t", "R"]),
+        "ne_rho": ("electron_density", ["t", "rhop_fit"]),
+        "te_rho": ("electron_temperature", ["t", "rhop_fit"]),
+        "pe_rho": ("electron_pressure", ["t", "rhop_fit"]),
+        "ne_R": ("electron_density", ["t", "R_fit"]),
+        "te_R": ("electron_temperature", ["t", "R_fit"]),
+        "pe_R": ("electron_pressure", ["t", "R_fit"]),
         "ne_data": ("electron_density", ["t", "channel"]),
         "te_data": ("electron_temperature", ["t", "channel"]),
         "pe_data": ("electron_pressure", ["t", "channel"]),
         "R_shift": ("major_radius_shift", ["t"]),
     },
     "get_diode_filters": {
-        "t": ("time", []),
+        "t": ("t", []),
         "channel": ("channel", []),
         "label": ("label", []),
         "location": ("location", []),
@@ -96,15 +101,15 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "brightness": ("brightness", ["t", "channel"]),
     },
     "get_interferometry": {
-        "t": ("time", []),
+        "t": ("t", []),
         "channel": ("channel", []),
         "location": ("location", []),
         "direction": ("direction", []),
         "ne": ("electron_density_integrated", ["t"]),
     },
     "get_equilibrium": {
-        "t": ("time", []),
-        "psin": ("poloidal_flux_normalised", []),
+        "t": ("t", []),
+        "psin": ("psin", []),
         "index": ("index", []),
         "R": ("R", []),
         "z": ("z", []),
@@ -126,7 +131,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "wp": ("equilibrium_stored_energy", ["t"]),
     },
     "get_radiation": {
-        "t": ("time", []),
+        "t": ("t", []),
         "channel": ("channel", []),
         "label": ("label", []),
         "location": ("location", []),
@@ -134,8 +139,8 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "brightness": ("brightness", ["t", "channel"]),
     },
     "get_zeff": {
-        "t": ("time", []),
-        "rhop": ("rho_poloidal", []),
+        "t": ("t", []),
+        "rhop": ("rhop", []),
         "Rshift": ("major_radius_shift", ["t"]),
         "zeff_avrg": ("effective_charge", ["t"]),
         "zeff_hi": ("effective_charge", ["t"]),
@@ -144,7 +149,7 @@ AVAILABLE_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "R_shift": ("major_radius_shift", ["t"]),
     },
     # "get_astra": {  # TODO: check it all!!!!!!!!!!!!!!!!
-    #     "t":("time", []),
+    #     "t":("t", []),
     #     "psin":("poloidal_flux_normalised", []),
     #     "index":("index", []),
     #     "psi_r":("R", []),

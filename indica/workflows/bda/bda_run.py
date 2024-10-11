@@ -47,7 +47,7 @@ ERROR_FUNCTIONS = {
     "ts.ne": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "ts.te": lambda x: x * 0 + 0.05 * x.max(dim="channel"),
     "efit.wp": lambda x: x * 0.10,
-    "xrcs.raw_spectra": lambda x: x * 0.05
+    "xrcs.spectra_raw": lambda x: x * 0.05
     + 0.01 * x.max(dim="wavelength")
     + (
         x.where(
@@ -149,7 +149,7 @@ def bda_run(  # noqa: C901
             .interp(
                 t=plasma.t,
             )
-            .interp(rho_poloidal=plasma.rho)
+            .interp(rhop=plasma.rho)
         )
         te = (
             ppts_profs["te_rho"]
@@ -159,7 +159,7 @@ def bda_run(  # noqa: C901
             .interp(
                 t=plasma.t,
             )
-            .interp(rho_poloidal=plasma.rho)
+            .interp(rhop=plasma.rho)
         )
         plasma_profiler.set_profiles(
             {
@@ -286,7 +286,7 @@ def bda_run(  # noqa: C901
     if "xrcs" in reader.binned_data.keys():
         more_model_settings = {
             "xrcs": {
-                "window": reader.binned_data["xrcs"]["raw_spectra"].wavelength,
+                "window": reader.binned_data["xrcs"]["spectra_raw"].wavelength,
                 "background": reader.binned_data["xrcs"].get("background", 0),
             },
         }
@@ -305,7 +305,7 @@ def bda_run(  # noqa: C901
         model_call_kwargs = {
             "xrcs": {
                 "pixel_offset": -1,
-                "norm_spectra": reader.binned_data["xrcs"]["raw_spectra"].max(
+                "norm_spectra": reader.binned_data["xrcs"]["spectra_raw"].max(
                     "wavelength"
                 ),
             }

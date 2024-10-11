@@ -23,6 +23,8 @@ UNITS: Dict[str, str] = {
     "none": "",
     "number": "#",
     "length": "m",
+    "counts": "Counts",
+    "arbitrary": "[a.u]",
     "temperature": "eV",
     "density": "$1/m^3$",
     "particle_source": "$1/m^3 s$",
@@ -61,6 +63,9 @@ UNITS: Dict[str, str] = {
 # Dictionary of Indica datatypes
 #   {"Variable Name" : ("DataArray LongName", "Unit string identifier")}
 DATATYPES: Dict[str, Tuple[str, str]] = {
+    "dim_0": ("dim_0", "none"),
+    "dim_1": ("dim_1", "none"),
+    "dim_2": ("dim_2", "none"),
     "index": ("Index", "none"),
     "label": ("Label", "none"),
     "t": ("Time", "time"),
@@ -70,6 +75,8 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "y": ("y", "length"),
     "z": ("z", "length"),
     "R": ("R", "length"),
+    "z_fit": ("z", "length"),
+    "R_fit": ("R", "length"),
     "location": ("Location", "length"),  # this is an array (x, y, z)
     "direction": ("Direction", "length"),  # this is an array (dx, dy, dz)
     "z_midplane": ("z-midplane", "length"),
@@ -105,7 +112,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "sxr_radiated_power": ("$P_{rad, sxr}$", "power"),
     "brightness": ("Brightness", "brightness"),
     "line_intensity": ("Line intensity", "brightness"),
-    "raw_spectra": ("Spectra", "counts"),
+    "spectra_raw": ("Spectra", "counts"),
     "spectra": ("Spectra", "brightness"),
     "spectra_fit": ("Spectra (fit)", "brightness"),
     "chi_squared": (r"$\chi^2$", "none"),
@@ -121,7 +128,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "poloidal_flux": ("Poloidal flux", "magnetic_flux"),
     "poloidal_flux_axis": ("Poloidal flux (axis)", "magnetic_flux"),
     "poloidal_flux_boundary": ("Poloidal flux (separatrix)", "magnetic_flux"),
-    "poloidal_flux_normalised": ("Normalised poloidal flux", "magnetic_flux"),
+    "psin": ("Normalised poloidal flux", "magnetic_flux"),
     "toroidal_flux": ("Toroidal flux", "magnetic_flux"),
     "major_radius_hfs": ("$R_{HFS}$", "length"),
     "major_radius_lfs": ("$R_{LFS}$", "length"),
@@ -133,7 +140,8 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "z_geometric": ("$z_{geo}$", "length"),
     "z_magnetic_axis": ("$z_{mag}$", "length"),
     "z_boundary": ("$z_{boundary}$", "length"),
-    "rho_poloidal": (r"$\rho_{pol}$", "none"),
+    "rhop": (r"$\rho_{pol}$", "none"),
+    "rhop_fit": (r"$\rho_{pol}$", "none"),
     "rho_toroidal": (r"$\rho_{tor}$", "none"),
     "major_radius_magnetic_axis": ("$R_{mag}$", "length"),
     "major_radius_geometric": ("$R_{geo}$", "length"),

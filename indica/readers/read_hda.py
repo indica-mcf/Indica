@@ -38,9 +38,7 @@ def read_hda_data(
     _rhop, _, _, _ = reader._get_data(
         uid, instrument, ".PROFILES.PSI_NORM:RHOP", revision
     )
-    rhop = DataArray(
-        _rhop, coords=[("rho_poloidal", _rhop)], attrs={"long_name": "Rhop"}
-    )
+    rhop = DataArray(_rhop, coords=[("rhop", _rhop)], attrs={"long_name": "Rhop"})
     _rpos, dims, units, path = reader._get_data(
         uid, instrument, ".PROFILES.R_MIDPLANE:RPOS", revision
     )
@@ -75,7 +73,7 @@ def read_hda_data(
                 elif sub_path == ".GLOBAL":
                     coords = [("t", time)]
                 elif sub_path == ".PROFILES.PSI_NORM":
-                    coords = [("t", time), ("rho_poloidal", rhop)]
+                    coords = [("t", time), ("rhop", rhop)]
                 elif sub_path == ".PROFILES.R_MIDPLANE":
                     coords = [("t", time), ("R", rpos)]
 

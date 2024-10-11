@@ -17,14 +17,6 @@ except ImportError:
     pass
 
 try:
-    from .st40conf import ST40Conf
-
-    __all__ += ["ST40Conf"]
-except ImportError as e:
-    print(e)
-    pass
-
-try:
     from .mdsutils import MDSUtils
 
     __all__ += ["MDSUtils"]

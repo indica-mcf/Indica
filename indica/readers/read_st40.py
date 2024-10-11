@@ -47,7 +47,7 @@ FILTER_LIMITS: Dict[str, Dict[str, tuple]] = {
         "te_kw": (0, np.inf),
         "te_n3w": (0, np.inf),
         "spectra": (0, np.inf),
-        "raw_spectra": (0, np.inf),
+        "spectra_raw": (0, np.inf),
     },
     "brems": {"brightness": (0, np.inf)},
     "halpha": {"brightness": (0, np.inf)},
@@ -76,7 +76,7 @@ FILTER_COORDS: Dict[str, Dict[str, tuple]] = {
     "cxff_tws_b": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
     "xrcs": {
         "spectra": ("wavelength", (0.0, np.inf)),
-        "raw_spectra": ("wavelength", (0.0, np.inf)),
+        "spectra_raw": ("wavelength", (0.0, np.inf)),
     },
     "ts": {"te": ("channel", (0, np.inf)), "ne": ("channel", (0, np.inf))},
 }

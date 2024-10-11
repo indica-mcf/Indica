@@ -252,20 +252,20 @@ class BayesWorkflow:
         }
 
         result["GLOBAL"] = {
-            "VOLUME": self.plasma_profiler.plasma.volume.max(dim="rho_poloidal"),
+            "VOLUME": self.plasma_profiler.plasma.volume.max(dim="rhop"),
             "TI0": self.blobs["ion_temperature"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .median(dim="sample_idx"),
             "TE0": self.blobs["electron_temperature"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .median(dim="sample_idx"),
             "NE0": self.blobs["electron_density"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .median(dim="sample_idx"),
             "NI0": self.blobs[
                 "ion_density"
             ]  # TODO: where to concat the impurity_density onto this
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .median(dim="sample_idx"),
             "WP": self.blobs["wp"].median(dim="sample_idx"),
             "WTH": self.blobs["wth"].median(dim="sample_idx"),
@@ -274,22 +274,22 @@ class BayesWorkflow:
             .median(dim="sample_idx")
             .mean(dim="R"),
             "NNEUTR0": self.blobs["neutral_density"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .median(dim="sample_idx"),
             "NNEUTRB": self.blobs["neutral_density"]
-            .sel(rho_poloidal=1, method="nearest")
+            .sel(rhop=1, method="nearest")
             .median(dim="sample_idx"),
             "TI0_ERR": self.blobs["ion_temperature"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .std(dim="sample_idx"),
             "TE0_ERR": self.blobs["electron_temperature"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .std(dim="sample_idx"),
             "NE0_ERR": self.blobs["electron_density"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .std(dim="sample_idx"),
             "NI0_ERR": self.blobs["ion_density"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .std(dim="sample_idx"),
             "WTH_ERR": self.blobs["wth"].std(dim="sample_idx"),
             "WP_ERR": self.blobs["wp"].std(dim="sample_idx"),
@@ -298,16 +298,16 @@ class BayesWorkflow:
             .std(dim="sample_idx")
             .mean(dim="R"),
             "NNEUTR0_ERR": self.blobs["neutral_density"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .std(dim="sample_idx"),
             "NNEUTRB_ERR": self.blobs["neutral_density"]
-            .sel(rho_poloidal=1, method="nearest")
+            .sel(rhop=1, method="nearest")
             .std(dim="sample_idx"),
             "VTOR0": self.blobs["toroidal_rotation"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .median(dim="sample_idx"),
             "VTOR0_ERR": self.blobs["toroidal_rotation"]
-            .sel(rho_poloidal=0, method="nearest")
+            .sel(rhop=0, method="nearest")
             .std(dim="sample_idx"),
         }
         return result

@@ -413,12 +413,8 @@ class CoordinateTransform(ABC):
         if hasattr(self, "equilibrium"):
             angles = np.linspace(0.0, 2 * np.pi, npts)
             rho_equil = self.equilibrium.rho.sel(t=t, method="nearest")
-            R_hfs = self.equilibrium.rmji.sel(
-                t=t, rho_poloidal=1, method="nearest"
-            ).values
-            R_lfs = self.equilibrium.rmjo.sel(
-                t=t, rho_poloidal=1, method="nearest"
-            ).values
+            R_hfs = self.equilibrium.rmji.sel(t=t, rhop=1, method="nearest").values
+            R_lfs = self.equilibrium.rmjo.sel(t=t, rhop=1, method="nearest").values
             x_plasma_inner = R_hfs * np.cos(angles)
             x_plasma_outer = R_lfs * np.cos(angles)
             y_plasma_inner = R_hfs * np.sin(angles)

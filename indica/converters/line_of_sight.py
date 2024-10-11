@@ -612,13 +612,13 @@ class LineOfSightTransform(CoordinateTransform):
             z_ = self.z
 
             along_los = profile_to_map.interp(R=R_, z=z_).T
-        elif "rho_poloidal" in dims or "rho_toroidal" in dims:
+        elif "rhop" in dims or "rho_toroidal" in dims:
             rho_ = self.rho
             if "theta" in dims:
                 theta_ = self.theta
-                along_los = profile.interp(rho_poloidal=rho_, theta=theta_)
+                along_los = profile.interp(rhop=rho_, theta=theta_)
             else:
-                along_los = profile.interp(rho_poloidal=rho_)
+                along_los = profile.interp(rhop=rho_)
 
             if limit_to_sep:
                 along_los = xr.where(
@@ -729,7 +729,7 @@ def example_run(
 ):
     from indica.models.plasma import example_plasma
     from indica.equilibrium import fake_equilibrium
-    from indica.readers import ST40Conf
+    from indica.configs.readers.st40conf import ST40Conf
 
     if plasma is None:
         plasma = example_plasma(pulse=pulse)

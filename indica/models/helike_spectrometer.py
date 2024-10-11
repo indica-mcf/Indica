@@ -197,7 +197,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 dims=_spectra.dims,
                 coords=dict(
                     wavelength=self.window[self.window < 1].wavelength,
-                    rho_poloidal=_spectra.rho_poloidal,
+                    rhop=_spectra.rhop,
                     t=_spectra.t,
                 ),
             )
@@ -207,7 +207,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 dims=_spectra.dims,
                 coords=dict(
                     wavelength=self.window[self.window < 1].wavelength,
-                    rho_poloidal=_spectra.rho_poloidal,
+                    rhop=_spectra.rhop,
                 ),
             )
         spectra = xr.concat([_spectra, empty], "wavelength")
@@ -330,14 +330,14 @@ class HelikeSpectrometer(AbstractDiagnostic):
     def _build_bckc_dictionary(self):
         self.bckc = {}
         if hasattr(self, "measured_spectra"):
-            self.bckc["raw_spectra"] = self.measured_spectra
+            self.bckc["spectra_raw"] = self.measured_spectra
 
         if self.moment_analysis:
             for quantity in self.quantities:
                 datatype = self.quantities[quantity]
 
                 if quantity in [
-                    "raw_spectra",
+                    "spectra_raw",
                     "spectra",
                     "background",
                 ]:
@@ -494,14 +494,14 @@ class HelikeSpectrometer(AbstractDiagnostic):
         plt.figure()
         channels = self.transform.x1
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
-        if "raw_spectra" in self.bckc.keys():
-            raw_spectra = self.bckc["raw_spectra"]
-            if "channel" in raw_spectra.dims:
-                raw_spectra = raw_spectra.sel(channel=np.median(channels))
+        if "spectra_raw" in self.bckc.keys():
+            spectra_raw = self.bckc["spectra_raw"]
+            if "channel" in spectra_raw.dims:
+                spectra_raw = spectra_raw.sel(channel=np.median(channels))
             for i, t in enumerate(np.array(self.t, ndmin=1)):
                 plt.plot(
-                    raw_spectra.wavelength,
-                    raw_spectra.sel(t=t),
+                    spectra_raw.wavelength,
+                    spectra_raw.sel(t=t),
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
@@ -514,14 +514,14 @@ class HelikeSpectrometer(AbstractDiagnostic):
         plt.figure()
         for i, t in enumerate(self.t):
             plt.plot(
-                self.plasma.ion_temperature.rho_poloidal,
+                self.plasma.ion_temperature.rhop,
                 self.plasma.ion_temperature.sel(
                     t=t,
                 ),
                 color=cols_time[i],
             )
             plt.plot(
-                self.plasma.electron_temperature.rho_poloidal,
+                self.plasma.electron_temperature.rhop,
                 self.plasma.electron_temperature.sel(t=t),
                 color=cols_time[i],
                 linestyle="dashed",
@@ -537,14 +537,14 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 if "t" in self.line_emission["w"].dims:
                     for i, t in enumerate(self.plasma.t.values):
                         plt.plot(
-                            self.line_emission["w"].rho_poloidal,
+                            self.line_emission["w"].rhop,
                             self.line_emission["w"].sel(t=t),
                             color=cols_time[i],
                             label=f"t={t:1.2f} s",
                         )
                 else:
                     plt.plot(
-                        self.line_emission["w"].rho_poloidal,
+                        self.line_emission["w"].rhop,
                         self.line_emission["w"],
                         color=cols_time[i],
                         label=f"t={t:1.2f} s",

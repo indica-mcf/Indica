@@ -180,7 +180,7 @@ def coord_array(coord_vals: ArrayLike, coord_name: str):
         else "time"
         if coord_name == "t"
         else "norm_flux_pol"
-        if coord_name == "rho_poloidal"
+        if coord_name == "rhop"
         else "norm_flux_tor"
         if coord_name == "rho_toroidal"
         else coord_name,
@@ -250,7 +250,7 @@ def format_coord(data: LabeledArray, datatype: str):
 def format_dataarray(
     data: LabeledArray,
     datatype: str,
-    coords: Dict[str, Any] = None,
+    coords: Dict[str, Any] = {},
     make_copy: bool = False,
 ):
     """
@@ -283,8 +283,7 @@ def format_dataarray(
         }
         data_array = DataArray(_data, coords=processed_coords, name=datatype)
     else:
-        if type(_data) != DataArray:
-            raise ValueError("data must be a DataArray if coordinates are not given")
+        data_array = DataArray(_data, name=datatype)
 
     assign_datatype(data_array, datatype)
     for dim in data_array.dims:

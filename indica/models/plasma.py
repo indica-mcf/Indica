@@ -80,9 +80,9 @@ class Plasma:
             elements += (elem,)
         self.elements = elements
         self.machine_dimensions = machine_dimensions
-        self.rho_type = "rho_poloidal"
-        if self.rho_type != "rho_poloidal":
-            print_like("Only rho_poloidal in input for the time being...")
+        self.rho_type = "rhop"
+        if self.rho_type != "rhop":
+            print_like("Only rhop in input for the time being...")
             raise AssertionError
 
         self.build_atomic_data()
@@ -96,16 +96,16 @@ class Plasma:
         """
         self.equilibrium = equilibrium
         self._volume.values = self.convert_in_time(
-            self.equilibrium.volume.interp(rho_poloidal=self.rho)
+            self.equilibrium.volume.interp(rhop=self.rho)
         )
         self._area.values = self.convert_in_time(
-            self.equilibrium.area.interp(rho_poloidal=self.rho)
+            self.equilibrium.area.interp(rhop=self.rho)
         )
         self._rmjo.values = self.convert_in_time(
-            self.equilibrium.rmjo.interp(rho_poloidal=self.rho)
+            self.equilibrium.rmjo.interp(rhop=self.rho)
         )
         self._rmji.values = self.convert_in_time(
-            self.equilibrium.rmji.interp(rho_poloidal=self.rho)
+            self.equilibrium.rmji.interp(rhop=self.rho)
         )
         self._rmag.values = self.convert_in_time(self.equilibrium.rmag)
         self._zmag.values = self.convert_in_time(self.equilibrium.zmag)
@@ -283,7 +283,7 @@ class Plasma:
             ion_charge = format_coord(np.arange(nz), "ion_charge")
             coords3d_fract = {
                 "t": self.t,
-                "rho_poloidal": self.rho,
+                "rhop": self.rho,
                 "ion_charge": ion_charge,
             }
             data3d_fz = np.full((len(self.t), len(self.rho), nz), 0.0)
@@ -695,7 +695,7 @@ class Plasma:
             if flat_zeff and np.count_nonzero(_imp_dens) != 0:
                 meanz = self.meanz.sel(element=element).sel(t=t)
                 _zeff = _imp_dens * meanz**2 / el_dens
-                zeff_core = _zeff.where(self.rho < 0.5).mean("rho_poloidal")
+                zeff_core = _zeff.where(self.rho < 0.5).mean("rhop")
                 imp_dens = el_dens * zeff_core / meanz**2
             else:
                 imp_dens = _imp_dens
@@ -894,11 +894,11 @@ class PlasmaProfiler:
         rho = _rho.swap_dims({"index": "R"}).drop_vars("index")
 
         for key, value in profiles.items():
-            if "rho_poloidal" not in value.dims:
+            if "rhop" not in value.dims:
                 continue
             if not hasattr(self.plasma, key):
                 continue
-            midplane_profiles[key] = value.interp(rho_poloidal=rho)
+            midplane_profiles[key] = value.interp(rhop=rho)
         return midplane_profiles
 
     def plasma_attributes(self):
@@ -915,8 +915,8 @@ class PlasmaProfiler:
 
         self.plasma.toroidal_rotation = (
             self.plasma.ion_temperature
-            / self.plasma.ion_temperature.max("rho_poloidal")
-            * self.plasma.toroidal_rotation.max("rho_poloidal")
+            / self.plasma.ion_temperature.max("rhop")
+            * self.plasma.toroidal_rotation.max("rhop")
         )
 
     def __call__(self, parameters: dict = None, t=None):

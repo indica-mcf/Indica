@@ -48,16 +48,12 @@ def example_tomo_asymmetry(
         ion_density_2d = example_poloidal_asymmetry()
     else:
         rho_2d = PLASMA.equilibrium.rho.interp(t=PLASMA.t)
-        ion_density_2d = PLASMA.ion_density.interp(rho_poloidal=rho_2d)
+        ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
 
     imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
-    el_density_2d = PLASMA.electron_density.interp(
-        rho_poloidal=imp_density_2d.rho_poloidal
-    )
+    el_density_2d = PLASMA.electron_density.interp(rhop=imp_density_2d.rhop)
     lz_tot_2d = (
-        PLASMA.lz_tot[element]
-        .sum("ion_charge")
-        .interp(rho_poloidal=imp_density_2d.rho_poloidal)
+        PLASMA.lz_tot[element].sum("ion_charge").interp(rhop=imp_density_2d.rhop)
     )
     phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
     los_integral = LOS_TRANSFORM.integrate_on_los(
@@ -149,8 +145,8 @@ def example_tomo_asymmetry(
                         .sel(z=0, method="nearest")
                         .interp(R=rho_lfs.R)
                     )
-                    .assign_coords(rho_poloidal=("R", rho_lfs.data))
-                    .swap_dims({"R": "rho_poloidal"})
+                    .assign_coords(rhop=("R", rho_lfs.data))
+                    .swap_dims({"R": "rhop"})
                 )
                 profile_1d_bckc = (
                     (
@@ -158,8 +154,8 @@ def example_tomo_asymmetry(
                         .sel(z=0, method="nearest")
                         .interp(R=rho_lfs.R)
                     )
-                    .assign_coords(rho_poloidal=("R", rho_lfs.data))
-                    .swap_dims({"R": "rho_poloidal"})
+                    .assign_coords(rhop=("R", rho_lfs.data))
+                    .swap_dims({"R": "rhop"})
                 )
                 profile_1d.plot(
                     **kwargs_phantom,
@@ -184,16 +180,12 @@ def example_tomo_1D(
         ion_density_2d = example_poloidal_asymmetry()
     else:
         rho_2d = PLASMA.equilibrium.rho.interp(t=PLASMA.t)
-        ion_density_2d = PLASMA.ion_density.interp(rho_poloidal=rho_2d)
+        ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
 
     imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
-    el_density_2d = PLASMA.electron_density.interp(
-        rho_poloidal=imp_density_2d.rho_poloidal
-    )
+    el_density_2d = PLASMA.electron_density.interp(rhop=imp_density_2d.rhop)
     lz_tot_2d = (
-        PLASMA.lz_tot[element]
-        .sum("ion_charge")
-        .interp(rho_poloidal=imp_density_2d.rho_poloidal)
+        PLASMA.lz_tot[element].sum("ion_charge").interp(rhop=imp_density_2d.rhop)
     )
     phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
     los_integral = LOS_TRANSFORM.integrate_on_los(
@@ -225,11 +217,11 @@ def example_tomo_1D(
     tomo()
 
     inverted_emissivity = DataArray(
-        tomo.emiss, coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)]
+        tomo.emiss, coords=[("t", tomo.tvec), ("rhop", tomo.rho_grid_centers)]
     )
     inverted_error = DataArray(
         tomo.emiss_err,
-        coords=[("t", tomo.tvec), ("rho_poloidal", tomo.rho_grid_centers)],
+        coords=[("t", tomo.tvec), ("rhop", tomo.rho_grid_centers)],
     )
     inverted_emissivity = inverted_emissivity.assign_coords(
         error=(inverted_emissivity.dims, inverted_error.data)

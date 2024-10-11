@@ -88,7 +88,7 @@ def plasma_code(
     runs = list(data.keys())
 
     print("Initializing Plasma class and building default atomic data")
-    n_rad = len(data[runs[0]]["ne"].rho_poloidal)
+    n_rad = len(data[runs[0]]["ne"].rhop)
     main_ion = "h"
     impurities = ("ar", "c", "he")
     impurity_concentration = (0.001, 0.03, 0.01)
@@ -113,32 +113,29 @@ def plasma_code(
             _plasma.set_equilibrium(equilibrium[run])
 
         _data = data[run]
-        Te = _data["te"].interp(rho_poloidal=_plasma.rho, t=_plasma.t) * 1.0e3
+        Te = _data["te"].interp(rhop=_plasma.rho, t=_plasma.t) * 1.0e3
         _plasma.electron_temperature.values = Te.values
 
-        Ne = _data["ne"].interp(rho_poloidal=_plasma.rho, t=_plasma.t) * 1.0e19
+        Ne = _data["ne"].interp(rhop=_plasma.rho, t=_plasma.t) * 1.0e19
         _plasma.electron_density.values = Ne.values
 
-        Ti = _data["ti"].interp(rho_poloidal=_plasma.rho, t=_plasma.t) * 1.0e3
+        Ti = _data["ti"].interp(rhop=_plasma.rho, t=_plasma.t) * 1.0e3
         for element in _plasma.elements:
             _plasma.ion_temperature.loc[dict(element=element)] = Ti.values
         for i, impurity in enumerate(_plasma.impurities):
-            Nimp = (
-                _data[f"niz{i+1}"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
-                * 1.0e19
-            )
+            Nimp = _data[f"niz{i+1}"].interp(rhop=_plasma.rho, t=_plasma.t) * 1.0e19
             _plasma.impurity_density.loc[dict(element=impurity)] = Nimp.values
 
-        Nf = _data["nf"].interp(rho_poloidal=_plasma.rho, t=_plasma.t) * 1.0e19
+        Nf = _data["nf"].interp(rhop=_plasma.rho, t=_plasma.t) * 1.0e19
         _plasma.fast_density.values = Nf.values
 
-        Nn = _data["nn"].interp(rho_poloidal=_plasma.rho, t=_plasma.t) * 1.0e19
+        Nn = _data["nn"].interp(rhop=_plasma.rho, t=_plasma.t) * 1.0e19
         _plasma.neutral_density.values = Nn.values
 
-        Pblon = _data["pblon"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
+        Pblon = _data["pblon"].interp(rhop=_plasma.rho, t=_plasma.t)
         _plasma.pressure_fast_parallel.values = Pblon.values
 
-        Pbper = _data["pbper"].interp(rho_poloidal=_plasma.rho, t=_plasma.t)
+        Pbper = _data["pbper"].interp(rhop=_plasma.rho, t=_plasma.t)
         _plasma.pressure_fast_perpendicular.values = Pbper.values
 
     return plasma

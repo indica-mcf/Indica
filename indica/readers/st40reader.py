@@ -50,23 +50,24 @@ class ST40Reader(DataReader):
         pulse: int,
         tstart: float,
         tend: float,
-        conf=ST40Conf,
+        machine_conf=ST40Conf,
         reader_utils=MDSUtils,
         server: str = "smaug",
         tree: str = "ST40",
         verbose: bool = False,
         default_error: float = 0.05,
+        **kwargs: Any,
     ):
         super().__init__(
             pulse,
             tstart,
             tend,
-            conf=conf,
+            machine_conf=machine_conf,
             reader_utils=reader_utils,
             server=server,
             verbose=verbose,
             default_error=default_error,
-            tree=tree,
+            **kwargs,
         )
         self.reader_utils = self.reader_utils(pulse, server, tree)
 
@@ -85,6 +86,7 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Dict[str, Any]:
+        database_results["channel"] = np.arange(len(database_results["R"]))
         return database_results
 
     def _get_charge_exchange(
@@ -94,7 +96,7 @@ class ST40Reader(DataReader):
         database_results["channel"] = np.arange(len(database_results["x"]))
         database_results["element"] = ""
         if "wavelength" in database_results.keys():
-            if len(np.size(database_results["wavelength"])) > 1:
+            if len(np.shape(database_results["wavelength"])) > 1:
                 database_results["wavelength"] = database_results["wavelength"][0, :]
             database_results["pixel"] = np.arange(len(database_results["wavelength"]))
         return database_results
@@ -119,7 +121,7 @@ class ST40Reader(DataReader):
         database_results["location"] = database_results["location"][has_data, :]
         database_results["direction"] = database_results["direction"][has_data, :]
         database_results["channel"] = np.arange(database_results["location"][:, 0].size)
-        if len(np.size(database_results["wavelength"])) > 1:
+        if len(np.shape(database_results["wavelength"])) > 1:
             database_results["wavelength"] = database_results["wavelength"][0, :]
 
         rearrange_geometry(database_results["location"], database_results["direction"])
@@ -129,11 +131,14 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Dict[str, Any]:
-        database_results["psi"] = database_results.reshape(
+        # Add boundary index
+        database_results["index"] = np.arange(np.size(database_results["rbnd"][0, :]))
+        # Re-shape psi matrix
+        database_results["psi"] = database_results["psi"].reshape(
             (
                 len(database_results["t"]),
-                len(database_results["psi_z"]),
-                len(database_results["psi_r"]),
+                len(database_results["z"]),
+                len(database_results["R"]),
             )
         )
         return database_results
@@ -182,8 +187,6 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Dict[str, Any]:
-        database_results["channel"] = np.arange(database_results["location"][:, 0].size)
-        rearrange_geometry(database_results["location"], database_results["direction"])
         return database_results
 
     def close(self):

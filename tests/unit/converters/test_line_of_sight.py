@@ -40,15 +40,13 @@ class TestHelike:
         self.los_transform.set_equilibrium(equil)
 
         _profile_1d = np.abs(np.linspace(-1, 0))
-        coords = [("rho_poloidal", np.linspace(0, 1.0))]
+        coords = [("rhop", np.linspace(0, 1.0))]
         self.profile_1d = (
             DataArray(_profile_1d, coords=coords)
             .expand_dims({"t": equil.t.size})
             .assign_coords(t=equil.t)
         )
-        self.profile_2d = self.profile_1d.interp(rho_poloidal=equil.rho).drop(
-            "rho_poloidal"
-        )
+        self.profile_2d = self.profile_1d.interp(rhop=equil.rho).drop("rhop")
 
     def test_convert_to_xy(self):
         x1 = self.x1[0]

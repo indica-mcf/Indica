@@ -32,7 +32,7 @@ def fit_profile(
 
     yspl = xr.DataArray(
         np.empty((len(xspl), len(ydata.t))),
-        coords=[("rho_poloidal", xspl), ("t", ydata.t.values)],
+        coords=[("rhop", xspl), ("t", ydata.t.values)],
     )
     for t in ydata.t.values:
         _x = xdata.sel(t=t).values

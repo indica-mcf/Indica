@@ -138,7 +138,7 @@ class SXRcamera(AbstractDiagnostic):
         plt.figure()
         for i, t in enumerate(self.t.values):
             plt.plot(
-                self.emissivity.rho_poloidal,
+                self.emissivity.rhop,
                 self.emissivity.sel(t=t),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",

@@ -30,12 +30,10 @@ class TestPlasmaProfiler:
 
     def test_change_plasma_profiles(self):
         self.plasma_profiler({"electron_density.y0": 1.02e19})
-        assert all(self.plasma.electron_density.sel(rho_poloidal=0) == 1.02e19)
+        assert all(self.plasma.electron_density.sel(rhop=0) == 1.02e19)
 
         self.plasma_profiler({"impurity_density:ar.y0": 1.02e19})
-        assert all(
-            self.plasma.impurity_density.sel(element="ar", rho_poloidal=0) == 1.02e19
-        )
+        assert all(self.plasma.impurity_density.sel(element="ar", rhop=0) == 1.02e19)
 
     def test_change_plasma_profiles_outside_time_range_fails(self):
         with pytest.raises(KeyError):
