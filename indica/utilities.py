@@ -19,6 +19,7 @@ import matplotlib.pylab as plt
 import numpy as np
 import periodictable
 from scipy.interpolate import CubicSpline
+import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
 
@@ -182,7 +183,7 @@ def coord_array(coord_vals: ArrayLike, coord_name: str):
         else "norm_flux_pol"
         if coord_name == "rhop"
         else "norm_flux_tor"
-        if coord_name == "rho_toroidal"
+        if coord_name == "rhot"
         else coord_name,
         "plasma",
     )
@@ -230,6 +231,63 @@ def broadcast_spline(
             input_core_dims=[[]],
             output_core_dims=[spline_dims],
         ).assign_coords({k: v for k, v in spline_coords.items()})
+
+
+def build_dataarrays(
+    data: Dict[str, LabeledArray],
+    available_quantities: Dict[str, Tuple[str, list]],
+    tstart: float = None,
+    tend: float = None,
+    transform=None,
+    include_error: bool = True,
+    verbose: bool = False,
+) -> Dict[str, DataArray]:
+    """Organizes data in DataArray format with coordinates, long_name & units"""
+    data_arrays: dict = {}
+    for quantity in available_quantities.keys():
+        if quantity not in data.keys():
+            continue
+
+        # Build coordinate dictionary
+        datatype, dims = available_quantities[quantity]
+        if verbose:
+            print(f"  {quantity} - {datatype}")
+
+        coords: dict = {}
+        for dim in dims:
+            coords[dim] = data[dim]
+
+        # Build DataArray
+        _data = format_dataarray(data[quantity], datatype, coords)
+        if "t" in _data.dims and tstart is not None and tend is not None:
+            _data = _data.sel(t=slice(tstart, tend))
+        _data = _data.sortby(dims)
+
+        # Build error DataArray and assign as coordinate
+        if include_error and len(dims) != 0:
+            _error = xr.zeros_like(_data)
+            if quantity + "_error" in data:
+                _error = format_dataarray(data[quantity + "_error"], datatype, coords)
+                if "t" in _error.dims and tstart is not None and tend is not None:
+                    _error = _error.sel(t=slice(tstart, tend))
+            _data = _data.assign_coords(error=(_data.dims, _error.data))
+
+        # Check that times are unique
+        if "t" in _data:
+            t_unique, ind_unique = np.unique(_data["t"], return_index=True)
+            if len(_data["t"]) != len(t_unique):
+                _data = _data.isel(t=ind_unique)
+
+        # Add attributes and assign to dictionary
+        if transform is not None:
+            _data.attrs["transform"] = transform
+        if "uid" in _data:
+            _data.attrs["uid"] = data["uid"]
+        if "revision" in _data:
+            _data.attrs["revision"] = data["revision"]
+
+        data_arrays[quantity] = _data
+    return data_arrays
 
 
 def format_coord(data: LabeledArray, datatype: str):

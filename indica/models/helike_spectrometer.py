@@ -4,13 +4,13 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.available_quantities import READER_QUANTITIES
 from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.readers.marchuk import MARCHUKReader
-from indica.utilities import assign_datatype
+from indica.utilities import build_dataarrays
 from indica.utilities import get_element_info
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
@@ -67,6 +67,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
 
         self.name = name
         self.instrument_method = instrument_method
+        self.quantities = READER_QUANTITIES[self.instrument_method]
         self.element: str = element
         z_elem, a_elem, name_elem, _ = get_element_info(element)
         self.ion_charge: int = z_elem - 2  # He-like
@@ -328,49 +329,28 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.measured_Nimp = measured_Nimp
 
     def _build_bckc_dictionary(self):
-        self.bckc = {}
+        bckc = {
+            "t": self.t,
+            "channel": np.arange(len(self.transform.x1)),
+            "location": self.transform.origin,
+            "direction": self.transform.direction,
+        }
         if hasattr(self, "measured_spectra"):
             self.bckc["spectra_raw"] = self.measured_spectra
-
         if self.moment_analysis:
-            for quantity in self.quantities:
-                datatype = self.quantities[quantity]
+            for line in self.measured_intensity.keys():
+                self.bckc[f"te_{line}"] = self.measured_Te[line]
+                self.bckc[f"ti_{line}"] = self.measured_Ti[line]
+                self.bckc[f"int_{line}"] = self.measured_intensity[line]
+                self.bckc[f"int_{line}"].attrs["emiss"] = self.line_emission[line]
+                self.bckc[f"int_{line}"].attrs["pos"] = self.pos[line]
+                self.bckc[f"int_{line}"].attrs["pos_err_in"] = self.pos_err_in[line]
+                self.bckc[f"int_{line}"].attrs["pos_err_out"] = self.pos_err_out[line]
+            self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
+            self.bckc["int_n3/int_w"] = self.bckc["int_n3"] / self.bckc["int_w"]
+            self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
 
-                if quantity in [
-                    "spectra_raw",
-                    "spectra",
-                    "background",
-                ]:
-                    continue
-
-                line = str(quantity.split("_")[1])
-                if "int" in quantity and line in self.measured_intensity.keys():
-                    self.bckc[quantity] = self.measured_intensity[line]
-                elif "te" in quantity and line in self.measured_Te.keys():
-                    self.bckc[quantity] = self.measured_Te[line]
-                elif "ti" in quantity and line in self.measured_Ti.keys():
-                    self.bckc[quantity] = self.measured_Ti[line]
-                else:
-                    print(
-                        f"{quantity} not available in model "
-                        f"for {self.instrument_method}"
-                    )
-                    continue
-
-                self.bckc[quantity].attrs["emiss"] = self.line_emission[line]
-                assign_datatype(self.bckc[quantity], datatype)
-
-                if line in self.pos.keys():
-                    self.bckc[quantity].attrs["pos"] = self.pos[line]
-                    self.bckc[quantity].attrs["pos_err_in"] = self.pos_err_in[line]
-                    self.bckc[quantity].attrs["pos_err_out"] = self.pos_err_out[line]
-
-            if "int_k" in self.bckc.keys() and "int_w" in self.bckc.keys():
-                self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
-            if "int_n3" in self.bckc.keys() and "int_w" in self.bckc.keys():
-                self.bckc["int_n3/int_w"] = self.bckc["int_n3"] / self.bckc["int_w"]
-            if "int_n3" in self.bckc.keys() and "int_tot" in self.bckc.keys():
-                self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
+        self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 
     def __call__(
         self,
@@ -457,7 +437,6 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.Fz = Fz
         self.Ti = Ti
         self.Nimp = Nimp
-        self.quantities: dict = AVAILABLE_QUANTITIES[self.instrument_method]
 
         # TODO: check that inputs have compatible dimensions/coordinates
         self._calculate_intensity()

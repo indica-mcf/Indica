@@ -10,6 +10,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.available_quantities import PLASMA_QUANTITIES
 from indica.converters.time import convert_in_time_dt
 from indica.converters.time import get_tlabels_dt
 from indica.equilibrium import Equilibrium
@@ -17,7 +18,7 @@ from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import default_atomic_data
 import indica.physics as ph
 from indica.profilers.profiler_base import ProfilerBase
-from indica.utilities import format_coord
+from indica.utilities import build_dataarrays
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
 from indica.utilities import print_like
@@ -85,8 +86,12 @@ class Plasma:
             print_like("Only rhop in input for the time being...")
             raise AssertionError
 
-        self.build_atomic_data()
+        self.public_attributes = PLASMA_QUANTITIES["public_attrs"]
+        self.private_attributes = PLASMA_QUANTITIES["private_attrs"]
+        self.all_attributes = self.public_attributes.update(self.private_attributes)
+
         self.initialize_variables(n_rad, n_R, n_z)
+        self.build_atomic_data()
 
         self.equilibrium: Equilibrium
 
@@ -119,192 +124,83 @@ class Plasma:
         Initialize all class attributes
         """
 
-        # Machine attributes
+        # Coordinates
+        attrs_data: dict = {}
         R0, R1 = self.machine_dimensions[0]
         z0, z1 = self.machine_dimensions[1]
-        self.R = format_coord(np.linspace(R0, R1, n_R), "R")
-        self.z = format_coord(np.linspace(z0, z1, n_z), "z")
-
-        index = np.arange(n_R)
-        R_midplane = np.linspace(self.R.min(), self.R.max(), n_R)
-        z_midplane = np.full_like(R_midplane, 0.0)
-        coords_midplane = {"index": index}
-        self.R_midplane = format_dataarray(R_midplane, "R_midplane", coords_midplane)
-        self.z_midplane = format_dataarray(z_midplane, "z_midplane", coords_midplane)
-
-        # Time and radial grid
-        self.rho = format_coord(np.linspace(0, 1.0, n_rad), self.rho_type)
-        self.t = format_coord(get_tlabels_dt(self.tstart, self.tend, self.dt), "t")
-        self.time_to_calculate = deepcopy(self.t)
-
-        # Elements (ions and specifics of impurities)
-        element_z, element_a, element_name, element_symbol = [], [], [], []
+        attrs_data["R"] = np.linspace(R0, R1, n_R)
+        attrs_data["z"] = np.linspace(z0, z1, n_z)
+        attrs_data["index"] = np.arange(n_R)
+        attrs_data["R_midplane"] = np.linspace(self.R.min(), self.R.max(), n_R)
+        attrs_data["z_midplane"] = np.full_like(attrs_data["R_midplane"], 0.0)
+        attrs_data["rho"] = np.linspace(0, 1.0, n_rad)
+        attrs_data["t"] = get_tlabels_dt(self.tstart, self.tend, self.dt)
+        attrs_data["time_to_calculate"] = deepcopy(attrs_data["t"])
+        element_z, element_a, element_name, element_symbol, ion_charge = (
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
         for elem in self.elements:
             _z, _a, _name, _symbol = get_element_info(elem)
             element_z.append(_z)
             element_a.append(_a)
             element_name.append(_name)
             element_symbol.append(_symbol)
+        attrs_data["element"] = list(
+            self.element
+        )  # to be harmonised with self.elements....
+        attrs_data["element_z"] = element_z
+        attrs_data["element_a"] = element_a
+        attrs_data["element_name"] = element_name
+        attrs_data["element_symbol"] = element_symbol
 
-        coords_elem = {"element": list(self.elements)}
-        self.element_z = format_dataarray(element_z, "atomic_number", coords_elem)
-        self.element_a = format_dataarray(element_a, "atomic_weight", coords_elem)
-        self.element_name = format_dataarray(element_name, "element_name", coords_elem)
-        self.element_symbol = format_dataarray(
-            element_symbol, "element_symbol", coords_elem
-        )
-
-        # Assign data to variables
-        nt = len(self.t)
-        nr = len(self.rho)
-        nel = len(self.elements)
-        nimp = len(self.impurities)
-        data1d_time = np.zeros(nt)
-        data2d = np.zeros((nt, nr))
-        data2d_elem = np.zeros((nel, nt))
-        data3d = np.zeros((nel, nt, nr))
-        data3d_imp = np.zeros((nimp, nt, nr))
-
-        coords1d_time = {"t": self.t}
-        coords2d = {"t": self.t, self.rho_type: self.rho}
-        coords2d_elem = {"element": list(self.elements), "t": self.t}
-        coords3d = {
-            "element": list(self.elements),
-            "t": self.t,
-            self.rho_type: self.rho,
-        }
-        coords3d_imp = {
-            "element": list(self.impurities),
-            "t": self.t,
-            self.rho_type: self.rho,
-        }
-
-        # Independent plasma quantities
-        self.electron_temperature = format_dataarray(
-            data2d, "electron_temperature", coords2d, make_copy=True
-        )
-        self.electron_density = format_dataarray(
-            data2d, "electron_density", coords2d, make_copy=True
-        )
-        self.neutral_density = format_dataarray(
-            data2d, "neutral_density", coords2d, make_copy=True
-        )
-        self.tau = format_dataarray(data2d, "residence_time", coords2d, make_copy=True)
-        self.ion_temperature = format_dataarray(
-            data2d, "ion_temperature", coords2d, make_copy=True
-        )
-        self.toroidal_rotation = format_dataarray(
-            data2d, "toroidal_rotation", coords2d, make_copy=True
-        )
-        self.impurity_density = format_dataarray(
-            data3d_imp, "impurity_density", coords3d_imp, make_copy=True
-        )
-        self.fast_density = format_dataarray(
-            data2d, "fast_ion_density", coords2d, make_copy=True
-        )
-        self.pressure_fast_parallel = format_dataarray(
-            data2d, "parallel_fast_ion_pressure", coords2d, make_copy=True
-        )
-        self.pressure_fast_perpendicular = format_dataarray(
-            data2d, "perpendicular_fast_ion_pressure", coords2d, make_copy=True
+        # Initialize plasma attributes, public and private (see PLASMA_QUANTITIES)
+        # and create dataarrays excluding ionisation-stage-dependent variables
+        _special = ["fz", "lz_tot", "lz_sxr"]
+        all_quantities = deepcopy(self.all_attributes)
+        for to_pop in _special:
+            all_quantities.pop(to_pop)
+        for quantity in all_quantities:
+            _, dims = all_quantities[quantity]
+            _shape = ()
+            _coords: dict = {}
+            for dim in dims:
+                _coords[dim] = attrs_data[dim]
+                _shape += len(attrs_data[dim])
+            attrs_data[quantity] = np.zeros(shape=_shape)
+        attrs_dataarrays = build_dataarrays(
+            attrs_data, self.quantities, include_error=False
         )
 
-        # Private variables for class property variables
-        self._rmag: DataArray = format_dataarray(
-            data1d_time, "major_radius_magnetic_axis", coords1d_time, make_copy=True
-        )
-        self._zmag: DataArray = format_dataarray(
-            data1d_time, "z_magnetic_axis", coords1d_time, make_copy=True
-        )
-        self._rmji: DataArray = format_dataarray(
-            data2d, "major_radius_hfs", coords2d, make_copy=True
-        )
-        self._rmjo: DataArray = format_dataarray(
-            data2d, "major_radius_lfs", coords2d, make_copy=True
-        )
-        self._rmin: DataArray = format_dataarray(
-            data2d, "minor_radius", coords2d, make_copy=True
-        )
-        self._volume: DataArray = format_dataarray(
-            data2d, "volume", coords2d, make_copy=True
-        )
-        self._area: DataArray = format_dataarray(
-            data2d, "area", coords2d, make_copy=True
-        )
-        self._pressure_fast = format_dataarray(
-            data2d, "total_fast_ion_pressure", coords2d, make_copy=True
-        )
-        self._pressure_el = format_dataarray(
-            data2d, "electron_pressure", coords2d, make_copy=True
-        )
-        self._pressure_th = format_dataarray(
-            data2d, "thermal_pressure", coords2d, make_copy=True
-        )
-        self._pressure_tot = format_dataarray(
-            data2d, "total_pressure", coords2d, make_copy=True
-        )
-        self._pth = format_dataarray(
-            data1d_time, "thermal_pressure_integral", coords1d_time, make_copy=True
-        )
-        self._ptot = format_dataarray(
-            data1d_time, "total_pressure_integral", coords1d_time, make_copy=True
-        )
-        self._wth = format_dataarray(
-            data1d_time, "thermal_stored_energy", coords1d_time, make_copy=True
-        )
-        self._wp = format_dataarray(
-            data1d_time, "total_stored_energy", coords1d_time, make_copy=True
-        )
-        self._zeff = format_dataarray(
-            data3d, "effective_charge", coords3d, make_copy=True
-        )
-        self._ion_density = format_dataarray(
-            data3d, "ion_density", coords3d, make_copy=True
-        )
-        self._meanz = format_dataarray(data3d, "mean_charge", coords3d, make_copy=True)
-        self._total_radiation = format_dataarray(
-            data3d, "total_radiated_power_emission", coords3d, make_copy=True
-        )
-        self._sxr_radiation = format_dataarray(
-            data3d, "sxr_radiated_power_emission", coords3d, make_copy=True
-        )
-        self._prad_tot = format_dataarray(
-            data2d_elem, "total_radiated_power", coords2d_elem, make_copy=True
-        )
-        self._prad_sxr = format_dataarray(
-            data2d_elem, "sxr_radiated_power", coords2d_elem, make_copy=True
-        )
+        # Manually add ionisation-stage-dependent private attributes
+        for quantity in _special:
+            attrs_dataarrays[quantity] = {}
 
-        _fz = {}
-        _lz_tot = {}
-        _lz_sxr = {}
-        for elem in self.elements:
-            nz = self.element_z.sel(element=elem).values + 1
-            ion_charge = format_coord(np.arange(nz), "ion_charge")
-            coords3d_fract = {
-                "t": self.t,
-                "rhop": self.rho,
+        for i, elem in enumerate(attrs_data["element"]):
+            nz = element_z[i]
+            ion_charge = np.arange(nz + 1)
+            _coords = {
+                "t": attrs_data["t"],
+                "rhop": attrs_data["rho"],
                 "ion_charge": ion_charge,
             }
-            data3d_fz = np.full((len(self.t), len(self.rho), nz), 0.0)
-            _fz[elem] = format_dataarray(
-                data3d_fz, "fractional_abundance", coords3d_fract, make_copy=True
+            _data = np.full(
+                (len(_coords["t"]), len(_coords["rho"]), _coords["ion_charge"]), 0.0
             )
-            _lz_tot[elem] = format_dataarray(
-                data3d_fz,
-                "total_radiation_loss_parameter",
-                coords3d_fract,
-                make_copy=True,
-            )
-            _lz_sxr[elem] = format_dataarray(
-                data3d_fz,
-                "sxr_radiation_loss_parameter",
-                coords3d_fract,
-                make_copy=True,
-            )
-        self._fz = _fz
-        self._lz_tot = _lz_tot
-        self._lz_sxr = _lz_sxr
+            for quantity in _special:
+                datatype, _ = self.all_attributes[quantity]
+                attrs_dataarrays[quantity][elem] = format_dataarray(
+                    _data, datatype, _coords, make_copy=True
+                )
+
+        # Assign as attributes
+        for attr in self.public_attributes:
+            setattr(self, attr, attrs_dataarrays[attr])
+        for attr in self.private_attributes:
+            setattr(self, f"_{attr}", attrs_dataarrays[attr])
 
         # Parameter dependencies relating dependant to independent quantities
         self.Fz = CachedCalculation(
@@ -508,13 +404,11 @@ class Plasma:
                 element=elem
             )
 
-        main_ion_density = (
+        self._ion_density.loc[dict(element=self.main_ion)] = (
             self.electron_density
             - self.fast_density * self.meanz.sel(element=self.main_ion)
             - (self.impurity_density * self.meanz).sum("element")
         )
-
-        self._ion_density.loc[dict(element=self.main_ion)] = main_ion_density
         return self._ion_density
 
     @property
@@ -607,7 +501,6 @@ class Plasma:
     @property
     def meanz(self):
         fz = self.fz
-
         for elem in self.elements:
             self._meanz.loc[dict(element=elem)] = (fz[elem] * fz[elem].ion_charge).sum(
                 "ion_charge"

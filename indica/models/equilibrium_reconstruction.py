@@ -1,7 +1,7 @@
 import xarray as xr
 
+from indica.available_quantities import READER_QUANTITIES
 from indica.models.abstract_diagnostic import AbstractDiagnostic
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.utilities import assign_datatype
 from indica.utilities import check_time_present
 
@@ -18,7 +18,7 @@ class EquilibriumReconstruction(AbstractDiagnostic):
     ):
         self.name = name
         self.instrument_method = instrument_method
-        self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
+        self.quantities = READER_QUANTITIES[self.instrument_method]
 
     def _build_bckc_dictionary(self):
         self.bckc = {}

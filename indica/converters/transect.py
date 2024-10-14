@@ -199,7 +199,7 @@ class TransectCoordinates(CoordinateTransform):
             z_ = self.z
 
             value_at_channels = profile.interp(R=R_, z=z_).T
-        elif "rhop" in coords or "rho_toroidal" in coords:
+        elif "rhop" in coords or "rhot" in coords:
             rho_ = self.rho
             if "theta" in coords:
                 theta_ = self.theta

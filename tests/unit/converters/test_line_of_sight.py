@@ -7,12 +7,16 @@ import pytest
 from xarray import DataArray
 
 from indica.converters import line_of_sight
-from indica.equilibrium import fake_equilibrium
+from indica.defaults.load_defaults import load_default_objects
 
 
 class TestHelike:
-    def setup_class(self):
-        self.machine_dims = ((0.15, 0.85), (-0.75, 0.75))
+    def setup_class(self, machine: str = "st40"):
+        equilibrium = load_default_objects(machine, "equilibrium")
+        self.machine_dims = (
+            (equilibrium.R.min(), equilibrium.R.max()),
+            (equilibrium.z.min(), equilibrium.z.max()),
+        )
 
         nchannels = 3
         self.x1 = np.arange(nchannels)
@@ -36,17 +40,16 @@ class TestHelike:
             name="los_test",
         )
 
-        equil = fake_equilibrium()
-        self.los_transform.set_equilibrium(equil)
+        self.los_transform.set_equilibrium(equilibrium)
 
         _profile_1d = np.abs(np.linspace(-1, 0))
         coords = [("rhop", np.linspace(0, 1.0))]
         self.profile_1d = (
             DataArray(_profile_1d, coords=coords)
-            .expand_dims({"t": equil.t.size})
-            .assign_coords(t=equil.t)
+            .expand_dims({"t": equilibrium.t.size})
+            .assign_coords(t=equilibrium.t)
         )
-        self.profile_2d = self.profile_1d.interp(rhop=equil.rho).drop("rhop")
+        self.profile_2d = self.profile_1d.interp(rhop=equilibrium.rho).drop("rhop")
 
     def test_convert_to_xy(self):
         x1 = self.x1[0]

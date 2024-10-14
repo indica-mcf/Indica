@@ -5,19 +5,17 @@ from typing import Any
 from typing import Dict
 
 import numpy as np
-import xarray as xr
 from xarray import DataArray
 
 from indica.abstractio import BaseIO
+from indica.available_quantities import READER_QUANTITIES
 from indica.configs.readers.st40conf import MachineConf
 from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
 from indica.converters import TrivialTransform
-from indica.numpy_typing import LabeledArray
 from indica.numpy_typing import RevisionLike
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import format_dataarray
+from indica.utilities import build_dataarrays
 
 
 class DataReader(ABC):
@@ -108,7 +106,10 @@ class DataReader(ABC):
                 transform: CoordinateTransform = TrivialTransform
 
             # Build data-arrays
-            data = self._build_dataarrays(data, transform, include_error=include_error)
+            quantities = READER_QUANTITIES[method]
+            data = build_dataarrays(
+                data, quantities, self.tstart, self.tend, transform, include_error
+            )
 
         return data
 
@@ -167,62 +168,6 @@ class DataReader(ABC):
             results[_key + "_error" + "_records"] = q_err_path
 
         return results
-
-    def _build_dataarrays(
-        self,
-        data: Dict[str, LabeledArray],
-        transform=None,
-        include_error: bool = True,
-    ) -> Dict[str, DataArray]:
-        """Organizes database data in DataArray format with
-        coordinates, long_name and units"""
-        data_arrays: dict = {}
-        uid = data["uid"]
-        instrument = data["instrument"]
-        revision = data["revision"]
-        datatype_dims = AVAILABLE_QUANTITIES[self.instrument_methods[instrument]]
-        for quantity in datatype_dims.keys():
-            if quantity not in data.keys():
-                continue
-
-            # Build coordinate dictionary
-            datatype, dims = datatype_dims[quantity]
-            if self.verbose:
-                print(f"  {quantity} - {datatype}")
-
-            coords: dict = {}
-            for dim in dims:
-                coords[dim] = data[dim]
-
-            # Build DataArray
-            _data = format_dataarray(data[quantity], datatype, coords)
-            if "t" in _data.dims:
-                _data = _data.sel(t=slice(self.tstart, self.tend))
-            _data = _data.sortby(dims)
-
-            # Build error DataArray and assign as coordinate
-            if include_error and len(dims) != 0:
-                _error = xr.zeros_like(_data)
-                if quantity + "_error" in data:
-                    _error = format_dataarray(
-                        data[quantity + "_error"], datatype, coords
-                    )
-                    if "t" in _error.dims:
-                        _error = _error.sel(t=slice(self.tstart, self.tend))
-                _data = _data.assign_coords(error=(_data.dims, _error.data))
-
-            # Check that times are unique
-            if "t" in _data:
-                t_unique, ind_unique = np.unique(_data["t"], return_index=True)
-                if len(_data["t"]) != len(t_unique):
-                    _data = _data.isel(t=ind_unique)
-
-            # Add attributes and assign to dictionary
-            _data.attrs["transform"] = transform
-            _data.attrs["uid"] = uid
-            _data.attrs["revision"] = revision
-            data_arrays[quantity] = _data
-        return data_arrays
 
     def _get_thomson_scattering(
         self,

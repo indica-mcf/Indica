@@ -1,19 +1,20 @@
 import matplotlib.pylab as plt
 import numpy as np
+import xarray as xr
 from xarray import DataArray
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.operators import tomo_1D
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_2d_map
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
+from indica.operators.spline_fit import fit_profile
 from indica.operators.tomo_asymmetry import InvertPoloidalAsymmetry
+from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 
 PLASMA = load_default_objects("st40", "plasma")
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
-GEOMETRY = load_default_objects("st40", "geometry")
-LOS_TRANSFORM = GEOMETRY["sxrc_xy2"]
-LOS_TRANSFORM.set_equilibrium(EQUILIBRIUM)
+TRANSFORMS = load_default_objects("st40", "geometry")
 PLASMA.set_equilibrium(EQUILIBRIUM)
 
 
@@ -38,6 +39,7 @@ def example_poloidal_asymmetry():
 
 
 def example_tomo_asymmetry(
+    instrument: str = "sxrc_xy1",
     asymmetric_profile: bool = True,
     debug: bool = True,
     plot: bool = True,
@@ -56,7 +58,8 @@ def example_tomo_asymmetry(
         PLASMA.lz_tot[element].sum("ion_charge").interp(rhop=imp_density_2d.rhop)
     )
     phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
-    los_integral = LOS_TRANSFORM.integrate_on_los(
+    los_transform = TRANSFORMS[instrument]
+    los_integral = los_transform.integrate_on_los(
         phantom_emission, phantom_emission.t.values
     )
 
@@ -65,14 +68,14 @@ def example_tomo_asymmetry(
     invert_asymm = InvertPoloidalAsymmetry()
     bckc_emission, bckc, profile, asymmetry = invert_asymm(
         los_integral,
-        LOS_TRANSFORM,
+        los_transform,
         debug=debug,
     )
     if debug:
         print("...and finished \n")
 
     if plot:
-        LOS_TRANSFORM.plot()
+        los_transform.plot()
         for t in bckc.t:
             plt.ioff()
 
@@ -170,10 +173,12 @@ def example_tomo_asymmetry(
 
 
 def example_tomo_1D(
-    plot: bool = True,
+    instrument: str = "sxrc_xy1",
     asymmetric_profile: bool = False,
     element: str = "ar",
     reg_level_guess: float = 0.8,
+    debug: bool = True,
+    plot: bool = True,
 ):
 
     if asymmetric_profile:
@@ -188,15 +193,16 @@ def example_tomo_1D(
         PLASMA.lz_tot[element].sum("ion_charge").interp(rhop=imp_density_2d.rhop)
     )
     phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
-    los_integral = LOS_TRANSFORM.integrate_on_los(
+    los_transform = TRANSFORMS[instrument]
+    los_integral = los_transform.integrate_on_los(
         phantom_emission, phantom_emission.t.values
     )
 
-    z = LOS_TRANSFORM.z.mean("beamlet")
-    R = LOS_TRANSFORM.R.mean("beamlet")
-    dl = LOS_TRANSFORM.dl
+    z = los_transform.z.mean("beamlet")
+    R = los_transform.R.mean("beamlet")
+    dl = los_transform.dl
     has_data = np.logical_not(np.isnan(los_integral.isel(t=0).data))
-    rho_equil = LOS_TRANSFORM.equilibrium.rho.interp(t=los_integral.t)
+    rho_equil = los_transform.equilibrium.rho.interp(t=los_integral.t)
     input_dict = dict(
         brightness=los_integral.data.T,
         dl=dl,
@@ -238,5 +244,81 @@ def example_tomo_1D(
     return inverted_emissivity, data_tomo, bckc_tomo
 
 
-if __name__ == "__main__":
-    example_tomo_asymmetry(debug=False, asymmetric_profile=False)
+def example_spline_fit(
+    machine: str = "st40",
+    quantity: str = "te",
+    R_shift: float = 0.0,
+    knots: list = None,
+    plot: bool = True,
+):
+    _reader = ModelReader(machine, instruments=["ts"])
+    _reader.set_geometry_transforms(TRANSFORMS["ts"])
+    PLASMA.set_equilibrium(EQUILIBRIUM)
+    _reader.set_plasma(PLASMA)
+    raw_data = _reader()
+
+    if quantity == "te" and knots is None:
+        knots = [0, 0.3, 0.6, 0.8, 1.1]
+    if quantity == "ne" and knots is None:
+        knots = [0, 0.3, 0.6, 0.8, 0.95, 1.1]
+    data_all = raw_data["ts"][quantity]
+    t = data_all.t
+    transform = data_all.transform
+    transform.convert_to_rho_theta(t=data_all.t)
+
+    R = transform.R
+    Rmag = transform.equilibrium.rmag.interp(t=t)
+
+    # Fit all available TS data
+    ind = np.full_like(data_all, True)
+    rho = xr.where(ind, transform.rho, np.nan)
+    data = xr.where(ind, data_all, np.nan)
+    err = xr.where(ind, data_all.error, np.nan)
+    fit = fit_profile(rho, data, err, knots=knots, virtual_knots=False)
+
+    # Use only HFS channels
+    ind = R <= Rmag
+    rho_hfs = xr.where(ind, transform.rho, np.nan)
+    data_hfs = xr.where(ind, data_all, np.nan)
+    err_hfs = xr.where(ind, data_all.error, np.nan)
+    fit_hfs = fit_profile(rho_hfs, data_hfs, err_hfs, knots=knots, virtual_knots=True)
+
+    # Use only LFS channels
+    ind = R >= Rmag
+    rho_lfs = xr.where(ind, transform.rho, np.nan)
+    data_lfs = xr.where(ind, data_all, np.nan)
+    err_lfs = xr.where(ind, data_all.error, np.nan)
+    fit_lfs = fit_profile(rho_lfs, data_lfs, err_lfs, knots=knots, virtual_knots=True)
+
+    if plot:
+        for t in data_all.t:
+            plt.ioff()
+            plt.errorbar(
+                rho_hfs.sel(t=t),
+                data_hfs.sel(t=t),
+                err_hfs.sel(t=t),
+                marker="o",
+                label="data HFS",
+                color="blue",
+            )
+            plt.errorbar(
+                rho_lfs.sel(t=t),
+                data_lfs.sel(t=t),
+                err_lfs.sel(t=t),
+                marker="o",
+                label="data LFS",
+                color="red",
+            )
+            fit.sel(t=t).plot(
+                linewidth=5, alpha=0.5, color="black", label="spline fit all"
+            )
+            fit_lfs.sel(t=t).plot(
+                linewidth=5, alpha=0.5, color="red", label="spline fit LFS"
+            )
+            fit_hfs.sel(t=t).plot(
+                linewidth=5, alpha=0.5, color="blue", label="spline fit HFS"
+            )
+            plt.legend()
+            plt.show()
+
+    return data_all, fit

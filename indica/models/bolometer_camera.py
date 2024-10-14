@@ -4,11 +4,11 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.available_quantities import READER_QUANTITIES
 from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import assign_datatype
+from indica.utilities import build_dataarrays
 from indica.utilities import set_axis_sci
 
 
@@ -25,28 +25,17 @@ class BolometerCamera(AbstractDiagnostic):
         self.transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
-        self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
+        self.quantities = READER_QUANTITIES[self.instrument_method]
 
     def _build_bckc_dictionary(self):
-        self.bckc = {}
-
-        for quant in self.quantities:
-            datatype = self.quantities[quant]
-            if quant == "brightness":
-                quantity = quant
-                self.bckc[quantity] = self.los_integral
-                error = xr.full_like(self.bckc[quantity], 0.0)
-                stdev = xr.full_like(self.bckc[quantity], 0.0)
-                self.bckc[quantity].attrs = {
-                    "transform": self.transform,
-                    "error": error,
-                    "stdev": stdev,
-                    "provenance": str(self),
-                }
-                assign_datatype(self.bckc[quantity], datatype)
-            else:
-                print(f"{quant} not available in model for {self.instrument_method}")
-                continue
+        bckc = {
+            "t": self.t,
+            "channel": np.arange(len(self.transform.x1)),
+            "location": self.transform.origin,
+            "direction": self.transform.direction,
+            "brightness": self.los_integral,
+        }
+        self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 
     def __call__(
         self,

@@ -15,35 +15,7 @@ from indica.readers.mdsutils import MDSUtils
 
 
 class ST40Reader(DataReader):
-    """Class to read ST40 MDS+ data using MDSplus.
-
-    Parameters
-    ----------
-    time : np.ndarray
-        An ordered array of time to which data will be
-        downsampled/interpolated.
-    pulse : int
-        The ID number for the pulse from which to get data.
-    uid : str
-        The UID for the particular data to be read.
-    server : str
-        The URL for the SAL server to read data from.
-    default_error : float
-        Relative uncertainty to use for diagnostics which do not provide a
-        value themselves.
-
-    Attributes
-    ----------
-    DIAGNOSTIC_QUANTITIES: Dict[str, Dict[str, Dict[str, Dict[str, ArrayType]]]]
-        Hierarchical information on the quantities which are available for
-        reading. These are indexed by (in order) diagnostic name, UID,
-        instrument name, and quantity name. The values of the innermost
-        dictionary describe the physical type of the data to be read.
-    NAMESPACE: Tuple[str, str]
-        The abbreviation and full URL for the PROV namespace of the reader
-        class.
-
-    """
+    """Class to read ST40 MDS+ data using MDSplus."""
 
     def __init__(
         self,

@@ -3,7 +3,7 @@
 import numpy as np
 
 from indica.converters import TransectCoordinates
-from indica.equilibrium import fake_equilibrium
+from indica.defaults.load_defaults import load_default_objects
 
 
 def default_inputs():
@@ -29,13 +29,9 @@ def load_transect_default():
     return transect, machine_dims
 
 
-def load_equilibrium_default():
-    equil = fake_equilibrium()
-    return equil
-
-
-def _test_check_rho():
-    """To be implemented"""
+def load_equilibrium_default(machine: str = "st40"):
+    equilibrium = load_default_objects(machine, "equilibrium")
+    return equilibrium
 
 
 def test_convert_to_xy():
@@ -78,7 +74,3 @@ def test_convert_to_rho_theta():
     _rho = equilibrium.rho.sel(t=t).interp(R=transform.R, z=transform.z)
 
     assert np.all(np.array(np.abs(rho - _rho)) < 1.0e-2)
-
-
-def _test_map_to_rho():
-    """To be implemented"""

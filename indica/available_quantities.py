@@ -247,5 +247,8 @@ PLASMA_QUANTITIES = {
         "sxr_radiation": ("sxr_radiated_power_emission", ["t", "rhop", "element"]),
         "prad_tot": ("total_radiated_power", ["t", "element"]),
         "prad_sxr": ("sxr_radiated_power", ["t", "element"]),
+        "fz": ("fractional_abundance", ["t", "rhop", "ion_charge"]),
+        "lz_tot": ("total_radiation_loss_parameter", ["t", "rhop", "ion_charge"]),
+        "lz_sxr": ("sxr_radiation_loss_parameter", ["t", "rhop", "ion_charge"]),
     },
 }

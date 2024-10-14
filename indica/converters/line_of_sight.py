@@ -612,7 +612,7 @@ class LineOfSightTransform(CoordinateTransform):
             z_ = self.z
 
             along_los = profile_to_map.interp(R=R_, z=z_).T
-        elif "rhop" in dims or "rho_toroidal" in dims:
+        elif "rhop" in dims or "rhot" in dims:
             rho_ = self.rho
             if "theta" in dims:
                 theta_ = self.theta
@@ -719,75 +719,3 @@ class LineOfSightTransform(CoordinateTransform):
         )
 
         return impact
-
-
-def example_run(
-    pulse: int = None,
-    plasma=None,
-    beamlets=4,
-    spot_width=0.1,
-):
-    from indica.models.plasma import example_plasma
-    from indica.equilibrium import fake_equilibrium
-    from indica.configs.readers.st40conf import ST40Conf
-
-    if plasma is None:
-        plasma = example_plasma(pulse=pulse)
-        machine_dims = plasma.machine_dimensions
-        equilibrium = fake_equilibrium(
-            tstart=plasma.tstart,
-            tend=plasma.tend,
-            dt=plasma.dt / 2.0,
-            machine_dims=machine_dims,
-        )
-        plasma.set_equilibrium(equilibrium)
-    else:
-        _conf = ST40Conf()
-        machine_dims = _conf.MACHINE_DIMS
-
-    nchannels = 3
-    los_end = np.full((nchannels, 3), 0.0)
-    los_end[:, 0] = 0.17
-    los_end[:, 1] = 0.0
-    los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
-    los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
-    origin = los_start
-    direction = los_end - los_start
-
-    los_transform = LineOfSightTransform(
-        origin[:, 0],
-        origin[:, 1],
-        origin[:, 2],
-        direction[:, 0],
-        direction[:, 1],
-        direction[:, 2],
-        name="",
-        machine_dimensions=plasma.machine_dimensions,
-        passes=1,
-        beamlets=beamlets,
-        spot_width=spot_width,
-    )
-    los_transform.set_equilibrium(plasma.equilibrium)
-
-    time = los_transform.equilibrium.rho.t.values[1:5]
-    rho = los_transform.equilibrium.rho.interp(t=time)
-    R = rho.R
-    z = rho.z
-    b_tot, t = plasma.equilibrium.Btot(R, z, t=time)
-    b_tot_los_int = los_transform.integrate_on_los(b_tot, t=time)
-
-    t = time[1]
-    los_transform.plot(t=t)
-
-    plt.figure()
-    b_tot.sel(t=t).plot()
-    los_transform.plot(t=t, orientation="Rz", figure=False)
-    plt.axis("equal")
-    plt.title("2D profile to integrate")
-
-    plt.figure()
-    b_tot_los_int.sel(t=t).plot(marker="o")
-    plt.title("LOS integral of 2D Btot profiles")
-    plt.legend()
-
-    return los_transform

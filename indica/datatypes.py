@@ -142,7 +142,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "z_boundary": ("$z_{boundary}$", "length"),
     "rhop": (r"$\rho_{pol}$", "none"),
     "rhop_fit": (r"$\rho_{pol}$", "none"),
-    "rho_toroidal": (r"$\rho_{tor}$", "none"),
+    "rhot": (r"$\rho_{tor}$", "none"),
     "major_radius_magnetic_axis": ("$R_{mag}$", "length"),
     "major_radius_geometric": ("$R_{geo}$", "length"),
     "major_radius_boundary": ("$R_{boundary}$", "length"),
