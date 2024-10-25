@@ -116,11 +116,11 @@ def profile_scans_pca(
     return profile_scans, profiler
 
 
-def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
-    Te = ProfilerGauss(datatype="electron_temperature", xspl=rho)
-    Ne = ProfilerGauss(datatype="electron_density", xspl=rho)
-    Nimp = ProfilerGauss(datatype="impurity_density", xspl=rho)
-    Vrot = ProfilerGauss(datatype="toroidal_rotation", xspl=rho)
+def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
+    Te = ProfilerGauss(datatype="electron_temperature", xspl=rhop)
+    Ne = ProfilerGauss(datatype="electron_density", xspl=rhop)
+    Nimp = ProfilerGauss(datatype="impurity_density", xspl=rhop)
+    Vrot = ProfilerGauss(datatype="toroidal_rotation", xspl=rhop)
 
     Te_list = {}
     Ti_list = {}
@@ -295,13 +295,13 @@ def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None)
 def density_crash(
     los_avrg=2.8e19,
     drop=0.9,
-    rho=np.linspace(0, 1, 20),
+    rhop=np.linspace(0, 1, 20),
     rho_inv=0.4,
     identifier="density",
 ):
-    volume = DataArray(0.85 * rho**3, coords=[("rhop", rho)])
+    volume = DataArray(0.85 * rhop**3, coords=[("rhop", rhop)])
 
-    pre = ProfilerGauss(datatype=(identifier, "electron"), xspl=rho)
+    pre = ProfilerGauss(datatype=(identifier, "electron"), xspl=rhop)
     pre.wcenter = rho_inv / 1.5
     pre()
 

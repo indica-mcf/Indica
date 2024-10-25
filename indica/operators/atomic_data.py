@@ -614,7 +614,8 @@ def default_atomic_data(
         Te, Ne, Nh, tau = default_profiles()
 
     # print_like("Initialize fractional abundance and power loss objects")
-    fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
+    # fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
+    fract_abu, power_loss_tot = {}, {}
     adas_reader = ADASReader()
     for elem in elements:
         scd = adas_reader.get_adf11("scd", elem, ADF11[elem]["scd"])
@@ -628,15 +629,15 @@ def default_atomic_data(
         power_loss_tot[elem] = PowerLoss(plt, prb, prc=prc)
         power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh)
 
-        try:
-            pls = adas_reader.get_adf11("pls", elem, ADF11[elem]["pls"])
-            prs = adas_reader.get_adf11("prs", elem, ADF11[elem]["prs"])
-            power_loss_sxr[elem] = PowerLoss(pls, prs)
-            power_loss_sxr[elem](Te, F_z_t, Ne=Ne, Nh=Nh)
-        except Exception:
-            print(f"No SXR-filtered data available for element {elem}")
+        # try:
+        #     pls = adas_reader.get_adf11("pls", elem, ADF11[elem]["pls"])
+        #     prs = adas_reader.get_adf11("prs", elem, ADF11[elem]["prs"])
+        #     power_loss_sxr[elem] = PowerLoss(pls, prs)
+        #     power_loss_sxr[elem](Te, F_z_t, Ne=Ne, Nh=Nh)
+        # except Exception:
+        #     print(f"No SXR-filtered data available for element {elem}")
 
-    return fract_abu, power_loss_tot, power_loss_sxr
+    return fract_abu, power_loss_tot  # , power_loss_sxr
 
 
 def default_profiles(n_rad: int = 20):

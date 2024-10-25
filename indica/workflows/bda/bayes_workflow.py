@@ -8,7 +8,7 @@ import git
 import numpy as np
 import xarray as xr
 
-from indica.models.plasma import PlasmaProfiler
+from indica import PlasmaProfiler
 from indica.plotters.plot_bda import plot_bayes_result
 from indica.workflows.bda.bayesblackbox import BayesBlackBox
 from indica.workflows.bda.model_coordinator import ModelCoordinator
@@ -148,8 +148,8 @@ class BayesWorkflow:
 
         result["PROFILES"] = {
             "PSI_NORM": {
-                "RHOP": self.plasma_profiler.plasma.rho,
-                "RHOT": self.plasma_profiler.plasma.equilibrium.rhotor.interp(
+                "RHOP": self.plasma_profiler.plasma.rhop,
+                "RHOT": self.plasma_profiler.plasma.equilibrium.rhot.interp(
                     t=self.plasma_profiler.plasma.t
                 ),
                 "VOLUME": self.plasma_profiler.plasma.volume,
@@ -226,7 +226,7 @@ class BayesWorkflow:
 
         result["PROFILE_STAT"] = {
             "SAMPLE_IDX": np.arange(0, self.opt_samples["post_sample"].shape[1]),
-            "RHOP": self.plasma_profiler.plasma.rho,
+            "RHOP": self.plasma_profiler.plasma.rhop,
             "NE": self.blobs["electron_density"],
             "NI": self.blobs["ion_density"],
             "TE": self.blobs["electron_temperature"],

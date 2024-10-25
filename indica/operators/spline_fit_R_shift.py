@@ -6,7 +6,7 @@ from scipy.optimize import least_squares
 import xarray as xr
 from xarray import DataArray
 
-from indica.equilibrium import Equilibrium
+from indica import Equilibrium
 from indica.numpy_typing import ArrayLike
 
 

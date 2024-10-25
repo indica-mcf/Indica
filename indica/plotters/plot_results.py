@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from indica.equilibrium import Equilibrium
+from indica import Equilibrium
 from indica.readers.read_st40 import bin_data_in_time
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import FIG_PATH

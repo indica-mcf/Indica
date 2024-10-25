@@ -145,7 +145,7 @@ class TestHelike:
         los_transform_1d = self.los_transform
         los_transform_2d = deepcopy(self.los_transform)
 
-        time = los_transform_2d.equilibrium.rho.t.values[0:2]
+        time = los_transform_2d.equilibrium.rhop.t.values[0:2]
 
         los_int_1d = los_transform_1d.integrate_on_los(self.profile_1d, t=time)
         los_int_2d = los_transform_2d.integrate_on_los(self.profile_2d, t=time)

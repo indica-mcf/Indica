@@ -2,8 +2,8 @@ from typing import Tuple
 
 import numpy as np
 
-from indica.models import Plasma
-from indica.models.plasma import PlasmaProfiler
+from indica import Plasma
+from indica import PlasmaProfiler
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
 
 
@@ -26,7 +26,7 @@ def example_plasma(
     plasma.build_atomic_data()
 
     profilers = initialise_gauss_profilers(
-        plasma.rho,
+        plasma.rhop,
         profile_names=[
             "electron_density",
             "ion_temperature",

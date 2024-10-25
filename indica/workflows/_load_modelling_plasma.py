@@ -7,15 +7,14 @@ from MDSplus.mdsExceptions import TreeNODATA
 import numpy as np
 import xarray as xr
 
-from indica.equilibrium import Equilibrium
-from indica.models.bolometer_camera import BolometerCamera
-from indica.models.charge_exchange_spectrometer import ChargeExchangeSpectrometer
-from indica.models.diode_filters import BremsstrahlungDiode
-from indica.models.helike_spectrometer import HelikeSpectrometer
-from indica.models.interferometer import Interferometer
-from indica.models.plasma import Plasma
-from indica.models.sxr_camera import SXRcamera
-from indica.models.thomson_scattering import ThomsonScattering
+from indica import Equilibrium
+from indica import Plasma
+from indica.models import BremsstrahlungDiode
+from indica.models import ChargeExchangeSpectrometer
+from indica.models import HelikeSpectrometer
+from indica.models import Interferometer
+from indica.models import PinholeCamera
+from indica.models import ThomsonScattering
 from indica.readers.read_st40 import bin_data_in_time
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import FIG_PATH
@@ -38,10 +37,10 @@ DIAGNOSTIC_MODELS = {
     "cxff_tws_c": ChargeExchangeSpectrometer,
     "cxqf_tws_c": ChargeExchangeSpectrometer,
     "brems": BremsstrahlungDiode,
-    "sxrc_xy1": BolometerCamera,
-    "sxrc_xy2": SXRcamera,
-    "sxr_spd": SXRcamera,
-    "blom_xy1": BolometerCamera,
+    "sxrc_xy1": PinholeCamera,
+    "sxrc_xy2": PinholeCamera,
+    "sxr_spd": PinholeCamera,
+    "blom_xy1": PinholeCamera,
 }
 INSTRUMENTS: list = [
     "smmh",
@@ -397,7 +396,7 @@ def plot_plasmas(
     plt.figure()
     levels = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
     for run in runs:
-        plasma[run].equilibrium.rho.sel(t=time, method="nearest").plot.contour(
+        plasma[run].equilibrium.rhop.sel(t=time, method="nearest").plot.contour(
             levels=levels,
             alpha=alpha,
         )
@@ -795,9 +794,9 @@ def example_params(example: str, all_runs: bool = False):
 #     _rho_ga = DataArray(
 #         data_ga["rho_xy"], coords=[("z", data_ga["Z_xy"]), ("R", data_ga["R_xy"])]
 #     )
-#     rho_ga = _rho_ga.interp(R=equilibrium.rho.R, z=equilibrium.rho.z)
+#     rho_ga = _rho_ga.interp(R=equilibrium.rhop.R, z=equilibrium.rhop.z)
 #     rho_ga = xr.where(np.isfinite(rho_ga), rho_ga, 1.4)
-#     equilibrium.rho.loc[dict(t=t)] = rho_ga
+#     equilibrium.rhop.loc[dict(t=t)] = rho_ga
 #
 #     zmag = (rho_ga.idxmin("z").dropna("R")).mean().values
 #     rmag = rho_ga.idxmin("R").dropna("z").interp(z=zmag).values

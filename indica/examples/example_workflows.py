@@ -16,7 +16,7 @@ PLASMA.set_equilibrium(EQUILIBRIUM)
 
 def example_fit_ts(
     machine: str = "st40",
-    fit_R_shift: bool = True,
+    fit_R_shift: bool = False,
     verbose: bool = False,
     nplot: int = 2,
 ):
@@ -32,7 +32,6 @@ def example_fit_ts(
     plasma.set_equilibrium(equilibrium)
     _reader.set_plasma(plasma)
     raw_data = _reader()
-    fit_R_shift = False
 
     te_data = raw_data["ts"]["te"]
     te_err = raw_data["ts"]["te"].error
@@ -56,7 +55,7 @@ def example_fit_ts(
         if i % nplot:
             continue
         plt.errorbar(
-            ne_data.rho.sel(t=t),
+            ne_data.rhop.sel(t=t),
             ne_data.sel(t=t),
             ne_data.error.sel(t=t),
             color=cols[i],
@@ -67,7 +66,7 @@ def example_fit_ts(
         ne_fit.sel(t=t).plot(color=cols[i], linewidth=4, zorder=0)
     plt.ylabel("Ne (m${-3}$)")
     plt.xlabel("Rho-poloidal")
-    plt.title(f"TS Ne data & fits")
+    plt.title("TS Ne data & fits")
     plt.xlim(0, 1.1)
     plt.ylim(0, np.nanmax(ne_fit) * 1.2)
     plt.legend()
@@ -77,7 +76,7 @@ def example_fit_ts(
         if i % nplot:
             continue
         plt.errorbar(
-            te_data.rho.sel(t=t),
+            te_data.rhop.sel(t=t),
             te_data.sel(t=t),
             te_data.error.sel(t=t),
             color=cols[i],
@@ -88,7 +87,7 @@ def example_fit_ts(
         te_fit.sel(t=t).plot(color=cols[i], linewidth=4, zorder=0)
     plt.ylabel("Te (eV)")
     plt.xlabel("Rho-poloidal")
-    plt.title(f"TS Te data & fits")
+    plt.title("TS Te data & fits")
     plt.xlim(0, 1.1)
     plt.ylim(0, np.nanmax(te_fit) * 1.2)
     plt.legend()

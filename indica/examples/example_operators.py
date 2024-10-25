@@ -49,7 +49,7 @@ def example_tomo_asymmetry(
     if asymmetric_profile:
         ion_density_2d = example_poloidal_asymmetry()
     else:
-        rho_2d = PLASMA.equilibrium.rho.interp(t=PLASMA.t)
+        rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t)
         ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
 
     imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
@@ -138,7 +138,7 @@ def example_tomo_asymmetry(
             else:
                 rmag = PLASMA.equilibrium.rmag.sel(t=t, method="nearest")
                 rho_lfs = (
-                    PLASMA.equilibrium.rho.sel(t=t, method="nearest")
+                    PLASMA.equilibrium.rhop.sel(t=t, method="nearest")
                     .sel(z=0, method="nearest")
                     .sel(R=slice(rmag - 0.01, 1))
                 )
@@ -184,7 +184,7 @@ def example_tomo_1D(
     if asymmetric_profile:
         ion_density_2d = example_poloidal_asymmetry()
     else:
-        rho_2d = PLASMA.equilibrium.rho.interp(t=PLASMA.t)
+        rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t.values)
         ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
 
     imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
@@ -194,6 +194,7 @@ def example_tomo_1D(
     )
     phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
     los_transform = TRANSFORMS[instrument]
+    los_transform.set_equilibrium(PLASMA.equilibrium)
     los_integral = los_transform.integrate_on_los(
         phantom_emission, phantom_emission.t.values
     )
@@ -202,7 +203,7 @@ def example_tomo_1D(
     R = los_transform.R.mean("beamlet")
     dl = los_transform.dl
     has_data = np.logical_not(np.isnan(los_integral.isel(t=0).data))
-    rho_equil = los_transform.equilibrium.rho.interp(t=los_integral.t)
+    rho_equil = los_transform.equilibrium.rhop.interp(t=los_integral.t)
     input_dict = dict(
         brightness=los_integral.data.T,
         dl=dl,

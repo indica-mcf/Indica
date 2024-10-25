@@ -114,7 +114,7 @@ class ThomsonScattering(AbstractDiagnostic):
         plt.figure()
         for i, t in enumerate(self.t):
             Ne = self.bckc["ne"].sel(t=t, method="nearest")
-            rho = Ne.transform.rho.sel(t=t, method="nearest")
+            rho = Ne.transform.rhop.sel(t=t, method="nearest")
             plt.scatter(
                 rho,
                 Ne,
@@ -130,7 +130,7 @@ class ThomsonScattering(AbstractDiagnostic):
         plt.figure()
         for i, t in enumerate(self.t):
             Te = self.bckc["te"].sel(t=t, method="nearest")
-            rho = Te.transform.rho.sel(t=t, method="nearest")
+            rho = Te.transform.rhop.sel(t=t, method="nearest")
             plt.scatter(
                 rho,
                 Te,

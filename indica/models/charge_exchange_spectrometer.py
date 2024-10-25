@@ -33,8 +33,10 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         bckc = {
             "t": self.t,
             "channel": np.arange(len(self.transform.x1)),
-            "location": self.transform.origin,
-            "direction": self.transform.direction,
+            "x": self.transform.x,
+            "y": self.transform.y,
+            "z": self.transform.y,
+            "R": self.transform.R,
             "vtor": self.Vtor_at_channels,
             "ti": self.Ti_at_channels,
         }
@@ -101,7 +103,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             if i % nplot:
                 continue
             Vtor = self.bckc["vtor"].sel(t=t, method="nearest")
-            rho = Vtor.transform.rho.sel(t=t, method="nearest")
+            rho = Vtor.transform.rhop.sel(t=t, method="nearest")
             plt.scatter(
                 rho,
                 Vtor,
@@ -119,7 +121,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             if i % nplot:
                 continue
             Ti = self.bckc["ti"].sel(t=t, method="nearest")
-            rho = Ti.transform.rho.sel(t=t, method="nearest")
+            rho = Ti.transform.rhop.sel(t=t, method="nearest")
             plt.scatter(rho, Ti, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured ion temperature (eV)")

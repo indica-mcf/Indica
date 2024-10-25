@@ -1,7 +1,7 @@
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import HelikeSpectrometer
-from indica.models import SXRcamera
+from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
 from indica.workflows.bda.model_coordinator import ModelCoordinator
 
@@ -12,7 +12,7 @@ def initialise_model_coordinator(model_settings=None):
             "cxff_pi": ChargeExchangeSpectrometer,
             "xrcs": HelikeSpectrometer,
             "ts": ThomsonScattering,
-            "sxrc_xy1": SXRcamera,
+            "sxrc_xy1": PinholeCamera,
         },
         model_settings=model_settings,
     )

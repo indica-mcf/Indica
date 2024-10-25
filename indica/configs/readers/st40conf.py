@@ -4,15 +4,7 @@
 #  configuration class should contain?
 # TODO: why a class and not a simple JSON file or a dictionary?
 
-from abc import ABC
-from typing import Dict
-from typing import Tuple
-
-
-class MachineConf(ABC):
-    MACHINE_DIMS: Tuple[Tuple[float, float], Tuple[float, float]] = ()
-    INSTRUMENT_METHODS: Dict[str, str] = {}
-    QUANTITIES_PATH: Dict[str, Dict[str, str]] = {}
+from indica.configs.readers.machineconf import MachineConf
 
 
 class ST40Conf(MachineConf):
@@ -67,7 +59,7 @@ class ST40Conf(MachineConf):
                 "t": ":time",
                 "wavelength": ":wavelen",
                 "location": ".geometry:location",
-                "direction": ".geometry:location",
+                "direction": ".geometry:direction",
                 "ti_w": ".global:ti_w",
                 "ti_z": ".global:ti_z",
                 "te_n3w": ".global:te_n3w",
@@ -83,20 +75,20 @@ class ST40Conf(MachineConf):
             "get_interferometry": {
                 "t": ":time",
                 "location": ".geometry:location",
-                "direction": ".geometry:location",
+                "direction": ".geometry:direction",
                 "ne": ".global:ne_int",
             },
             "get_diode_filters": {
                 "t": ":time",
                 "label": ":label",
                 "location": ".geometry:location",
-                "direction": ".geometry:location",
+                "direction": ".geometry:direction",
                 "brightness": ":data",
             },
             "get_radiation": {
                 "t": ":time",
                 "location": ".geometry:location",
-                "direction": ".geometry:location",
+                "direction": ".geometry:direction",
                 "brightness": ".profiles:emission",
             },
             "get_charge_exchange": {
@@ -106,8 +98,6 @@ class ST40Conf(MachineConf):
                 "y": ":y",
                 "z": ":z",
                 "R": ":R",
-                "location": ".geometry:location",
-                "direction": ".geometry:direction",
                 "int": ".profiles:int",
                 "ti": ".profiles:ti",
                 "vtor": ".profiles:vtor",

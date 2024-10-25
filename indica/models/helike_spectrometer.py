@@ -273,7 +273,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 "beamlet"
             )
             emission_sum = emission_los.sum("los_position", skipna=True)
-            rho_los = self.transform.rho.sel(channel=channels)
+            rho_los = self.transform.rhop.sel(channel=channels)
 
             rho_mean[line] = (emission_los * rho_los).sum(
                 "los_position", skipna=True

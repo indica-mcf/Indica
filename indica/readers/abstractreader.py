@@ -7,9 +7,9 @@ from typing import Dict
 import numpy as np
 from xarray import DataArray
 
-from indica.abstractio import BaseIO
+from indica import BaseIO
 from indica.available_quantities import READER_QUANTITIES
-from indica.configs.readers.st40conf import MachineConf
+from indica.configs.readers.machineconf import MachineConf
 from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates

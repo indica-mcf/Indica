@@ -9,12 +9,12 @@ from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 from indica.utilities import build_dataarrays
+from indica.utilities import set_axis_sci
 
 
-class SXRcamera(AbstractDiagnostic):
+class PinholeCamera(AbstractDiagnostic):
     """
-    Object representing a SXR camera diagnostic
-    Currently identical to bolometer model...
+    Object representing a pinhole camera diagnostic e.g. bolometer or SXR camera
     """
 
     def __init__(
@@ -44,6 +44,7 @@ class SXRcamera(AbstractDiagnostic):
         Lz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
+        sum_beamlets: bool = True,
         **kwargs,
     ):
         """
@@ -67,9 +68,9 @@ class SXRcamera(AbstractDiagnostic):
         """
         if self.plasma is not None:
             if t is None:
-                t = self.plasma.t
+                t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
-            _Lz = self.plasma.lz_sxr
+            _Lz = self.plasma.lz_tot
             Lz = {}
             for elem in _Lz.keys():
                 Lz[elem] = _Lz[elem].interp(t=t)
@@ -97,40 +98,59 @@ class SXRcamera(AbstractDiagnostic):
             self.emissivity,
             t=t,
             calc_rho=calc_rho,
+            sum_beamlets=sum_beamlets,
         )
 
         self._build_bckc_dictionary()
 
         return self.bckc
 
-    def plot(self):
+    def plot(self, nplot: int = 1):
         if len(self.bckc) == 0:
             print("No model results to plot")
             return
 
         # Line-of-sight information
-        self.transform.plot(self.t.mean())
+        self.transform.plot(np.mean(self.t))
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
         plt.figure()
-        for i, t in enumerate(self.t.values):
-            self.bckc["brightness"].sel(t=t, method="nearest").plot(
-                label=f"t={t:1.2f} s", color=cols_time[i]
-            )
+        for i, t in enumerate(np.array(self.t)):
+            if i % nplot:
+                continue
+
+            _brightness = self.bckc["brightness"].sel(t=t, method="nearest")
+            if "beamlet" in _brightness.dims:
+                plt.fill_between(
+                    _brightness.channel,
+                    _brightness.max("beamlet"),
+                    _brightness.min("beamlet"),
+                    color=cols_time[i],
+                    alpha=0.5,
+                )
+                brightness = _brightness.mean("beamlet")
+            else:
+                brightness = _brightness
+            brightness.plot(label=f"t={t:1.2f} s", color=cols_time[i])
+        set_axis_sci()
+        plt.title(self.name.upper())
         plt.xlabel("Channel")
         plt.ylabel("Measured brightness (W/m^2)")
         plt.legend()
 
         # Local emissivity profiles
         plt.figure()
-        for i, t in enumerate(self.t.values):
+        for i, t in enumerate(np.array(self.t)):
+            if i % nplot:
+                continue
             plt.plot(
                 self.emissivity.rhop,
                 self.emissivity.sel(t=t),
                 color=cols_time[i],
                 label=f"t={t:1.2f} s",
             )
+        set_axis_sci()
         plt.xlabel("rho")
         plt.ylabel("Local radiated power (W/m^3)")
         plt.legend()

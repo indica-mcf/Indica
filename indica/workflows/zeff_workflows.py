@@ -3,9 +3,9 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica import Plasma
 from indica.defaults.load_defaults import load_default_objects
 from indica.models.diode_filters import BremsstrahlungDiode
-from indica.models.plasma import Plasma
 from indica.operators import tomo_1D
 from indica.operators.tomo_1D import SXR_tomography
 import indica.physics as ph
@@ -441,7 +441,7 @@ def plot_results(
             continue
         _R_shift = int(ne_fit.R_shift.sel(t=t) * 100)
         plt.errorbar(
-            ne_data.rho.sel(t=t),
+            ne_data.rhop.sel(t=t),
             ne_data.sel(t=t),
             ne_data.error.sel(t=t),
             color=cols[i],
@@ -464,7 +464,7 @@ def plot_results(
             continue
         _R_shift = int(te_fit.R_shift.sel(t=t) * 100)
         plt.errorbar(
-            te_data.rho.sel(t=t),
+            te_data.rhop.sel(t=t),
             te_data.sel(t=t),
             te_data.error.sel(t=t),
             color=cols[i],

@@ -8,14 +8,14 @@ from omegaconf import DictConfig
 from omegaconf import OmegaConf
 
 import indica
+from indica import Plasma
+from indica import PlasmaProfiler
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
 from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
-from indica.models import Plasma
 from indica.models import ThomsonScattering
-from indica.models.plasma import PlasmaProfiler
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
 from indica.readers.read_st40 import ReadST40
 from indica.workflows.bda.bayes_workflow import BayesWorkflow
@@ -113,7 +113,7 @@ def bda_run(  # noqa: C901
 
     log.info("Initialising plasma_profiler")
     profilers = initialise_gauss_profilers(
-        plasma.rho,
+        plasma.rhop,
         profile_names=cfg.plasma.profiles.keys(),
         profile_params=OmegaConf.to_container(cfg.plasma.profiles),
     )
@@ -149,7 +149,7 @@ def bda_run(  # noqa: C901
             .interp(
                 t=plasma.t,
             )
-            .interp(rhop=plasma.rho)
+            .interp(rhop=plasma.rhop)
         )
         te = (
             ppts_profs["te_rho"]
@@ -159,7 +159,7 @@ def bda_run(  # noqa: C901
             .interp(
                 t=plasma.t,
             )
-            .interp(rhop=plasma.rho)
+            .interp(rhop=plasma.rhop)
         )
         plasma_profiler.set_profiles(
             {
@@ -325,7 +325,7 @@ def bda_run(  # noqa: C901
         pca_processor, pca_profilers = pca_workflow(
             prior_manager,
             cfg.optimisation.pca_profiles,
-            plasma.rho,
+            plasma.rhop,
             n_components=cfg.optimisation.pca_components,
             num_prof_samples=int(5e3),
         )

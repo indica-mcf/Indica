@@ -375,8 +375,8 @@ class LineOfSightTransform(CoordinateTransform):
             Spatial resolution (m)
         """
 
-        if hasattr(self, "rho"):
-            delattr(self, "rho")
+        if hasattr(self, "rhop"):
+            delattr(self, "rhop")
 
         # Calculate start and end coordinates, R, z and phi for all LOS
         x_start: list = []
@@ -538,7 +538,7 @@ class LineOfSightTransform(CoordinateTransform):
         if time.size == 1:
             time = float(time)
 
-        equil_t = self.equilibrium.rho.t
+        equil_t = self.equilibrium.rhop.t
         equil_ok = (np.min(time) >= np.min(equil_t)) * (np.max(time) <= np.max(equil_t))
         if not equil_ok:
             print(f"Available equilibrium time {np.array(equil_t)}")
@@ -546,11 +546,11 @@ class LineOfSightTransform(CoordinateTransform):
                 f"Inserted time {time} is not available in Equilibrium object"
             )
 
-        # Make sure rho.t == requested time
-        if not hasattr(self, "rho") or calc_rho:
+        # Make sure rhop.t == requested time
+        if not hasattr(self, "rhop") or calc_rho:
             self.convert_to_rho_theta(t=time)
         else:
-            if not np.array_equal(self.rho.t, time):
+            if not np.array_equal(self.rhop.t, time):
                 self.convert_to_rho_theta(t=time)
 
         # Check profile
@@ -612,17 +612,17 @@ class LineOfSightTransform(CoordinateTransform):
             z_ = self.z
 
             along_los = profile_to_map.interp(R=R_, z=z_).T
-        elif "rhop" in dims or "rhot" in dims:
-            rho_ = self.rho
+        elif "rhop" in dims:
+            _rhop = self.rhop
             if "theta" in dims:
                 theta_ = self.theta
-                along_los = profile.interp(rhop=rho_, theta=theta_)
+                along_los = profile.interp(rhop=_rhop, theta=theta_)
             else:
-                along_los = profile.interp(rhop=rho_)
+                along_los = profile.interp(rhop=_rhop)
 
             if limit_to_sep:
                 along_los = xr.where(
-                    rho_ <= 1,
+                    _rhop <= 1,
                     along_los,
                     np.nan,
                 )

@@ -1,15 +1,11 @@
-import xarray as xr
-
 from indica.available_quantities import READER_QUANTITIES
 from indica.models.abstract_diagnostic import AbstractDiagnostic
-from indica.utilities import assign_datatype
+from indica.utilities import build_dataarrays
 from indica.utilities import check_time_present
 
 
 class EquilibriumReconstruction(AbstractDiagnostic):
-    """
-    Object representing observations from a magnetic reconstruction
-    """
+    """Object representing observations from a magnetic reconstruction"""
 
     def __init__(
         self,
@@ -22,33 +18,18 @@ class EquilibriumReconstruction(AbstractDiagnostic):
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
-
-        for quant in self.quantities:
-            datatype = self.quantities[quant]
-            if quant == "wp":
-                self.bckc[quant] = self.wp
-                error = xr.full_like(self.bckc[quant], 0.0)
-                stdev = xr.full_like(self.bckc[quant], 0.0)
-                self.bckc[quant].attrs = {
-                    "error": error,
-                    "stdev": stdev,
-                }
-                assign_datatype(self.bckc[quant], datatype)
-            else:
-                # print(f"{quant} not available in model for {self.instrument_method}")
-                continue
+        bckc = {
+            "t": self.t,
+            "wp": self.wp,
+        }
+        self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 
     def __call__(
         self,
         t=None,
         **kwargs,
     ):
-        """
-
-        Returns
-        -------
-        bckc values
-        """
+        """Add docs"""
         if self.plasma is None:
             raise ValueError("plasma object is needed")
 
@@ -57,6 +38,7 @@ class EquilibriumReconstruction(AbstractDiagnostic):
 
         check_time_present(t, self.plasma.wp.t)
 
+        self.t = t
         self.wp = self.plasma.wp.sel(t=t)
         self._build_bckc_dictionary()
         return self.bckc

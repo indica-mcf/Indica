@@ -1,7 +1,7 @@
 import pytest
 
+from indica import PlasmaProfiler
 from indica.defaults.load_defaults import load_default_objects
-from indica.models.plasma import PlasmaProfiler
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
 
 
@@ -9,7 +9,7 @@ class TestPlasmaProfiler:
     def setup_method(self):
         self.plasma = load_default_objects("st40", "plasma")
         self.profilers = initialise_gauss_profilers(
-            self.plasma.rho,
+            self.plasma.rhop,
             [
                 "electron_density",
                 "ion_temperature",

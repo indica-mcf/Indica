@@ -69,8 +69,8 @@ def test_convert_to_rho_theta():
     equilibrium = load_equilibrium_default()
     transform.set_equilibrium(equilibrium)
 
-    t = np.mean(equilibrium.rho.t.mean())
+    t = np.mean(equilibrium.rhop.t.mean())
     rho, theta = transform.convert_to_rho_theta(t=t)
-    _rho = equilibrium.rho.sel(t=t).interp(R=transform.R, z=transform.z)
+    _rho = equilibrium.rhop.sel(t=t).interp(R=transform.R, z=transform.z)
 
     assert np.all(np.array(np.abs(rho - _rho)) < 1.0e-2)

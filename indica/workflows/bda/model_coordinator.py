@@ -2,9 +2,9 @@ from typing import Dict
 
 import xarray as xr
 
+from indica import Equilibrium
+from indica import Plasma
 from indica.converters.abstractconverter import CoordinateTransform
-from indica.equilibrium import Equilibrium
-from indica.models import Plasma
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.readers.read_st40 import apply_filter
 from indica.readers.read_st40 import coord_condition

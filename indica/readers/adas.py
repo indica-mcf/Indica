@@ -13,9 +13,9 @@ from urllib.request import urlretrieve
 import numpy as np
 from xarray import DataArray
 
+from indica import BaseIO
 from indica.utilities import assign_datatype
 from indica.utilities import CACHE_DIR
-from ..abstractio import BaseIO
 
 # TODO: Evaluate this location
 DEFAULT_PATH = Path("")

@@ -81,7 +81,7 @@ class TransectCoordinates(CoordinateTransform):
         )
 
         self.R: DataArray = np.sqrt(self.x**2 + self.y**2)
-        self.rho: DataArray
+        self.rhop: DataArray
         self.theta: DataArray
 
     def convert_to_Rz(
@@ -199,17 +199,17 @@ class TransectCoordinates(CoordinateTransform):
             z_ = self.z
 
             value_at_channels = profile.interp(R=R_, z=z_).T
-        elif "rhop" in coords or "rhot" in coords:
-            rho_ = self.rho
+        elif "rhop" in coords:
+            _rhop = self.rhop
             if "theta" in coords:
                 theta_ = self.theta
-                value_at_channels = profile.interp(rhop=rho_, theta=theta_)
+                value_at_channels = profile.interp(rhop=_rhop, theta=theta_)
             else:
-                value_at_channels = profile.interp(rhop=rho_)
+                value_at_channels = profile.interp(rhop=_rhop)
 
             if limit_to_sep:
                 value_at_channels = xr.where(
-                    rho_ <= 1,
+                    _rhop <= 1,
                     value_at_channels,
                     np.nan,
                 )
@@ -234,7 +234,7 @@ class TransectCoordinates(CoordinateTransform):
         if time.size == 1:
             time = float(time)
 
-        equil_t = self.equilibrium.rho.t
+        equil_t = self.equilibrium.rhop.t
         equil_ok = (np.min(time) >= np.min(equil_t)) * (np.max(time) <= np.max(equil_t))
         if not equil_ok:
             print(f"Available equilibrium time {np.array(equil_t)}")
@@ -242,11 +242,11 @@ class TransectCoordinates(CoordinateTransform):
                 f"Inserted time {time} is not available in Equilibrium object"
             )
 
-        # Make sure rho.t == requested time
-        if not hasattr(self, "rho") or calc_rho:
+        # Make sure rhop.t == requested time
+        if not hasattr(self, "rhop") or calc_rho:
             self.convert_to_rho_theta(t=time)
         else:
-            if not np.array_equal(self.rho.t, time):
+            if not np.array_equal(self.rhop.t, time):
                 self.convert_to_rho_theta(t=time)
 
         # Check profile

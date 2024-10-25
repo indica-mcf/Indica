@@ -9,7 +9,7 @@ from typing import Dict
 
 import numpy as np
 
-from indica.configs.readers.st40conf import ST40Conf
+from indica.configs.readers import ST40Conf
 from indica.readers.abstractreader import DataReader
 from indica.readers.mdsutils import MDSUtils
 

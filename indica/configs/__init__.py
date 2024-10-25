@@ -1,9 +1,3 @@
-__all__ = []
+from .readers import ST40Conf
 
-try:
-    from .readers.st40conf import ST40Conf
-
-    __all__ += ["ST40Conf"]
-except ImportError as e:
-    print(e)
-    pass
+MACHINE_CONFS = {"st40": ST40Conf}
