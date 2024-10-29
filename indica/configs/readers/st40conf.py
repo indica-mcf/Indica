@@ -1,9 +1,3 @@
-# TODO: implement test to check availability of instruments methods and
-#       quantities have corresponding DATATYPE
-# TODO: Make BaseConf class with all the details of what a
-#  configuration class should contain?
-# TODO: why a class and not a simple JSON file or a dictionary?
-
 from indica.configs.readers.machineconf import MachineConf
 
 

@@ -2,7 +2,6 @@
 routines for interpolating or downsampling in time."""
 
 from .abstractconverter import CoordinateTransform
-from .abstractconverter import EquilibriumException
 from .line_of_sight import LineOfSightTransform
 from .spot_weightings import SpotWeightings
 from .time import bin_to_time_labels
@@ -12,7 +11,6 @@ from .trivial import TrivialTransform
 
 __all__ = [
     "CoordinateTransform",
-    "EquilibriumException",
     "LineOfSightTransform",
     "SpotWeightings",
     "TransectCoordinates",
