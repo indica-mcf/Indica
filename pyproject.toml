@@ -19,7 +19,7 @@ testpaths = ["tests"]
 
 [tool.poetry]
 name = "indica"
-version = "0.1.2"
+version = "0.1.3"
 description = "INtegrated DIagnostiC Analysis"
 
 license = "GPL-3.0-or-later"
@@ -44,7 +44,7 @@ include = [".git", "indica/git_version"]
 [tool.poetry.dependencies]
 corner = "^1.0"
 pandas = "2.2.1"
-python = "^3.9,<3.12"
+python = "^3.9,<3.13"
 prov = "^1.5.3"
 netCDF4 = "^1.5.4"
 numpy = "1.26.4"
