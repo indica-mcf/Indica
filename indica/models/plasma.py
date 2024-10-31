@@ -910,4 +910,3 @@ class PlasmaProfiler:
             for profile_to_update in profiles_to_update
         }
         self.set_profiles(updated_profiles, t)
-
