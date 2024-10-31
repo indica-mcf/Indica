@@ -93,7 +93,6 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "r_minor_boundary": ("a", "length"),
     "rho": (r"$\rho$", "none"),
     "rhop": (r"$\rho_{pol}$", "none"),
-    "rhop_fit": (r"$\rho_{pol}$", "none"),
     "rhot": (r"$\rho_{tor}$", "none"),
     "location": ("Location", "length"),  # this is an array (x, y, z)
     "direction": ("Direction", "length"),  # this is an array (dx, dy, dz)
