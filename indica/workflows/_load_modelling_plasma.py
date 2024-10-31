@@ -132,10 +132,10 @@ def plasma_code(
         _plasma.neutral_density.values = Nn.values
 
         Pblon = _data["pblon"].interp(rhop=_plasma.rho, t=_plasma.t)
-        _plasma.pressure_fast_parallel.values = Pblon.values
+        _plasma.fast_ion_pressure_parallel.values = Pblon.values
 
         Pbper = _data["pbper"].interp(rhop=_plasma.rho, t=_plasma.t)
-        _plasma.pressure_fast_perpendicular.values = Pbper.values
+        _plasma.fast_ion_pressure_perpendicular.values = Pbper.values
 
     return plasma
 
@@ -435,7 +435,7 @@ def plot_plasmas(
     save_figure(fig_path, f"temperature_{time:.3f}_s", save_fig=save_fig)
 
     plt.figure()
-    quantities = ["pressure_fast", "pressure_th", "pressure_tot"]
+    quantities = ["fast_ion_pressure", "pressure_th", "pressure_tot"]
     add_label = False
     for run in runs:
         if run == runs[-1]:
@@ -458,7 +458,7 @@ def plot_plasmas(
             "fast_density",
             "electron_temperature",
             "ion_temperature",
-            "pressure_fast",
+            "fast_ion_pressure",
             "pressure_th",
             "pressure_tot",
         ]

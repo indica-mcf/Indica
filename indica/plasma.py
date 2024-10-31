@@ -138,13 +138,12 @@ class Plasma:
             attrs_data, all_quantities, include_error=False
         )
 
-        # Fix any coordinate inconsistencies and
-        # manually add ionisation-stage-dependent private attributes
-        _nimp = []
-        for elem in self.impurities:
-            _nimp.append(attrs_dataarrays["impurity_density"].sel(element=elem))
-        attrs_dataarrays["impurity_density"] = xr.concat(_nimp, "element")
+        # Fix coordinate inconsistencies
+        attrs_dataarrays["impurity_density"] = attrs_dataarrays[
+            "impurity_density"
+        ].rename({"impurity": "element"})
 
+        # Manually add ionisation-stage-dependent private attributes
         for quantity in _special:
             attrs_dataarrays[quantity]: dict = {}
         for i, elem in enumerate(attrs_data["element"]):
@@ -272,9 +271,9 @@ class Plasma:
         return self._thermal_pressure
 
     @property
-    def total_pressure(self):
-        self._total_pressure.values = self.thermal_pressure + self.fast_ion_pressure
-        return self._total_pressure
+    def pressure(self):
+        self._pressure.values = self.thermal_pressure + self.fast_ion_pressure
+        return self._pressure
 
     @property
     def fast_ion_pressure(self):
@@ -303,7 +302,7 @@ class Plasma:
     def calc_ptot(self):
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._ptot.loc[dict(t=t)] = np.trapz(
-                self.total_pressure.sel(t=t), self.volume.sel(t=t)
+                self.pressure.sel(t=t), self.volume.sel(t=t)
             )
         return self._ptot
 
@@ -428,27 +427,27 @@ class Plasma:
 
     @property
     def volume(self):
-        return self.equilibrium.volume.interp(rhop=self.rhop, t=self.time_to_calculate)
+        return self.equilibrium.volume.interp(rhop=self.rhop, t=self.t)
 
     @property
     def area(self):
-        return self.equilibrium.area.interp(rhop=self.rhop, t=self.time_to_calculate)
+        return self.equilibrium.area.interp(rhop=self.rhop, t=self.t)
 
     @property
     def rmjo(self):
-        return self.equilibrium.rmjo.interp(rhop=self.rhop, t=self.time_to_calculate)
+        return self.equilibrium.rmjo.interp(rhop=self.rhop, t=self.t)
 
     @property
     def rmji(self):
-        return self.equilibrium.rmji.interp(rhop=self.rhop, t=self.time_to_calculate)
+        return self.equilibrium.rmji.interp(rhop=self.rhop, t=self.t)
 
     @property
     def rmag(self):
-        return self.equilibrium.rmag.interp(rhop=self.rhop, t=self.time_to_calculate)
+        return self.equilibrium.rmag.interp(t=self.t)
 
     @property
     def zmag(self):
-        return self.equilibrium.zmag.interp(rhop=self.rhop, t=self.time_to_calculate)
+        return self.equilibrium.zmag.interp(t=self.t)
 
     @property
     def rmin(self):
@@ -616,7 +615,7 @@ class PlasmaProfiler:
                 "meanz",
                 "wp",
                 "wth",
-                "total_pressure",
+                "pressure",
                 "thermal_pressure",
                 "toroidal_rotation",
             ]

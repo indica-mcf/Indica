@@ -141,7 +141,7 @@ class BayesWorkflow:
             "ZEFF": self.plasma_profiler.phantom_profiles["zeff"].sum(dim="element"),
             "MEANZ": self.plasma_profiler.phantom_profiles["meanz"],
             "PTH": self.plasma_profiler.phantom_profiles["pressure_th"],
-            "PFAST": self.plasma_profiler.phantom_profiles["pressure_fast"],
+            "PFAST": self.plasma_profiler.phantom_profiles["fast_ion_pressure"],
             "P": self.plasma_profiler.phantom_profiles["pressure_tot"],
             "VTOR": self.plasma_profiler.phantom_profiles["toroidal_rotation"],
         }
@@ -161,7 +161,7 @@ class BayesWorkflow:
                 "NNEUTR": self.blobs["neutral_density"].median(dim="sample_idx"),
                 "P": self.blobs["pressure_tot"].median(dim="sample_idx"),
                 "PTH": self.blobs["pressure_th"].median(dim="sample_idx"),
-                "PFAST": self.blobs["pressure_fast"].median(dim="sample_idx"),
+                "PFAST": self.blobs["fast_ion_pressure"].median(dim="sample_idx"),
                 "ZEFF": self.blobs["zeff"].sum("element").median(dim="sample_idx"),
                 "MEANZ": self.blobs["meanz"].median(dim="sample_idx"),
                 "NE_ERR": self.blobs["electron_density"].std(dim="sample_idx"),
@@ -172,7 +172,7 @@ class BayesWorkflow:
                 "NNEUTR_ERR": self.blobs["neutral_density"].std(dim="sample_idx"),
                 "P_ERR": self.blobs["pressure_tot"].std(dim="sample_idx"),
                 "PTH_ERR": self.blobs["pressure_th"].std(dim="sample_idx"),
-                "PFAST_ERR": self.blobs["pressure_fast"].std(dim="sample_idx"),
+                "PFAST_ERR": self.blobs["fast_ion_pressure"].std(dim="sample_idx"),
                 "ZEFF_ERR": self.blobs["zeff"].sum("element").std(dim="sample_idx"),
                 "MEANZ_ERR": self.blobs["meanz"].std(dim="sample_idx"),
                 "VTOR": self.blobs["toroidal_rotation"].median(dim="sample_idx"),
@@ -193,7 +193,9 @@ class BayesWorkflow:
                 ),
                 "P": self.midplane_blobs["pressure_tot"].median(dim="sample_idx"),
                 "PTH": self.midplane_blobs["pressure_th"].median(dim="sample_idx"),
-                "PFAST": self.midplane_blobs["pressure_fast"].median(dim="sample_idx"),
+                "PFAST": self.midplane_blobs["fast_ion_pressure"].median(
+                    dim="sample_idx"
+                ),
                 "ZEFF": self.midplane_blobs["zeff"]
                 .sum("element")
                 .median(dim="sample_idx"),
@@ -210,7 +212,9 @@ class BayesWorkflow:
                 ),
                 "P_ERR": self.midplane_blobs["pressure_tot"].std(dim="sample_idx"),
                 "PTH_ERR": self.midplane_blobs["pressure_th"].std(dim="sample_idx"),
-                "PFAST_ERR": self.midplane_blobs["pressure_fast"].std(dim="sample_idx"),
+                "PFAST_ERR": self.midplane_blobs["fast_ion_pressure"].std(
+                    dim="sample_idx"
+                ),
                 "ZEFF_ERR": self.midplane_blobs["zeff"]
                 .sum("element")
                 .std(dim="sample_idx"),
@@ -235,7 +239,7 @@ class BayesWorkflow:
             "NNEUTR": self.blobs["neutral_density"],
             "P": self.blobs["pressure_tot"],
             "PTH": self.blobs["pressure_th"],
-            "PFAST": self.blobs["pressure_fast"],
+            "PFAST": self.blobs["fast_ion_pressure"],
             "ZEFF": self.blobs["zeff"].sum("element"),
             "MEANZ": self.blobs["meanz"],
             "VTOR": self.blobs["toroidal_rotation"],

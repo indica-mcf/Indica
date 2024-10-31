@@ -59,6 +59,7 @@ def example_tomo_asymmetry(
     )
     phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
     los_transform = TRANSFORMS[instrument]
+    los_transform.set_equilibrium(EQUILIBRIUM)
     los_integral = los_transform.integrate_on_los(
         phantom_emission, phantom_emission.t.values
     )

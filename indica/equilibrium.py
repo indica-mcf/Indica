@@ -40,8 +40,8 @@ class Equilibrium:
         self.f: DataArray
         self.psi: DataArray
         self.psin: DataArray
-        self.fbnd: DataArray
-        self.faxs: DataArray
+        self.psi_boundary: DataArray
+        self.psi_axis: DataArray
         self.ftor: DataArray
         self.rbnd: DataArray
         self.zbnd: DataArray
@@ -80,7 +80,9 @@ class Equilibrium:
             (self.ftor - self.ftor.sel(rhop=0.0))
             / (self.ftor.sel(rhop=1.0) - self.ftor.sel(rhop=0.0))
         )
-        self.rhop = np.sqrt((self.psi - self.faxs) / (self.fbnd - self.faxs))
+        self.rhop = np.sqrt(
+            (self.psi - self.psi_axis) / (self.psi_boundary - self.psi_axis)
+        )
 
         # TODO: shift of equilibrium is a bad idea, but useful...
         #   - psi (R, z) is restricted to new limits to avoid NaNs

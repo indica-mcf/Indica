@@ -11,35 +11,15 @@ from indica.defaults.load_defaults import load_default_objects
 
 
 class TestHelike:
-    def setup_class(self, machine: str = "st40"):
+    def setup_class(self, machine: str = "st40", instrument="xrcs"):
         equilibrium = load_default_objects(machine, "equilibrium")
         self.machine_dims = (
             (equilibrium.R.min(), equilibrium.R.max()),
             (equilibrium.z.min(), equilibrium.z.max()),
         )
 
-        nchannels = 3
-        self.x1 = np.arange(nchannels)
-
-        los_end = np.full((nchannels, 3), 0.0)
-        los_end[:, 0] = 0.17
-        los_end[:, 1] = 0.0
-        los_end[:, 2] = np.linspace(0.53, -0.53, nchannels)
-        los_start = np.array([[1.0, 0, 0]] * los_end.shape[0])
-        origin = los_start
-        direction = los_end - los_start
-
-        self.los_transform = line_of_sight.LineOfSightTransform(
-            origin[:, 0],
-            origin[:, 1],
-            origin[:, 2],
-            direction[:, 0],
-            direction[:, 1],
-            direction[:, 2],
-            machine_dimensions=self.machine_dims,
-            name="los_test",
-        )
-
+        transforms = load_default_objects(machine, "geometry")
+        self.los_transform = transforms[instrument]
         self.los_transform.set_equilibrium(equilibrium)
 
         _profile_1d = np.abs(np.linspace(-1, 0))
@@ -49,10 +29,10 @@ class TestHelike:
             .expand_dims({"t": equilibrium.t.size})
             .assign_coords(t=equilibrium.t)
         )
-        self.profile_2d = self.profile_1d.interp(rhop=equilibrium.rho).drop("rhop")
+        self.profile_2d = self.profile_1d.interp(rhop=equilibrium.rhop).drop_vars("rhop")
 
     def test_convert_to_xy(self):
-        x1 = self.x1[0]
+        x1 = self.los_transform.x1[0]
         x2 = self.los_transform.x2[0]
         t = self.los_transform.equilibrium.t[0]
 
@@ -79,7 +59,7 @@ class TestHelike:
         )
 
     def test_convert_to_Rz(self):
-        x1 = self.x1[0]
+        x1 = self.los_transform.x1[0]
         x2 = self.los_transform.x2[0]
         t = self.los_transform.equilibrium.t[0]
 
@@ -92,7 +72,7 @@ class TestHelike:
         assert R == R_
 
     def test_distance(self):
-        x1 = self.x1[0]
+        x1 = self.los_transform.x1[0]
         x2 = self.los_transform.x2
         t = self.los_transform.equilibrium.t[0]
 

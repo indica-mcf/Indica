@@ -168,8 +168,6 @@ def bda_run(  # noqa: C901
             }
         )
 
-    plasma_profiler.save_phantoms(phantom=cfg.reader.phantom)
-
     # if binned data is used then interpolating onto equil.t
     # and back to plasma.t causes some time points to be lost
     R_shift = 0.0
@@ -196,6 +194,8 @@ def bda_run(  # noqa: C901
         equilibrium = equil_reader.equilibrium
 
     plasma.set_equilibrium(equilibrium=equilibrium)
+
+    plasma_profiler.save_phantoms(phantom=cfg.reader.phantom)
 
     if cfg.reader.mock:
         log.info("Using mock data reader")
