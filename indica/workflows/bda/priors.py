@@ -39,7 +39,9 @@ class Prior(ABC):
         type: PriorType = None,
     ):
         self.prior_func = prior_func
-        self.labels = labels  # to identify mapping between prior names and ndim prior funcs
+        self.labels = (
+            labels  # to identify mapping between prior names and ndim prior funcs
+        )
         self.type = type
 
     @abstractmethod
@@ -131,11 +133,17 @@ class PriorManager:
     def update_priors(self, new_priors: dict):
         #  update priors but remove all priors that match the profile names first
 
-        prior_prefixes_to_remove = list(set([key.split(".")[0] for key in new_priors.keys()]))
+        prior_prefixes_to_remove = list(
+            set([key.split(".")[0] for key in new_priors.keys()])
+        )
         priors_to_remove = [
             prior_name
             for prior_name in self.priors.keys()
-            if any(prior_name for prefix in prior_prefixes_to_remove if prefix in prior_name)
+            if any(
+                prior_name
+                for prefix in prior_prefixes_to_remove
+                if prefix in prior_name
+            )
         ]
         print(f"Discarding priors: {priors_to_remove}")
         print(f"Updating with {new_priors.keys()}")
@@ -162,7 +170,11 @@ class PriorManager:
             for profile_name in profile_names
             if profile_name in str(prior.labels)
         ]
-        unpacked_names = [param_name for param_name_list in param_names for param_name in param_name_list]
+        unpacked_names = [
+            param_name
+            for param_name_list in param_names
+            for param_name in param_name_list
+        ]
         unique_param_names = list(set(unpacked_names))
         return unique_param_names
 
@@ -218,7 +230,9 @@ def sample_from_priors(param_names: list, priors: dict, size=10) -> np.ndarray:
     return samples.transpose()
 
 
-def sample_best_half(param_names: list, priors: dict, wrappedblackbox: callable, size=10) -> np.ndarray:
+def sample_best_half(
+    param_names: list, priors: dict, wrappedblackbox: callable, size=10
+) -> np.ndarray:
     start_points = sample_from_priors(param_names, priors, size=2 * size)
     ln_post = []
     for idx in range(start_points.shape[0]):

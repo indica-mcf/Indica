@@ -8,7 +8,9 @@ class TestBDARun:
     def test_emcee_run(
         self,
     ):
-        with initialize_config_module(version_base=None, config_module="configs.workflows.bda"):
+        with initialize_config_module(
+            version_base=None, config_module="configs.workflows.bda"
+        ):
             cfg = compose(
                 config_name="test_emcee",
             )
@@ -17,9 +19,10 @@ class TestBDARun:
     def test_bo_run(
         self,
     ):
-        with initialize_config_module(version_base=None, config_module="configs.workflows.bda"):
+        with initialize_config_module(
+            version_base=None, config_module="configs.workflows.bda"
+        ):
             cfg = compose(
                 config_name="test_bo",
             )
         bda_phantom_optimisation(cfg)
-

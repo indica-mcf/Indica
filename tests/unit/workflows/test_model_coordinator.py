@@ -19,7 +19,9 @@ def initialise_model_coordinator(model_settings=None):
     return model_coordinator
 
 
-def initialise_model_coordinator_and_setup(plasma, transforms, equilibrium, model_settings=None):
+def initialise_model_coordinator_and_setup(
+    plasma, transforms, equilibrium, model_settings=None
+):
     model_coordinator = initialise_model_coordinator(model_settings=model_settings)
     model_coordinator.set_plasma(plasma)
     model_coordinator.set_transforms(transforms)
@@ -64,27 +66,37 @@ class TestModelCoordinator:
             assert hasattr(model.transform, "equilibrium")
 
     def test_get_with_all_model_names(self):
-        model_coordinator = initialise_model_coordinator_and_setup(self.plasma, self.transforms, self.equilibrium)
+        model_coordinator = initialise_model_coordinator_and_setup(
+            self.plasma, self.transforms, self.equilibrium
+        )
         for model_name, model in model_coordinator.models.items():
             assert model_coordinator.get(model_name)
 
     def test_get_with_wrong_name(self):
-        model_coordinator = initialise_model_coordinator_and_setup(self.plasma, self.transforms, self.equilibrium)
+        model_coordinator = initialise_model_coordinator_and_setup(
+            self.plasma, self.transforms, self.equilibrium
+        )
         assert not model_coordinator.get("dummy")
 
     def test_default_call(self):
-        model_coordinator = initialise_model_coordinator_and_setup(self.plasma, self.transforms, self.equilibrium)
+        model_coordinator = initialise_model_coordinator_and_setup(
+            self.plasma, self.transforms, self.equilibrium
+        )
         model_coordinator()
         assert model_coordinator.binned_data
 
     def test_call_with_nested_kwargs(self):
-        model_coordinator = initialise_model_coordinator_and_setup(self.plasma, self.transforms, self.equilibrium)
+        model_coordinator = initialise_model_coordinator_and_setup(
+            self.plasma, self.transforms, self.equilibrium
+        )
         model_coordinator(["xrcs"], **{"xrcs": {"background": 0}})
         assert model_coordinator.binned_data.get("xrcs", {})
         assert model_coordinator.call_kwargs.get("xrcs", {}) == {"background": 0}
 
     def test_call_with_flat_kwargs(self):
-        model_coordinator = initialise_model_coordinator_and_setup(self.plasma, self.transforms, self.equilibrium)
+        model_coordinator = initialise_model_coordinator_and_setup(
+            self.plasma, self.transforms, self.equilibrium
+        )
         model_coordinator(["xrcs"], flat_kwargs={"xrcs.background": 0})
         assert model_coordinator.binned_data.get("xrcs", {})
         assert model_coordinator.call_kwargs.get("xrcs", {}) == {"background": 0}

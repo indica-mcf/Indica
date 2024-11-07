@@ -1,12 +1,15 @@
 from hydra import compose
 from hydra import initialize_config_module
+
 from indica.workflows.bda.priors import PriorManager
 from indica.workflows.bda.priors import sample_from_priors
 
 
 class TestPriors:
     def setup_class(self):
-        with initialize_config_module(version_base=None, config_module="indica.configs.workflows.priors"):
+        with initialize_config_module(
+            version_base=None, config_module="indica.configs.workflows.priors"
+        ):
             self.cfg = compose(config_name="config")
 
     def test_prior_manager_initalises_with_config(self):

@@ -1,10 +1,10 @@
-import warnings
 from copy import deepcopy
 from typing import Callable
+import warnings
 
+from flatdict import FlatDict
 import mpmath as mp
 import numpy as np
-from flatdict import FlatDict
 
 from indica.models.plasma import PlasmaProfiler
 
@@ -31,8 +31,8 @@ def mp_log_gauss_wrapper(x, mean, sigma):
 
 class BayesBlackBox:
     """
-    Bayesian black box that evaluates an ln_likelihood from given diagnostic data and modelled data
-    and an ln_posterior from ln_prior and ln_likelihood
+    Bayesian black box that evaluates an ln_likelihood from given diagnostic data and
+    modelled data and an ln_posterior from ln_prior and ln_likelihood
 
     Parameters
     ----------
@@ -102,12 +102,17 @@ class BayesBlackBox:
 
         _ln_prior = self.ln_prior(parameters)
         if _ln_prior == -np.inf:  # Don't call models if outside priors
-            return -1e4, {}  # large number as gp_minimize can't handle inf (1E-10000 is min for numerical precision)
+            return (
+                -1e4,
+                {},
+            )  # optimisers can't handle inf (1E-10000 is min for numerical precision)
 
         self.plasma_profiler(parameters)
         plasma_attributes = self.plasma_profiler.get_plasma_attributes()
 
-        self.bckc = FlatDict(self.build_bckc(flat_kwargs=parameters, **kwargs), ".")  # model calls
+        self.bckc = FlatDict(
+            self.build_bckc(flat_kwargs=parameters, **kwargs), "."
+        )  # model calls
 
         _ln_likelihood = self.ln_likelihood()  # compare results to data
         ln_posterior = _ln_likelihood + _ln_prior

@@ -1,7 +1,7 @@
 import logging
+from pathlib import Path
 import pickle
 import pprint
-from pathlib import Path
 
 import flatdict
 import hydra
@@ -9,29 +9,34 @@ from omegaconf import DictConfig
 from omegaconf import OmegaConf
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import *
+from indica.models import ChargeExchangeSpectrometer
+from indica.models import EquilibriumReconstruction
+from indica.models import HelikeSpectrometer
+from indica.models import Interferometer
+from indica.models import Plasma
+from indica.models import ThomsonScattering
 from indica.models.plasma import PlasmaProfiler
+from indica.plotters.plot_bda import plot_bda
 from indica.profilers.profiler_gauss import ProfilerGauss
-from indica.profilers.profiler_spline import ProfilerMonoSpline, ProfilerCubicSpline
-
+from indica.profilers.profiler_spline import ProfilerCubicSpline
+from indica.profilers.profiler_spline import ProfilerMonoSpline
+from indica.workflows.bda.bda_driver import BDADriver
 from indica.workflows.bda.model_coordinator import ModelCoordinator
 from indica.workflows.bda.optimisers import BOOptimiser
 from indica.workflows.bda.optimisers import BOSettings
 from indica.workflows.bda.optimisers import EmceeOptimiser
 from indica.workflows.bda.optimisers import EmceeSettings
 from indica.workflows.bda.priors import PriorManager
-from indica.workflows.bda.bda_driver import BDADriver
-from indica.plotters.plot_bda import plot_bda
 
 ERROR_FUNCTIONS = {
     "efit.wp": lambda x: x * 0.10,
     "xrcs.raw_spectra": lambda x: x * 0.05
-                                  + 0.01 * x.max(dim="wavelength")
-                                  + (
-                                      x.where(
-                                          (x.wavelength < 0.392) & (x.wavelength > 0.388),
-                                      ).std("wavelength")
-                                  ).fillna(0),
+    + 0.01 * x.max(dim="wavelength")
+    + (
+        x.where(
+            (x.wavelength < 0.392) & (x.wavelength > 0.388),
+        ).std("wavelength")
+    ).fillna(0),
     "cxff_pi.ti": lambda x: x * 0 + 0.20 * x.max(dim="channel"),
     "cxff_tws_c.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
     "cxff_tws_b.ti": lambda x: x * 0 + 0.10 * x.max(dim="channel"),
@@ -48,7 +53,9 @@ INSTRUMENT_MAPPING: dict = {
 }
 
 
-def initialise_profilers(x_coord, profiler_types: dict, profile_names: list, profile_params: dict = None):
+def initialise_profilers(
+    x_coord, profiler_types: dict, profile_names: list, profile_params: dict = None
+):
     profilers = {
         "gauss": ProfilerGauss,
         "mono_spline": ProfilerMonoSpline,
@@ -78,7 +85,11 @@ def deep_update(mapping: dict, *updating_mappings: dict) -> dict:
     updated_mapping = mapping.copy()
     for updating_mapping in updating_mappings:
         for k, v in updating_mapping.items():
-            if k in updated_mapping and isinstance(updated_mapping[k], dict) and isinstance(v, dict):
+            if (
+                k in updated_mapping
+                and isinstance(updated_mapping[k], dict)
+                and isinstance(v, dict)
+            ):
                 updated_mapping[k] = deep_update(updated_mapping[k], v)
             else:
                 updated_mapping[k] = v
@@ -101,19 +112,19 @@ def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
     return opt_data_with_error
 
 
-
 @hydra.main(
     version_base=None,
     config_path="../configs/workflows/bda/",
     config_name="ion_temperature_phantom_run",
 )
 def bda_phantom_optimisation(  # noqa: C901
-        cfg: DictConfig,
+    cfg: DictConfig,
 ):
     """
     This workflow takes all of its inputs from a config file created using hydra.
-    It uses phantom data and diagnostic models to prepare an optimisation of synthetic data.
-    Replace the phantom data with real experimental data to "easily" analyse a real scenario.
+    It uses phantom data and diagnostic models to prepare an optimisation of synthetic
+    data. Replace the phantom data with real experimental data to "easily" analyse a
+    real scenario.
 
     It initialises the following objects (some of which are passed to the BDADriver):
         plasma
@@ -126,7 +137,7 @@ def bda_phantom_optimisation(  # noqa: C901
 
     log = logging.getLogger(__name__)
     config = pprint.pformat(dict(cfg))
-    log.info(f"Beginning BDA phantom optimisation")
+    log.info("Beginning BDA phantom optimisation")
     log.info("Using a mock equilibrium")
     equilibrium = load_default_objects("st40", "equilibrium")
 
@@ -146,7 +157,10 @@ def bda_phantom_optimisation(  # noqa: C901
         profile_names=cfg.plasma.profiles.params.keys(),
         profile_params=OmegaConf.to_container(cfg.plasma.profiles.params),
     )
-    plasma_profiler = PlasmaProfiler(plasma=plasma, profilers=profilers, )
+    plasma_profiler = PlasmaProfiler(
+        plasma=plasma,
+        profilers=profilers,
+    )
     plasma_profiler()
     log.info("Saving plasma phantom attributes")
     plasma_profiler.save_phantoms(phantom=True)
@@ -181,7 +195,6 @@ def bda_phantom_optimisation(  # noqa: C901
         **cfg.reader.filters,
     )
 
-
     flat_data = flatdict.FlatDict(reader.binned_data, ".")
     log.info("Applying error to opt_data")
     opt_data = add_error_to_opt_data(flat_data, verbose=False)
@@ -199,7 +212,9 @@ def bda_phantom_optimisation(  # noqa: C901
     if "xrcs" in reader.binned_data.keys():
         model_call_kwargs = {
             "xrcs": {
-                "norm_spectra": reader.binned_data["xrcs"]["raw_spectra"].max("wavelength"),
+                "norm_spectra": reader.binned_data["xrcs"]["raw_spectra"].max(
+                    "wavelength"
+                ),
             }
         }
     else:
@@ -252,7 +267,9 @@ def bda_phantom_optimisation(  # noqa: C901
             model_kwargs=model_call_kwargs,
         )
     else:
-        raise ValueError(f"cfg.optimisation.method: {cfg.optimisation.method} not implemented")
+        raise ValueError(
+            f"cfg.optimisation.method: {cfg.optimisation.method} not implemented"
+        )
 
     log.info("Initialising BDA Driver")
     driver = BDADriver(

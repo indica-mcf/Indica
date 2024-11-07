@@ -1,6 +1,7 @@
 from typing import Dict
 
 import xarray as xr
+
 from indica.converters.abstractconverter import CoordinateTransform
 from indica.equilibrium import Equilibrium
 from indica.models import Plasma
@@ -28,7 +29,9 @@ class ModelCoordinator:
 
         self.models: dict[str, AbstractDiagnostic] = {}
         for model_name, model in models.items():
-            self.models[model_name] = model(name=model_name, **self.model_settings.get(model_name, {}))
+            self.models[model_name] = model(
+                name=model_name, **self.model_settings.get(model_name, {})
+            )
 
     def set_plasma(self, plasma: Plasma):
         self.plasma = plasma

@@ -846,7 +846,6 @@ class PlasmaProfiler:
         else:
             self.plasma_attribute_names = plasma_attribute_names
 
-
     def update_profilers(self, profilers: dict):
         for profile_name, profiler in profilers.items():
             self.profilers[profile_name] = profiler
@@ -894,7 +893,9 @@ class PlasmaProfiler:
     def get_plasma_attributes(self):
         plasma_attributes = {}
         for attribute in self.plasma_attribute_names:
-            plasma_attributes[attribute] = getattr(self.plasma, attribute).sel(t=self.plasma.time_to_calculate)
+            plasma_attributes[attribute] = getattr(self.plasma, attribute).sel(
+                t=self.plasma.time_to_calculate
+            )
         return plasma_attributes
 
     def save_phantoms(self, phantom=False):
@@ -904,10 +905,11 @@ class PlasmaProfiler:
         if not phantom:
             for key, value in phantom_profiles["PSI_NORM"].items():
                 phantom_profiles["PSI_NORM"][key] = value * 0
-        phantom_profiles["R_MIDPLANE"] = self.map_plasma_profiles_to_midplane(phantom_profiles["PSI_NORM"])
+        phantom_profiles["R_MIDPLANE"] = self.map_plasma_profiles_to_midplane(
+            phantom_profiles["PSI_NORM"]
+        )
         self.phantom_profiles = phantom_profiles
         return phantom_profiles
-
 
     def __call__(self, parameters: dict = None, t=None):
         """

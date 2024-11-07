@@ -1,15 +1,16 @@
 import os
-import pickle
 from pathlib import Path
+import pickle
 
 import corner
 import flatdict
 import matplotlib.pyplot as plt
 import numpy as np
+from skopt.plots import plot_evaluations
 import xarray as xr
+
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
-from skopt.plots import plot_evaluations
 
 
 def plot_profile(
@@ -223,7 +224,10 @@ def histograms(data, diag_data, filename):
 def plot_autocorr(autocorr, param_names, figheader, filetype=".png"):
     plt.figure()
 
-    x_data = np.ones(shape=(autocorr.shape)) * np.arange(0, autocorr[:, 0].__len__())[:, None]
+    x_data = (
+        np.ones(shape=(autocorr.shape))
+        * np.arange(0, autocorr[:, 0].__len__())[:, None]
+    )
     plt.plot(np.where(np.isfinite(autocorr), x_data, np.nan), autocorr, "x")
     plt.legend(param_names)
     plt.xlabel("iterations")
@@ -284,7 +288,9 @@ def plot_bda(
 
         if any(auto_corr):
             plot_autocorr(
-                auto_corr[t_idx,],
+                auto_corr[
+                    t_idx,
+                ],
                 param_names,
                 figheader,
                 filetype=filetype,
@@ -455,14 +461,21 @@ def plot_bda(
             logscale=True,
         )
 
-        post_sample_filtered = post_sample[t_idx,][~np.isnan(post_sample[t_idx,]).any(axis=1)]
+        post_sample_filtered = post_sample[t_idx,][
+            ~np.isnan(
+                post_sample[
+                    t_idx,
+                ]
+            ).any(axis=1)
+        ]
         corner.corner(post_sample_filtered, labels=param_names)
         plt.savefig(figheader + "posterior" + filetype)
 
         corner.corner(
-            prior_sample[t_idx,],
+            prior_sample[
+                t_idx,
+            ],
             labels=param_names,
         )
         plt.savefig(figheader + "prior" + filetype)
         plt.close("all")
-
