@@ -1,9 +1,9 @@
 method: "emcee"
 
 starting_samples: 20
-iterations: 2
+iterations: 4
 nwalkers: 8
 stopping_criteria_factor: 0.5
 sample_method: "random"
 stopping_criteria: "mode"
-burn_frac: 0.001
+burn_frac: 0.0

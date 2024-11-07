@@ -119,6 +119,7 @@ def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
 )
 def bda_phantom_optimisation(  # noqa: C901
     cfg: DictConfig,
+    save_results: bool = False,
 ):
     """
     This workflow takes all of its inputs from a config file created using hydra.
@@ -283,10 +284,11 @@ def bda_phantom_optimisation(  # noqa: C901
 
     log.info("Running BDA Driver")
     _results = driver(config=config)
-    filepath = "./results/phantom/"
-    save_pickle(_results, filepath)
-    plot_bda(_results, filepath)
+    if save_results:
+        filepath = "./results/phantom/"
+        save_pickle(_results, filepath)
+        plot_bda(_results, filepath)
 
 
 if __name__ == "__main__":
-    bda_phantom_optimisation()
+    bda_phantom_optimisation(save_results=True)
