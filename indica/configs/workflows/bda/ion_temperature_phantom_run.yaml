@@ -1,6 +1,7 @@
-# An example of how to set up the hydra configs for a phantom run
-# Modularising these configs makes it easier to mix and match different setups (even from the command line)
-# defaults says which config files to default to, individual settings can still be overwritten as with the 'writer'.
+# An example of how to set up the hydra configs for an ion temperature phantom run.
+# Modularising these configs makes it easier to mix and match different setups (even from the command line).
+# 'defaults' says which config files to read
+# individual settings can still be overwritten as with the 'optimisation'.
 
 defaults:
   - model: default
