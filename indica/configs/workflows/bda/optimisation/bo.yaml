@@ -1,0 +1,14 @@
+method: "bo"
+
+n_calls: 80
+n_initial_points: 10
+noise: 1.0E-20
+acq_func: "LCB"
+xi: 0.20
+kappa: 2
+initial_point_generator: "lhs"
+use_previous_best: True
+
+boundary_samples: 5000
+model_samples: 100
+posterior_samples: 100000
