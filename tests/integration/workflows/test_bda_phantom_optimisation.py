@@ -9,7 +9,7 @@ class TestBDARun:
         self,
     ):
         with initialize_config_module(
-            version_base=None, config_module="configs.workflows.bda"
+            version_base=None, config_module="indica.configs.workflows.bda"
         ):
             cfg = compose(
                 config_name="test_emcee",
@@ -20,7 +20,7 @@ class TestBDARun:
         self,
     ):
         with initialize_config_module(
-            version_base=None, config_module="configs.workflows.bda"
+            version_base=None, config_module="indica.configs.workflows.bda"
         ):
             cfg = compose(
                 config_name="test_bo",

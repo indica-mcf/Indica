@@ -8,9 +8,9 @@ from indica.workflows.bda.priors import sample_from_priors
 class TestPriors:
     def setup_class(self):
         with initialize_config_module(
-            version_base=None, config_module="indica.configs.workflows.priors"
+            version_base=None, config_module="indica.configs.workflows.bda.priors"
         ):
-            self.cfg = compose(config_name="config")
+            self.cfg = compose(config_name="default")
 
     def test_prior_manager_initalises_with_config(self):
         PriorManager(**self.cfg)
