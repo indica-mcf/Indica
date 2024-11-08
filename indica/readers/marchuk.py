@@ -12,6 +12,8 @@ PERCMTOEV = 1.239841e-4  # Convert 1/cm to eV
 head = os.path.dirname(indica.__file__)
 FILEHEAD = os.path.join(head, "data/Data_Argon/")
 
+#TODO: worth renaming this file/methods (Marchuck -> Helike?)
+#      and referencing where the data comes from
 
 def diel_calc(atomic_data: np.typing.ArrayLike, Te: xr.DataArray, label: str = "he"):
     """
