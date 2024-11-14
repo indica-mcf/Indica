@@ -1,7 +1,7 @@
-
 import matplotlib.pyplot as plt
 
-from indica.profilers.profiler_spline import ProfilerMonoSpline, ProfilerCubicSpline
+from indica.profilers.profiler_spline import ProfilerCubicSpline
+from indica.profilers.profiler_spline import ProfilerMonoSpline
 
 xknots_mspline = [0.0, 0.15, 0.3, 1.0, 1.05]
 xknots_cspline = [
