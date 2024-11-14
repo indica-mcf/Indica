@@ -1,6 +1,5 @@
 import os
 
-import matplotlib.pylab as plt
 import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy.interpolate import PchipInterpolator
