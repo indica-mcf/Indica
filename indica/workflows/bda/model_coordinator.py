@@ -18,7 +18,6 @@ class ModelCoordinator:
         model_settings: dict = None,
         verbose=False,
     ):
-
         self.transforms = None
         self.plasma = None
         self.equilibrium = None
@@ -44,6 +43,8 @@ class ModelCoordinator:
         for model_name, model in self.models.items():
             if model_name in transforms.keys():
                 model.set_transform(transforms[model_name])
+            else:
+                print(f"not adding transform to {model_name}")
 
     def set_equilibrium(self, equilibrium: Equilibrium):
         self.equilibrium = equilibrium

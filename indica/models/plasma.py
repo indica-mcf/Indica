@@ -807,8 +807,7 @@ class PlasmaProfiler:
         self,
         plasma: Plasma,
         profilers: dict[ProfilerBase],
-        plasma_attribute_names=None,
-        map_vtor: bool = False,
+        plasma_attribute_names: list = None,
     ):
         """
         Interface Profiler objects with Plasma object to generate plasma profiles
@@ -822,8 +821,12 @@ class PlasmaProfiler:
             dictionary of Profiler objects to generate profiles
         """
 
+        self.plasma = plasma
+        self.profilers = profilers
+
+        self.phantom = None
         if plasma_attribute_names is None:
-            plasma_attribute_names = [
+            self.plasma_attribute_names = [
                 "electron_temperature",
                 "electron_density",
                 "ion_temperature",
@@ -840,12 +843,8 @@ class PlasmaProfiler:
                 "pressure_th",
                 "toroidal_rotation",
             ]
-        self.plasma = plasma
-        self.profilers = profilers
-        self.plasma_attribute_names = plasma_attribute_names
-        self.map_vtor = map_vtor
-        self.phantom = None
-        self.phantom_profiles = None
+        else:
+            self.plasma_attribute_names = plasma_attribute_names
 
     def update_profilers(self, profilers: dict):
         for profile_name, profiler in profilers.items():
@@ -872,17 +871,7 @@ class PlasmaProfiler:
             else:
                 getattr(self.plasma, profile_name).loc[dict(t=t)] = profile
 
-    def save_phantoms(self, phantom=False):
-        #  if phantoms return profiles otherwise return empty arrays
-        self.phantom = phantom
-        phantom_profiles = self.plasma_attributes()
-        if not phantom:
-            for key, value in phantom_profiles.items():
-                phantom_profiles[key] = value * 0
-        self.phantom_profiles = phantom_profiles
-        return phantom_profiles
-
-    def map_plasma_profile_to_midplane(self, profiles: dict):
+    def map_plasma_profiles_to_midplane(self, profiles: dict):
         """
         Map profiles from flux space to real space on z=0
         """
@@ -901,7 +890,7 @@ class PlasmaProfiler:
             midplane_profiles[key] = value.interp(rho_poloidal=rho)
         return midplane_profiles
 
-    def plasma_attributes(self):
+    def get_plasma_attributes(self):
         plasma_attributes = {}
         for attribute in self.plasma_attribute_names:
             plasma_attributes[attribute] = getattr(self.plasma, attribute).sel(
@@ -909,15 +898,18 @@ class PlasmaProfiler:
             )
         return plasma_attributes
 
-    def map_toroidal_rotation_to_ion_temperature(
-        self,
-    ):
-
-        self.plasma.toroidal_rotation = (
-            self.plasma.ion_temperature
-            / self.plasma.ion_temperature.max("rho_poloidal")
-            * self.plasma.toroidal_rotation.max("rho_poloidal")
+    def save_phantoms(self, phantom=False):
+        #  if phantoms return profiles otherwise return empty arrays
+        self.phantom = phantom
+        phantom_profiles = {"PSI_NORM": self.get_plasma_attributes()}
+        if not phantom:
+            for key, value in phantom_profiles["PSI_NORM"].items():
+                phantom_profiles["PSI_NORM"][key] = value * 0
+        phantom_profiles["R_MIDPLANE"] = self.map_plasma_profiles_to_midplane(
+            phantom_profiles["PSI_NORM"]
         )
+        self.phantom_profiles = phantom_profiles
+        return phantom_profiles
 
     def __call__(self, parameters: dict = None, t=None):
         """
@@ -962,6 +954,3 @@ class PlasmaProfiler:
             for profile_to_update in profiles_to_update
         }
         self.set_profiles(updated_profiles, t)
-
-        if "ion_temperature" in _profiles_to_update and self.map_vtor:
-            self.map_toroidal_rotation_to_ion_temperature()

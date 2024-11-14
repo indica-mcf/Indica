@@ -1,17 +1,16 @@
-from hydra import compose
-from hydra import initialize_config_module
-
 from indica.profilers.profiler_gauss import ProfilerGauss
 
 
 class TestProfilerGauss:
     def setup_class(self):
-        with initialize_config_module(
-            version_base=None, config_module="indica.configs.profilers"
-        ):
-            cfg = compose(config_name="profiler_gauss")
-        self.cfg = cfg
-        self.datatypes = cfg.keys()
+        self.datatypes = [
+            "ion_temperature",
+            "impurity_density",
+            "electron_temperature",
+            "neutral_density",
+            "toroidal_rotation",
+            "electron_density",
+        ]
 
     def test_initialise_with_default_parameters_for_all_datatypes(self):
         for datatype in self.datatypes:

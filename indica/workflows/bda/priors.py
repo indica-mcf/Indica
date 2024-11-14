@@ -112,7 +112,6 @@ class PriorManager:
         basic_prior_info: dict = None,
         cond_prior_info: dict = None,
     ):
-
         self.compound_prior_funcs = {}  # initialised later
 
         self.basic_prior_info = basic_prior_info
