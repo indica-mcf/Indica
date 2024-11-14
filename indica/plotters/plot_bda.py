@@ -237,7 +237,7 @@ def plot_autocorr(autocorr, param_names, figheader, filetype=".png"):
 
 
 # flake8: noqa: C901
-def plot_bayes_result(
+def plot_bda(
     results=None,
     filepath="./results/test/",
     filetype=".png",
@@ -268,13 +268,14 @@ def plot_bayes_result(
 
     diag_data = flatdict.FlatDict(results["DIAG_DATA"], ".")
     model_data = flatdict.FlatDict(results["MODEL_DATA"], ".")
-    profiles = flatdict.FlatDict(results["PROFILE_STAT"], ".")
+    profiles = flatdict.FlatDict(results["PROFILE_STAT"]["PSI_NORM"], ".")
     post_sample = results["OPTIMISATION"]["POST_SAMPLE"]
     prior_sample = results["OPTIMISATION"]["PRIOR_SAMPLE"]
-    gp_regression = results["OPTIMISATION"].get("GP_REGRESSION", {})
-    auto_corr = results["OPTIMISATION"]["AUTO_CORR"]
     param_names = results["OPTIMISATION"]["PARAM_NAMES"]
-    phantom_profiles = flatdict.FlatDict(results["PHANTOMS"], ".")
+    phantom_profiles = flatdict.FlatDict(results["PHANTOMS"]["PSI_NORM"], ".")
+
+    gp_regression = results["OPTIMISATION"]["CONVERGENCE"].get("gp_regression", {})
+    auto_corr = results["OPTIMISATION"]["CONVERGENCE"].get("auto_corr", {})
 
     # select time sample_idx for plotting
     for t_idx, t in enumerate(time):
@@ -284,19 +285,16 @@ def plot_bayes_result(
             plot_evaluations(gp_regression[t_idx], dimensions=param_names)
             plt.savefig(figheader + "gp_evaluations")
             plt.close()
-            # plot_objective(gp_regression[t_idx], dimensions=param_names )
-            # plt.savefig(figheader + "gp_objective")
-            # plt.close()
 
-        plot_autocorr(
-            auto_corr[
-                t_idx,
-            ],
-            param_names,
-            figheader,
-            filetype=filetype,
-        )
-        # set_plot_rcparams("multi")
+        if any(auto_corr):
+            plot_autocorr(
+                auto_corr[
+                    t_idx,
+                ],
+                param_names,
+                figheader,
+                filetype=filetype,
+            )
         key = "EFIT.WP"
         if key in model_data.keys():
             violinplot(
@@ -306,36 +304,6 @@ def plot_bayes_result(
                 xlabel=key,
                 figheader=figheader,
                 ylabel="Energy [J]",
-            )
-        key = "SMMH1.NE"
-        if key in model_data.keys():
-            violinplot(
-                model_data[key].sel(t=t),
-                diag_data[key].sel(t=t),
-                f"{key.replace('.', '_')}" + filetype,
-                figheader=figheader,
-                xlabel=key,
-                ylabel=r"Line Integrated Density [$m^{-2}$]",
-            )
-        key = "XRCS.TE_KW"
-        if key in model_data.keys():
-            violinplot(
-                model_data[key].sel(t=t),
-                diag_data[key].sel(t=t),
-                f"{key.replace('.', '_')}" + filetype,
-                figheader=figheader,
-                xlabel=key,
-                ylabel="Temperature [eV]",
-            )
-        key = "XRCS.TI_W"
-        if key in model_data.keys():
-            violinplot(
-                model_data[key].sel(t=t),
-                diag_data[key].sel(t=t),
-                f"{key.replace('.', '_')}" + filetype,
-                figheader=figheader,
-                xlabel=key,
-                ylabel="Temperature [eV]",
             )
 
         key = "XRCS.RAW_SPECTRA"
@@ -354,8 +322,8 @@ def plot_bayes_result(
                 capsize=0,
             )
 
-        cxff_quantites = [key for key in model_data.keys() if "CXFF" in key]
-        for key in cxff_quantites:
+        cxff_quantities = [key for key in model_data.keys() if "CXFF" in key]
+        for key in cxff_quantities:
             if "TI" in key:
                 ylabel = "Temperature [eV]"
             elif "VTOR" in key:
@@ -511,8 +479,3 @@ def plot_bayes_result(
         )
         plt.savefig(figheader + "prior" + filetype)
         plt.close("all")
-
-
-if __name__ == "__main__":
-    filehead = "./results/example/"
-    plot_bayes_result(filepath=filehead, filetype=".png")

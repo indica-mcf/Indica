@@ -25,11 +25,11 @@ class ProfilerBase(ABC):
         """
         return {key: getattr(self, key) for key in self.parameters.keys()}
 
-    def plot(self, fig=True):
+    def plot(self, fig=True, **kwargs):
         self.__call__()
         if fig:
             plt.figure()
-        self.ydata.plot()
+        self.ydata.plot(**kwargs)
 
     def __call__(self, *args, **kwargs):
         self.ydata = None

@@ -1,4 +1,0 @@
-main_ion: "h"
-impurities: ["ar",]
-impurity_concentration: [0.001,]
-n_rad: 20

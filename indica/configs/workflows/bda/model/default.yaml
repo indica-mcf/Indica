@@ -1,0 +1,12 @@
+
+xrcs:
+  window_masks: [[0.394, 0.3954],]
+  background: 0
+
+cxff_pi: {}
+cxff_tws_c: {}
+cxff_tws_b: {}
+efit: {}
+ts: {}
+smmh1: {}
+sxr_camera: {}
