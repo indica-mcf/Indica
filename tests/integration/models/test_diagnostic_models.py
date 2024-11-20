@@ -1,12 +1,13 @@
 from typing import Callable
 
+from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
 from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
-from indica.defaults.load_defaults import load_default_objects
+
 
 class TestModels:
     """Test that the model calls run without error"""

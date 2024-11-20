@@ -8,6 +8,6 @@ diagnostics: [
  ]
 
 quantities: [
-  "xrcs.raw_spectra",
+  "xrcs.spectra_raw",
   "cxff_pi.ti",
   ]

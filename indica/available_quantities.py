@@ -1,5 +1,5 @@
 """
-Quantities read by each reader method of the abstractreader class.
+Quantities read by each reader method of the datareader class.
 
 Dictionary structure:
     {"Name of the reader method":

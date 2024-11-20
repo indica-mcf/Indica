@@ -1,6 +1,7 @@
 """Coordinate system representing a collection of lines of sight.
 """
 
+from typing import Any
 from typing import cast
 from typing import Tuple
 
@@ -72,6 +73,7 @@ class LineOfSightTransform(CoordinateTransform):
         div_width: float = 0.0,
         # div_h: float = 0.0,
         # spot_height: float = 0.0,
+        **kwargs: Any,
     ):
 
         self.instrument_name: str = name

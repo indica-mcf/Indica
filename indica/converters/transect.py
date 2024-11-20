@@ -1,4 +1,5 @@
 """Coordinate system for data collected on a 1-D along through the Tokamak"""
+from typing import Any
 from typing import Tuple
 
 import numpy as np
@@ -50,6 +51,7 @@ class TransectCoordinates(CoordinateTransform):
             (1.83, 3.9),
             (-1.75, 2.0),
         ),
+        **kwargs: Any,
     ):
         if np.shape(x_positions) != np.shape(z_positions) or np.shape(
             y_positions

@@ -1,7 +1,7 @@
 """Experimental design for reading data from disk/database."""
 
 from abc import ABC
-from typing import Any
+from typing import Any, Tuple
 from typing import Dict
 
 import numpy as np
@@ -75,43 +75,28 @@ class DataReader(ABC):
                 )
             )
         # Read data from database
-        data = self._read_database(uid, instrument, revision)
+        _database_results = self._read_database(uid, instrument, revision)
+        _database_results["dl"] = dl
+        _database_results["passes"] = passes
 
-        # Re-arrange data (machine-specific)
+        # Re-arrange data (machine-specific) and get instrument geometry transform
         method = self.instrument_methods[instrument]
-        data = getattr(self, f"_{method}")(data)
+        database_results, transform = getattr(self, f"_{method}")(_database_results)
 
         if self.return_dataarrays:
-            # Instatiate transforms
-            if "location" in data and "direction" in data:
-                transform = LineOfSightTransform(
-                    data["location"][:, 0],
-                    data["location"][:, 1],
-                    data["location"][:, 2],
-                    data["direction"][:, 0],
-                    data["direction"][:, 1],
-                    data["direction"][:, 2],
-                    machine_dimensions=data["machine_dims"],
-                    dl=dl,
-                    passes=passes,
-                )
-            elif "x" in data and "y" in data and "z" in data:
-                transform = TransectCoordinates(
-                    data["x"],
-                    data["y"],
-                    data["z"],
-                    machine_dimensions=data["machine_dims"],
-                )
-            else:
-                transform: CoordinateTransform = TrivialTransform
-
-            # Build data-arrays
             quantities = READER_QUANTITIES[method]
-            data = build_dataarrays(
-                data, quantities, self.tstart, self.tend, transform, include_error
+            data_arrays = build_dataarrays(
+                database_results, 
+                quantities, 
+                self.tstart, 
+                self.tend, 
+                transform, 
+                include_error
             )
+            return data_arrays
+        else:
+            return database_results
 
-        return data
 
     def _read_database(
         self,
@@ -169,62 +154,64 @@ class DataReader(ABC):
 
         return results
 
+    # Machine-specific instrument methods that must be implemented in the child reader
+    # to refactor database data structures and assign a geometry transform 
     def _get_thomson_scattering(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
     def _get_profile_fits(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
     def _get_charge_exchange(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
     def _get_spectrometer(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
     def _get_equilibrium(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
     def _get_radiation(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
     def _get_helike_spectroscopy(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
     def _get_diode_filters(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
     def _get_interferometry(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
     def _get_zeff(
         self,
         data: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError

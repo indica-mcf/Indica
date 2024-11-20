@@ -6,11 +6,16 @@ reading MDS+ data produced by ST40.
 
 from typing import Any
 from typing import Dict
+from typing import Tuple
 
 import numpy as np
 
 from indica.configs.readers import ST40Conf
-from indica.readers.abstractreader import DataReader
+from indica.converters import CoordinateTransform
+from indica.converters import LineOfSightTransform
+from indica.converters import TransectCoordinates
+from indica.converters import TrivialTransform
+from indica.readers.datareader import DataReader
 from indica.readers.mdsutils import MDSUtils
 
 
@@ -46,37 +51,41 @@ class ST40Reader(DataReader):
     def _get_thomson_scattering(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         R = database_results["R"]
         database_results["channel"] = np.arange(len(R))
         database_results["z"] = R * 0.0
         database_results["x"] = R
         database_results["y"] = R * 0.0
-        return database_results
+        transform = assign_transect_transform(database_results)
+        return database_results, transform
 
     def _get_profile_fits(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         database_results["channel"] = np.arange(len(database_results["R"]))
-        return database_results
+        transform = assign_trivial_transform()
+        return database_results, transform
 
     def _get_charge_exchange(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         database_results["channel"] = np.arange(len(database_results["x"]))
         database_results["element"] = ""
         if "wavelength" in database_results.keys():
             if len(np.shape(database_results["wavelength"])) > 1:
                 database_results["wavelength"] = database_results["wavelength"][0, :]
             database_results["pixel"] = np.arange(len(database_results["wavelength"]))
-        return database_results
+
+        transform = assign_transect_transform(database_results)
+        return database_results, transform
 
     def _get_spectrometer(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         # Sort channel indexing either hardcore or
         # selecting channels with finite data only
         spectra = database_results["spectra"]
@@ -97,12 +106,14 @@ class ST40Reader(DataReader):
             database_results["wavelength"] = database_results["wavelength"][0, :]
 
         rearrange_geometry(database_results["location"], database_results["direction"])
-        return database_results
+
+        transform = assign_lineofsight_transform(database_results)
+        return database_results, transform
 
     def _get_equilibrium(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         # Add boundary index
         database_results["index"] = np.arange(np.size(database_results["rbnd"][0, :]))
         # Re-shape psi matrix
@@ -113,26 +124,29 @@ class ST40Reader(DataReader):
                 len(database_results["R"]),
             )
         )
-        return database_results
+        transform = assign_trivial_transform()
+        return database_results, transform
 
     def _get_radiation(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         database_results["channel"] = np.arange(database_results["location"][:, 0].size)
-        return database_results
+        transform = assign_lineofsight_transform(database_results)
+        return database_results, transform
 
     def _get_helike_spectroscopy(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         database_results["channel"] = np.arange(database_results["location"][:, 0].size)
-        return database_results
+        transform = assign_lineofsight_transform(database_results)
+        return database_results, transform
 
     def _get_diode_filters(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         database_results["channel"] = np.arange(database_results["location"][:, 0].size)
         _labels = database_results["label"]
         if type(_labels[0]) == np.bytes_:
@@ -142,24 +156,27 @@ class ST40Reader(DataReader):
         else:
             database_results["label"] = _labels
         rearrange_geometry(database_results["location"], database_results["direction"])
-        return database_results
+        transform = assign_lineofsight_transform(database_results)
+        return database_results, transform
 
     def _get_interferometry(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         # if database_results["instrument"] == "smmh":
         #     location = (location + location_r) / 2.0
         #     direction = (direction + direction_r) / 2.0
         database_results["channel"] = np.arange(database_results["location"][:, 0].size)
         rearrange_geometry(database_results["location"], database_results["direction"])
-        return database_results
+        transform = assign_lineofsight_transform(database_results)
+        return database_results, transform
 
     def _get_zeff(
         self,
         database_results: dict,
-    ) -> Dict[str, Any]:
-        return database_results
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        transform = assign_trivial_transform(database_results)
+        return database_results, transform
 
     def close(self):
         """Ends connection to the SAL server from which PPF data is being
@@ -189,3 +206,34 @@ def rearrange_geometry(location, direction):
     if len(np.shape(location)) == 1:
         location = np.array([location])
         direction = np.array([direction])
+
+
+def assign_lineofsight_transform(database_results: Dict):
+    transform = LineOfSightTransform(
+        database_results["location"][:, 0],
+        database_results["location"][:, 1],
+        database_results["location"][:, 2],
+        database_results["direction"][:, 0],
+        database_results["direction"][:, 1],
+        database_results["direction"][:, 2],
+        machine_dimensions=database_results["machine_dims"],
+        dl=database_results["dl"],
+        passes=database_results["passes"],
+    )
+    return transform
+
+
+def assign_transect_transform(database_results: Dict):
+    transform = TransectCoordinates(
+        database_results["x"],
+        database_results["y"],
+        database_results["z"],
+        machine_dimensions=database_results["machine_dims"],
+    )
+
+    return transform
+
+
+def assign_trivial_transform():
+    transform = TrivialTransform()
+    return transform

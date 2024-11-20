@@ -63,7 +63,7 @@ class PinholeCamera(AbstractDiagnostic):
 
         Returns
         -------
-        Dictionary of back-calculated quantities (as abstractreader.py)
+        Dictionary of back-calculated quantities (as datareader.py)
 
         """
         if self.plasma is not None:

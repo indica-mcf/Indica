@@ -29,7 +29,9 @@ class TestHelike:
             .expand_dims({"t": equilibrium.t.size})
             .assign_coords(t=equilibrium.t)
         )
-        self.profile_2d = self.profile_1d.interp(rhop=equilibrium.rhop).drop_vars("rhop")
+        self.profile_2d = self.profile_1d.interp(rhop=equilibrium.rhop).drop_vars(
+            "rhop"
+        )
 
     def test_convert_to_xy(self):
         x1 = self.los_transform.x1[0]

@@ -58,7 +58,7 @@ class ThomsonScattering(AbstractDiagnostic):
 
         Returns
         -------
-        Dictionary of back-calculated quantities (identical to abstractreader.py)
+        Dictionary of back-calculated quantities (identical to datareader.py)
 
         """
         if self.plasma is not None:
