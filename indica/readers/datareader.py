@@ -1,8 +1,9 @@
 """Experimental design for reading data from disk/database."""
 
 from abc import ABC
-from typing import Any, Tuple
+from typing import Any
 from typing import Dict
+from typing import Tuple
 
 import numpy as np
 from xarray import DataArray
@@ -11,9 +12,6 @@ from indica import BaseIO
 from indica.available_quantities import READER_QUANTITIES
 from indica.configs.readers.machineconf import MachineConf
 from indica.converters import CoordinateTransform
-from indica.converters import LineOfSightTransform
-from indica.converters import TransectCoordinates
-from indica.converters import TrivialTransform
 from indica.numpy_typing import RevisionLike
 from indica.utilities import build_dataarrays
 
@@ -86,17 +84,16 @@ class DataReader(ABC):
         if self.return_dataarrays:
             quantities = READER_QUANTITIES[method]
             data_arrays = build_dataarrays(
-                database_results, 
-                quantities, 
-                self.tstart, 
-                self.tend, 
-                transform, 
-                include_error
+                database_results,
+                quantities,
+                self.tstart,
+                self.tend,
+                transform,
+                include_error,
             )
             return data_arrays
         else:
             return database_results
-
 
     def _read_database(
         self,
@@ -155,7 +152,7 @@ class DataReader(ABC):
         return results
 
     # Machine-specific instrument methods that must be implemented in the child reader
-    # to refactor database data structures and assign a geometry transform 
+    # to refactor database data structures and assign a geometry transform
     def _get_thomson_scattering(
         self,
         data: dict,

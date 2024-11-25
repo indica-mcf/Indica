@@ -6,7 +6,7 @@ import git
 import numpy as np
 import xarray as xr
 
-from indica.models.plasma import PlasmaProfiler
+from indica.plasma import PlasmaProfiler
 from indica.workflows.bda.bayesblackbox import BayesBlackBox
 from indica.workflows.bda.model_coordinator import ModelCoordinator
 from indica.workflows.bda.optimisers import OptimiserContext

@@ -6,7 +6,7 @@ from flatdict import FlatDict
 import mpmath as mp
 import numpy as np
 
-from indica.models.plasma import PlasmaProfiler
+from indica.plasma import PlasmaProfiler
 
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
