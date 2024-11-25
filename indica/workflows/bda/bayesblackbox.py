@@ -6,8 +6,7 @@ from flatdict import FlatDict
 import mpmath as mp
 import numpy as np
 
-from indica import PlasmaProfiler
-from indica.workflows.bda.priors import PriorManager
+from indica.models.plasma import PlasmaProfiler
 
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
@@ -32,8 +31,8 @@ def mp_log_gauss_wrapper(x, mean, sigma):
 
 class BayesBlackBox:
     """
-    Bayesian black box model that creates _ln_posterior function
-    from plasma and diagnostic model objects
+    Bayesian black box that evaluates an ln_likelihood from given diagnostic data and
+    modelled data and an ln_posterior from ln_prior and ln_likelihood
 
     Parameters
     ----------
@@ -44,9 +43,9 @@ class BayesBlackBox:
     plasma_profiler
         plasma interface has methods for setting profiles in plasma
     build_bckc
-        function to return model data called by ln_posterior
-    prior_manager
-        prior class which calculates ln_prior from given parameters
+        function to return model data
+    ln_prior
+        prior function which calculates ln_prior from given parameters
 
     """
 
@@ -54,13 +53,13 @@ class BayesBlackBox:
         self,
         opt_data: dict,
         quant_to_optimise: list,
-        prior_manager: PriorManager,
+        ln_prior: Callable,
         build_bckc: Callable,
         plasma_profiler: PlasmaProfiler,
     ):
         self.opt_data = opt_data
         self.quant_to_optimise = quant_to_optimise
-        self.prior_manager = prior_manager
+        self.ln_prior = ln_prior
         self.build_bckc = build_bckc
         self.plasma_profiler = plasma_profiler
 
@@ -98,15 +97,18 @@ class BayesBlackBox:
         ln_posterior
             log of posterior probability
         blob
-            model outputs from bckc and kinetic profiles
+           outputs from model bckc and plasma attributes
         """
 
-        _ln_prior = self.prior_manager.ln_prior(parameters)
+        _ln_prior = self.ln_prior(parameters)
         if _ln_prior == -np.inf:  # Don't call models if outside priors
-            return -np.inf, {}
+            return (
+                -1e4,
+                {},
+            )  # optimisers can't handle inf (1E-10000 is min for numerical precision)
 
         self.plasma_profiler(parameters)
-        plasma_attributes = self.plasma_profiler.plasma_attributes()
+        plasma_attributes = self.plasma_profiler.get_plasma_attributes()
 
         self.bckc = FlatDict(
             self.build_bckc(flat_kwargs=parameters, **kwargs), "."

@@ -1,0 +1,23 @@
+# An example of how to set up the hydra configs for an ion temperature phantom run.
+# Modularising these configs makes it easier to mix and match different setups (even from the command line).
+# 'defaults' says which config files to read
+# individual settings can still be overwritten as with the 'optimisation'.
+
+defaults:
+  - model: default
+  - optimisation: bo
+  - plasma: default
+  - plasma_profiler: default
+  - priors: default
+  - reader: phantom
+
+optimisation:
+  n_calls: 80
+param_names: ["ion_temperature.y0", "ion_temperature.shape1", "ion_temperature.shape2", "ion_temperature.shape3", "ion_temperature.shape4",
+"xrcs.scale_spectra"]
+diagnostics: ["xrcs", "cxff_tws_c", "cxff_pi", "efit"]
+quant_to_optimise: ["xrcs.spectra_raw", "cxff_tws_c.ti", "cxff_pi.ti", "efit.wp"]
+
+tstart: 0.05
+tend: 0.06
+dt: 0.01
