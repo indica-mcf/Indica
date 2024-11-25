@@ -153,7 +153,7 @@ def bda_phantom_optimisation(  # noqa: C901
 
     log.info("Initialising plasma state with PlasmaProfiler")
     profilers = initialise_profilers(
-        plasma.rho,
+        plasma.rhop,
         profiler_types=cfg.plasma.profiles.profilers,
         profile_names=cfg.plasma.profiles.params.keys(),
         profile_params=OmegaConf.to_container(cfg.plasma.profiles.params),
@@ -168,7 +168,7 @@ def bda_phantom_optimisation(  # noqa: C901
 
     log.info("Updating Plasma Profiler with profilers used for optimisation")
     profilers = initialise_profilers(
-        plasma.rho,
+        plasma.rhop,
         profiler_types=cfg.plasma_profiler.profilers,
         profile_names=cfg.plasma_profiler.params.keys(),
         profile_params=OmegaConf.to_container(cfg.plasma_profiler.params),

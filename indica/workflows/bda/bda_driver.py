@@ -96,7 +96,7 @@ class BDADriver:
         result["PHANTOMS"] = {
             "FLAG": self.plasma_profiler.phantom,
             "PSI_NORM": {
-                "RHOP": self.plasma_profiler.plasma.rho,
+                "RHOP": self.plasma_profiler.plasma.rhop,
                 "NE": self.plasma_profiler.phantom_profiles["PSI_NORM"][
                     "electron_density"
                 ],
@@ -168,7 +168,7 @@ class BDADriver:
 
         result["PROFILES"] = {
             "PSI_NORM": {
-                "RHOP": self.plasma_profiler.plasma.rho,
+                "RHOP": self.plasma_profiler.plasma.rhop,
                 "RHOT": self.plasma_profiler.plasma.equilibrium.rhotor.interp(
                     t=self.plasma_profiler.plasma.t
                 ),
@@ -247,7 +247,7 @@ class BDADriver:
         result["PROFILE_STAT"] = {
             "SAMPLE_IDX": np.arange(0, self.opt_samples["post_sample"].shape[1]),
             "PSI_NORM": {
-                "RHOP": self.plasma_profiler.plasma.rho,
+                "RHOP": self.plasma_profiler.plasma.rhop,
                 "NE": self.blobs["electron_density"],
                 "NI": self.blobs["ion_density"],
                 "TE": self.blobs["electron_temperature"],
