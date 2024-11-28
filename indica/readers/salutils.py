@@ -71,6 +71,10 @@ class SALUtils(BaseIO):
         )
         return signal.data, path
 
+    def _get_signal_dims(signal: Signal) -> List[np.array]:
+        dims = [dim.data for dim in signal.dimensions]
+        return dims
+
     def get_signal_dims(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> Tuple[List[np.array], List[str]]:
@@ -80,9 +84,27 @@ class SALUtils(BaseIO):
             quantity=quantity,
             revision=revision,
         )
-        dims = [dim.data for dim in signal.dims]
+        dims = self._get_signal_dims(signal=signal)
         paths = [path] * len(dims)
         return dims, paths
+
+    def get_signal_units(
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
+    ) -> str:
+        raise NotImplementedError("Work in progress")
+
+    def get_data(
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
+    ) -> Tuple[np.array, List[np.array], str, str]:
+        signal, path = self._get_signal(
+            uid=uid,
+            instrument=instrument,
+            quantity=quantity,
+            revision=revision,
+        )
+        dims = self._get_signal_dims(signal=signal)
+        units = ""  # TODO implement later
+        return signal.data, dims, units, path
 
     def get_revision(
         self, uid: str, instrument: str, revision: RevisionLike
