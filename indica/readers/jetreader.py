@@ -3,9 +3,12 @@ produced by JET
 
 """
 
+from pathlib import Path
 from typing import Any
 from typing import Dict
 from typing import Tuple
+
+import numpy as np
 
 from indica.abstractio import BaseIO
 from indica.configs.readers import JETConf
@@ -14,8 +17,10 @@ from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
 from indica.converters import TrivialTransform
+from indica.numpy_typing import ArrayLike
 from indica.readers.datareader import DataReader
 from indica.readers.salutils import SALUtils
+from indica.readers.surfutils import read_surf_los
 
 
 class JETReader(DataReader):
@@ -47,65 +52,23 @@ class JETReader(DataReader):
         )
         self.reader_utils = self.reader_utils(pulse, server)
 
-    def _get_thomson_scattering(
-        self,
-        data: dict,
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
-
-    def _get_profile_fits(
-        self,
-        data: dict,
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
-
-    def _get_charge_exchange(
-        self,
-        data: dict,
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
-
-    def _get_spectrometer(
-        self,
-        data: dict,
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
-
     def _get_equilibrium(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
+        transform = assign_trivial_transform()
+        return data, transform
 
-    def _get_radiation(
+    def _get_thomson_scattering(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
-
-    def _get_helike_spectroscopy(
-        self,
-        data: dict,
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
-
-    def _get_diode_filters(
-        self,
-        data: dict,
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
-
-    def _get_interferometry(
-        self,
-        data: dict,
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
-
-    def _get_zeff(
-        self,
-        data: dict,
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
+        data["R"] = data["z_dimensions"][0]
+        data["x"] = data["R"]
+        data["y"] = np.zeros_like(data["R"])
+        data["t"] = data["te_dimensions"][0]
+        transform = assign_transect_transform(data)
+        return data, transform
 
     def _get_cyclotron_emissions(
         self,
@@ -118,6 +81,90 @@ class JETReader(DataReader):
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
+
+    def _get_charge_exchange(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        data["R"] = data["R"].mean(0)
+        data["x"] = data["R"]
+        data["y"] = np.zeros_like(data["R"])
+        data["z"] = data["z"].mean(0)
+        data["t"] = data["R_dimensions"][0]
+        transform = assign_transect_transform(data)
+        return data, transform
+
+    def _get_radiation(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        uid = data["uid"]
+        instrument = data["instrument"]
+        revision = data["revision"]
+        if "sxr" in instrument.lower():
+            quantity = instrument[-1]
+            instrument = "sxr"
+            luminosities = []
+            for i in range(
+                1, self.machine_conf._RADIATION_RANGES[instrument + "/" + quantity] + 1
+            ):
+                try:
+                    qval, q_dims, _, q_path = self.reader_utils.get_data(
+                        uid, instrument, f"{quantity}{i:02d}", revision
+                    )
+                except Exception:
+                    continue
+                luminosities.append(qval)
+                if data.get("t") is None:
+                    data["t"] = q_dims[0]
+            data[instrument] = np.array(luminosities).T
+        elif "kb5" in instrument.lower():
+            quantity = instrument
+            instrument = "bolo"
+            (
+                data[quantity],
+                data["t"],
+                _,
+                data[quantity + "_records"],
+            ) = self.reader_utils.get_data(
+                uid=uid, instrument=instrument, quantity=quantity, revision=revision
+            )
+        else:
+            raise UserWarning(f"{instrument} unsupported for {__class__}")
+
+        xstart, xend, zstart, zend, ystart, yend = read_surf_los(
+            self.machine_conf.SURF_PATH,
+            self.pulse,
+            instrument.lower() + "/" + quantity.lower(),
+        )
+        location = np.asarray([xstart, ystart, zstart])
+        direction = np.asarray([xend, yend, zend]) - location
+        data["location"] = location.transpose()
+        data["direction"] = direction.transpose()
+        transform = assign_lineofsight_transform(data)
+        return data, transform
+
+    def _get_zeff(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        uid = data["uid"]
+        instrument = data["instrument"]
+        revision = data["revision"]
+        quantity = instrument[-1]
+        instrument = instrument[:-1]
+        los, los_path = self.reader_utils.get_signal(
+            uid,
+            self.machine_conf._BREMSSTRAHLUNG_LOS[instrument],
+            "los" + quantity,
+            revision,
+        )
+        data["location"] = np.asarray([[(los[1] / 1000)], [0], [(los[2] / 1000)]])
+        data["direction"] = (
+            np.asarray([[(los[4] / 1000)], [0], [(los[5] / 1000)]]) - data["location"]
+        )
+        transform = assign_lineofsight_transform(data)
+        return data, transform
 
 
 def assign_lineofsight_transform(database_results: Dict):
@@ -149,3 +196,128 @@ def assign_transect_transform(database_results: Dict):
 def assign_trivial_transform():
     transform = TrivialTransform()
     return transform
+
+
+def _get_cxrs_los_geometry(sav_file: Path, tracks: ArrayLike) -> Any:
+    """Read IDL save file to get position and direction for KS5 tracks
+
+    Parameters
+    ----------
+
+    sav_file:
+        Path to IDL save file to load
+    tracks:
+        ArrayLike of tracks to select from save file, from JET dtype `TRCK`
+
+    Returns
+    -------
+
+    :
+        Tuple of position and direction arrays
+    """
+    import scipy.io as io
+
+    data = io.readsav(sav_file)
+    fibres = data.ptrfib.fibres[0]
+    numfibview = fibres.numfibview[0].astype(str)
+    origin, direction = [], []
+    for name, pos, vec in zip(
+        numfibview,
+        fibres.losdef[0].virtualposition_roomtemp_rot[0].cartesian_ref[0],
+        fibres.losdef[0].virtualdirection_rot[0].cartesian_ref[0],
+    ):
+        if name in tracks:
+            origin.append(pos / 1000)  # mm -> m
+            direction.append(vec)
+    return (np.asarray(origin), np.asarray(direction))
+
+
+def _setup_idl(pulse: int) -> Any:
+    import idlbridge as idlb
+
+    idlb.execute(".reset")
+    idlb.execute(
+        "!PATH=!PATH + ':' + "
+        "expand_path( '+~cxs/idl_spectro/' ) + ':' + "
+        "expand_path( '+~cxs/idl_spectro/show' ) + ':' + "
+        "expand_path( '+~cxs/ks6read/' ) + ':' + "
+        "expand_path( '+~cxs/ktread/' ) + ':' + "
+        "expand_path( '+~cxs/kx1read/' ) + ':' + "
+        "expand_path( '+~cxs/idl_spectro/kt3d' ) + ':' + "
+        "expand_path( '+~cxs/utc' ) + ':' + "
+        "expand_path( '+~cxs/instrument_data' ) + ':' + "
+        "expand_path( '+~cxs/calibration' ) + ':' + "
+        "expand_path( '+~cxs/alignment' ) + ':' + "
+        "expand_path( '+/usr/local/idl' ) + ':' + "
+        "expand_path( '+/home/CXSE/cxsfit/idl/' ) + ':' + "
+        "expand_path( '+~/jet/share/lib' ) + ':' + "
+        "expand_path( '+~/jet/share/root/lib' ) + ':' + "
+        "expand_path( '+~/jet/share/idl' )"
+    )
+
+    idlb.execute(
+        "!PATH = !PATH + ':' + expand_path('+/u/cxs/utilities',/all_dirs)+ ':'"
+    )
+
+    idlb.execute(
+        "!PATH = !PATH + ':' + expand_path('+/u/cxs/instrument_data/namelists')+ ':' + "
+        "expand_path('+/u/cxs/instrument_data/jpfnodes')"
+    )
+
+    idlb.execute("!PATH = !PATH + ':' + expand_path('+/usr/local/idl')")
+    idlb.execute("!PATH = !PATH + ':' + expand_path('+/home/CXSE/cxsfit/idl/')")
+    idlb.execute("!PATH = !PATH +':/home/CXSE/cxsfit/idl:'")
+    idlb.execute(".compile plot")
+    idlb.execute(".compile ppfread")
+    idlb.execute(".compile cxf_number_to_text")
+    idlb.execute(".compile cxf_read_switches")
+    idlb.execute(".compile cxf_decompress_history")
+
+    idlb.put("shot", pulse)
+    idlb.execute("julian_date = agm_pulse_to_julian(shot, 'DG')")
+
+    return idlb
+
+
+def _get_cxrs_los_savfile(pulse: int, spec: str) -> Path:
+    """Determine correct sav file for given pulse and spectrometer
+
+    Parameters
+    ----------
+    pulse:
+        Pulse to search for
+    spec:
+        Spectrometer to search for
+
+    Returns
+    -------
+    :
+        Path to save file
+    """
+    octant = {"ks5a": 7, "ks5b": 1, "ks5c": 7, "ks5d": 7, "ks5e": 1}.get(spec.lower())
+    idlb = _setup_idl(pulse=pulse)
+    idlb.execute(
+        "str1 = periscope_oct{}_hist_align(julian_date=julian_date)".format(str(octant))
+    )
+    idlb.execute("file_align = str1.file_align")
+    savfile = Path(str(idlb.get("file_align")))
+    assert savfile.exists() and savfile.is_file()
+    return savfile
+
+
+def _get_cxrs_active_tracks(pulse: int, spec: str, trck: ArrayLike) -> ArrayLike:
+    """Translate tracks used to track names as in geometry save file"""
+    idlb = _setup_idl(pulse=pulse)
+    idlb.execute(
+        "str1={}_hist_fibresetup(pulse=pulse,julian_date=julian_date)".format(str(spec))
+    )
+    idlb.execute("viewing_position=str1.pulse_setup.viewing_position")
+    idlb.execute("track_reshuffle=str1.pulse_setup.ks4fit_track_reshuffle")
+    viewing_position = idlb.get("viewing_position")
+    track_reshuffle = idlb.get("track_reshuffle")
+    assert len(viewing_position) == len(track_reshuffle) == len(trck)
+    return [
+        viewing_position[i - 1]
+        for i in track_reshuffle
+        if int(trck[len(trck) - i]) == 1
+    ][::-1]

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from indica.configs.readers.machineconf import MachineConf
 
 
@@ -10,14 +12,14 @@ class JETConf(MachineConf):
             "hrts": "get_thomson_scattering",
             "lidr": "get_thomson_scattering",
             "kk3": "get_cyclotron_emissions",
-            "ks3h": "get_bremsstrahlung_spectroscopy",
-            "ks3v": "get_bremsstrahlung_spectroscopy",
+            "kg10": "get_density_reflectometer",
             "sxrh": "get_radiation",
             "sxrv": "get_radiation",
             "sxrt": "get_radiation",
             "kb5h": "get_radiation",
             "kb5v": "get_radiation",
-            "kg10": "get_density_reflectometer",
+            "ks3h": "get_zeff",
+            "ks3v": "get_zeff",
             **{
                 "cx{}{}".format(val1, val2): "get_charge_exchange"
                 for val1 in ("s", "d", "f", "g", "h")
@@ -45,10 +47,33 @@ class JETConf(MachineConf):
                     "wp",
                 ]
             },
-            "get_thomson_scattering": {key: key for key in ["ne", "te"]},
-            "get_cyclotron_emissions": {key: key for key in ["te"]},
-            "get_reflectometer": {key: key for key in ["ne"]},
-            "get_radiation": {key: "brightness" for key in ["h", "v", "t"]},
-            "get_bremsstrahlung_spectroscopy": {"zefh": "zeff", "zefv": "zeff"},
-            "get_charge_exchange": {"ti": "ti", "angf": "vtor", "conc": "conc"},
+            "get_thomson_scattering": {
+                "z": "z",
+                "ne": "ne",
+                "te": "te",
+            },
+            "get_cyclotron_emissions": {"te": "te"},
+            "get_reflectometer": {"ne": "ne"},
+            "get_sxr_radiation": {},
+            "get_radiation": {},
+            "get_zeff": {"zeff": "zefv"},
+            "get_charge_exchange": {
+                "R": "rpos",
+                "z": "pos",
+                "ti": "ti",
+                "angf": "vtor",
+                "conc": "conc",
+            },
         }
+        self._BREMSSTRAHLUNG_LOS = {
+            "ks3": "edg7",
+        }
+        self._RADIATION_RANGES = {
+            "sxr/h": 17,
+            "sxr/t": 35,
+            "sxr/v": 35,
+            "bolo/kb5h": 24,
+            "bolo/kb5v": 32,
+        }
+        self._KK3_RANGE = (1, 96)
+        self.SURF_PATH = Path(__file__).parent.parent / "data/surf_los.dat"

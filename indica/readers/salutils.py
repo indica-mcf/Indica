@@ -15,8 +15,6 @@ from indica.numpy_typing import RevisionLike
 from indica.utilities import CACHE_DIR
 from indica.utilities import to_filename
 
-# SURF_PATH = Path(surf_los.__file__).parent.parent / "data/surf_los.dat"
-
 
 class SALError(Exception):
     """An exception which occurs when trying to read PPF data which would
@@ -36,7 +34,6 @@ class SALWarning(UserWarning):
 
 class SALUtils(BaseIO):
     def __init__(self, pulse: int, server: str = "https://sal.jetdata.eu"):
-        self.NAMESPACE: Tuple[str, str] = ("jet", server)
         self.pulse = pulse
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
         self._client = SALClient(server)
@@ -88,10 +85,19 @@ class SALUtils(BaseIO):
         paths = [path] * len(dims)
         return dims, paths
 
+    def _get_signal_units(signal: Signal) -> str:
+        return signal.units
+
     def get_signal_units(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
     ) -> str:
-        raise NotImplementedError("Work in progress")
+        signal, path = self._get_signal(
+            uid=uid,
+            instrument=instrument,
+            quantity=quantity,
+            revision=revision,
+        )
+        return self._get_signal_units(signal=signal)
 
     def get_data(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
@@ -103,7 +109,7 @@ class SALUtils(BaseIO):
             revision=revision,
         )
         dims = self._get_signal_dims(signal=signal)
-        units = ""  # TODO implement later
+        units = self._get_signal_units(signal=signal)
         return signal.data, dims, units, path
 
     def get_revision(
