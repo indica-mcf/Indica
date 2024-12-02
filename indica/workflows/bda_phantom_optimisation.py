@@ -291,4 +291,4 @@ def bda_phantom_optimisation(  # noqa: C901
 
 
 if __name__ == "__main__":
-    bda_phantom_optimisation(save_results=True)
+    bda_phantom_optimisation()
