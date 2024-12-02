@@ -49,8 +49,7 @@ class ModelCoordinator:
     def set_equilibrium(self, equilibrium: Equilibrium):
         self.equilibrium = equilibrium
         for model_name, model in self.models.items():
-            if hasattr(model, "transform"):
-                model.transform.set_equilibrium(equilibrium, force=True)
+            model.transform.set_equilibrium(equilibrium=equilibrium, force=True)
 
     def get(
         self,
