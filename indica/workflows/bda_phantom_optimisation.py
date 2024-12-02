@@ -13,8 +13,8 @@ from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
 from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
-from indica.plasma import Plasma
 from indica.models import ThomsonScattering
+from indica.plasma import Plasma
 from indica.plasma import PlasmaProfiler
 from indica.plotters.plot_bda import plot_bda
 from indica.profilers.profiler_gauss import ProfilerGauss

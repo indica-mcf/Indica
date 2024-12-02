@@ -117,7 +117,9 @@ class BDADriver:
                     dim="element"
                 ),
                 "MEANZ": self.plasma_profiler.phantom_profiles["PSI_NORM"]["meanz"],
-                "PTH": self.plasma_profiler.phantom_profiles["PSI_NORM"]["thermal_pressure"],
+                "PTH": self.plasma_profiler.phantom_profiles["PSI_NORM"][
+                    "thermal_pressure"
+                ],
                 "PFAST": self.plasma_profiler.phantom_profiles["PSI_NORM"][
                     "fast_ion_pressure"
                 ],
@@ -157,9 +159,7 @@ class BDADriver:
                 "PFAST": self.plasma_profiler.phantom_profiles["R_MIDPLANE"][
                     "fast_ion_pressure"
                 ],
-                "P": self.plasma_profiler.phantom_profiles["R_MIDPLANE"][
-                    "pressure"
-                ],
+                "P": self.plasma_profiler.phantom_profiles["R_MIDPLANE"]["pressure"],
                 "VTOR": self.plasma_profiler.phantom_profiles["R_MIDPLANE"][
                     "toroidal_rotation"
                 ],
@@ -207,13 +207,17 @@ class BDADriver:
                     dim="sample_idx"
                 ),
                 "TI": self.midplane_blobs["ion_temperature"].median(dim="sample_idx"),
-                "NFAST": self.midplane_blobs["fast_ion_density"].median(dim="sample_idx"),
+                "NFAST": self.midplane_blobs["fast_ion_density"].median(
+                    dim="sample_idx"
+                ),
                 "NNEUTR": self.midplane_blobs["neutral_density"].median(
                     dim="sample_idx"
                 ),
                 "P": self.midplane_blobs["pressure"].median(dim="sample_idx"),
                 "PTH": self.midplane_blobs["thermal_pressure"].median(dim="sample_idx"),
-                "PFAST": self.midplane_blobs["fast_ion_pressure"].median(dim="sample_idx"),
+                "PFAST": self.midplane_blobs["fast_ion_pressure"].median(
+                    dim="sample_idx"
+                ),
                 "ZEFF": self.midplane_blobs["zeff"]
                 .sum("element")
                 .median(dim="sample_idx"),
@@ -224,13 +228,19 @@ class BDADriver:
                     dim="sample_idx"
                 ),
                 "TI_ERR": self.midplane_blobs["ion_temperature"].std(dim="sample_idx"),
-                "NFAST_ERR": self.midplane_blobs["fast_ion_density"].std(dim="sample_idx"),
+                "NFAST_ERR": self.midplane_blobs["fast_ion_density"].std(
+                    dim="sample_idx"
+                ),
                 "NNEUTR_ERR": self.midplane_blobs["neutral_density"].std(
                     dim="sample_idx"
                 ),
                 "P_ERR": self.midplane_blobs["pressure"].std(dim="sample_idx"),
-                "PTH_ERR": self.midplane_blobs["thermal_pressure"].std(dim="sample_idx"),
-                "PFAST_ERR": self.midplane_blobs["fast_ion_pressure"].std(dim="sample_idx"),
+                "PTH_ERR": self.midplane_blobs["thermal_pressure"].std(
+                    dim="sample_idx"
+                ),
+                "PFAST_ERR": self.midplane_blobs["fast_ion_pressure"].std(
+                    dim="sample_idx"
+                ),
                 "ZEFF_ERR": self.midplane_blobs["zeff"]
                 .sum("element")
                 .std(dim="sample_idx"),
@@ -374,9 +384,7 @@ class BDADriver:
             _blob = [result["blobs"][key] for result in results]
             blobs[key] = xr.concat(_blob, self.plasma_profiler.plasma.t)
         self.blobs = blobs
-        self.midplane_blobs = self.plasma_profiler.map_plasma_profile_to_midplane(
-            blobs
-        )
+        self.midplane_blobs = self.plasma_profiler.map_plasma_profile_to_midplane(blobs)
 
         self.convergence = {}
         for key in results[0]["convergence"].keys():

@@ -658,7 +658,9 @@ class PlasmaProfiler:
         if not phantom:
             for key, value in phantom_profiles["PSI_NORM"].items():
                 phantom_profiles["PSI_NORM"][key] = value * 0
-        phantom_profiles["R_MIDPLANE"] = self.map_plasma_profile_to_midplane(phantom_profiles["PSI_NORM"])
+        phantom_profiles["R_MIDPLANE"] = self.map_plasma_profile_to_midplane(
+            phantom_profiles["PSI_NORM"]
+        )
         self.phantom_profiles = phantom_profiles
         return phantom_profiles
 

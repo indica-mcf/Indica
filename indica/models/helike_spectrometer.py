@@ -335,7 +335,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
             "wavelength": self.window.wavelength,
             "location": self.transform.origin,
             "direction": self.transform.direction,
-            "spectra_raw": self.measured_spectra
+            "spectra_raw": self.measured_spectra,
         }
 
         if self.moment_analysis:
