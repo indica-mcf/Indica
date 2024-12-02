@@ -157,6 +157,8 @@ PLASMA_QUANTITIES = {
         "index": ("index", []),
         "R": ("R", []),
         "z": ("z", []),
+        "R_midplane": ("R", []),
+        "z_midplane": ("z", []),
         "element": ("element", []),
         "impurity": ("impurity", []),
         "electron_temperature": ("electron_temperature", ["t", "rhop"]),
