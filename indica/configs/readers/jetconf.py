@@ -28,24 +28,23 @@ class JETConf(MachineConf):
         }
         self.QUANTITIES_PATH = {
             "get_equilibrium": {
-                key: key
-                for key in [
-                    "f",
-                    "faxs",
-                    "fbnd",
-                    "ftor",
-                    "rmji",
-                    "rmjo",
-                    "psi",
-                    "vjac",
-                    "ajac",
-                    "rmag",
-                    "rgeo",
-                    "rbnd",
-                    "zmag",
-                    "zbnd",
-                    "wp",
-                ]
+                "R": "psir",
+                "z": "psiz",
+                "rgeo": "rgeo",
+                "rmag": "rmag",
+                "zmag": "zmag",
+                "psi_axis": "faxs",
+                "psi_boundary": "fbnd",
+                "wp": "wp",
+                "rbnd": "rbnd",
+                "zbnd": "zbnd",
+                "f": "f",
+                "ftor": "ftor",
+                "rmji": "rmji",
+                "rmjo": "rmjo",
+                "vjac": "vjac",
+                "ajac": "ajac",
+                "psi": "psi",
             },
             "get_thomson_scattering": {
                 "z": "z",
@@ -56,13 +55,12 @@ class JETConf(MachineConf):
             "get_reflectometer": {"ne": "ne"},
             "get_sxr_radiation": {},
             "get_radiation": {},
-            "get_zeff": {"zeff": "zefv"},
+            "get_zeff": {},
             "get_charge_exchange": {
                 "R": "rpos",
                 "z": "pos",
                 "ti": "ti",
-                "angf": "vtor",
-                "conc": "conc",
+                "vtor": "angf",
             },
         }
         self._BREMSSTRAHLUNG_LOS = {
@@ -76,4 +74,4 @@ class JETConf(MachineConf):
             "bolo/kb5v": 32,
         }
         self._KK3_RANGE = (1, 96)
-        self.SURF_PATH = Path(__file__).parent.parent / "data/surf_los.dat"
+        self.SURF_PATH = Path(__file__).parent.parent.parent / "data/surf_los.dat"

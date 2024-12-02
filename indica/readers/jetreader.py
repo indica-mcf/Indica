@@ -11,8 +11,8 @@ from typing import Tuple
 import numpy as np
 
 from indica.abstractio import BaseIO
-from indica.configs.readers import JETConf
-from indica.configs.readers import MachineConf
+from indica.configs.readers.jetconf import JETConf
+from indica.configs.readers.machineconf import MachineConf
 from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
@@ -33,7 +33,7 @@ class JETReader(DataReader):
         tend: float,
         machine_conf: MachineConf = JETConf,
         reader_utils: BaseIO = SALUtils,
-        server: str = "https://sal.jetdata.eu",
+        server: str = "https://sal.jet.uk",
         verbose: bool = False,
         default_error: float = 0.05,
         *args,
@@ -56,6 +56,24 @@ class JETReader(DataReader):
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        data["t"] = data["rbnd_dimensions"][0]
+        data["index"] = data["rbnd_dimensions"][1]
+        data["psin"] = data["f_dimensions"][1]
+        uid = data["uid"]
+        instrument = data["instrument"]
+        revision = data["revision"]
+        data["psi_r"], data["psi_r_records"] = self.reader_utils.get_signal(
+            uid, instrument, "psir", revision
+        )
+        data["psi_z"], data["psi_z_records"] = self.reader_utils.get_signal(
+            uid, instrument, "psiz", revision
+        )
+        data["psi"] = data["psi"].reshape(
+            (len(data["t"]), len(data["psi_z"]), len(data["psi_r"]))
+        )
+        data["psi_error"] = data["psi_error"].reshape(
+            (len(data["t"]), len(data["psi_z"]), len(data["psi_r"]))
+        )
         transform = assign_trivial_transform()
         return data, transform
 
@@ -67,6 +85,7 @@ class JETReader(DataReader):
         data["x"] = data["R"]
         data["y"] = np.zeros_like(data["R"])
         data["t"] = data["te_dimensions"][0]
+        data["channel"] = np.arange(len(data["R"]))
         transform = assign_transect_transform(data)
         return data, transform
 
@@ -91,6 +110,7 @@ class JETReader(DataReader):
         data["y"] = np.zeros_like(data["R"])
         data["z"] = data["z"].mean(0)
         data["t"] = data["R_dimensions"][0]
+        data["channel"] = np.arange(len(data["R"]))
         transform = assign_transect_transform(data)
         return data, transform
 
@@ -103,39 +123,41 @@ class JETReader(DataReader):
         revision = data["revision"]
         if "sxr" in instrument.lower():
             quantity = instrument[-1]
-            instrument = "sxr"
+            _instrument = "sxr"
             luminosities = []
+            channels = []
             for i in range(
-                1, self.machine_conf._RADIATION_RANGES[instrument + "/" + quantity] + 1
+                1, self.machine_conf._RADIATION_RANGES[_instrument + "/" + quantity] + 1
             ):
                 try:
                     qval, q_dims, _, q_path = self.reader_utils.get_data(
-                        uid, instrument, f"{quantity}{i:02d}", revision
+                        uid, _instrument, f"{quantity}{i:02d}", revision
                     )
+                    luminosities.append(qval)
+                    channels.append(i)
                 except Exception:
                     continue
-                luminosities.append(qval)
                 if data.get("t") is None:
                     data["t"] = q_dims[0]
-            data[instrument] = np.array(luminosities).T
+            data["brightness"] = np.array(luminosities).T
+            data["channel"] = channels
         elif "kb5" in instrument.lower():
+            _instrument = "bolo"
             quantity = instrument
-            instrument = "bolo"
-            (
-                data[quantity],
-                data["t"],
-                _,
-                data[quantity + "_records"],
-            ) = self.reader_utils.get_data(
-                uid=uid, instrument=instrument, quantity=quantity, revision=revision
+            qval, qval_dimensions, _, qval_records = self.reader_utils.get_data(
+                uid=uid, instrument="bolo", quantity=quantity, revision=revision
             )
+            data["brightness"] = qval
+            data["t"] = qval_dimensions[0]
+            data["brightness_records"] = qval_records
+            data["channel"] = np.arange(len(qval_dimensions[1]))
         else:
             raise UserWarning(f"{instrument} unsupported for {__class__}")
 
         xstart, xend, zstart, zend, ystart, yend = read_surf_los(
             self.machine_conf.SURF_PATH,
             self.pulse,
-            instrument.lower() + "/" + quantity.lower(),
+            _instrument.lower() + "/" + quantity.lower(),
         )
         location = np.asarray([xstart, ystart, zstart])
         direction = np.asarray([xend, yend, zend]) - location
@@ -153,15 +175,21 @@ class JETReader(DataReader):
         revision = data["revision"]
         quantity = instrument[-1]
         instrument = instrument[:-1]
+        qval, qval_dimensions, _, qval_path = self.reader_utils.get_data(
+            uid=uid, instrument="ks3", quantity="zef" + quantity, revision=revision
+        )
+        data["zeff_avrg"] = qval
+        data["t"] = qval_dimensions[0]
+        data["zeff_avrg_records"] = qval_path
         los, los_path = self.reader_utils.get_signal(
             uid,
             self.machine_conf._BREMSSTRAHLUNG_LOS[instrument],
             "los" + quantity,
             revision,
         )
-        data["location"] = np.asarray([[(los[1] / 1000)], [0], [(los[2] / 1000)]])
+        data["location"] = np.asarray([[(los[1] / 1000), 0, (los[2] / 1000)]])
         data["direction"] = (
-            np.asarray([[(los[4] / 1000)], [0], [(los[5] / 1000)]]) - data["location"]
+            np.asarray([[(los[4] / 1000), 0, (los[5] / 1000)]]) - data["location"]
         )
         transform = assign_lineofsight_transform(data)
         return data, transform
