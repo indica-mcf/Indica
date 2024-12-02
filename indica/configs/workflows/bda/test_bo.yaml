@@ -18,7 +18,7 @@ dt: 0.01
 
 optimisation:
 
-  n_calls: 6
+  n_calls: 10
   n_initial_points: 5
   noise: 1.0E-10
   acq_func: "LCB"
