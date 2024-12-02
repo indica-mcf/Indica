@@ -1,3 +1,5 @@
+from getpass import getpass
+from getpass import getuser
 from pathlib import Path
 import pickle
 import stat
@@ -8,6 +10,7 @@ import warnings
 
 import numpy as np
 from sal.client import SALClient
+from sal.core.exception import AuthenticationFailed
 from sal.dataclass import Signal
 
 from indica.abstractio import BaseIO
@@ -33,11 +36,40 @@ class SALWarning(UserWarning):
 
 
 class SALUtils(BaseIO):
-    def __init__(self, pulse: int, server: str = "https://sal.jetdata.eu"):
+    def __init__(self, pulse: int, server: str = "https://sal.jet.uk"):
         self.pulse = pulse
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
         self._client = SALClient(server)
         self._client.prompt_for_password = False
+
+    def requires_authentication(self) -> None:
+        return self._client.auth_required
+
+    def authenticate(self, name: Optional[str] = None) -> bool:
+        """Log onto the JET/SAL system to access data.
+
+        Parameters
+        ----------
+        name:
+            Your username when logging onto Heimdall.
+
+        Returns
+        -------
+        :
+            Indicates whether authentication was succesful.
+        """
+        if name is None:
+            name = getuser()
+        try:
+            self._client.authenticate(name, getpass())
+            return True
+        except AuthenticationFailed:
+            return False
+
+    def close(self) -> None:
+        """Ends connection to the SAL server from which PPF data is being
+        read."""
+        del self._client
 
     def _get_signal(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
@@ -48,7 +80,7 @@ class SALUtils(BaseIO):
             uid,
             instrument,
             quantity,
-            self.get_revision(uid, instrument, quantity, revision),
+            self.get_revision(uid, instrument, revision),
         )
         cache_path = self._sal_path_to_file(path)
         data = self._read_cached_ppf(cache_path)
@@ -68,7 +100,7 @@ class SALUtils(BaseIO):
         )
         return signal.data, path
 
-    def _get_signal_dims(signal: Signal) -> List[np.array]:
+    def _get_signal_dims(self, signal: Signal) -> List[np.array]:
         dims = [dim.data for dim in signal.dimensions]
         return dims
 
@@ -85,7 +117,7 @@ class SALUtils(BaseIO):
         paths = [path] * len(dims)
         return dims, paths
 
-    def _get_signal_units(signal: Signal) -> str:
+    def _get_signal_units(self, signal: Signal) -> str:
         return signal.units
 
     def get_signal_units(
