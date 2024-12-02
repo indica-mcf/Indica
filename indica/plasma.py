@@ -654,10 +654,11 @@ class PlasmaProfiler:
     def save_phantoms(self, phantom=False):
         #  if phantoms return profiles otherwise return empty arrays
         self.phantom = phantom
-        phantom_profiles = self.plasma_attributes()
+        phantom_profiles = {"PSI_NORM": self.plasma_attributes()}
         if not phantom:
-            for key, value in phantom_profiles.items():
-                phantom_profiles[key] = value * 0
+            for key, value in phantom_profiles["PSI_NORM"].items():
+                phantom_profiles["PSI_NORM"][key] = value * 0
+        phantom_profiles["R_MIDPLANE"] = self.map_plasma_profile_to_midplane(phantom_profiles["PSI_NORM"])
         self.phantom_profiles = phantom_profiles
         return phantom_profiles
 
@@ -670,7 +671,7 @@ class PlasmaProfiler:
         R = self.plasma.R_midplane
         z = self.plasma.z_midplane
         _rhop, _, _ = self.plasma.equilibrium.flux_coords(R, z, self.plasma.t)
-        rhop = _rhop.swap_dims({"index": "R"}).drop_vars("index")
+        rhop = _rhop.swap_dims({"dim_0": "R"})
 
         for key, value in profiles.items():
             if "rhop" not in value.dims:
