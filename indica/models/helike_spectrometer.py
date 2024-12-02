@@ -332,11 +332,12 @@ class HelikeSpectrometer(AbstractDiagnostic):
         bckc = {
             "t": self.t,
             "channel": np.arange(len(self.transform.x1)),
+            "wavelength": self.window.wavelength,
             "location": self.transform.origin,
             "direction": self.transform.direction,
+            "spectra_raw": self.measured_spectra
         }
-        if hasattr(self, "measured_spectra"):
-            self.bckc["spectra_raw"] = self.measured_spectra
+
         if self.moment_analysis:
             for line in self.measured_intensity.keys():
                 self.bckc[f"te_{line}"] = self.measured_Te[line]
