@@ -77,10 +77,10 @@ class SALUtils(BaseIO):
         """Gets the signal for the given INSTRUMENT (DDA in JET), at the
         given revision."""
         path = self.get_sal_path(
-            uid,
-            instrument,
-            quantity,
-            self.get_revision(uid, instrument, revision),
+            uid=uid,
+            instrument=instrument,
+            revision=self.get_revision(uid, instrument, revision),
+            quantity=quantity,
         )
         cache_path = self._sal_path_to_file(path)
         data = self._read_cached_ppf(cache_path)
@@ -152,19 +152,40 @@ class SALUtils(BaseIO):
         (e.g. 0, latest) to absolute
         """
         info = self._client.list(
-            f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}:{revision:d}"
+            self.get_sal_path(uid=uid, instrument=instrument, revision=revision)
         )
         return info.revision_current
 
+    def _rewrite_instrument(self, instrument: str) -> str:
+        """Return modified instrument, if needed, based on input. Used due to slight
+        hack in JET PPF system to separate individual instruments that are stored in a
+        single PPF.
+
+        """
+        instrument_mapping = {
+            "sxrh": "sxr",
+            "sxrv": "sxr",
+            "kb5h": "bolo",
+            "kb5v": "bolo",
+            "ks3h": "ks3",
+            "ks3v": "ks3",
+        }
+        return instrument_mapping.get(instrument, instrument)
+
     def get_sal_path(
-        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
+        self,
+        uid: str,
+        instrument: str,
+        revision: RevisionLike,
+        quantity: Optional[str] = None,
     ) -> str:
         """Return the path in the PPF database to for the given INSTRUMENT
         (DDA in JET)."""
-        return (
-            f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}/"
-            f"{quantity}:{revision:d}"
-        )
+        instrument = self._rewrite_instrument(instrument=instrument)
+        base_path = f"/pulse/{self.pulse:d}/ppf/signal/{uid}/{instrument}"
+        if quantity is not None:
+            return base_path + f"/{quantity}:{revision:d}"
+        return base_path + f":{revision:d}"
 
     def _read_cached_ppf(self, path: Path) -> Optional[Signal]:
         """Check if the PPF data specified by `sal_path` has been cached and,
