@@ -261,7 +261,7 @@ def build_dataarrays(
         _data = format_dataarray(data[quantity], datatype, coords)
         if "t" in _data.dims and tstart is not None and tend is not None:
             _data = _data.sel(t=slice(tstart, tend))
-        _data = _data.sortby(dims)
+            _data = _data.sortby([dim for dim in dims if dim != "t"])
 
         # Build error DataArray and assign as coordinate
         if include_error and len(dims) != 0:
