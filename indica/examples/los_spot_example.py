@@ -3,7 +3,7 @@ import matplotlib.cm as cm
 import numpy as np
 
 from indica.converters import LineOfSightTransform
-from indica.models.plasma import example_plasma
+from indica.examples.example_plasma import example_plasma
 from indica.readers.read_st40 import ReadST40
 
 
@@ -178,7 +178,7 @@ plt.show(block=True)
 
 
 # Line integration
-rho = los_transform.equilibrium.rho.interp(t=time)
+rho = los_transform.equilibrium.rhop.interp(t=time)
 R = rho.R
 z = rho.z
 b_tot, t = plasma.equilibrium.Btot(R, z, t=time)

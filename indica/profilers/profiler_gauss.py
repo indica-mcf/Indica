@@ -21,7 +21,7 @@ class ProfilerGauss(ProfilerBase):
         datatype: str = "electron_temperature",
         xend: float = 1.05,
         xspl: np.ndarray = None,
-        coord="poloidal",
+        coord="rhop",
         parameters: dict = None,
     ):
         """
@@ -43,7 +43,7 @@ class ProfilerGauss(ProfilerBase):
         self.wcenter: float = None
         self.wped: float = None
         self.xend = xend
-        self.coord = f"rho_{coord}"
+        self.coord = coord
         self.x = np.linspace(0, 1, 15) ** 0.7
         self.datatype = datatype
         if xspl is None:

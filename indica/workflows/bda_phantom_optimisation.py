@@ -13,9 +13,9 @@ from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
 from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
-from indica.models import Plasma
 from indica.models import ThomsonScattering
-from indica.models.plasma import PlasmaProfiler
+from indica.plasma import Plasma
+from indica.plasma import PlasmaProfiler
 from indica.plotters.plot_bda import plot_bda
 from indica.profilers.profiler_gauss import ProfilerGauss
 from indica.profilers.profiler_spline import ProfilerCubicSpline
@@ -30,7 +30,7 @@ from indica.workflows.bda.priors import PriorManager
 
 ERROR_FUNCTIONS = {
     "efit.wp": lambda x: x * 0.10,
-    "xrcs.raw_spectra": lambda x: x * 0.05
+    "xrcs.spectra_raw": lambda x: x * 0.05
     + 0.01 * x.max(dim="wavelength")
     + (
         x.where(
@@ -149,11 +149,12 @@ def bda_phantom_optimisation(  # noqa: C901
         dt=cfg.dt,
         **cfg.plasma.settings,
     )
+    plasma.build_atomic_data()
     plasma.set_equilibrium(equilibrium=equilibrium)
 
     log.info("Initialising plasma state with PlasmaProfiler")
     profilers = initialise_profilers(
-        plasma.rho,
+        plasma.rhop,
         profiler_types=cfg.plasma.profiles.profilers,
         profile_names=cfg.plasma.profiles.params.keys(),
         profile_params=OmegaConf.to_container(cfg.plasma.profiles.params),
@@ -168,7 +169,7 @@ def bda_phantom_optimisation(  # noqa: C901
 
     log.info("Updating Plasma Profiler with profilers used for optimisation")
     profilers = initialise_profilers(
-        plasma.rho,
+        plasma.rhop,
         profiler_types=cfg.plasma_profiler.profilers,
         profile_names=cfg.plasma_profiler.params.keys(),
         profile_params=OmegaConf.to_container(cfg.plasma_profiler.params),
@@ -213,7 +214,7 @@ def bda_phantom_optimisation(  # noqa: C901
     if "xrcs" in reader.binned_data.keys():
         model_call_kwargs = {
             "xrcs": {
-                "norm_spectra": reader.binned_data["xrcs"]["raw_spectra"].max(
+                "norm_spectra": reader.binned_data["xrcs"]["spectra_raw"].max(
                     "wavelength"
                 ),
             }
@@ -291,4 +292,4 @@ def bda_phantom_optimisation(  # noqa: C901
 
 
 if __name__ == "__main__":
-    bda_phantom_optimisation(save_results=True)
+    bda_phantom_optimisation()

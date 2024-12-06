@@ -3,12 +3,12 @@ from typing import Callable
 import matplotlib.pylab as plt
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import BolometerCamera
 from indica.models import BremsstrahlungDiode
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
 from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
+from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
 
 
@@ -50,7 +50,7 @@ def example_bolometer(
 ):
     machine = "st40"
     instrument = "blom_xy1"
-    _model = BolometerCamera
+    _model = PinholeCamera
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
 
@@ -59,7 +59,7 @@ def example_axuv_unfiltered(
 ):
     machine = "st40"
     instrument = "sxrc_xy1"
-    _model = BolometerCamera
+    _model = PinholeCamera
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
 

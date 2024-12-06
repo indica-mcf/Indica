@@ -89,7 +89,7 @@ class InvertPoloidalAsymmetry:
             The spline knots to use when fitting the emissivity data.
         """
 
-        coords = [("rho_poloidal", self.xspl)]
+        coords = [("rhop", self.xspl)]
         mask_profile, mask_asymmetry = self.mask_profile, self.mask_asymmetry
         indx_profile, indx_asymmetry = self.indx_profile, self.indx_asymmetry
         xknots, xspl = self.xknots, self.xspl

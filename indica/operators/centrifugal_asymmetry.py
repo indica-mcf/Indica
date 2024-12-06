@@ -3,7 +3,7 @@ from copy import deepcopy
 import numpy as np
 from xarray import DataArray
 
-from indica.equilibrium import Equilibrium
+from indica import Equilibrium
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.utilities import get_element_info
@@ -63,17 +63,12 @@ def centrifugal_asymmetry_2d_map(
     else:
         _asymmetry_parameter = asymmetry_parameter
 
-    rho_2d = equilibrium.rho.interp(t=t)
-    R_0 = (
-        equilibrium.rmjo.drop_vars("z")
-        .interp(t=t)
-        .interp(rho_poloidal=rho_2d)
-        .drop_vars("rho_poloidal")
-    )
+    rho_2d = equilibrium.rhop.interp(t=t)
+    R_0 = equilibrium.rmjo.interp(t=t).interp(rhop=rho_2d).drop_vars("rhop")
 
-    _profile_2d = _profile_to_map.interp(rho_poloidal=rho_2d).drop_vars("rho_poloidal")
+    _profile_2d = _profile_to_map.interp(rhop=rho_2d).drop_vars("rhop")
     profile_2d = _profile_2d * np.exp(
-        _asymmetry_parameter.interp(rho_poloidal=rho_2d) * (rho_2d.R**2 - R_0**2)
+        _asymmetry_parameter.interp(rhop=rho_2d) * (rho_2d.R**2 - R_0**2)
     )
 
     return profile_2d

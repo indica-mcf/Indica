@@ -1,6 +1,7 @@
 doc/_build
 *~
 *.pyc
+*.ipynb
 venv/
 .hypothesis/
 .coverage

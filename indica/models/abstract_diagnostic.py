@@ -1,13 +1,13 @@
 from abc import ABC
 from abc import abstractmethod
 
+from indica import Plasma
 from indica.converters import CoordinateTransform
-from indica.models.plasma import Plasma
 
 
 class AbstractDiagnostic(ABC):
-    name: str
-    bckc: dict
+    name: str = ""
+    bckc: dict = {}
     plasma: Plasma
     transform: CoordinateTransform
 
