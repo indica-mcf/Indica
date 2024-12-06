@@ -186,7 +186,9 @@ class Plasma:
         self._wp = format_dataarray(
             data1d_time, "stored_energy", coords1d_time, make_copy=True
         )
-        self._zeff = format_dataarray(data3d, "effective_charge", coords3d, make_copy=True)
+        self._zeff = format_dataarray(
+            data3d, "effective_charge", coords3d, make_copy=True
+        )
         self._ion_density = format_dataarray(
             data3d, "ion_density", coords3d, make_copy=True
         )
