@@ -149,6 +149,7 @@ def bda_phantom_optimisation(  # noqa: C901
         dt=cfg.dt,
         **cfg.plasma.settings,
     )
+    plasma.build_atomic_data()
     plasma.set_equilibrium(equilibrium=equilibrium)
 
     log.info("Initialising plasma state with PlasmaProfiler")

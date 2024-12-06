@@ -64,7 +64,7 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        database_results["channel"] = np.arange(len(database_results["R"]))
+        database_results["channel"] = np.arange(len(database_results["R_data"]))
         transform = assign_trivial_transform()
         return database_results, transform
 
@@ -175,7 +175,7 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        transform = assign_trivial_transform(database_results)
+        transform = assign_trivial_transform()
         return database_results, transform
 
     def close(self):
