@@ -6,9 +6,9 @@ from indica import Equilibrium
 from indica import Plasma
 from indica.converters.abstractconverter import CoordinateTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
-from indica.readers.read_st40 import apply_filter
-from indica.readers.read_st40 import coord_condition
-from indica.readers.read_st40 import limit_condition
+from indica.readers.readerprocessor import apply_filter
+from indica.readers.readerprocessor import coordinate_condition
+from indica.readers.readerprocessor import value_condition
 
 
 class ModelCoordinator:
@@ -119,14 +119,14 @@ class ModelCoordinator:
         self.filtered_data = apply_filter(
             self.data,
             filters=filter_limits,
-            filter_func=limit_condition,
+            filter_func=value_condition,
             filter_func_name="limits",
             verbose=self.verbose,
         )
         self.filtered_data = apply_filter(
             self.filtered_data,
             filters=filter_coords,
-            filter_func=coord_condition,
+            filter_func=coordinate_condition,
             filter_func_name="co-ordinate",
             verbose=self.verbose,
         )
