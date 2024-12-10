@@ -296,7 +296,7 @@ class BDADriver:
         }
 
         result["GLOBAL"] = {
-            "VOLUME": self.plasma_profiler.plasma.volume.max(dim="dim_0"),
+            "VOLUME": self.plasma_profiler.plasma.volume.max(dim="rhop"),
             "TI0": self.blobs["ion_temperature"]
             .sel(rhop=0, method="nearest")
             .median(dim="sample_idx"),

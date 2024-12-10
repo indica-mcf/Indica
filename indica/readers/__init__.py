@@ -8,7 +8,11 @@ from .adas import ADASReader
 from .datareader import DataReader
 from .readerprocessor import ReaderProcessor
 
-__all__ = ["ADASReader", "DataReader", "ReaderProcessor", ]
+__all__ = [
+    "ADASReader",
+    "DataReader",
+    "ReaderProcessor",
+]
 
 try:
     from .salutils import SALUtils
