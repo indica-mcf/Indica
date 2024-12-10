@@ -242,7 +242,7 @@ def example_run(
         print("Reading ST40 data")
         st40 = ST40Reader(pulse, tstart, tend, dt=dt, tree="st40")
         REVISIONS["efit"] = equil_run
-        st40(instruments=INSTRUMENTS,  revisions=REVISIONS)
+        st40(instruments=INSTRUMENTS, revisions=REVISIONS)
 
     if equil != code:
         equilibrium = {run: Equilibrium(st40.raw_data[equil]) for run in runs}
