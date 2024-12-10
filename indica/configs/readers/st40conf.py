@@ -215,7 +215,7 @@ class ST40Conf(MachineConf):
             },
         }
 
-        self.filter_value = {
+        self.filter_values = {
             "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},
             "cxff_tws_c": {"ti": (0, np.inf), "vtor": (0, np.inf)},
             "cxff_tws_b": {"ti": (0, np.inf), "vtor": (0, np.inf)},

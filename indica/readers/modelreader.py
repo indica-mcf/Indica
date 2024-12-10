@@ -16,7 +16,7 @@ class ModelReader:
         self,
         models: dict[str, AbstractDiagnostic],
         model_kwargs: dict,
-        conf=ST40Conf,
+        conf=ST40Conf(),
     ):
         """Reader for synthetic diagnostic measurements making use of:
 
@@ -31,7 +31,7 @@ class ModelReader:
         """
         self.models = models
         self.model_kwargs = model_kwargs
-        self.conf = conf()
+        self.conf = conf
 
         self.transforms: dict = {}
         self.plasma = None
@@ -97,13 +97,13 @@ class ModelReader:
             instruments = self.models.keys()
 
         if filter_limits is None:
-            filter_limits = self.conf.filter_value
+            filter_limits = self.conf.filter_values
         if filter_coords is None:
             filter_coords = self.conf.filter_coordinates
 
         bckc: dict = {}
         for instrument in instruments:
-            bckc[instrument] = self.get(instrument, **call_kwargs[instrument])
+            bckc[instrument] = self.get(instrument, **call_kwargs.get(instrument, {}))
 
         filtered_bckc = apply_filter(
             bckc,

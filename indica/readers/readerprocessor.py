@@ -40,7 +40,7 @@ class ReaderProcessor:
 
         self.filtered_data = apply_filter(
             self.raw_data,
-            filters=self.conf.filter_value,
+            filters=self.conf.filter_values,
             filter_func=value_condition,
             filter_func_name="value",
         )
