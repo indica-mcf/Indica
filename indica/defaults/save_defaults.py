@@ -25,7 +25,7 @@ def save_default_objects(
     Write geometries for specified machine to file for future use as defaults
     """
     if machine == "st40":
-        _reader = ST40Reader(pulse, tstart - dt, tend + dt)
+        _reader = ST40Reader(pulse, tstart - dt, tend + dt, dt=dt)
         _conf = ST40Conf()
     else:
         raise ValueError(f"Machine {machine} currently not supported")
