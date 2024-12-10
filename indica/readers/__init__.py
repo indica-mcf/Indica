@@ -4,16 +4,24 @@ filesystem or databases. These objects are all subclasses of
 functionality for a different format of data.
 
 """
+from .datareader import DataReader
 from .adas import ADASReader
-from .readerprocessor import ReaderProcessor
 
-__all__ = ["ADASReader", "ReaderProcessor"]
+__all__ = ["ADASReader", "DataReader"]
 
 try:
     from .ppfreader import PPFReader
 
     __all__ += ["PPFReader"]
 except ImportError:
+    pass
+
+try:
+    from .st40conf import ST40Conf
+
+    __all__ += ["ST40Conf"]
+except ImportError as e:
+    print(e)
     pass
 
 try:

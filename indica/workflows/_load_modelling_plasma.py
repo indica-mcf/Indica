@@ -15,8 +15,8 @@ from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
-from indica.readers.read_st40 import bin_data_in_time
-from indica.readers.read_st40 import ReadST40
+from indica.readers import ST40Reader
+from indica.readers.readerprocessor import bin_data_in_time
 from indica.utilities import FIG_PATH
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
@@ -152,7 +152,7 @@ def read_modelling_runs(
 
     code_raw_data: dict = {}
     code_binned_data: dict = {}
-    code_reader = ReadST40(pulse, tstart, tend, dt=dt, tree=code)
+    code_reader = ST40Reader(pulse, tstart, tend, dt=dt, tree=code)
     for run in runs:
         try:
             code_raw_data[run] = code_reader.get_raw_data("", code, run)
@@ -240,9 +240,9 @@ def example_run(
 
     if pulse is not None:
         print("Reading ST40 data")
-        st40 = ReadST40(pulse, tstart, tend, dt=dt, tree="st40")
+        st40 = ST40Reader(pulse, tstart, tend, dt=dt, tree="st40")
         REVISIONS["efit"] = equil_run
-        st40(instruments=INSTRUMENTS, map_diagnostics=False, revisions=REVISIONS)
+        st40(instruments=INSTRUMENTS,  revisions=REVISIONS)
 
     if equil != code:
         equilibrium = {run: Equilibrium(st40.raw_data[equil]) for run in runs}
@@ -489,7 +489,7 @@ def plot_plasmas(
 
 
 def plot_data_bckc_comparison(
-    st40: ReadST40,
+    st40: ST40Reader,
     bckc: dict,
     plasma: dict,
     time: float,
