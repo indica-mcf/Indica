@@ -1,5 +1,3 @@
-from indica.configs import ST40Conf
-
 from copy import deepcopy
 from typing import Callable
 from typing import Dict
@@ -8,6 +6,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.configs import ST40Conf
 from indica.converters.time import convert_in_time_dt
 
 
@@ -15,10 +14,11 @@ class ReaderProcessor:
     """
     Takes raw data from a datareader and applies filtering and binning
     """
+
     def __init__(
         self,
         raw_data: dict,
-        conf = ST40Conf(),
+        conf=ST40Conf(),
     ):
 
         self.raw_data: dict = raw_data
@@ -55,7 +55,6 @@ class ReaderProcessor:
         self.binned_data = bin_data_in_time(
             self.filtered_data, tstart=tstart, tend=tend, dt=dt
         )
-
 
 
 def bin_data_in_time(
@@ -137,5 +136,3 @@ def coordinate_condition(data: DataArray, coord_info: tuple):
     filtered_data = data.where(condition, np.nan)
     filtered_data.attrs = data.attrs
     return filtered_data
-
-
