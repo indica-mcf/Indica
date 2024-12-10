@@ -15,6 +15,7 @@ from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
 from indica.converters import TrivialTransform
+from indica.numpy_typing import RevisionLike
 from indica.readers.datareader import DataReader
 from indica.readers.mdsutils import MDSUtils
 
@@ -27,6 +28,7 @@ class ST40Reader(DataReader):
         pulse: int,
         tstart: float,
         tend: float,
+        dt: float,
         machine_conf=ST40Conf,
         reader_utils=MDSUtils,
         server: str = "smaug",
@@ -35,6 +37,11 @@ class ST40Reader(DataReader):
         default_error: float = 0.05,
         **kwargs: Any,
     ):
+
+        tstart = tstart - dt * 2
+        if tstart < 0:
+            tstart = 0
+        tend = tend + dt * 2
         super().__init__(
             pulse,
             tstart,
@@ -43,9 +50,9 @@ class ST40Reader(DataReader):
             reader_utils=reader_utils,
             server=server,
             verbose=verbose,
-            default_error=default_error,
             **kwargs,
         )
+        self.default_error = default_error,
         self.reader_utils = self.reader_utils(pulse, server, tree)
 
     def _get_thomson_scattering(
@@ -175,31 +182,39 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        transform = assign_trivial_transform(database_results)
+        transform = assign_trivial_transform()
         return database_results, transform
 
-    def close(self):
-        """Ends connection to the SAL server from which PPF data is being
-        read."""
-        raise NotImplementedError
 
-    @property
-    def requires_authentication(self):
-        """Indicates whether authentication is required to read data.
+    def __call__(
+            self,
+            instruments: list = None,
+            revisions: Dict[str, RevisionLike] = None,
+            debug: bool = False,
+    ):
 
-        Returns
-        -------
-        :
-            True if authenticationis needed, otherwise false.
-        """
-        # Perform the necessary logic to know whether authentication is needed.
-        # try:
-        #     self._client.list("/")
-        #     return False
-        # except AuthenticationFailed:
-        #     return True
-        #
-        return False
+        if instruments is None:
+            instruments = self.machine_conf.INSTRUMENT_METHODS.keys()
+        if revisions is None:
+            revisions = {instrument: 0 for instrument in instruments}
+        for instr in instruments:
+            if instr not in revisions.keys():
+                revisions[instr] = 0
+
+        self.data = {}
+        for instrument in instruments:
+            print(f"Reading {instrument}")
+            try:
+                self.data[instrument] = self.get(
+                    "",
+                    instrument,
+                    revisions[instrument],
+                )
+            except Exception as e:
+                print(f"error reading: {instrument} \nException: {e}")
+                if debug:
+                    raise e
+        return self.data
 
 
 def rearrange_geometry(location, direction):

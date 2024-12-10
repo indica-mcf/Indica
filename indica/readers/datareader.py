@@ -26,13 +26,11 @@ class DataReader(ABC):
         tend: float,
         machine_conf: MachineConf,
         reader_utils: BaseIO,
-        default_error: float = 0.05,
         verbose: bool = False,
         return_dataarrays: bool = True,
         **kwargs: Any,
     ):
-        """This should be called by constructors on subtypes.
-
+        """
         Parameters
         ----------
         tstart
@@ -51,7 +49,6 @@ class DataReader(ABC):
         self.instrument_methods = self.machine_conf.INSTRUMENT_METHODS
         self.machine_dims = self.machine_conf.MACHINE_DIMS
         self.quantities_path = self.machine_conf.QUANTITIES_PATH
-        self.default_error = default_error
         self.verbose = verbose
         self.return_dataarrays = return_dataarrays
         self.kwargs = kwargs

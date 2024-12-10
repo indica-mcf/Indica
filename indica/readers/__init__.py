@@ -5,8 +5,8 @@ functionality for a different format of data.
 
 """
 from .adas import ADASReader
-
-__all__ = ["ADASReader"]
+from .readerprocessor import ReaderProcessor
+__all__ = ["ADASReader", "ReaderProcessor"]
 
 try:
     from .ppfreader import PPFReader
