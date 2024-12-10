@@ -1,5 +1,6 @@
-from indica.configs.readers.machineconf import MachineConf
 import numpy as np
+
+from indica.configs.readers.machineconf import MachineConf
 
 
 class ST40Conf(MachineConf):
@@ -211,8 +212,8 @@ class ST40Conf(MachineConf):
                 "niz1": ".profiles.astra:niz1",  # 10^19/m^3
                 "niz2": ".profiles.astra:niz2",  # 10^19/m^3
                 "niz3": ".profiles.astra:niz3",  # 10^19/m^3
-                },
-            }
+            },
+        }
 
         self.filter_value = {
             "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},
@@ -249,13 +250,21 @@ class ST40Conf(MachineConf):
         }
 
         self.filter_coordinates = {
-            "cxff_pi": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
-            "cxff_tws_c": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
-            "cxff_tws_b": {"ti": ("channel", (0, np.inf)), "vtor": ("channel", (0, np.inf))},
+            "cxff_pi": {
+                "ti": ("channel", (0, np.inf)),
+                "vtor": ("channel", (0, np.inf)),
+            },
+            "cxff_tws_c": {
+                "ti": ("channel", (0, np.inf)),
+                "vtor": ("channel", (0, np.inf)),
+            },
+            "cxff_tws_b": {
+                "ti": ("channel", (0, np.inf)),
+                "vtor": ("channel", (0, np.inf)),
+            },
             "xrcs": {
                 "spectra": ("wavelength", (0.0, np.inf)),
                 "spectra_raw": ("wavelength", (0.0, np.inf)),
             },
             "ts": {"te": ("channel", (0, np.inf)), "ne": ("channel", (0, np.inf))},
         }
-

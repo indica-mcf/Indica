@@ -52,7 +52,7 @@ class ST40Reader(DataReader):
             verbose=verbose,
             **kwargs,
         )
-        self.default_error = default_error,
+        self.default_error = (default_error,)
         self.reader_utils = self.reader_utils(pulse, server, tree)
 
     def _get_thomson_scattering(
@@ -185,12 +185,11 @@ class ST40Reader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
-
     def __call__(
-            self,
-            instruments: list = None,
-            revisions: Dict[str, RevisionLike] = None,
-            debug: bool = False,
+        self,
+        instruments: list = None,
+        revisions: Dict[str, RevisionLike] = None,
+        debug: bool = False,
     ):
 
         if instruments is None:
