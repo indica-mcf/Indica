@@ -1,10 +1,12 @@
-
 from xarray import DataArray
 
-from indica import Plasma, Equilibrium
+from indica import Equilibrium
+from indica import Plasma
 from indica.configs import ST40Conf
 from indica.models.abstract_diagnostic import AbstractDiagnostic
-from indica.readers.readerprocessor import apply_filter, value_condition, coordinate_condition
+from indica.readers.readerprocessor import apply_filter
+from indica.readers.readerprocessor import coordinate_condition
+from indica.readers.readerprocessor import value_condition
 
 
 class ModelReader:
@@ -14,7 +16,7 @@ class ModelReader:
         self,
         models: dict[str, AbstractDiagnostic],
         model_kwargs: dict,
-        conf = ST40Conf,
+        conf=ST40Conf,
     ):
         """Reader for synthetic diagnostic measurements making use of:
 
@@ -65,9 +67,10 @@ class ModelReader:
         Reinitialise models with model kwargs
         """
         for instrument in self.models:
-            self.model_kwargs[instrument] = self.model_kwargs[instrument].update(update_kwargs[instrument])
+            self.model_kwargs[instrument] = self.model_kwargs[instrument].update(
+                update_kwargs[instrument]
+            )
             self.models = self.models[instrument](**self.model_kwargs[instrument])
-
 
     def get(
         self,
@@ -82,7 +85,14 @@ class ModelReader:
         else:
             return {}
 
-    def __call__(self, instruments: list = None, filter_limits=None, filter_coords=None, verbose=False, **call_kwargs):
+    def __call__(
+        self,
+        instruments: list = None,
+        filter_limits=None,
+        filter_coords=None,
+        verbose=False,
+        **call_kwargs,
+    ):
         if instruments is None:
             instruments = self.models.keys()
 
