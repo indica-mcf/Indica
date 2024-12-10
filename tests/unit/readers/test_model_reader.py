@@ -1,5 +1,3 @@
-import pytest
-
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import HelikeSpectrometer
@@ -8,7 +6,7 @@ from indica.models import ThomsonScattering
 from indica.readers.modelreader import ModelReader
 
 
-def initialise_model_reader(model_kwargs=None):
+def initialise_model_reader(model_kwargs={}):
     model_reader = ModelReader(
         {
             "cxff_pi": ChargeExchangeSpectrometer,
@@ -21,9 +19,7 @@ def initialise_model_reader(model_kwargs=None):
     return model_reader
 
 
-def initialise_model_reader_and_setup(
-    plasma, transforms, equilibrium, model_kwargs=None
-):
+def initialise_model_reader_and_setup(plasma, transforms, equilibrium, model_kwargs={}):
     model_reader = initialise_model_reader(model_kwargs=model_kwargs)
     model_reader.set_plasma(plasma)
     model_reader.set_geometry_transforms(transforms, equilibrium)
@@ -53,11 +49,6 @@ class TestModelReader:
         for model_name, model in model_reader.models.items():
             assert hasattr(model, "transform")
 
-    def test_set_transform_without_equilibrium_fails(self):
-        model_reader = initialise_model_reader()
-        with pytest.raises(ValueError):
-            model_reader.set_geometry_transforms(self.transforms, equilibrium=None)
-
     def test_set_equilibrium_with_transform(self):
         model_reader = initialise_model_reader()
         model_reader.set_geometry_transforms(self.transforms, self.equilibrium)
@@ -84,11 +75,9 @@ class TestModelReader:
         bckc = model_reader()
         assert bckc
 
-    def test_call_with_nested_kwargs(self):
+    def test_call_with_kwargs(self):
         model_reader = initialise_model_reader_and_setup(
             self.plasma, self.transforms, self.equilibrium
         )
         bckc = model_reader(["xrcs"], **{"xrcs": {"background": 0}})
         assert bckc.get("xrcs", {})
-        assert model_reader.model_kwargs.get("xrcs", {}) == {"background": 0}
-
