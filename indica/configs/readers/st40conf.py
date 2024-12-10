@@ -1,5 +1,5 @@
-
 import numpy as np
+
 from indica.configs.readers.machineconf import MachineConf
 
 
