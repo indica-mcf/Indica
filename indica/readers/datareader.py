@@ -136,7 +136,12 @@ class DataReader(ABC):
 
             # Read quantity error
             try:
-                q_err, q_err_dimensions, q_err_units, q_err_path = self.reader_utils.get_data(
+                (
+                    q_err,
+                    q_err_dimensions,
+                    q_err_units,
+                    q_err_path,
+                ) = self.reader_utils.get_data(
                     uid,
                     instrument,
                     _path_err,
@@ -151,7 +156,6 @@ class DataReader(ABC):
             results[_key + "_error" + "_records"] = q_err_path
             results[_key + "_error_dimensions"] = q_err_dimensions
             results[_key + "_error_units"] = q_err_units
-
 
         return results
 

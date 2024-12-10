@@ -6,8 +6,8 @@ functionality for a different format of data.
 """
 from .adas import ADASReader
 from .datareader import DataReader
-from .readerprocessor import ReaderProcessor
 from .modelreader import ModelReader
+from .readerprocessor import ReaderProcessor
 
 __all__ = ["ADASReader", "DataReader", "ReaderProcessor", "ModelReader"]
 
