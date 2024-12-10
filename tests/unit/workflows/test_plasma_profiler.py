@@ -1,7 +1,7 @@
 import pytest
 
+from indica import PlasmaProfiler
 from indica.defaults.load_defaults import load_default_objects
-from indica.models.plasma import PlasmaProfiler
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
 
 
@@ -9,7 +9,7 @@ class TestPlasmaProfiler:
     def setup_method(self):
         self.plasma = load_default_objects("st40", "plasma")
         self.profilers = initialise_gauss_profilers(
-            self.plasma.rho,
+            self.plasma.rhop,
             [
                 "electron_density",
                 "ion_temperature",
@@ -30,12 +30,10 @@ class TestPlasmaProfiler:
 
     def test_change_plasma_profiles(self):
         self.plasma_profiler({"electron_density.y0": 1.02e19})
-        assert all(self.plasma.electron_density.sel(rho_poloidal=0) == 1.02e19)
+        assert all(self.plasma.electron_density.sel(rhop=0) == 1.02e19)
 
         self.plasma_profiler({"impurity_density:ar.y0": 1.02e19})
-        assert all(
-            self.plasma.impurity_density.sel(element="ar", rho_poloidal=0) == 1.02e19
-        )
+        assert all(self.plasma.impurity_density.sel(element="ar", rhop=0) == 1.02e19)
 
     def test_change_plasma_profiles_outside_time_range_fails(self):
         with pytest.raises(KeyError):

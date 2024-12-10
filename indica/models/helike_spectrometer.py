@@ -4,13 +4,13 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.available_quantities import READER_QUANTITIES
 from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
 from indica.readers.marchuk import MARCHUKReader
-from indica.utilities import assign_datatype
+from indica.utilities import build_dataarrays
 from indica.utilities import get_element_info
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
@@ -67,6 +67,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
 
         self.name = name
         self.instrument_method = instrument_method
+        self.quantities = READER_QUANTITIES[self.instrument_method]
         self.element: str = element
         z_elem, a_elem, name_elem, _ = get_element_info(element)
         self.ion_charge: int = z_elem - 2  # He-like
@@ -197,7 +198,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 dims=_spectra.dims,
                 coords=dict(
                     wavelength=self.window[self.window < 1].wavelength,
-                    rho_poloidal=_spectra.rho_poloidal,
+                    rhop=_spectra.rhop,
                     t=_spectra.t,
                 ),
             )
@@ -207,7 +208,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 dims=_spectra.dims,
                 coords=dict(
                     wavelength=self.window[self.window < 1].wavelength,
-                    rho_poloidal=_spectra.rho_poloidal,
+                    rhop=_spectra.rhop,
                 ),
             )
         spectra = xr.concat([_spectra, empty], "wavelength")
@@ -272,7 +273,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 "beamlet"
             )
             emission_sum = emission_los.sum("los_position", skipna=True)
-            rho_los = self.transform.rho.sel(channel=channels)
+            rho_los = self.transform.rhop.sel(channel=channels)
 
             rho_mean[line] = (emission_los * rho_los).sum(
                 "los_position", skipna=True
@@ -328,49 +329,29 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.measured_Nimp = measured_Nimp
 
     def _build_bckc_dictionary(self):
-        self.bckc = {}
-        if hasattr(self, "measured_spectra"):
-            self.bckc["raw_spectra"] = self.measured_spectra
+        bckc = {
+            "t": self.t,
+            "channel": np.arange(len(self.transform.x1)),
+            "wavelength": self.window.wavelength,
+            "location": self.transform.origin,
+            "direction": self.transform.direction,
+            "spectra_raw": self.measured_spectra,
+        }
 
         if self.moment_analysis:
-            for quantity in self.quantities:
-                datatype = self.quantities[quantity]
+            for line in self.measured_intensity.keys():
+                self.bckc[f"te_{line}"] = self.measured_Te[line]
+                self.bckc[f"ti_{line}"] = self.measured_Ti[line]
+                self.bckc[f"int_{line}"] = self.measured_intensity[line]
+                self.bckc[f"int_{line}"].attrs["emiss"] = self.line_emission[line]
+                self.bckc[f"int_{line}"].attrs["pos"] = self.pos[line]
+                self.bckc[f"int_{line}"].attrs["pos_err_in"] = self.pos_err_in[line]
+                self.bckc[f"int_{line}"].attrs["pos_err_out"] = self.pos_err_out[line]
+            self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
+            self.bckc["int_n3/int_w"] = self.bckc["int_n3"] / self.bckc["int_w"]
+            self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
 
-                if quantity in [
-                    "raw_spectra",
-                    "spectra",
-                    "background",
-                ]:
-                    continue
-
-                line = str(quantity.split("_")[1])
-                if "int" in quantity and line in self.measured_intensity.keys():
-                    self.bckc[quantity] = self.measured_intensity[line]
-                elif "te" in quantity and line in self.measured_Te.keys():
-                    self.bckc[quantity] = self.measured_Te[line]
-                elif "ti" in quantity and line in self.measured_Ti.keys():
-                    self.bckc[quantity] = self.measured_Ti[line]
-                else:
-                    print(
-                        f"{quantity} not available in model "
-                        f"for {self.instrument_method}"
-                    )
-                    continue
-
-                self.bckc[quantity].attrs["emiss"] = self.line_emission[line]
-                assign_datatype(self.bckc[quantity], datatype)
-
-                if line in self.pos.keys():
-                    self.bckc[quantity].attrs["pos"] = self.pos[line]
-                    self.bckc[quantity].attrs["pos_err_in"] = self.pos_err_in[line]
-                    self.bckc[quantity].attrs["pos_err_out"] = self.pos_err_out[line]
-
-            if "int_k" in self.bckc.keys() and "int_w" in self.bckc.keys():
-                self.bckc["int_k/int_w"] = self.bckc["int_k"] / self.bckc["int_w"]
-            if "int_n3" in self.bckc.keys() and "int_w" in self.bckc.keys():
-                self.bckc["int_n3/int_w"] = self.bckc["int_n3"] / self.bckc["int_w"]
-            if "int_n3" in self.bckc.keys() and "int_tot" in self.bckc.keys():
-                self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
+        self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 
     def __call__(
         self,
@@ -457,7 +438,6 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.Fz = Fz
         self.Ti = Ti
         self.Nimp = Nimp
-        self.quantities: dict = AVAILABLE_QUANTITIES[self.instrument_method]
 
         # TODO: check that inputs have compatible dimensions/coordinates
         self._calculate_intensity()
@@ -494,14 +474,14 @@ class HelikeSpectrometer(AbstractDiagnostic):
         plt.figure()
         channels = self.transform.x1
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
-        if "raw_spectra" in self.bckc.keys():
-            raw_spectra = self.bckc["raw_spectra"]
-            if "channel" in raw_spectra.dims:
-                raw_spectra = raw_spectra.sel(channel=np.median(channels))
+        if "spectra_raw" in self.bckc.keys():
+            spectra_raw = self.bckc["spectra_raw"]
+            if "channel" in spectra_raw.dims:
+                spectra_raw = spectra_raw.sel(channel=np.median(channels))
             for i, t in enumerate(np.array(self.t, ndmin=1)):
                 plt.plot(
-                    raw_spectra.wavelength,
-                    raw_spectra.sel(t=t),
+                    spectra_raw.wavelength,
+                    spectra_raw.sel(t=t),
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
@@ -514,14 +494,14 @@ class HelikeSpectrometer(AbstractDiagnostic):
         plt.figure()
         for i, t in enumerate(self.t):
             plt.plot(
-                self.plasma.ion_temperature.rho_poloidal,
+                self.plasma.ion_temperature.rhop,
                 self.plasma.ion_temperature.sel(
                     t=t,
                 ),
                 color=cols_time[i],
             )
             plt.plot(
-                self.plasma.electron_temperature.rho_poloidal,
+                self.plasma.electron_temperature.rhop,
                 self.plasma.electron_temperature.sel(t=t),
                 color=cols_time[i],
                 linestyle="dashed",
@@ -537,14 +517,14 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 if "t" in self.line_emission["w"].dims:
                     for i, t in enumerate(self.plasma.t.values):
                         plt.plot(
-                            self.line_emission["w"].rho_poloidal,
+                            self.line_emission["w"].rhop,
                             self.line_emission["w"].sel(t=t),
                             color=cols_time[i],
                             label=f"t={t:1.2f} s",
                         )
                 else:
                     plt.plot(
-                        self.line_emission["w"].rho_poloidal,
+                        self.line_emission["w"].rhop,
                         self.line_emission["w"],
                         color=cols_time[i],
                         label=f"t={t:1.2f} s",

@@ -4,7 +4,7 @@ from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
 
 
-def pi_transform_example(nchannels: int):
+def cxrs_transform_example(nchannels: int):
     x_positions = np.linspace(0.2, 0.8, nchannels)
     y_positions = np.linspace(0.0, 0.0, nchannels)
     z_positions = np.linspace(0.0, 0.0, nchannels)
@@ -43,7 +43,7 @@ def helike_transform_example(nchannels):
     return los_transform
 
 
-def smmh1_transform_example(nchannels):
+def interferometer_transform_example(nchannels):
     los_start = np.array([[0.8, 0, 0]]) * np.ones((nchannels, 3))
     los_start[:, 2] = np.linspace(0, -0.2, nchannels)
     los_end = np.array([[0.17, 0, 0]]) * np.ones((nchannels, 3))

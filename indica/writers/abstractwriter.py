@@ -7,8 +7,8 @@ from typing import Union
 from xarray import DataArray
 from xarray import Dataset
 
-from ..abstractio import BaseIO
-from ..equilibrium import Equilibrium
+from indica import BaseIO
+from indica import Equilibrium
 
 
 class DataWriter(BaseIO):

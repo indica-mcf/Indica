@@ -15,7 +15,6 @@ from typing import Union
 
 import numpy as np
 
-
 INSTRUMENT_MAP: DefaultDict[str, Tuple[Optional[str], re.Pattern]] = defaultdict(
     lambda: (None, re.compile(".*")),
     {

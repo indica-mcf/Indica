@@ -6,7 +6,7 @@ from scipy.optimize import least_squares
 import xarray as xr
 from xarray import DataArray
 
-from indica.equilibrium import Equilibrium
+from indica import Equilibrium
 from indica.numpy_typing import ArrayLike
 
 
@@ -63,7 +63,7 @@ def fit_profile_and_R_shift(
     # Initialize DataArray that will contain the final fit result
     yspl = xr.DataArray(
         np.empty((len(xspl), len(ydata.t))),
-        coords=[("rho_poloidal", xspl), ("t", ydata.t.values)],
+        coords=[("rhop", xspl), ("t", ydata.t.values)],
     )
     R_shift_fit = xr.DataArray(
         np.empty(len(ydata.t)),

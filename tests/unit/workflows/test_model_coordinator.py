@@ -1,7 +1,9 @@
+import pytest
+
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import HelikeSpectrometer
-from indica.models import SXRcamera
+from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
 from indica.workflows.bda.model_coordinator import ModelCoordinator
 
@@ -12,7 +14,7 @@ def initialise_model_coordinator(model_settings=None):
             "cxff_pi": ChargeExchangeSpectrometer,
             "xrcs": HelikeSpectrometer,
             "ts": ThomsonScattering,
-            "sxrc_xy1": SXRcamera,
+            "sxrc_xy1": PinholeCamera,
         },
         model_settings=model_settings,
     )
@@ -52,11 +54,10 @@ class TestModelCoordinator:
         for model_name, model in model_coordinator.models.items():
             assert hasattr(model, "transform")
 
-    def test_set_equilibrium_without_transform(self):
+    def test_set_equilibrium_without_transform_fails(self):
         model_coordinator = initialise_model_coordinator()
-        model_coordinator.set_equilibrium(self.equilibrium)
-        for model_name, model in model_coordinator.models.items():
-            assert not hasattr(model, "equilibrium")
+        with pytest.raises(ValueError):
+            model_coordinator.set_equilibrium(self.equilibrium)
 
     def test_set_equilibrium_with_transform(self):
         model_coordinator = initialise_model_coordinator()

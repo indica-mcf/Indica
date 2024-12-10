@@ -1,11 +1,11 @@
 from typing import Callable
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import BolometerCamera
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
 from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
+from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
 
 
@@ -25,22 +25,20 @@ class TestModels:
         Make sure model runs without errors
         """
 
-        model = model(instrument)
+        _model = model(instrument)
         if instrument in self.transforms.keys():
             transform = self.transforms[instrument]
-            transform.set_equilibrium(self.equilibrium)
-            model.set_transform(transform)
-        model.set_plasma(self.plasma)
+            if hasattr(transform, "set_equilibrium") and instrument != "efit":
+                transform.set_equilibrium(self.equilibrium)
+            _model.set_transform(transform)
+        _model.set_plasma(self.plasma)
 
-        bckc = model(sum_beamlets=False)
+        bckc = _model(sum_beamlets=False)
 
         assert type(bckc) == dict
 
     def test_interferometer(self):
         self.run_model("smmh", Interferometer)
-
-    def test_helike_spectroscopy(self):
-        self.run_model("xrcs", HelikeSpectrometer)
 
     def test_thomson_scattering(self):
         self.run_model("ts", ThomsonScattering)
@@ -52,4 +50,7 @@ class TestModels:
         self.run_model("efit", EquilibriumReconstruction)
 
     def test_bolometer(self):
-        self.run_model("blom_xy1", BolometerCamera)
+        self.run_model("blom_xy1", PinholeCamera)
+
+    def test_helike_spectroscopy(self):
+        self.run_model("xrcs", HelikeSpectrometer)

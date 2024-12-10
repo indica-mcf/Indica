@@ -6,7 +6,7 @@ from flatdict import FlatDict
 import mpmath as mp
 import numpy as np
 
-from indica.models.plasma import PlasmaProfiler
+from indica.plasma import PlasmaProfiler
 
 np.seterr(all="ignore")
 warnings.simplefilter("ignore", category=FutureWarning)
@@ -108,7 +108,7 @@ class BayesBlackBox:
             )  # optimisers can't handle inf (1E-10000 is min for numerical precision)
 
         self.plasma_profiler(parameters)
-        plasma_attributes = self.plasma_profiler.get_plasma_attributes()
+        plasma_attributes = self.plasma_profiler.plasma_attributes()
 
         self.bckc = FlatDict(
             self.build_bckc(flat_kwargs=parameters, **kwargs), "."

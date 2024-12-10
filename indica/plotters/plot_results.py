@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from indica.equilibrium import Equilibrium
+from indica import Equilibrium
 from indica.readers.read_st40 import bin_data_in_time
 from indica.readers.read_st40 import ReadST40
 from indica.utilities import FIG_PATH
@@ -327,12 +327,10 @@ def plot_stan_ppcf_profiles(
     Ti_err = _Ti.std("run")
 
     plt.figure()
-    plt.plot(Ti.rho_poloidal, Ti, color=COLORS["ion"], label="Ions")
-    plt.fill_between(Ti.rho_poloidal, Ti - Ti_err, Ti + Ti_err, color=COLORS["ion"])
-    plt.plot(Te.rho_poloidal, Te, color=COLORS["electron"], label="Electrons")
-    plt.fill_between(
-        Te.rho_poloidal, Te - Te_err, Te + Te_err, color=COLORS["electron"]
-    )
+    plt.plot(Ti.rhop, Ti, color=COLORS["ion"], label="Ions")
+    plt.fill_between(Ti.rhop, Ti - Ti_err, Ti + Ti_err, color=COLORS["ion"])
+    plt.plot(Te.rhop, Te, color=COLORS["electron"], label="Electrons")
+    plt.fill_between(Te.rhop, Te - Te_err, Te + Te_err, color=COLORS["electron"])
 
     plt.hlines(
         Te_xrcs,
@@ -465,7 +463,7 @@ def plot_stan_ppcf_profiles(
 
     if write_csv:
         to_write = {
-            "Rho-poloidal": Te.rho_poloidal.values,
+            "Rho-poloidal": Te.rhop.values,
             "Ne value (m**-3)": Ne.values,
             "Ne error (m**-3)": Ne_err.values,
             "Te value (eV)": Te.values,
@@ -608,7 +606,7 @@ def compare_pulses(
                 }
             if "efit" in raw_data.keys():
                 smmh1_l = 2 * (raw_data["efit"]["rmjo"] - raw_data["efit"]["rmji"]).sel(
-                    rho_poloidal=1
+                    rhop=1
                 )
                 raw_data["smmh1"]["ne_bar"] = raw_data["smmh1"]["ne"] / smmh1_l.interp(
                     t=raw_data["smmh1"]["ne"].t

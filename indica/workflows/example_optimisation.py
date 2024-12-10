@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import least_squares
 
-from indica.models.plasma import Plasma
+from indica import Plasma
 
 
 def match_interferometer_los_int(

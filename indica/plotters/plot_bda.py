@@ -27,7 +27,7 @@ def plot_profile(
 ):
     set_plot_rcparams("profiles")
     plt.fill_between(
-        profile.rho_poloidal,
+        profile.rhop,
         profile.quantile(0.16, dim="sample_idx"),
         profile.quantile(0.84, dim="sample_idx"),
         label=f"{label}, 68% Confidence",
@@ -37,7 +37,7 @@ def plot_profile(
     )
     if label != "NFAST":
         plt.fill_between(
-            profile.rho_poloidal,
+            profile.rhop,
             profile.quantile(0.025, dim="sample_idx"),
             profile.quantile(0.975, dim="sample_idx"),
             label=f"{label}, 95% Confidence",
@@ -46,7 +46,7 @@ def plot_profile(
             alpha=0.4,
         )
         plt.fill_between(
-            profile.rho_poloidal,
+            profile.rhop,
             profile.quantile(0.005, dim="sample_idx"),
             profile.quantile(0.995, dim="sample_idx"),
             label=f"{label}, Max-Min",
@@ -306,7 +306,7 @@ def plot_bda(
                 ylabel="Energy [J]",
             )
 
-        key = "XRCS.RAW_SPECTRA"
+        key = "XRCS.spectra_raw"
         if key in model_data.keys():
             _plot_1d(
                 model_data[key].sel(t=t),

@@ -1,14 +1,13 @@
 from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
-import xarray as xr
 from xarray import DataArray
 
+from indica.available_quantities import READER_QUANTITIES
 from indica.converters import TransectCoordinates
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
-from indica.readers.available_quantities import AVAILABLE_QUANTITIES
-from indica.utilities import assign_datatype
+from indica.utilities import build_dataarrays
 from indica.utilities import set_plot_rcparams
 
 
@@ -27,41 +26,21 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         self.name = name
         self.element = element
         self.instrument_method = instrument_method
-        self.quantities = AVAILABLE_QUANTITIES[self.instrument_method]
+        self.quantities = READER_QUANTITIES[self.instrument_method]
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
-
-        for quant in self.quantities:
-            datatype = self.quantities[quant]
-            if quant == "vtor":
-                quantity = quant
-                self.bckc[quantity] = self.Vtor_at_channels
-            elif quant == "ti":
-                quantity = quant
-                self.bckc[quantity] = self.Ti_at_channels
-            elif quant == "spectra":
-                # Placeholder
-                continue
-            elif quant == "fit":
-                # Placeholder
-                continue
-            elif quant == "conc":
-                # Placeholder
-                continue
-            else:
-                print(f"{quant} not available in model for {self.instrument_method}")
-                continue
-
-            error = xr.full_like(self.bckc[quantity], 0.0)
-            stdev = xr.full_like(self.bckc[quantity], 0.0)
-            self.bckc[quantity].attrs = {
-                "transform": self.transform,
-                "error": error,
-                "stdev": stdev,
-                "provenance": str(self),
-            }
-            assign_datatype(self.bckc[quantity], datatype)
+        bckc = {
+            "t": self.t,
+            "channel": np.arange(len(self.transform.x1)),
+            "x": self.transform.x,
+            "y": self.transform.y,
+            "z": self.transform.y,
+            "R": self.transform.R,
+            "vtor": self.Vtor_at_channels,
+            "ti": self.Ti_at_channels,
+        }
+        self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 
     def __call__(
         self,
@@ -83,7 +62,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
 
         Returns
         -------
-        Dictionary of back-calculated quantities (identical to abstractreader.py)
+        Dictionary of back-calculated quantities (identical to datareader.py)
 
         """
         if self.plasma is not None:
@@ -124,7 +103,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             if i % nplot:
                 continue
             Vtor = self.bckc["vtor"].sel(t=t, method="nearest")
-            rho = Vtor.transform.rho.sel(t=t, method="nearest")
+            rho = Vtor.transform.rhop.sel(t=t, method="nearest")
             plt.scatter(
                 rho,
                 Vtor,
@@ -142,7 +121,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             if i % nplot:
                 continue
             Ti = self.bckc["ti"].sel(t=t, method="nearest")
-            rho = Ti.transform.rho.sel(t=t, method="nearest")
+            rho = Ti.transform.rhop.sel(t=t, method="nearest")
             plt.scatter(rho, Ti, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured ion temperature (eV)")

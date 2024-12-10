@@ -49,15 +49,15 @@ def test_interpolate_rates(test_fractional_abundance_init):
     input_Ne = np.logspace(19.0, 16.0, 10)
     input_Ne = DataArray(
         data=input_Ne,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     input_Te = np.logspace(4.6, 2, 10)
     input_Te = DataArray(
         data=input_Te,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     example_frac_abundance.interpolate_rates(input_Ne, input_Te)
@@ -75,15 +75,15 @@ def test_calc_ionisation_balance_matrix(test_interpolate_rates):
     input_Ne = np.logspace(19.0, 16.0, 10)
     input_Ne = DataArray(
         data=input_Ne,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     input_Nh = 1e-5 * input_Ne
     input_Nh = DataArray(
         data=input_Nh,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     example_frac_abundance.calc_ionisation_balance_matrix(Ne=input_Ne)
@@ -289,15 +289,15 @@ def test_frac_abund_full_run(test_fractional_abundance_init):
     input_Ne = np.logspace(19.0, 16.0, 10)
     input_Ne = DataArray(
         data=input_Ne,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     input_Te = np.logspace(4.6, 2, 10)
     input_Te = DataArray(
         data=input_Te,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     tau = 1e-16
@@ -338,12 +338,12 @@ def test_frac_abund_full_run(test_fractional_abundance_init):
         test_normalization = np.sum(F_z_t[:, irho])
         assert np.abs(test_normalization - 1.0) <= 2e-2
 
-    # Testing tau as a profile of rho_poloidal.
+    # Testing tau as a profile of rhop.
     tau = np.linspace(1.0, 1.0e-10, 10)
     tau = DataArray(
         data=tau,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     try:
@@ -373,8 +373,8 @@ def test_frac_abund_full_run(test_fractional_abundance_init):
     input_Nh = 1e-5 * input_Ne
     input_Nh = DataArray(
         data=input_Nh,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     tau = 1e-16
@@ -420,12 +420,12 @@ def test_frac_abund_full_run(test_fractional_abundance_init):
         test_normalization = np.sum(F_z_t[:, irho])
         assert np.abs(test_normalization - 1.0) <= 2e-2
 
-    # Testing tau as a profile of rho_poloidal.
+    # Testing tau as a profile of rhop.
     tau = np.linspace(1.0, 1.0e-10, 10)
     tau = DataArray(
         data=tau,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     try:
@@ -484,16 +484,16 @@ def test_interpolate_power(test_power_loss_init):
 
     input_Ne = DataArray(
         data=input_Ne,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     input_Te = np.logspace(4.6, 2, 10)
 
     input_Te = DataArray(
         data=input_Te,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     try:
@@ -552,8 +552,8 @@ def test_power_loss_call(test_interpolate_power):
 
     input_Nh = DataArray(
         data=input_Nh,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     scd = ADAS_file.get_adf11("scd", element, "89")
@@ -612,24 +612,24 @@ def test_power_loss_full_run(test_power_loss_init):
 
     input_Ne = DataArray(
         data=input_Ne,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     input_Te = np.logspace(4.6, 2, 10)
 
     input_Te = DataArray(
         data=input_Te,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     input_Nh = 1e-5 * input_Ne
 
     input_Nh = DataArray(
         data=input_Nh,
-        coords={"rho_poloidal": np.linspace(0.0, 1.0, 10)},
-        dims=["rho_poloidal"],
+        coords={"rhop": np.linspace(0.0, 1.0, 10)},
+        dims=["rhop"],
     )
 
     scd = ADAS_file.get_adf11("scd", element, "89")

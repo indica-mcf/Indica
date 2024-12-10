@@ -10,7 +10,7 @@ defaults:
 
 param_names: ["ion_temperature.y0", "xrcs.scale_spectra"]
 diagnostics: ["xrcs", "cxff_tws_c", "cxff_pi", "efit"]
-quant_to_optimise: ["xrcs.raw_spectra", "cxff_tws_c.ti", "cxff_pi.ti", "efit.wp"]
+quant_to_optimise: ["xrcs.spectra_raw", "cxff_tws_c.ti", "cxff_pi.ti", "efit.wp"]
 
 tstart: 0.05
 tend: 0.06

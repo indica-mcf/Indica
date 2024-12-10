@@ -15,13 +15,13 @@ class ProfilerMonoSpline(ProfilerBase):
     def __init__(
         self,
         datatype: str = "electron_temperature",
-        coord="poloidal",
+        coord="rhop",
         xspl: np.ndarray = None,
         parameters: dict = None,
     ):
 
         super().__init__(parameters)
-        self.coord = f"rho_{coord}"
+        self.coord = coord
         self.datatype = datatype
 
         if xspl is None:
@@ -66,13 +66,13 @@ class ProfilerCubicSpline(ProfilerBase):
     def __init__(
         self,
         datatype: str = "electron_temperature",
-        coord="poloidal",
+        coord="rhop",
         xspl: np.ndarray = None,
         parameters: dict = None,
     ):
 
         super().__init__(parameters)
-        self.coord = f"rho_{coord}"
+        self.coord = coord
         self.datatype = datatype
 
         if xspl is None:
