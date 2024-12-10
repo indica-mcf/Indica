@@ -96,7 +96,7 @@ class CoordinateTransform(ABC):
     z: DataArray
     R: DataArray
     phi: DataArray
-    rho: DataArray
+    rhop: DataArray
     theta: DataArray
     profile_to_map: DataArray
     along_los: DataArray
@@ -126,8 +126,8 @@ class CoordinateTransform(ABC):
         """
         if not hasattr(self, "equilibrium") or force:
             self.equilibrium = equilibrium
-            if hasattr(self, "rho"):
-                delattr(self, "rho")
+            if hasattr(self, "rhop"):
+                delattr(self, "rhop")
         elif self.equilibrium != equilibrium:
             raise EquilibriumException("Attempt to set equilibrium twice.")
 
@@ -412,13 +412,9 @@ class CoordinateTransform(ABC):
         angles = np.linspace(0.0, 2 * np.pi, npts)
         if hasattr(self, "equilibrium"):
             angles = np.linspace(0.0, 2 * np.pi, npts)
-            rho_equil = self.equilibrium.rho.sel(t=t, method="nearest")
-            R_hfs = self.equilibrium.rmji.sel(
-                t=t, rho_poloidal=1, method="nearest"
-            ).values
-            R_lfs = self.equilibrium.rmjo.sel(
-                t=t, rho_poloidal=1, method="nearest"
-            ).values
+            rhop_equil = self.equilibrium.rhop.sel(t=t, method="nearest")
+            R_hfs = self.equilibrium.rmji.sel(t=t, rhop=1, method="nearest").values
+            R_lfs = self.equilibrium.rmjo.sel(t=t, rhop=1, method="nearest").values
             x_plasma_inner = R_hfs * np.cos(angles)
             x_plasma_outer = R_lfs * np.cos(angles)
             y_plasma_inner = R_hfs * np.sin(angles)
@@ -430,7 +426,7 @@ class CoordinateTransform(ABC):
                 "y_in": y_plasma_inner,
                 "y_out": y_plasma_outer,
             }
-        return boundaries, angles, rho_equil
+        return boundaries, angles, rhop_equil
 
     def convert_to_rho_theta(self, t: LabeledArray = None) -> Coordinates:
         """
@@ -439,27 +435,27 @@ class CoordinateTransform(ABC):
         if not hasattr(self, "equilibrium"):
             raise Exception("Set equilibrium object to convert (R,z) to rho")
 
-        rho, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
+        rhop, theta, _ = self.equilibrium.flux_coords(self.R, self.z, t=t)
         drop_vars = ["R", "z"]
         for var in drop_vars:
-            if var in rho.coords:
-                rho = rho.drop_vars(var)
+            if var in rhop.coords:
+                rhop = rhop.drop_vars(var)
             if var in theta.coords:
                 theta = theta.drop_vars(var)
 
         self.t = t
-        self.rho = rho
+        self.rhop = rhop
         self.theta = theta
-        if "los_position" in self.rho.dims:
-            rho_mean = self.rho.mean("beamlet")
-            self.impact_rho = rho_mean.sel(
+        if "los_position" in self.rhop.dims:
+            rhop_mean = self.rhop.mean("beamlet")
+            self.impact_rho = rhop_mean.sel(
                 los_position=self.impact_parameter.index.los_position
             )
-            self.los_length = (xr.where(np.isfinite(rho_mean), 1, 0) * self.dl).sum(
+            self.los_length = (xr.where(np.isfinite(rhop_mean), 1, 0) * self.dl).sum(
                 "los_position"
             )
 
-        return rho, theta
+        return rhop, theta
 
     def plot(
         self,
@@ -490,8 +486,8 @@ class CoordinateTransform(ABC):
 
         if hasattr(self, "equilibrium"):
             if t is None:
-                t = np.float64(np.mean(self.equilibrium.rho.t))
-            equil_bounds, angles, rho_equil = self.get_equilibrium_boundaries(t)
+                t = np.float64(np.mean(self.equilibrium.rhop.t))
+            equil_bounds, angles, rhop_equil = self.get_equilibrium_boundaries(t)
             x_ax = self.equilibrium.rmag.sel(t=t, method="nearest").values * np.cos(
                 angles
             )
@@ -551,7 +547,7 @@ class CoordinateTransform(ABC):
                 color="k",
             )
             if hasattr(self, "equilibrium"):
-                rho_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
+                rhop_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
 
             plot_geometry(
                 self.R,
@@ -567,31 +563,31 @@ class CoordinateTransform(ABC):
             save_figure(fig_path, f"{fig_name}{self.name}_Rz", save_fig=save_fig)
 
         if hasattr(self, "equilibrium") and orientation == "all":
-            if not hasattr(self, "rho"):
+            if not hasattr(self, "rhop"):
                 self.convert_to_rho_theta(t=[t])
             if figure:
                 plt.figure()
-            _rho = self.rho
-            if "t" in self.rho.dims:
-                _rho = _rho.sel(t=t, method="nearest")
+            _rhop = self.rhop
+            if "t" in self.rhop.dims:
+                _rhop = _rhop.sel(t=t, method="nearest")
 
             if "LineOfSight" in trans_name:
-                abscissa = _rho.los_position.expand_dims(
-                    dim={"channel": _rho.channel, "beamlet": _rho.beamlet}
+                abscissa = _rhop.los_position.expand_dims(
+                    dim={"channel": _rhop.channel, "beamlet": _rhop.beamlet}
                 )
             elif "Transect" in trans_name:
-                abscissa = _rho.channel
+                abscissa = _rhop.channel
             plot_geometry(
                 abscissa,
-                _rho,
+                _rhop,
                 trans_name,
                 colors=cols,
                 marker=marker,
             )
             plt.xlabel("Path along LOS")
-            plt.ylabel("Rho")
+            plt.ylabel("Rhop")
             plt.title(title)
-            save_figure(fig_path, f"{fig_name}{self.name}_rho", save_fig=save_fig)
+            save_figure(fig_path, f"{fig_name}{self.name}_rhop", save_fig=save_fig)
 
         return cols
 

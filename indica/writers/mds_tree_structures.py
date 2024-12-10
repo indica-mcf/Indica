@@ -78,7 +78,7 @@ def astra():
             "Q_FUS": ("SIGNAL", "Fusion energy gain"),
             "P_TOT_E": ("SIGNAL", "Total alpha power to electrons,MW"),
             "P_TOT_I": ("SIGNAL", "Total alpha power to ions,MW"),
-            "FBND": ("SIGNAL", "boundary poloidal flux,Wb"),
+            "psi_boundary": ("SIGNAL", "boundary poloidal flux,Wb"),
             "FAXS": ("SIGNAL", "axis poloidal flux,Wb"),
             "QE": ("SIGNAL", "electron power flux through LCFS, MW"),
             "QI": ("SIGNAL", "ion power flux through LCFS, MW"),

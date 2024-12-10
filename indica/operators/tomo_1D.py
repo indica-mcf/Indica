@@ -592,7 +592,7 @@ class SXR_tomography:
             )
             if hasattr(self, "expected_emissivity"):
                 expected_emissivity.set_data(
-                    self.expected_emissivity.rho_poloidal,
+                    self.expected_emissivity.rhop,
                     self.expected_emissivity.sel(t=time, method="nearest"),
                 )
             tomo_mean.set_data(r, self.emiss[it])
@@ -715,7 +715,7 @@ class SXR_tomography:
             rho = eq_data["rho"]
             # EMISSIVITY 1D PROFILE VALUE
             emiss_1D = data["profile"]["sym_emissivity"]
-            rho_1D = data["profile"]["rho_poloidal"]
+            rho_1D = data["profile"]["rhop"]
             # DATA DECLARATION
             emiss = np.nan * np.ones((len(data["t"]), len(R), len(z)))
             # SWEEP OF TIME
@@ -760,7 +760,7 @@ class SXR_tomography:
                 sym_emissivity=self.emiss,
                 sym_emissivity_err=self.emiss_err,
                 asym_parameter=np.zeros(self.emiss.shape),
-                rho_poloidal=np.repeat(
+                rhop=np.repeat(
                     np.array([self.rho_grid_centers]), len(self.tvec), axis=0
                 ),
             ),

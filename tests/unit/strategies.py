@@ -460,8 +460,7 @@ def arbitrary_coordinates(
         labels = draw(
             hyst.lists(
                 hyst.text(min_size=1, max_size=32).filter(
-                    lambda x: x
-                    not in ["R", "z", "rho_poloidal", "rho_toroidal", "theta", "t"]
+                    lambda x: x not in ["R", "z", "rhop", "rhot", "theta", "t"]
                 ),
                 min_size=ndims,
                 max_size=ndims,

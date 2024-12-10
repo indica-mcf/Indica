@@ -4,32 +4,9 @@ from typing import List
 
 from xarray import DataArray
 
-from indica.models import BolometerCamera
-from indica.models import BremsstrahlungDiode
-from indica.models import ChargeExchangeSpectrometer
-from indica.models import HelikeSpectrometer
-from indica.models import Interferometer
-from indica.models import SXRcamera
-from indica.models import ThomsonScattering
-from indica.models.plasma import Plasma
-from indica.readers import ST40Conf
-
-# TODO: First stab, but need to check Michael Gemmell implementation
-
-INSTRUMENT_MODELS = {
-    "st40": {
-        "smmh": Interferometer,
-        "cxff_pi": ChargeExchangeSpectrometer,
-        "cxff_tws_c": ChargeExchangeSpectrometer,
-        "sxr_spd": SXRcamera,
-        "sxrc_xy1": BolometerCamera,
-        "sxrc_xy2": SXRcamera,
-        "pi": BremsstrahlungDiode,
-        "ts": ThomsonScattering,
-        "tws_c": BremsstrahlungDiode,
-        "xrcs": HelikeSpectrometer,
-    }
-}
+from indica import Plasma
+from indica.configs import MACHINE_CONFS
+from indica.models import MODELS_METHODS
 
 
 class ModelReader:
@@ -38,7 +15,7 @@ class ModelReader:
     def __init__(
         self,
         machine: str,
-        instruments: List[str] = [],
+        instruments: List[str],
         **kwargs: Any,
     ):
         """Reader for synthetic diagnostic measurements making use of:
@@ -47,42 +24,29 @@ class ModelReader:
 
         Parameters
         ----------
-        diagnostics
-            List of diagnostic string identifiers to model.
         machine
             Machine string identifier on which the diagnostics are "installed".
-
-        # TODO: Los and transect transforms must still be distinguished
-            but will be solved once transect == special LOS transform case
+        instruments
+            List of instruments to be modelled.
         """
-        if machine == "st40":
-            _conf = ST40Conf()
-        else:
-            raise ValueError(f"Machine {machine} currently not supported")
-
         self.models: dict = {}
         self.transforms: dict = {}
         self.machine = machine
-        self.machine_conf = _conf
+        self.machine_conf = MACHINE_CONFS[machine]()
+        self.instruments = instruments
+        self.kwargs = kwargs
 
-        if len(instruments) == 0:
-            self._instruments = list(INSTRUMENT_MODELS[machine])
-        else:
-            self._instruments = [
-                instr
-                for instr in instruments
-                if instr in INSTRUMENT_MODELS[machine].keys()
-            ]
-
-        for instr in self._instruments:
-            self.models[instr] = INSTRUMENT_MODELS[machine][instr](name=instr)
+        for instrument in instruments:
+            method = self.machine_conf.INSTRUMENT_METHODS[instrument]
+            model = MODELS_METHODS[method]
+            self.models[instrument] = model(instrument)
 
     def set_geometry_transforms(self, transforms: dict):
         """
         Set instrument geometry from standard set
         """
 
-        for instr in self._instruments:
+        for instr in self.instruments:
             if instr not in transforms.keys():
                 raise ValueError(f"{instr} not available in default_geometries file")
 

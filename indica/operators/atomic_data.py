@@ -2,7 +2,6 @@ import copy
 from typing import cast
 from typing import List
 from typing import Tuple
-from typing import Union
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -18,9 +17,7 @@ from indica.readers.adas import ADASReader
 from indica.readers.adas import ADF11
 from indica.utilities import DATA_PATH
 from indica.utilities import set_plot_colors
-from .abstractoperator import EllipsisType
 from .abstractoperator import Operator
-from ..datatypes import DataType
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
@@ -28,67 +25,13 @@ np.set_printoptions(edgeitems=10, linewidth=100)
 class FractionalAbundance(Operator):
     """Calculate fractional abundance for all ionisation charges of a given element.
 
-    Parameters
-    ----------
     scd
-        xarray.DataArray of effective ionisation rate coefficients of all relevant
-        ionisation charges of given impurity element.
+        effective ionisation rate coefficients
     acd
-        xarray.DataArray of effective recombination rate coefficients of all relevant
-        ionisation charges of given impurity element.
+        effective recombination rate coefficients
     ccd
-        xarray.DataArray of charge exchange cross coupling coefficients of all relevant
-        ionisation charges of given impurity element. (Optional)
-
-    Attributes
-    ----------
-    ARGUMENT_TYPES: List[DataType]
-        Ordered list of the types of data expected for each argument of the
-        operator.
-    RESULT_TYPES: List[DataType]
-        Ordered list of the types of data returned by the operator.
-
-    Returns
-    -------
-    F_z_t
-        xarray.DataArray of fractional abundance of all ionisation charges of given
-        impurity element.
-
-    Methods
-    -------
-    interpolate_rates(Ne, Te)
-        Interpolates rates based on inputted Ne and Te, also determines the number
-        of ionisation charges for a given element.
-    calc_ionisation_balance_matrix(Ne, Nh)
-        Calculates the ionisation balance matrix that defines the differential equation
-        that defines the time evolution of the fractional abundance of all of the
-        ionisation charges.
-    calc_F_z_tinf()
-        Calculates the equilibrium fractional abundance of all ionisation charges,
-        F_z(t=infinity) used for the final time evolution equation.
-    calc_eigen_vals_and_vecs()
-        Calculates the eigenvalues and eigenvectors of the ionisation balance matrix.
-    calc_eigen_coeffs(F_z_t0)
-        Calculates the coefficients from the eigenvalues and eigenvectors for the time
-        evolution equation.
-    calculate_abundance(tau)
-        Calculates the fractional abundance of all ionisation charges at time tau.
-    __call__(Ne, Te, Nh, tau, F_z_t0, full_run)
-        Executes all functions in correct order to calculate the fractional abundance.
+        charge exchange recombination coefficients
     """
-
-    ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("ionisation_rate", "impurity_element"),
-        ("recombination_rate", "impurity_element"),
-        ("charge-exchange_rate", "impurity_element"),
-        ("number_density", "electrons"),
-        ("temperature", "electrons"),
-        ("number_density", "thermal_hydrogen"),
-        ("initial_fractional_abundance", "impurity_element"),
-    ]
-    RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("fractional_abundance", "impurity_element"),
-    ]
 
     def __init__(
         self,
@@ -96,7 +39,6 @@ class FractionalAbundance(Operator):
         acd: DataArray,
         ccd: DataArray = None,
     ):
-        """Initialises FractionalAbundance class"""
         self.Ne = None
         self.Te = None
         self.Nh = None
@@ -106,25 +48,6 @@ class FractionalAbundance(Operator):
         self.acd = acd
         self.ccd = ccd
 
-    def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
-        """Indicates the datatypes of the results when calling the operator
-        with arguments of the given types. It is assumed that the
-        argument types are valid.
-
-        Parameters
-        ----------
-        args
-            The datatypes of the parameters which the operator is to be called with.
-
-        Returns
-        -------
-        :
-            The datatype of each result that will be returned if the operator is
-            called with these arguments.
-
-        """
-        return (("fractional abundance", "impurity_element"),)
-
     def interpolate_rates(
         self,
         Ne: DataArray,
@@ -133,25 +56,10 @@ class FractionalAbundance(Operator):
         """Interpolates rates based on inputted Ne and Te, also determines the number
         of ionisation charges for a given element.
 
-        Parameters
-        ----------
         Ne
-            xarray.DataArray of electron density as a profile of a user-chosen
-            coordinate.
+            electron density profile
         Te
-            xarray.DataArray of electron temperature as a profile of a user-chosen
-            coordinate.
-
-        Returns
-        -------
-        scd_spec
-            Interpolated effective ionisation rate coefficients.
-        acd_spec
-            Interpolated effective recombination rate coefficients.
-        ccd_spec
-            Interpolated charge exchange cross coupling coefficients.
-        num_of_ion_charge
-            Number of ionisation charges(stages) for the given impurity element.
+            electron temperature profile
         """
 
         self.Ne, self.Te = Ne, Te  # type: ignore
@@ -190,22 +98,11 @@ class FractionalAbundance(Operator):
         Ne: DataArray,
         Nh: DataArray = None,
     ):
-        """Calculates the ionisation balance matrix that defines the differential equation
-        that defines the time evolution of the fractional abundance of all of the
-        ionisation charges.
-
+        """Calculates the ionisation balance matrix
         Ne
-            xarray.DataArray of electron density as a profile of a user-chosen
-            coordinate.
+            electron density profile
         Nh
-            xarray.DataArray of thermal hydrogen as a profile of a user-chosen
-            coordinate. (Optional)
-
-        Returns
-        -------
-        ionisation_balance_matrix
-            Matrix representing coefficients of the differential equation governing
-            the time evolution of the ionisation balance.
+            thermal neutral hydrogen profile
         """
         if Nh is not None:
             if self.ccd is None:
@@ -278,11 +175,6 @@ class FractionalAbundance(Operator):
     ):
         """Calculates the equilibrium fractional abundance of all ionisation charges,
         F_z(t=infinity) used for the final time evolution equation.
-
-        Returns
-        -------
-        F_z_tinf
-            Fractional abundance at equilibrium.
         """
         x1_coord = self.x1_coord
         ionisation_balance_matrix = self.ionisation_balance_matrix
@@ -322,13 +214,6 @@ class FractionalAbundance(Operator):
     ):
         """Calculates the eigenvalues and eigenvectors of the ionisation balance
         matrix.
-
-        Returns
-        -------
-        eig_vals
-            Eigenvalues of the ionisation balance matrix.
-        eig_vecs
-            Eigenvectors of the ionisation balance matrix.
         """
         x1_coord = self.x1_coord
         eig_vals = np.zeros(
@@ -356,19 +241,8 @@ class FractionalAbundance(Operator):
         """Calculates the coefficients from the eigenvalues and eigenvectors for the
         time evolution equation.
 
-        Parameters
-        ----------
         F_z_t0
             Initial fractional abundance for given impurity element. (Optional)
-
-        Returns
-        -------
-        eig_coeffs
-            Coefficients calculated from the eigenvalues and eigenvectors needed
-            for the time evolution equation.
-        F_z_t0
-            Initial fractional abundance, either user-provided or fully neutral
-            eg. [1.0, 0.0, 0.0, 0.0, 0.0] for Beryllium.
         """
         x1_coord = self.x1_coord
 
@@ -441,15 +315,8 @@ class FractionalAbundance(Operator):
     def calculate_abundance(self, tau: LabeledArray):
         """Calculates the fractional abundance of all ionisation charges at time tau.
 
-        Parameters
-        ----------
         tau
             Time after t0 (t0 is defined as the time at which F_z_t0 is taken).
-
-        Returns
-        -------
-        F_z_t
-            Fractional abundance at tau.
         """
         x1_coord = self.x1_coord
         F_z_t = copy.deepcopy(self.F_z_tinf)
@@ -488,32 +355,18 @@ class FractionalAbundance(Operator):
         """Executes all functions in correct order to calculate the fractional
         abundance.
 
-        Parameters
-        ----------
         Ne
-            xarray.DataArray of electron density as a profile of a user-chosen
-            coordinate.
+            electron density profile
         Te
-            xarray.DataArray of electron temperature as a profile of a user-chosen
-            coordinate.
+            electron temperature profile
         Nh
-            xarray.DataArray of thermal hydrogen as a profile of a user-chosen
-            coordinate. (Optional)
+            thermal neutral hydrogen profile
         tau
-            Time after t0 (t0 is defined as the time at which F_z_t0 is taken).
-            (Optional)
+            Time after t0 (t0 defined as the time at which F_z_t0 is calculated)
         F_z_t0
-            Initial fractional abundance for given impurity element. (Optional)
+            Initial fractional abundance at t0
         full_run
-            Boolean specifying whether to run the entire ordered workflow(True)
-            for calculating abundance from the start. If (False), fractional abundance
-            will be interpolated on input electron temperature
-            (Optional)
-
-        Returns
-        -------
-        F_z_t
-            Fractional abundance at tau.
+            Boolean specifying whether to run the entire ordered workflow
         """
         if full_run or not hasattr(self, "F_z_t"):
             self.interpolate_rates(Ne, Te)
@@ -544,55 +397,13 @@ class FractionalAbundance(Operator):
 class PowerLoss(Operator):
     """Calculate the total power loss associated with a given impurity element
 
-    Parameters
-    ----------
     plt
-        xarray.DataArray of radiated power of line emission from excitation of all
-        relevant ionisation charges of given impurity element.
+        line emission emissivity coefficients
     prb
-        xarray.DataArray of radiated power from recombination and bremsstrahlung of
-        given impurity element.
+        recombination and bremsstrahlung emissivity coefficients
     prc
-        xarray.DataArray of radiated power of charge exchange emission of all relevant
-        ionisation charges of given impurity element. (Optional)
-
-    Attributes
-    ----------
-    ARGUMENT_TYPES: List[DataType]
-        Ordered list of the types of data expected for each argument of the
-        operator.
-    RESULT_TYPES: List[DataType]
-        Ordered list of the types of data returned by the operator.
-
-    Returns
-    -------
-    cooling_factor
-        xarray.DataArray of total radiated power loss of all ionisation charges of given
-        impurity element.
-
-    Methods
-    -------
-    interpolate_power(Ne, Te)
-        Interpolates the various powers based on inputted Ne and Te.
-    calculate_power_loss(Ne, F_z_t, Nh)
-        Calculates total radiated power of all ionisation charges of a given
-        impurity element.
-    __call__(Ne, Te, Nh, F_z_t, full_run)
-        Executes all functions in correct order to calculate the total radiated power.
+        charge exchange emissivity coefficients
     """
-
-    ARGUMENT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("line_power_coefficient", "impurity_element"),
-        ("recombination_power_coefficient", "impurity_element"),
-        ("charge-exchange_power_coefficient", "impurity_element"),
-        ("number_density", "electrons"),
-        ("temperature", "electrons"),
-        ("fractional_abundance", "impurity_element"),
-        ("number_density", "thermal_hydrogen"),
-    ]
-    RESULT_TYPES: List[Union[DataType, EllipsisType]] = [
-        ("total_radiated power loss", "impurity_element"),
-    ]
 
     def __init__(
         self,
@@ -614,25 +425,6 @@ class PowerLoss(Operator):
         if self.prc is not None:
             imported_data["prc"] = self.prc
 
-    def return_types(self, *args: DataType) -> Tuple[DataType, ...]:
-        """Indicates the datatypes of the results when calling the operator
-        with arguments of the given types. It is assumed that the
-        argument types are valid.
-
-        Parameters
-        ----------
-        args
-            The datatypes of the parameters which the operator is to be called with.
-
-        Returns
-        -------
-        :
-            The datatype of each result that will be returned if the operator is
-            called with these arguments.
-
-        """
-        return (("total_radiated power loss", "impurity_element"),)
-
     def interpolate_power(
         self,
         Ne: DataArray,
@@ -640,27 +432,10 @@ class PowerLoss(Operator):
     ):
         """Interpolates the various powers based on inputted Ne and Te.
 
-        Parameters
-        ----------
         Ne
-            xarray.DataArray of electron density as a profile of a user-chosen
-            coordinate.
+            electron density profile
         Te
-            xarray.DataArray of electron temperature as a profile of a user-chosen
-            coordinate.
-
-        Returns
-        -------
-        plt_spec
-            Interpolated radiated power of line emission from excitation of all
-            relevant ionisation charges.
-        prc_spec
-            Interpolated radiated power of charge exchange emission of all relevant
-            ionisation charges.
-        prb_spec
-            Interpolated radiated power from recombination and bremsstrahlung.
-        num_of_ion_charge
-            Number of ionisation charges(stages) for the given impurity element.
+            electron temperature profile
         """
 
         self.Ne, self.Te = Ne, Te  # type: ignore
@@ -694,22 +469,13 @@ class PowerLoss(Operator):
         """Calculates total radiated power of all ionisation charges of a given
         impurity element.
 
-        Parameters
-        ----------
         Ne
-            xarray.DataArray of electron density as a profile of a user-chosen
-            coordinate.
+            electron density profile
         F_z_t
-            xarray.DataArray of fractional abundance of all ionisation charges of given
-            impurity element.
+            fractional abundance of all ionisation charges of given element.
         Nh
-            xarray.DataArray of thermal hydrogen number density as a profile of a
-            user-chosen coordinate. (Optional)
+            thermal neutral hydrogen density profile
 
-        Returns
-        -------
-        cooling_factor
-            Total radiated power of all ionisation charges.
         """
         if Nh is not None:
             if self.prc is None:
@@ -790,30 +556,16 @@ class PowerLoss(Operator):
         """Executes all functions in correct order to calculate the total radiated
         power.
 
-        Parameters
-        ----------
         Ne
-            xarray.DataArray of electron density as a profile of a user-chosen
-            coordinate.
+            electron density profile
         Te
-            xarray.DataArray of electron temperature as a profile of a user-chosen
-            coordinate.
+            electron temperature profile
         Nh
-            xarray.DataArray of thermal hydrogen number density as a profile of a
-            user-chosen coordinate. (Optional)
+            thermal neutral hydrogen density profile
         F_z_t
-            xarray.DataArray of fractional abundance of all ionisation charges of given
-            impurity element. (Optional)
+            fractional abundance of all ionisation charges of given element
         full_run
-            Boolean specifying whether to only run calculate_power_loss(False) or to
-            run the entire ordered workflow(True) for calculating power loss from the
-            start. This is mostly only useful for unit testing and is set to True by
-            default. (Optional)
-
-        Returns
-        -------
-        cooling_factor
-            Total radiated power of all ionisation charges.
+            Boolean specifying whether to run the entire ordered workflow
         """
 
         if full_run or not hasattr(self, "cooling_factor"):
@@ -833,16 +585,10 @@ def interpolate_results(
     Interpolate fractional abundance or cooling factor on electron
     temperature for fast processing
 
-    Parameters
-    ----------
     atomic_data
         Fractional abundance or cooling factor DataArrays
     Te
         Electron temperature on which interpolation is to be performed
-
-    Returns
-    -------
-    Interpolated values
     """
     dim_old = [d for d in data.dims if d != "ion_charge"][0]
     _data = data.assign_coords(electron_temperature=(dim_old, Te_data.data))
@@ -868,7 +614,8 @@ def default_atomic_data(
         Te, Ne, Nh, tau = default_profiles()
 
     # print_like("Initialize fractional abundance and power loss objects")
-    fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
+    # fract_abu, power_loss_tot, power_loss_sxr = {}, {}, {}
+    fract_abu, power_loss_tot = {}, {}
     adas_reader = ADASReader()
     for elem in elements:
         scd = adas_reader.get_adf11("scd", elem, ADF11[elem]["scd"])
@@ -882,15 +629,15 @@ def default_atomic_data(
         power_loss_tot[elem] = PowerLoss(plt, prb, prc=prc)
         power_loss_tot[elem](Te, F_z_t, Ne=Ne, Nh=Nh)
 
-        try:
-            pls = adas_reader.get_adf11("pls", elem, ADF11[elem]["pls"])
-            prs = adas_reader.get_adf11("prs", elem, ADF11[elem]["prs"])
-            power_loss_sxr[elem] = PowerLoss(pls, prs)
-            power_loss_sxr[elem](Te, F_z_t, Ne=Ne, Nh=Nh)
-        except Exception:
-            print(f"No SXR-filtered data available for element {elem}")
+        # try:
+        #     pls = adas_reader.get_adf11("pls", elem, ADF11[elem]["pls"])
+        #     prs = adas_reader.get_adf11("prs", elem, ADF11[elem]["prs"])
+        #     power_loss_sxr[elem] = PowerLoss(pls, prs)
+        #     power_loss_sxr[elem](Te, F_z_t, Ne=Ne, Nh=Nh)
+        # except Exception:
+        #     print(f"No SXR-filtered data available for element {elem}")
 
-    return fract_abu, power_loss_tot, power_loss_sxr
+    return fract_abu, power_loss_tot  # , power_loss_sxr
 
 
 def default_profiles(n_rad: int = 20):
@@ -900,9 +647,7 @@ def default_profiles(n_rad: int = 20):
     xend = 1.02
     rho_end = 1.01
     rho = np.abs(np.linspace(rho_end, 0, n_rad) ** 1.8 - rho_end - 0.01)
-    rho_coord = xr.DataArray(
-        rho, coords={"rho_poloidal": rho}, dims="rho_poloidal"
-    ).coords
+    rho_coord = xr.DataArray(rho, coords={"rhop": rho}, dims="rhop").coords
     Te = xr.DataArray(np.linspace(50, 10e3, n_rad), coords=rho_coord)
     Ne = xr.DataArray(np.logspace(18, 21, n_rad), coords=rho_coord)
 

@@ -1,10 +1,8 @@
-# TODO: implement test to check availability of instruments methods and
-#       quantities have corresponding DATATYPE
+from indica.configs.readers.machineconf import MachineConf
 
 
-class ST40Conf:
+class ST40Conf(MachineConf):
     def __init__(self):
-        self.READER = "indica.ST40Reader"
         self.MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
         self.INSTRUMENT_METHODS = {
             "efit": "get_equilibrium",
@@ -22,21 +20,20 @@ class ST40Conf:
             "sxr_spd": "get_radiation",
             "sxrc_xy1": "get_radiation",
             "sxrc_xy2": "get_radiation",
-            "sxr_mid1": "get_radiation",
-            "sxr_mid2": "get_radiation",
-            "sxr_mid3": "get_radiation",
-            "sxr_mid4": "get_radiation",
             "blom_xy1": "get_radiation",
             "astra": "get_astra",
-            "ppts": "get_ppts",
+            "ppts": "get_profile_fits",
             "zeff_brems": "get_zeff",
         }
-        self.UIDS_MDS = {}
-        self.QUANTITIES_MDS = {
-            "efit": {
+        self.QUANTITIES_PATH = {
+            "get_equilibrium": {
+                "t": ":time",
+                "psin": ".profiles.psi_norm:xpsn",
+                "R": ".psi2d:rgrid",
+                "z": ".psi2d:zgrid",
                 "f": ".profiles.psi_norm:f",
-                "faxs": ".global:faxs",
-                "fbnd": ".global:fbnd",
+                "psi_axis": ".global:faxs",
+                "psi_boundary": ".global:fbnd",
                 "ftor": ".profiles.psi_norm:ftor",
                 "rmji": ".profiles.psi_norm:rmji",
                 "rmjo": ".profiles.psi_norm:rmjo",
@@ -52,12 +49,16 @@ class ST40Conf:
                 "wp": ".virial:wp",
                 "df": ".constraints.df:cvalue",
             },
-            "xrcs": {
+            "get_helike_spectroscopy": {
+                "t": ":time",
+                "wavelength": ":wavelen",
+                "location": ".geometry:location",
+                "direction": ".geometry:direction",
                 "ti_w": ".global:ti_w",
                 "ti_z": ".global:ti_z",
                 "te_n3w": ".global:te_n3w",
                 "te_kw": ".global:te_kw",
-                "raw_spectra": ":intens",
+                "spectra_raw": ":intens",
                 "spectra": ":spec_rad",
                 "int_w": ".global:int_w",
                 "int_k": ".global:int_k",
@@ -65,93 +66,67 @@ class ST40Conf:
                 "int_n3": ".global:int_n3",
                 "background": ".global:back_avg",
             },
-            "smmh": {
+            "get_interferometry": {
+                "t": ":time",
+                "location": ".geometry:location",
+                "direction": ".geometry:direction",
                 "ne": ".global:ne_int",
             },
-            "nirh": {
-                "ne": ".global:ne_int",
+            "get_diode_filters": {
+                "t": ":time",
+                "label": ":label",
+                "location": ".geometry:location",
+                "direction": ".geometry:direction",
+                "brightness": ":data",
             },
-            "lines": {
-                "brightness": ":emission",
-            },
-            "sxr_spd": {
+            "get_radiation": {
+                "t": ":time",
+                "location": ".geometry:location",
+                "direction": ".geometry:direction",
                 "brightness": ".profiles:emission",
             },
-            "sxr_mid1": {
-                "brightness": ".profiles:emission",
-            },
-            "sxr_mid2": {
-                "brightness": ".profiles:emission",
-            },
-            "sxr_mid3": {
-                "brightness": ".profiles:emission",
-            },
-            "sxr_mid4": {
-                "brightness": ".profiles:emission",
-            },
-            "diode_arrays": {
-                "brightness": ".middle_head.filter_4:",
-                "location": ".middle_head.geometry:location",
-                "direction": ".middle_head.geometry:direction",
-            },
-            "sxrc_xy1": {
-                "brightness": ".profiles:emission",
-            },
-            "sxrc_xy2": {
-                "brightness": ".profiles:emission",
-            },
-            "blom_xy1": {
-                "brightness": ".profiles:emission",
-            },
-            "sxr_diode_1": {
-                "brightness": ".filter_001:signal",
-            },
-            "sxr_diode_2": {
-                "brightness": ".filter_002:signal",
-            },
-            "sxr_diode_3": {
-                "brightness": ".filter_003:signal",
-            },
-            "sxr_diode_4": {
-                "brightness": ".filter_004:signal",
-            },
-            "cxff_pi": {
+            "get_charge_exchange": {
+                "t": ":time",
+                "wavelength": ":wavelen",
+                "x": ":x",
+                "y": ":y",
+                "z": ":z",
+                "R": ":R",
                 "int": ".profiles:int",
                 "ti": ".profiles:ti",
                 "vtor": ".profiles:vtor",
                 "spectra": ":spectra",
                 "fit": ":full_fit",
             },
-            "cxff_tws_c": {
-                "int": ".profiles:int",
-                "ti": ".profiles:ti",
-                "vtor": ".profiles:vtor",
-                "spectra": ":spectra",
-                "fit": ":full_fit",
-            },
-            "cxff_tws_b": {
-                "int": ".profiles:int",
-                "ti": ".profiles:ti",
-                "vtor": ".profiles:vtor",
-                "spectra": ":spectra",
-                "fit": ":full_fit",
-            },
-            "pi": {
+            "get_spectrometer": {
+                "t": ":time",
+                "location": ".geometry:location",
+                "direction": ".geometry:direction",
+                "wavelength": ":wavelen",
                 "spectra": ":emission",
             },
-            "tws_c": {
-                "spectra": ":emission",
-            },
-            "ts": {
+            "get_thomson_scattering": {
+                "t": ":time",
+                "x": ":x",
+                "y": ":y",
+                "z": ":z",
+                "R": ":R",
                 "ne": ".profiles:ne",
                 "te": ".profiles:te",
                 "pe": ".profiles:pe",
                 "chi2": ".profiles:chi2",
             },
-            "ppts": {
-                "ne_rho": ".profiles.psi_norm:ne",
-                "te_rho": ".profiles.psi_norm:te",
-                "pe_rho": ".profiles.psi_norm:pe",
+            "get_profile_fits": {
+                "t": ":time",
+                "rhop": ".profiles.psi_norm:rhop",
+                "R": ".profiles.r_midplane:rpos",
+                "z": ".profiles.r_midplane:zpos",
+                "rhop_data": ".profiles.inputs:rhop",
+                "R_data": ".profiles.inputs:rpos",
+                "z_data": ".profiles.inputs:zpos",
+                "ne_rhop": ".profiles.psi_norm:ne",
+                "te_rhop": ".profiles.psi_norm:te",
+                "pe_rhop": ".profiles.psi_norm:pe",
                 "ne_R": ".profiles.r_midplane:ne",
                 "te_R": ".profiles.r_midplane:te",
                 "pe_R": ".profiles.r_midplane:pe",
@@ -160,16 +135,18 @@ class ST40Conf:
                 "pe_data": ".profiles.inputs:pe",
                 "R_shift": ".global:rshift",
             },
-            "zeff_brems": {
+            "get_zeff": {
+                "t": ":time",
+                "rhop": ".profiles.psi_norm:rhop",
                 "R_shift": ".global:rshift",
                 "zeff_avrg": ".global:zeff",
                 "zeff_hi": ".global:zeff_hi",
                 "zeff_low": ".global:zeff_low",
                 "zeff": ".profiles.psi_norm:zeff",
             },
-            "astra": {
-                "faxs": ".global:faxs",
-                "fbnd": ".global:fbnd",
+            "get_astra": {
+                "psi_axis": ".global:faxs",
+                "psi_boundary": ".global:fbnd",
                 "rmag": ".global:rmag",
                 "rgeo": ".global:rgeo",
                 "zmag": ".global:zmag",

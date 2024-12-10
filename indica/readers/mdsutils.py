@@ -4,7 +4,7 @@ from typing import Tuple
 from MDSplus import Connection
 import numpy as np
 
-from indica.abstractio import BaseIO
+from indica import BaseIO
 from ..numpy_typing import RevisionLike
 
 

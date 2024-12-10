@@ -95,7 +95,7 @@ def profile_scans_pca(
     if plot:
         cols = CMAP(np.linspace(0.1, 0.75, scans, dtype=float))
         plt.figure()
-        sort_ind = np.argsort(profile_scans.sel(rho_poloidal=0)).values
+        sort_ind = np.argsort(profile_scans.sel(rhop=0)).values
         for i, scan in enumerate(sort_ind):
             profile_scans.sel(scan=scan).plot(
                 alpha=0.6,
@@ -116,11 +116,11 @@ def profile_scans_pca(
     return profile_scans, profiler
 
 
-def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
-    Te = ProfilerGauss(datatype="electron_temperature", xspl=rho)
-    Ne = ProfilerGauss(datatype="electron_density", xspl=rho)
-    Nimp = ProfilerGauss(datatype="impurity_density", xspl=rho)
-    Vrot = ProfilerGauss(datatype="toroidal_rotation", xspl=rho)
+def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
+    Te = ProfilerGauss(datatype="electron_temperature", xspl=rhop)
+    Ne = ProfilerGauss(datatype="electron_density", xspl=rhop)
+    Nimp = ProfilerGauss(datatype="impurity_density", xspl=rhop)
+    Vrot = ProfilerGauss(datatype="toroidal_rotation", xspl=rhop)
 
     Te_list = {}
     Ti_list = {}
@@ -146,7 +146,7 @@ def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
     Ti_list["broad"] = deepcopy(Ti)
     if plot:
         Ti.yspl.plot(linestyle="dashed", color="black", label="Ti no ref")
-    Ti(y0_ref=Te.yspl.sel(rho_poloidal=0).values)
+    Ti(y0_ref=Te.yspl.sel(rhop=0).values)
     if plot:
         Ti.yspl.plot(linestyle="dotted", color="black", label="Ti with ref")
 
@@ -165,7 +165,7 @@ def profile_scans_hda(plot=False, rho=np.linspace(0, 1.0, 41)):
     Ti_list["peaked"] = deepcopy(Ti)
     if plot:
         Ti.yspl.plot(linestyle="dashed", color="red", label="Ti no ref")
-    Ti(y0_ref=Te.yspl.sel(rho_poloidal=0).values)
+    Ti(y0_ref=Te.yspl.sel(rhop=0).values)
     if plot:
         Ti.yspl.plot(linestyle="dotted", color="red", label="Ti with ref")
 
@@ -258,24 +258,22 @@ def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None)
     post = deepcopy(pre)
 
     if volume is None:
-        volume = DataArray(0.85 * pre.xspl**3, coords=[("rho_poloidal", pre.xspl)])
-    vol = volume.interp(rho_poloidal=pre.yspl.rho_poloidal)
+        volume = DataArray(0.85 * pre.xspl**3, coords=[("rhop", pre.xspl)])
+    vol = volume.interp(rhop=pre.yspl.rhop)
     vol_int_pre = np.trapz(pre.yspl, vol)
 
     x = pre.x[np.where(pre.x <= 1.0)[0]]
 
-    rho = post.yspl.rho_poloidal
+    rho = post.yspl.rhop
     inv_ind = np.max(np.where(rho <= rho_inv)[0])
     for rind in np.arange(inv_ind, rho.size):
-        y = xr.where(
-            rho <= rho[rind], post.yspl.sel(rho_poloidal=rho[inv_ind]), post.yspl
-        )
+        y = xr.where(rho <= rho[rind], post.yspl.sel(rhop=rho[inv_ind]), post.yspl)
         vol_int_post = np.trapz(y, vol)
         if vol_int_post >= vol_int_pre:
             break
 
     y = xr.where(rho != rho[rind], y, (y[rind] + y[rind + 1]) / 2)
-    y = y.interp(rho_poloidal=x)
+    y = y.interp(rhop=x)
 
     x = np.append(x, pre.xend)
     y = np.append(y, pre.yend)
@@ -297,13 +295,13 @@ def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None)
 def density_crash(
     los_avrg=2.8e19,
     drop=0.9,
-    rho=np.linspace(0, 1, 20),
+    rhop=np.linspace(0, 1, 20),
     rho_inv=0.4,
     identifier="density",
 ):
-    volume = DataArray(0.85 * rho**3, coords=[("rho_poloidal", rho)])
+    volume = DataArray(0.85 * rhop**3, coords=[("rhop", rhop)])
 
-    pre = ProfilerGauss(datatype=(identifier, "electron"), xspl=rho)
+    pre = ProfilerGauss(datatype=(identifier, "electron"), xspl=rhop)
     pre.wcenter = rho_inv / 1.5
     pre()
 

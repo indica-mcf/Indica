@@ -12,7 +12,6 @@ from typing import Hashable
 from typing import List
 from typing import Optional
 from typing import Tuple
-from typing import Union
 
 from matplotlib import cm
 from matplotlib import rcParams
@@ -20,10 +19,9 @@ import matplotlib.pylab as plt
 import numpy as np
 import periodictable
 from scipy.interpolate import CubicSpline
+import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
-from xarray.core.dataset import Dataset
-from xarray.core.variable import Variable
 
 from indica.datatypes import DATATYPES
 from indica.datatypes import UNITS
@@ -183,9 +181,9 @@ def coord_array(coord_vals: ArrayLike, coord_name: str):
         else "time"
         if coord_name == "t"
         else "norm_flux_pol"
-        if coord_name == "rho_poloidal"
+        if coord_name == "rhop"
         else "norm_flux_tor"
-        if coord_name == "rho_toroidal"
+        if coord_name == "rhot"
         else coord_name,
         "plasma",
     )
@@ -235,71 +233,64 @@ def broadcast_spline(
         ).assign_coords({k: v for k, v in spline_coords.items()})
 
 
-def input_check(
-    var_name: str,
-    var_to_check,
-    var_type: Union[type, Tuple[type, ...]],
-    ndim_to_check: Optional[int] = None,
-    positive: bool = True,
-    strictly_positive: bool = True,
-):
-    """Check validity of inputted variable - type check and
-    various value checks(no infinities, greather than (or equal to) 0 or NaNs)
+def build_dataarrays(
+    data: Dict[str, LabeledArray],
+    available_quantities: Dict[str, Tuple[str, list]],
+    tstart: float = None,
+    tend: float = None,
+    transform=None,
+    include_error: bool = True,
+    verbose: bool = False,
+) -> Dict[str, DataArray]:
+    """Organizes data in DataArray format with coordinates, long_name & units"""
+    data_arrays: dict = {}
+    for quantity in available_quantities.keys():
+        if quantity not in data.keys():
+            continue
 
-    Parameters
-    ----------
-    var_name
-        Name of variable to check.
-    var_to_check
-        Variable to check.
-    var_type
-        Type to check variable against, eg. DataArray
-    ndim_to_check
-        Integer to check the number of dimensions of the variable.
-    positive
-        Boolean, if true will check values >= 0
-    strictly_positive
-        Boolean, if true will check values > 0
-    """
-    if strictly_positive and not positive:
-        raise ValueError("If checking for strictly_positive then set positive True.")
+        # Build coordinate dictionary
+        datatype, dims = available_quantities[quantity]
+        if verbose:
+            print(f"  {quantity} - {datatype}")
 
-    if not isinstance(var_to_check, var_type):
-        raise TypeError(f"{var_name} must be of type {var_type}.")
+        coords: dict = {}
+        for dim in dims:
+            coords[dim] = data[dim]
 
-    # For some reason passing get_args(LabeledArray) to isinstance causes
-    # mypy to complain but giving it the constituent types(and np.ndarray) solves this.
-    # Guessing this is because LabeledArray isn't resolved/evaluated by mypy.
-    # Return if not a numeric type, no additional checks required
-    if not isinstance(
-        var_to_check, (float, int, DataArray, Dataset, Variable, np.ndarray)
-    ) or isinstance(var_to_check, bool):
-        return
+        # Build DataArray
+        _data = format_dataarray(data[quantity], datatype, coords)
+        if "t" in _data.dims and tstart is not None and tend is not None:
+            _data = _data.sel(t=slice(tstart, tend))
+            _data = _data.sortby([dim for dim in dims if dim != "t"])
 
-    sliced_var_to_check = deepcopy(var_to_check)
+        # Build error DataArray and assign as coordinate
+        if include_error and len(dims) != 0:
+            _error = xr.zeros_like(_data)
+            if quantity + "_error" in data:
+                _error = format_dataarray(data[quantity + "_error"], datatype, coords)
+                if "t" in _error.dims and tstart is not None and tend is not None:
+                    _error = _error.sel(t=slice(tstart, tend))
+            _data = _data.assign_coords(error=(_data.dims, _error.data))
 
-    if np.any(np.isnan(sliced_var_to_check)):
-        raise ValueError(f"{var_name} cannot contain any NaNs.")
+        # Check that times are unique
+        if "t" in _data:
+            t_unique, ind_unique = np.unique(_data["t"], return_index=True)
+            if len(_data["t"]) != len(t_unique):
+                _data = _data.isel(t=ind_unique)
 
-    if np.any(np.isinf(sliced_var_to_check)):
-        raise ValueError(f"{var_name} cannot contain any infinities.")
+        # Add attributes and assign to dictionary
+        if transform is not None:
+            _data.attrs["transform"] = transform
+        if "uid" in _data:
+            _data.attrs["uid"] = data["uid"]
+        if "revision" in _data:
+            _data.attrs["revision"] = data["revision"]
 
-    if positive and strictly_positive:
-        if not np.all(sliced_var_to_check > 0):
-            raise ValueError(f"Cannot have any negative or zero values in {var_name}")
-    elif positive:
-        if not np.all(sliced_var_to_check >= 0):
-            raise ValueError(f"Cannot have any negative values in {var_name}")
-
-    if (
-        ndim_to_check is not None
-        and isinstance(sliced_var_to_check, (np.ndarray, DataArray))
-        and (sliced_var_to_check.ndim != ndim_to_check)
-    ):
-        raise ValueError(f"{var_name} must have {ndim_to_check} dimensions.")
+        data_arrays[quantity] = _data
+    return data_arrays
 
 
-def format_coord(data: LabeledArray, var_name: str):
+def format_coord(data: LabeledArray, datatype: str):
     """
     Create coordinate dataarray using the variable name == dimension
     and the values as coordinates
@@ -311,13 +302,13 @@ def format_coord(data: LabeledArray, var_name: str):
     var_name
         Name of the variable to be assigned as coordinate
     """
-    return format_dataarray(data, var_name, {var_name: data})
+    return format_dataarray(data, datatype, {datatype: data})
 
 
 def format_dataarray(
     data: LabeledArray,
-    var_name: str,
-    coords: Dict[str, Any] = None,
+    datatype: str,
+    coords: Dict[str, Any] = {},
     make_copy: bool = False,
 ):
     """
@@ -327,8 +318,8 @@ def format_dataarray(
     ----------
     data
         Input data
-    var_name
-        Variable name (see DATATYPES)
+    datatype
+        Variable data type name (see DATATYPES)
     coords
         Coordinates sequence (see xr.DataArray documentation)
 
@@ -348,12 +339,11 @@ def format_dataarray(
             name: coord.data if isinstance(coord, DataArray) else coord
             for name, coord in coords.items()
         }
-        data_array = DataArray(_data, coords=processed_coords, name=var_name)
+        data_array = DataArray(_data, coords=processed_coords, name=datatype)
     else:
-        if type(_data) != DataArray:
-            raise ValueError("data must be a DataArray if coordinates are not given")
+        data_array = DataArray(_data, name=datatype)
 
-    assign_datatype(data_array, var_name)
+    assign_datatype(data_array, datatype)
     for dim in data_array.dims:
         assign_datatype(data_array.coords[dim], dim)
 
@@ -362,13 +352,13 @@ def format_dataarray(
 
 def assign_datatype(
     data_array: DataArray,
-    var_name: str,
+    datatype: str,
 ):
     try:
-        long_name, units_key = DATATYPES[var_name]
+        long_name, units_key = DATATYPES[datatype]
         units = UNITS[units_key]
     except Exception:
-        raise Exception(f"\n Check DATATYPE and UNITS for {var_name}. \n")
+        raise Exception(f"\n Check DATATYPE and UNITS for {datatype}. \n")
 
     data_array.attrs["long_name"] = long_name
     data_array.attrs["units"] = units
