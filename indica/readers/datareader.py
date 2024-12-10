@@ -121,7 +121,7 @@ class DataReader(ABC):
 
             # Read quantity value
             try:
-                q_val, q_path = self.reader_utils.get_signal(
+                q_val, q_dimensions, q_units, q_path = self.reader_utils.get_data(
                     uid,
                     instrument,
                     _path,
@@ -133,11 +133,18 @@ class DataReader(ABC):
                     raise e
                 continue
             results[_key + "_records"] = q_path
+            results[_key + "_dimensions"] = q_dimensions
+            results[_key + "_units"] = q_units
             results[_key] = q_val
 
             # Read quantity error
             try:
-                q_err, q_err_path = self.reader_utils.get_signal(
+                (
+                    q_err,
+                    q_err_dimensions,
+                    q_err_units,
+                    q_err_path,
+                ) = self.reader_utils.get_data(
                     uid,
                     instrument,
                     _path_err,
@@ -145,9 +152,13 @@ class DataReader(ABC):
                 )
             except Exception as e:
                 q_err = np.full_like(results[_key], 0.0)
+                q_err_dimensions = []
+                q_err_units = ""
                 q_err_path = f"{e}"
             results[_key + "_error"] = q_err
             results[_key + "_error" + "_records"] = q_err_path
+            results[_key + "_error_dimensions"] = q_err_dimensions
+            results[_key + "_error_units"] = q_err_units
 
         return results
 
