@@ -17,13 +17,11 @@ class ReaderProcessor:
 
     def __init__(
         self,
-        raw_data: dict,
         conf=ST40ReaderProcessorConf(),
     ):
 
-        self.raw_data: dict = raw_data
         self.conf = conf
-        self.debug = False
+        self.raw_data: dict = None
         self.processed_data: dict = {}
 
     def reset_data(self):
@@ -31,30 +29,36 @@ class ReaderProcessor:
 
     def __call__(
         self,
+        raw_data: dict,
         tstart: float = None,
         tend: float = None,
         dt: float = None,
+        verbose: bool = False,
     ):
 
         self.reset_data()
+        self.raw_data = raw_data
 
-        self.filtered_data = apply_filter(
-            self.raw_data,
+        self.processed_data = apply_filter(
+            raw_data,
             filters=self.conf.filter_values,
             filter_func=value_condition,
             filter_func_name="value",
+            verbose=verbose,
         )
 
-        self.filtered_data = apply_filter(
-            self.filtered_data,
+        self.processed_data = apply_filter(
+            self.processed_data,
             filters=self.conf.filter_coordinates,
             filter_func=coordinate_condition,
             filter_func_name="co-ordinate",
+            verbose=verbose,
         )
 
-        self.binned_data = bin_data_in_time(
-            self.filtered_data, tstart=tstart, tend=tend, dt=dt
+        self.processed_data = bin_data_in_time(
+            self.processed_data, tstart=tstart, tend=tend, dt=dt
         )
+        return self.processed_data
 
 
 def bin_data_in_time(

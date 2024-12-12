@@ -77,6 +77,7 @@ class BayesBlackBox:
         self.quant_to_optimise = quant_to_optimise
         self.ln_prior = ln_prior
         self.build_bckc = build_bckc
+
         self.plasma_profiler = plasma_profiler
 
         missing_data = list(set(quant_to_optimise).difference(opt_data.keys()))

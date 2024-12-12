@@ -8,6 +8,7 @@ import hydra
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
 
+from indica.configs import ST40ReaderProcessorConf
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
@@ -20,6 +21,7 @@ from indica.plotters.plot_bda import plot_bda
 from indica.profilers.profiler_gauss import ProfilerGauss
 from indica.profilers.profiler_spline import ProfilerCubicSpline
 from indica.profilers.profiler_spline import ProfilerMonoSpline
+from indica.readers import ReaderProcessor
 from indica.readers.modelreader import ModelReader
 from indica.workflows.bda.bda_driver import BDADriver
 from indica.workflows.bda.optimisers import BOOptimiser
@@ -169,15 +171,16 @@ def bda_phantom_optimisation(  # noqa: C901
     reader = ModelReader(
         models=diagnostic_models,
         model_kwargs=OmegaConf.to_container(cfg.model),
-        conf=cfg.reader.filters,
     )
     reader.set_geometry_transforms(transforms, equilibrium)
     reader.set_plasma(plasma)
     bckc = reader(
         cfg.diagnostics,
     )
+    rp = ReaderProcessor(conf=cfg.reader.filters)
+    processed_bckc = rp(bckc, tstart=cfg.tstart, tend=cfg.tend, dt=cfg.dt)
 
-    flat_data = flatdict.FlatDict(bckc, ".")
+    flat_data = flatdict.FlatDict(processed_bckc, ".")
     log.info("Applying error to opt_data")
     opt_data = add_error_to_opt_data(flat_data, verbose=False)
 

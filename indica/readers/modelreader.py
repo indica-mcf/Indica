@@ -2,11 +2,7 @@ from xarray import DataArray
 
 from indica import Equilibrium
 from indica import Plasma
-from indica.configs import ST40ReaderProcessorConf
 from indica.models.abstract_diagnostic import AbstractDiagnostic
-from indica.readers.readerprocessor import apply_filter
-from indica.readers.readerprocessor import coordinate_condition
-from indica.readers.readerprocessor import value_condition
 
 
 class ModelReader:
@@ -16,7 +12,6 @@ class ModelReader:
         self,
         models: dict[str, AbstractDiagnostic],
         model_kwargs: dict,
-        conf=ST40ReaderProcessorConf(),
     ):
         """Reader for synthetic diagnostic measurements making use of:
 
@@ -26,12 +21,10 @@ class ModelReader:
 
         model_kwargs
 
-        conf
 
         """
         self.models = models
         self.model_kwargs = model_kwargs
-        self.conf = conf
 
         self.transforms: dict = {}
         self.plasma = None
@@ -88,36 +81,13 @@ class ModelReader:
     def __call__(
         self,
         instruments: list = None,
-        filter_limits=None,
-        filter_coords=None,
-        verbose=False,
         **call_kwargs,
     ):
         if instruments is None:
             instruments = self.models.keys()
 
-        if filter_limits is None:
-            filter_limits = self.conf.filter_values
-        if filter_coords is None:
-            filter_coords = self.conf.filter_coordinates
-
         bckc: dict = {}
         for instrument in instruments:
             bckc[instrument] = self.get(instrument, **call_kwargs.get(instrument, {}))
 
-        filtered_bckc = apply_filter(
-            bckc,
-            filters=filter_limits,
-            filter_func=value_condition,
-            filter_func_name="limits",
-            verbose=verbose,
-        )
-        filtered_bckc = apply_filter(
-            filtered_bckc,
-            filters=filter_coords,
-            filter_func=coordinate_condition,
-            filter_func_name="co-ordinate",
-            verbose=verbose,
-        )
-
-        return filtered_bckc
+        return bckc
