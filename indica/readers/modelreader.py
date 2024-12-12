@@ -2,7 +2,7 @@ from xarray import DataArray
 
 from indica import Equilibrium
 from indica import Plasma
-from indica.configs import ST40Conf
+from indica.configs import ST40ReaderProcessorConf
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.readers.readerprocessor import apply_filter
 from indica.readers.readerprocessor import coordinate_condition
@@ -16,7 +16,7 @@ class ModelReader:
         self,
         models: dict[str, AbstractDiagnostic],
         model_kwargs: dict,
-        conf=ST40Conf(),
+        conf=ST40ReaderProcessorConf(),
     ):
         """Reader for synthetic diagnostic measurements making use of:
 

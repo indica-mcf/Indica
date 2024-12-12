@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.configs import ST40Conf
+from indica.configs import ST40ReaderProcessorConf
 from indica.converters.time import convert_in_time_dt
 
 
@@ -18,7 +18,7 @@ class ReaderProcessor:
     def __init__(
         self,
         raw_data: dict,
-        conf=ST40Conf(),
+        conf=ST40ReaderProcessorConf(),
     ):
 
         self.raw_data: dict = raw_data
