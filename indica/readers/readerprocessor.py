@@ -6,7 +6,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.configs import ST40ReaderProcessorConf
+from indica.configs.readers.st40readerprocessorconf import ST40ReaderProcessorConf
 from indica.converters.time import convert_in_time_dt
 
 
