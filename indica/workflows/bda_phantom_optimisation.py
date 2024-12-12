@@ -8,7 +8,6 @@ import hydra
 from omegaconf import DictConfig
 from omegaconf import OmegaConf
 
-from indica.configs import ST40ReaderProcessorConf
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction

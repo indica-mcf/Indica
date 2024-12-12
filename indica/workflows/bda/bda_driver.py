@@ -7,7 +7,6 @@ import numpy as np
 import xarray as xr
 
 from indica.plasma import PlasmaProfiler
-from indica.readers import ReaderProcessor
 from indica.readers.modelreader import ModelReader
 from indica.workflows.bda.bayesblackbox import BayesBlackBox
 from indica.workflows.bda.optimisers import OptimiserContext
