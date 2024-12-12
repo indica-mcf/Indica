@@ -28,7 +28,6 @@ class ST40Reader(DataReader):
         pulse: int,
         tstart: float,
         tend: float,
-        dt: float,
         machine_conf=ST40Conf,
         reader_utils=MDSUtils,
         server: str = "smaug",
@@ -38,10 +37,9 @@ class ST40Reader(DataReader):
         **kwargs: Any,
     ):
 
-        tstart = tstart - dt * 2
         if tstart < 0:
             tstart = 0
-        tend = tend + dt * 2
+
         super().__init__(
             pulse,
             tstart,
