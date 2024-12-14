@@ -1,12 +1,8 @@
-from typing import Any
-from typing import Dict
-from typing import List
-
 from xarray import DataArray
 
+from indica import Equilibrium
 from indica import Plasma
-from indica.configs import MACHINE_CONFS
-from indica.models import MODELS_METHODS
+from indica.models.abstract_diagnostic import AbstractDiagnostic
 
 
 class ModelReader:
@@ -14,89 +10,84 @@ class ModelReader:
 
     def __init__(
         self,
-        machine: str,
-        instruments: List[str],
-        **kwargs: Any,
+        models: dict[str, AbstractDiagnostic],
+        model_kwargs: dict,
     ):
         """Reader for synthetic diagnostic measurements making use of:
-         - A Plasma class to be used by all models
-         - Geometry from a standard set or from the experimental database
 
         Parameters
         ----------
-        machine
-            Machine string identifier on which the diagnostics are "installed".
-        instruments
-            List of instruments to be modelled.
+        models
+
+        model_kwargs
+
+
         """
-        self.models: dict = {}
+        self.models = models
+        self.model_kwargs = model_kwargs
+
         self.transforms: dict = {}
-        self.machine = machine
-        self.machine_conf = MACHINE_CONFS[machine]()
-        self.instruments = instruments
-        self.kwargs = kwargs
+        self.plasma = None
 
-        for instrument in instruments:
-            method = self.machine_conf.INSTRUMENT_METHODS[instrument]
-            model = MODELS_METHODS[method]
-            self.models[instrument] = model(instrument)
+        for model_name, model in models.items():
+            self.models[model_name] = model(
+                name=model_name, **self.model_kwargs.get(model_name, {})
+            )
 
-    def set_geometry_transforms(self, transforms: dict):
+    def set_geometry_transforms(self, transforms: dict, equilibrium: Equilibrium):
         """
-        Set instrument geometry from standard set
+        Set instrument geometry and equilibrium
         """
 
-        for instr in self.instruments:
+        for instr in self.models.keys():
             if instr not in transforms.keys():
-                raise ValueError(f"{instr} not available in default_geometries file")
+                raise ValueError(f"{instr} not available in given transforms")
 
             self.transforms[instr] = transforms[instr]
+            self.transforms[instr].set_equilibrium(equilibrium, force=True)
             self.models[instr].set_transform(transforms[instr])
 
     def set_plasma(self, plasma: Plasma):
         """
         Set Plasma class to all models and transforms
         """
-        for instr in self.models.keys():
-            if instr not in self.models:
-                continue
-
-            self.models[instr].set_plasma(plasma)
-            self.transforms[instr].set_equilibrium(
-                plasma.equilibrium,
-                force=True,
-            )
-
+        for model_name, model in self.models.items():
+            model.set_plasma(plasma)
         self.plasma = plasma
 
-    def set_model_parameters(self, instrument: str, **kwargs):
+    def update_model_settings(self, **update_kwargs):
         """
-        Update independent model parameters
+        Reinitialise models with model kwargs
         """
+        for instrument in self.models:
+            self.model_kwargs[instrument] = self.model_kwargs[instrument].update(
+                update_kwargs[instrument]
+            )
+            self.models = self.models[instrument](**self.model_kwargs[instrument])
 
     def get(
         self,
-        uid: str,
         instrument: str,
         **kwargs,
-    ) -> Dict[str, DataArray]:
+    ) -> dict[str, DataArray]:
         """
         Method set to replicate the get() method of the readers
-        uid is not necessary but kept for consistency
-        TODO: think whether it's best to make UID a kwarg instead!
         """
-        _ = uid
-        if instrument in self.models:
+        if instrument in self.models.keys():
             return self.models[instrument](**kwargs)
         else:
             return {}
 
-    def __call__(self, instruments: list = [], **kwargs):
-        if len(instruments) == 0:
-            instruments = list(self.models)
+    def __call__(
+        self,
+        instruments: list = None,
+        **call_kwargs,
+    ):
+        if instruments is None:
+            instruments = self.models.keys()
 
         bckc: dict = {}
         for instrument in instruments:
-            bckc[instrument] = self.get("", instrument)
+            bckc[instrument] = self.get(instrument, **call_kwargs.get(instrument, {}))
 
         return bckc

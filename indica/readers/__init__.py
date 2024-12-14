@@ -4,10 +4,15 @@ filesystem or databases. These objects are all subclasses of
 functionality for a different format of data.
 
 """
-
 from .adas import ADASReader
+from .datareader import DataReader
+from .readerprocessor import ReaderProcessor
 
-__all__ = ["ADASReader"]
+__all__ = [
+    "ADASReader",
+    "DataReader",
+    "ReaderProcessor",
+]
 
 try:
     from .salutils import SALUtils
@@ -22,6 +27,7 @@ try:
     __all__ += ["JETReader"]
 except ImportError:
     pass
+
 
 try:
     from .mdsutils import MDSUtils

@@ -20,8 +20,9 @@ from indica.plotters.plot_bda import plot_bda
 from indica.profilers.profiler_gauss import ProfilerGauss
 from indica.profilers.profiler_spline import ProfilerCubicSpline
 from indica.profilers.profiler_spline import ProfilerMonoSpline
+from indica.readers import ReaderProcessor
+from indica.readers.modelreader import ModelReader
 from indica.workflows.bda.bda_driver import BDADriver
-from indica.workflows.bda.model_coordinator import ModelCoordinator
 from indica.workflows.bda.optimisers import BOOptimiser
 from indica.workflows.bda.optimisers import BOSettings
 from indica.workflows.bda.optimisers import EmceeOptimiser
@@ -79,21 +80,6 @@ def save_pickle(result, filepath):
     Path(filepath).mkdir(parents=True, exist_ok=True)
     with open(filepath + "results.pkl", "wb") as handle:
         pickle.dump(result, handle)
-
-
-def deep_update(mapping: dict, *updating_mappings: dict) -> dict:
-    updated_mapping = mapping.copy()
-    for updating_mapping in updating_mappings:
-        for k, v in updating_mapping.items():
-            if (
-                k in updated_mapping
-                and isinstance(updated_mapping[k], dict)
-                and isinstance(v, dict)
-            ):
-                updated_mapping[k] = deep_update(updated_mapping[k], v)
-            else:
-                updated_mapping[k] = v
-    return updated_mapping
 
 
 def add_error_to_opt_data(opt_data: dict, error_functions=None, verbose=True):
@@ -181,50 +167,30 @@ def bda_phantom_optimisation(  # noqa: C901
 
     log.info("Using phantom data reader")
     diagnostic_models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.diagnostics}
-    reader = ModelCoordinator(
+    reader = ModelReader(
         models=diagnostic_models,
-        model_settings=OmegaConf.to_container(cfg.model),
+        model_kwargs=OmegaConf.to_container(cfg.model),
     )
-    reader.set_transforms(transforms)
-    reader.set_equilibrium(
-        equilibrium,
-    )
+    reader.set_geometry_transforms(transforms, equilibrium)
     reader.set_plasma(plasma)
-    reader(
+    bckc = reader(
         cfg.diagnostics,
-        revisions=OmegaConf.to_container(cfg.reader.revisions),
-        fetch_equilbrium=False,
-        **cfg.reader.filters,
     )
+    rp = ReaderProcessor(conf=cfg.reader.filters)
+    processed_bckc = rp(bckc, tstart=cfg.tstart, tend=cfg.tend, dt=cfg.dt)
 
-    flat_data = flatdict.FlatDict(reader.binned_data, ".")
+    flat_data = flatdict.FlatDict(processed_bckc, ".")
     log.info("Applying error to opt_data")
     opt_data = add_error_to_opt_data(flat_data, verbose=False)
 
-    models = {diag: INSTRUMENT_MAPPING[diag] for diag in cfg.diagnostics}
-
-    log.info("Initialising ModelCoordinator")
-    model_coordinator = ModelCoordinator(
-        models=models,
-        model_settings=deep_update(
-            OmegaConf.to_container(cfg.model),
-        ),
-        verbose=False,
-    )
-    if "xrcs" in reader.binned_data.keys():
+    if "xrcs" in bckc.keys():
         model_call_kwargs = {
             "xrcs": {
-                "norm_spectra": reader.binned_data["xrcs"]["spectra_raw"].max(
-                    "wavelength"
-                ),
+                "norm_spectra": bckc["xrcs"]["spectra_raw"].max("wavelength"),
             }
         }
     else:
         model_call_kwargs = {}
-
-    model_coordinator.set_transforms(reader.transforms)
-    model_coordinator.set_equilibrium(equilibrium)
-    model_coordinator.set_plasma(plasma)
 
     log.info("initialising PriorManager")
     prior_manager = PriorManager(**cfg.priors)
@@ -279,7 +245,7 @@ def bda_phantom_optimisation(  # noqa: C901
         opt_data=opt_data,
         optimiser_context=optimiser_context,
         plasma_profiler=plasma_profiler,
-        model_coordinator=model_coordinator,
+        modelreader=reader,
         prior_manager=prior_manager,
     )
 

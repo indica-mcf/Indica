@@ -2,6 +2,7 @@ from copy import deepcopy
 from typing import Callable
 import warnings
 
+import flatdict
 from flatdict import FlatDict
 import mpmath as mp
 import numpy as np
@@ -16,6 +17,21 @@ warnings.simplefilter("ignore", category=FutureWarning)
 gaussian = np.frompyfunc(mp.npdf, 3, 1)
 log = np.frompyfunc(mp.log, 1, 1)
 to_float = np.frompyfunc(float, 1, 1)
+
+
+def deep_update(mapping: dict, *updating_mappings: dict) -> dict:
+    updated_mapping = mapping.copy()
+    for updating_mapping in updating_mappings:
+        for k, v in updating_mapping.items():
+            if (
+                k in updated_mapping
+                and isinstance(updated_mapping[k], dict)
+                and isinstance(v, dict)
+            ):
+                updated_mapping[k] = deep_update(updated_mapping[k], v)
+            else:
+                updated_mapping[k] = v
+    return updated_mapping
 
 
 def mp_log_gauss_wrapper(x, mean, sigma):
@@ -61,6 +77,7 @@ class BayesBlackBox:
         self.quant_to_optimise = quant_to_optimise
         self.ln_prior = ln_prior
         self.build_bckc = build_bckc
+
         self.plasma_profiler = plasma_profiler
 
         missing_data = list(set(quant_to_optimise).difference(opt_data.keys()))
@@ -110,9 +127,12 @@ class BayesBlackBox:
         self.plasma_profiler(parameters)
         plasma_attributes = self.plasma_profiler.plasma_attributes()
 
-        self.bckc = FlatDict(
-            self.build_bckc(flat_kwargs=parameters, **kwargs), "."
-        )  # model calls
+        flat_parameters = flatdict.FlatDict(parameters, ".")
+        nested_parameters = flat_parameters.as_dict()
+        bckc = self.build_bckc(
+            **deep_update(kwargs, nested_parameters)
+        )  # model calls with optimised params and kwargs
+        self.bckc = FlatDict(bckc, ".")
 
         _ln_likelihood = self.ln_likelihood()  # compare results to data
         ln_posterior = _ln_likelihood + _ln_prior

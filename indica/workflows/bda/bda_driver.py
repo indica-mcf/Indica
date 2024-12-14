@@ -7,8 +7,8 @@ import numpy as np
 import xarray as xr
 
 from indica.plasma import PlasmaProfiler
+from indica.readers.modelreader import ModelReader
 from indica.workflows.bda.bayesblackbox import BayesBlackBox
-from indica.workflows.bda.model_coordinator import ModelCoordinator
 from indica.workflows.bda.optimisers import OptimiserContext
 from indica.workflows.bda.priors import PriorManager
 
@@ -20,14 +20,14 @@ class BDADriver:
         opt_data: dict,
         plasma_profiler: PlasmaProfiler,
         prior_manager: PriorManager,
-        model_coordinator: ModelCoordinator,
+        modelreader: ModelReader,
         optimiser_context: OptimiserContext,
     ):
         self.quant_to_optimise = quant_to_optimise
         self.opt_data = opt_data
         self.plasma_profiler = plasma_profiler
         self.prior_manager = prior_manager
-        self.model_coordinator = model_coordinator
+        self.modelreader = modelreader
         self.optimiser_context = optimiser_context
 
         self.blackbox = BayesBlackBox(
@@ -35,7 +35,7 @@ class BDADriver:
             quant_to_optimise=quant_to_optimise,
             ln_prior=self.prior_manager.ln_prior,
             plasma_profiler=self.plasma_profiler,
-            build_bckc=self.model_coordinator.__call__,
+            build_bckc=self.modelreader.__call__,
         )
 
         self.optimiser_context.init_optimiser(self.blackbox.ln_posterior)
@@ -70,7 +70,7 @@ class BDADriver:
                 for quantity in quant_list
                 if quantity[0] == diag_name
             }
-            for diag_name in self.model_coordinator.model_names
+            for diag_name in self.modelreader.models.keys()
         }
 
         return result
@@ -87,7 +87,7 @@ class BDADriver:
                 for quantity in quant_list
                 if quantity[0] == diag_name
             }
-            for diag_name in self.model_coordinator.model_names
+            for diag_name in self.modelreader.models.keys()
         }
         result["MODEL_DATA"]["SAMPLE_IDX"] = np.arange(
             0, self.opt_samples["post_sample"].shape[1]
@@ -296,7 +296,7 @@ class BDADriver:
         }
 
         result["GLOBAL"] = {
-            "VOLUME": self.plasma_profiler.plasma.volume.interp(rhop=1),
+            "VOLUME": self.plasma_profiler.plasma.volume.max(dim="rhop"),
             "TI0": self.blobs["ion_temperature"]
             .sel(rhop=0, method="nearest")
             .median(dim="sample_idx"),
