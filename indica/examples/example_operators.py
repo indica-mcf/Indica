@@ -1,16 +1,17 @@
 import matplotlib.pylab as plt
 import numpy as np
-import xarray as xr
 from xarray import DataArray
 
 from indica.defaults.load_defaults import load_default_objects
+from indica.models import ThomsonScattering
 from indica.operators import tomo_1D
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_2d_map
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
-from indica.operators.spline_fit import fit_profile
 from indica.operators.tomo_asymmetry import InvertPoloidalAsymmetry
 from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
+from indica.utilities import set_plot_colors
+from indica.workflows.fit_ts_rshift import fit_ts
 
 PLASMA = load_default_objects("st40", "plasma")
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
@@ -260,3 +261,82 @@ def example_tomo_1D(
 
     return inverted_emissivity, data_tomo, bckc_tomo
 
+
+def example_fit_ts(
+    fit_R_shift: bool = False,
+    verbose: bool = False,
+    nplot: int = 2,
+    plot: bool = True,
+):
+
+    cm, cols = set_plot_colors()
+
+    models = {"ts": ThomsonScattering}
+    model_reader = ModelReader(models)
+    model_reader.set_plasma(PLASMA)
+    model_reader.set_geometry_transforms(TRANSFORMS, EQUILIBRIUM)
+    bckc = model_reader()
+
+    te_data = bckc["ts"]["te"]
+    te_err = bckc["ts"]["te"].error
+    ne_data = bckc["ts"]["ne"]
+    ne_err = bckc["ts"]["ne"].error
+    time = te_data.t
+    cols = cm(np.linspace(0.1, 0.75, len(time), dtype=float))
+
+    te_fit, ne_fit = fit_ts(
+        te_data,
+        te_err,
+        ne_data,
+        ne_err,
+        fit_R_shift=fit_R_shift,
+        verbose=verbose,
+    )
+
+    if plot:
+        plt.ioff()
+        plt.figure()
+        _R_shift = [f"{(ne_fit.R_shift.sel(t=t).values * 100):.1f}" for t in time]
+        for i, t in enumerate(time.values):
+            if i % nplot:
+                continue
+            plt.errorbar(
+                ne_data.transform.rhop.sel(t=t),
+                ne_data.sel(t=t),
+                ne_data.error.sel(t=t),
+                color=cols[i],
+                marker="o",
+                label=rf"t={int(t*1.e3)} ms $\delta$R={_R_shift[i]} cm",
+                alpha=0.6,
+            )
+            ne_fit.sel(t=t).plot(color=cols[i], linewidth=4, zorder=0)
+        plt.ylabel("Ne (m${-3}$)")
+        plt.xlabel("Rho-poloidal")
+        plt.title("TS Ne data & fits")
+        plt.xlim(0, 1.1)
+        plt.ylim(0, np.nanmax(ne_fit) * 1.2)
+        plt.legend()
+
+        plt.figure()
+        for i, t in enumerate(time.values):
+            if i % nplot:
+                continue
+            plt.errorbar(
+                te_data.transform.rhop.sel(t=t),
+                te_data.sel(t=t),
+                te_data.error.sel(t=t),
+                color=cols[i],
+                marker="o",
+                label=rf"t={int(t*1.e3)} ms $\delta$R={_R_shift[i]} cm",
+                alpha=0.6,
+            )
+            te_fit.sel(t=t).plot(color=cols[i], linewidth=4, zorder=0)
+        plt.ylabel("Te (eV)")
+        plt.xlabel("Rho-poloidal")
+        plt.title("TS Te data & fits")
+        plt.xlim(0, 1.1)
+        plt.ylim(0, np.nanmax(te_fit) * 1.2)
+        plt.legend()
+        plt.show()
+
+    return te_data, ne_data, te_fit, ne_fit

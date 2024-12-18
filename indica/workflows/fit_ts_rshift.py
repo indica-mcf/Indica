@@ -66,7 +66,7 @@ def fit_ts(
 
     te_fit.attrs["R_shift"] = te_R_shift
     ne_fit.attrs["R_shift"] = ne_R_shift
-    te_data.attrs["rho"] = te_rho
-    ne_data.attrs["rho"] = ne_rho
+    te_data.attrs["rhop"] = te_rho
+    ne_data.attrs["rhop"] = ne_rho
 
     return te_fit, ne_fit
