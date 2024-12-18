@@ -21,6 +21,8 @@ class ST40Conf(MachineConf):
             "sxrc_xy1": "get_radiation",
             "sxrc_xy2": "get_radiation",
             "blom_xy1": "get_radiation",
+            "blom_rz1": "get_radiation",
+            "blom_dv1": "get_radiation",
             "astra": "get_astra",
             "ppts": "get_profile_fits",
             "zeff_brems": "get_zeff",
