@@ -27,7 +27,6 @@ class DataReader(ABC):
         machine_conf: MachineConf,
         reader_utils: BaseIO,
         verbose: bool = False,
-        return_dataarrays: bool = True,
         **kwargs: Any,
     ):
         """
@@ -50,7 +49,6 @@ class DataReader(ABC):
         self.machine_dims = self.machine_conf.MACHINE_DIMS
         self.quantities_path = self.machine_conf.QUANTITIES_PATH
         self.verbose = verbose
-        self.return_dataarrays = return_dataarrays
         self.kwargs = kwargs
 
     def get(
@@ -61,6 +59,7 @@ class DataReader(ABC):
         dl: float = 0.005,
         passes: int = 1,
         include_error: bool = True,
+        return_dataarrays: bool = True,
     ) -> Dict[str, DataArray]:
         """General method that reads data for a requested instrument."""
         if instrument not in self.instrument_methods.keys():
@@ -69,6 +68,7 @@ class DataReader(ABC):
                     self.__class__.__name__, instrument
                 )
             )
+
         # Read data from database
         _database_results = self._read_database(uid, instrument, revision)
         _database_results["dl"] = dl
@@ -77,20 +77,19 @@ class DataReader(ABC):
         # Re-arrange data (machine-specific) and get instrument geometry transform
         method = self.instrument_methods[instrument]
         database_results, transform = getattr(self, f"_{method}")(_database_results)
-
-        if self.return_dataarrays:
-            quantities = READER_QUANTITIES[method]
-            data_arrays = build_dataarrays(
-                database_results,
-                quantities,
-                self.tstart,
-                self.tend,
-                transform,
-                include_error,
-            )
-            return data_arrays
-        else:
+        if not return_dataarrays:
             return database_results
+
+        quantities = READER_QUANTITIES[method]
+        data_arrays = build_dataarrays(
+            database_results,
+            quantities,
+            self.tstart,
+            self.tend,
+            transform,
+            include_error,
+        )
+        return data_arrays
 
     def _read_database(
         self,
@@ -102,7 +101,11 @@ class DataReader(ABC):
         Exception handling is non-specific to guarantee generality across readers.
 
         Include in data dictionary also the UID, INSTRUMENT, MACHINE_DIMS and REVISION
-        to guarantee data traceability across data-structures."""
+        to guarantee data traceability across data-structures.
+
+        TODO: move error/dimensions/units/records to sub-dictionary within results e.g.
+              results = {..., "error":{}, "dimensions":{}, "units":{}, "records":{}}
+        """
         method = self.instrument_methods[instrument]
         quantities_paths = self.quantities_path[method]
 
@@ -114,6 +117,7 @@ class DataReader(ABC):
             "revision": revision,
         }
         for _key, _path in quantities_paths.items():
+            _key_err = _key + "_error"
             _path_err = _path + "_err"
 
             # Read quantity value
@@ -152,10 +156,10 @@ class DataReader(ABC):
                 q_err_dimensions = []
                 q_err_units = ""
                 q_err_path = f"{e}"
-            results[_key + "_error"] = q_err
-            results[_key + "_error" + "_records"] = q_err_path
-            results[_key + "_error_dimensions"] = q_err_dimensions
-            results[_key + "_error_units"] = q_err_units
+            results[_key_err] = q_err
+            results[_key_err + "_records"] = q_err_path
+            results[_key_err + "_dimensions"] = q_err_dimensions
+            results[_key_err + "_units"] = q_err_units
 
         return results
 
