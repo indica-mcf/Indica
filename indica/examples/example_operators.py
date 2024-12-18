@@ -11,7 +11,8 @@ from indica.operators.tomo_asymmetry import InvertPoloidalAsymmetry
 from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
-from indica.workflows.fit_ts_rshift import fit_ts
+from indica.operators.spline_fit_R_shift import fit_profile_and_R_shift
+import xarray as xr
 
 PLASMA = load_default_objects("st40", "plasma")
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
@@ -19,7 +20,7 @@ TRANSFORMS = load_default_objects("st40", "geometry")
 PLASMA.set_equilibrium(EQUILIBRIUM)
 
 NPLOT = 3
-
+CM, COLS = set_plot_colors()
 
 def example_poloidal_asymmetry():
     asymmetry_parameter = centrifugal_asymmetry_parameter(
@@ -265,11 +266,8 @@ def example_tomo_1D(
 def example_fit_ts(
     fit_R_shift: bool = False,
     verbose: bool = False,
-    nplot: int = 2,
     plot: bool = True,
 ):
-
-    cm, cols = set_plot_colors()
 
     models = {"ts": ThomsonScattering}
     model_reader = ModelReader(models)
@@ -281,24 +279,47 @@ def example_fit_ts(
     te_err = bckc["ts"]["te"].error
     ne_data = bckc["ts"]["ne"]
     ne_err = bckc["ts"]["ne"].error
-    time = te_data.t
-    cols = cm(np.linspace(0.1, 0.75, len(time), dtype=float))
 
-    te_fit, ne_fit = fit_ts(
+    if not fit_R_shift:
+        R_shift = xr.full_like(te_data.t, 0.0)
+    else:
+        R_shift = None
+
+    ts_R = te_data.transform.R
+    ts_z = te_data.transform.z
+    equilibrium = te_data.transform.equilibrium
+    te_fit, te_R_shift, te_rho = fit_profile_and_R_shift(
+        ts_R,
+        ts_z,
         te_data,
         te_err,
-        ne_data,
-        ne_err,
-        fit_R_shift=fit_R_shift,
+        xknots=[0, 0.4, 0.85, 0.9, 0.98, 1.1],
+        equilibrium=equilibrium,
+        R_shift=R_shift,
         verbose=verbose,
     )
+    ne_fit, ne_R_shift, ne_rho = fit_profile_and_R_shift(
+        ts_R,
+        ts_z,
+        ne_data,
+        ne_err,
+        xknots=[0, 0.4, 0.85, 0.9, 0.98, 1.1],
+        equilibrium=equilibrium,
+        R_shift=te_R_shift,
+        verbose=verbose,
+    )
+    te_fit.attrs["R_shift"] = te_R_shift
+    ne_fit.attrs["R_shift"] = ne_R_shift
 
     if plot:
+        time = te_data.t
+        cols = CM(np.linspace(0.1, 0.75, len(time), dtype=float))
+
         plt.ioff()
         plt.figure()
         _R_shift = [f"{(ne_fit.R_shift.sel(t=t).values * 100):.1f}" for t in time]
         for i, t in enumerate(time.values):
-            if i % nplot:
+            if i % NPLOT:
                 continue
             plt.errorbar(
                 ne_data.transform.rhop.sel(t=t),
@@ -319,7 +340,7 @@ def example_fit_ts(
 
         plt.figure()
         for i, t in enumerate(time.values):
-            if i % nplot:
+            if i % NPLOT:
                 continue
             plt.errorbar(
                 te_data.transform.rhop.sel(t=t),

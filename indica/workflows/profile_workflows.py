@@ -3,7 +3,7 @@ from copy import deepcopy
 from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
-from scipy.interpolate import CubicSpline
+from indica.operators.sawtooth_crash import sawtooth_crash
 import xarray as xr
 from xarray import DataArray
 
@@ -136,7 +136,7 @@ def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
     Te_list["broad"] = deepcopy(Te)
     if plot:
         plt.figure()
-        Te.yspl.plot(color="black", label="Te")
+        Te.ydata.plot(color="black", label="Te")
 
     # Broad Ti profile without/with Te as reference
     Ti = deepcopy(Te)
@@ -145,17 +145,17 @@ def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
     Ti()
     Ti_list["broad"] = deepcopy(Ti)
     if plot:
-        Ti.yspl.plot(linestyle="dashed", color="black", label="Ti no ref")
-    Ti(y0_ref=Te.yspl.sel(rhop=0).values)
+        Ti.ydata.plot(linestyle="dashed", color="black", label="Ti no ref")
+    Ti(y0_ref=Te.ydata.sel(rhop=0).values)
     if plot:
-        Ti.yspl.plot(linestyle="dotted", color="black", label="Ti with ref")
+        Ti.ydata.plot(linestyle="dotted", color="black", label="Ti with ref")
 
     # Peaked Te profile
     Te.wcenter, Te.wped, Te.y1, Te.peaking = (0.35, 2, 10, 4)
     Te()
     Te_list["peaked"] = deepcopy(Te)
     if plot:
-        Te.yspl.plot(color="red", label="Te")
+        Te.ydata.plot(color="red", label="Te")
 
     # Peaked Ti profile without/with Te as reference
     Ti = deepcopy(Te)
@@ -164,10 +164,10 @@ def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
     Ti()
     Ti_list["peaked"] = deepcopy(Ti)
     if plot:
-        Ti.yspl.plot(linestyle="dashed", color="red", label="Ti no ref")
-    Ti(y0_ref=Te.yspl.sel(rhop=0).values)
+        Ti.ydata.plot(linestyle="dashed", color="red", label="Ti no ref")
+    Ti(y0_ref=Te.ydata.sel(rhop=0).values)
     if plot:
-        Ti.yspl.plot(linestyle="dotted", color="red", label="Ti with ref")
+        Ti.ydata.plot(linestyle="dotted", color="red", label="Ti with ref")
 
     Ne.wped = 6
     Ne.y1 = 0.5e19
@@ -175,7 +175,7 @@ def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
     Ne_list["broad"] = deepcopy(Ne)
     if plot:
         plt.figure()
-        Ne.yspl.plot(color="black")
+        Ne.ydata.plot(color="black")
 
     Ne.wped = 3.5
     Ne.peaking = 4
@@ -183,7 +183,7 @@ def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
     Ne()
     Ne_list["peaked"] = deepcopy(Ne)
     if plot:
-        Ne.yspl.plot(color="red")
+        Ne.ydata.plot(color="red")
 
     Nimp.wped = 6
     Nimp.y0 = 5.0e16
@@ -193,7 +193,7 @@ def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
     Nimp_list["flat"] = deepcopy(Nimp)
     if plot:
         plt.figure()
-        Nimp.yspl.plot(color="black")
+        Nimp.ydata.plot(color="black")
 
     Nimp.peaking = 8
     Nimp.wcenter = 0.2
@@ -202,7 +202,7 @@ def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
     Nimp()
     Nimp_list["peaked"] = deepcopy(Nimp)
     if plot:
-        Nimp.yspl.plot(color="red")
+        Nimp.ydata.plot(color="red")
 
     Vrot.y1 = 1.0e3
     Vrot.yend = 0.0
@@ -210,14 +210,14 @@ def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
     Vrot_list["broad"] = deepcopy(Vrot)
     if plot:
         plt.figure()
-        Vrot.yspl.plot(color="black")
+        Vrot.ydata.plot(color="black")
 
     Vrot.wped = 1
     Vrot.peaking = 2.0
     Vrot()
     Vrot_list["peaked"] = deepcopy(Vrot)
     if plot:
-        Vrot.yspl.plot(color="red")
+        Vrot.ydata.plot(color="red")
 
     return {
         "Te": Te_list,
@@ -230,110 +230,12 @@ def profile_scans_hda(plot=False, rhop=np.linspace(0, 1.0, 41)):
     # import pandas as pd
     # to_write = {
     #     "Rho-poloidal": rho,
-    #     "Te broad (eV)": Te_broad.yspl.values,
-    #     "Te peaked (eV)": Te_peak.yspl.values,
-    #     "Ti broad (eV)": Ti_broad.yspl.values,
-    #     "Ti peaked (eV)": Ti_peak.yspl.values,
-    #     "Ne broad (m^-3)": Ne_broad.yspl.values,
-    #     "Ne peaked (m^-3)": Ne_peak.yspl.values,
+    #     "Te broad (eV)": Te_broad.ydata.values,
+    #     "Te peaked (eV)": Te_peak.ydata.values,
+    #     "Ti broad (eV)": Ti_broad.ydata.values,
+    #     "Ti peaked (eV)": Ti_peak.ydata.values,
+    #     "Ne broad (m^-3)": Ne_broad.ydata.values,
+    #     "Ne peaked (m^-3)": Ne_peak.ydata.values,
     # }
     # df = pd.DataFrame(to_write)
     # df.to_csv("/home/marco.sertoli/data/Indica/profiles.csv")
-
-
-def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None):
-    """
-    Model a sawtooth crash, without resetting the internal quantities
-
-    If volume in not None, then volume integral is conserved adapting the edge shape
-
-    Parameters
-    ----------
-    rho_inv
-        Inversion radius
-    volume
-        Plasma volume
-
-    """
-    post = deepcopy(pre)
-
-    if volume is None:
-        volume = DataArray(0.85 * pre.xspl**3, coords=[("rhop", pre.xspl)])
-    vol = volume.interp(rhop=pre.yspl.rhop)
-    vol_int_pre = np.trapz(pre.yspl, vol)
-
-    x = pre.x[np.where(pre.x <= 1.0)[0]]
-
-    rho = post.yspl.rhop
-    inv_ind = np.max(np.where(rho <= rho_inv)[0])
-    for rind in np.arange(inv_ind, rho.size):
-        y = xr.where(rho <= rho[rind], post.yspl.sel(rhop=rho[inv_ind]), post.yspl)
-        vol_int_post = np.trapz(y, vol)
-        if vol_int_post >= vol_int_pre:
-            break
-
-    y = xr.where(rho != rho[rind], y, (y[rind] + y[rind + 1]) / 2)
-    y = y.interp(rhop=x)
-
-    x = np.append(x, pre.xend)
-    y = np.append(y, pre.yend)
-    cubicspline = CubicSpline(
-        x,
-        y,
-        0,
-        "clamped",
-        False,
-    )
-    post.yspl.values = cubicspline(pre.xspl)
-    vol_int_post = np.trapz(post.yspl, vol)
-
-    print(f"Vol-int: {vol_int_pre}, {vol_int_post}")
-
-    return post
-
-
-def density_crash(
-    los_avrg=2.8e19,
-    drop=0.9,
-    rhop=np.linspace(0, 1, 20),
-    rho_inv=0.4,
-    identifier="density",
-):
-    volume = DataArray(0.85 * rhop**3, coords=[("rhop", rhop)])
-
-    pre = ProfilerGauss(datatype=(identifier, "electron"), xspl=rhop)
-    pre.wcenter = rho_inv / 1.5
-    pre()
-
-    plt.figure()
-
-    drop_arr = []
-    scan = np.linspace(1.0, 5.0, 21)
-    for s in scan:
-        pre.peaking = s
-        pre()
-        pre.y0 *= los_avrg / pre.yspl.mean().values
-        pre()
-
-        post = deepcopy(pre)
-        pre.yspl.plot()
-        _post = post.sawtooth_crash(rho_inv, volume)
-        drop_arr.append(_post.mean().values / pre.yspl.mean().values)
-
-        _post.plot(linestyle="dashed")
-
-    mn_ind = np.argmin(np.abs(np.array(drop_arr) - drop))
-    pre.peaking = scan[mn_ind]
-    pre()
-    pre.y0 *= los_avrg / pre.yspl.mean().values
-    pre()
-
-    post = deepcopy(pre)
-    _post = post.sawtooth_crash(rho_inv, volume)
-
-    pre.yspl.plot(marker="o", color="black")
-    _post.plot(marker="o", color="red")
-
-    print(drop, drop_arr[mn_ind])
-
-    return pre.yspl, _post
