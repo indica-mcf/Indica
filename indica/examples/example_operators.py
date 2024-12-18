@@ -17,6 +17,8 @@ EQUILIBRIUM = load_default_objects("st40", "equilibrium")
 TRANSFORMS = load_default_objects("st40", "geometry")
 PLASMA.set_equilibrium(EQUILIBRIUM)
 
+NPLOT = 3
+
 
 def example_poloidal_asymmetry():
     asymmetry_parameter = centrifugal_asymmetry_parameter(
@@ -41,7 +43,6 @@ def example_poloidal_asymmetry():
 def example_tomo_asymmetry(
     instrument: str = "sxrc_xy1",
     asymmetric_profile: bool = True,
-    debug: bool = True,
     plot: bool = True,
     element: str = "ar",
 ):
@@ -64,28 +65,32 @@ def example_tomo_asymmetry(
         phantom_emission, phantom_emission.t.values
     )
 
-    if debug:
-        print("\n Running asymmetry inference...")
+    print("\n Running asymmetry inference...")
     invert_asymm = InvertPoloidalAsymmetry()
     bckc_emission, bckc, profile, asymmetry = invert_asymm(
         los_integral,
         los_transform,
-        debug=debug,
     )
-    if debug:
-        print("...and finished \n")
+    print("...and finished \n")
 
     if plot:
+        plt.ioff()
         los_transform.plot()
-        for t in bckc.t:
-            plt.ioff()
+        plt.show(block=True)
 
+        for i, t in enumerate(bckc.t):
+            if i % np.floor(np.size(bckc.t) / NPLOT) != 0:
+                continue
             kwargs_phantom = dict(
-                marker="o", label="Phantom", color="r", zorder=1, alpha=0.8
+                marker="o",
+                label=f"Phantom @ t={int(t*1.e3)} ms",
+                color="r",
+                zorder=1,
+                alpha=0.8,
             )
             kwargs_bckc = dict(
                 marker="x",
-                label="Back-calculated",
+                label=f"Back-calculated @ t={int(t*1.e3)} ms",
                 color="b",
                 zorder=2,
                 alpha=0.8,
@@ -99,21 +104,23 @@ def example_tomo_asymmetry(
             )
             bckc.attrs = {"long_name": "Brightness", "units": "W/m$^2$"}
             bckc.sel(t=t).plot(**kwargs_bckc)
-            plt.title("LOS integrals")
+            plt.title(f"LOS integrals @ t={int(t*1.e3)} ms")
             plt.legend()
             set_axis_sci()
 
             plt.figure()
             phantom_emission.attrs = {"long_name": "Emissivity", "units": "W/m$^3$"}
             phantom_emission.sel(t=t).plot()
-            plt.title("Phantom")
+            plt.title(f"2D Phantom @ t={int(t*1.e3)} ms")
             plt.axis("equal")
 
-            plt.figure()
-            bckc_emission.attrs = {"long_name": "Emissivity", "units": "W/m$^3$"}
-            bckc_emission.sel(t=t).plot()
-            plt.title("2D back-calculated")
-            plt.axis("equal")
+            # plt.figure()
+            # residuals = (bckc_emission - phantom_emission)/phantom_emission * 100
+            # residuals.attrs = {"long_name": "(Phantom - Bckc)/Phantom", "units": "%"}
+            # residuals = xr.where(residuals < 100, residuals, np.nan)
+            # residuals.sel(t=t).plot()
+            # plt.title("Phantom - Bckc normalised residuals")
+            # plt.axis("equal")
 
             plt.figure()
             kwargs_phantom = dict(
@@ -167,7 +174,7 @@ def example_tomo_asymmetry(
                 profile_1d_bckc.plot(
                     **kwargs_bckc,
                 )
-            plt.title("Midplane cut (z=0)")
+            plt.title(f"Midplane cut (z=0) @ t={int(t*1.e3)} ms")
             set_axis_sci()
             plt.legend()
             plt.show()
@@ -178,15 +185,20 @@ def example_tomo_1D(
     asymmetric_profile: bool = False,
     element: str = "ar",
     reg_level_guess: float = 0.8,
-    debug: bool = True,
     plot: bool = True,
 ):
 
     if asymmetric_profile:
         ion_density_2d = example_poloidal_asymmetry()
+        emissivity = None
     else:
         rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t.values)
         ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
+        emissivity = (
+            PLASMA.electron_density
+            * PLASMA.ion_density.sel(element=element).drop_vars("element")
+            * PLASMA.lz_tot[element].sum("ion_charge")
+        )
 
     imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
     el_density_2d = PLASMA.electron_density.interp(rhop=imp_density_2d.rhop)
@@ -220,6 +232,8 @@ def example_tomo_1D(
         has_data=has_data,
         debug=False,
     )
+    if emissivity is not None:
+        input_dict["emissivity"] = emissivity
 
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
     tomo()
@@ -240,87 +254,9 @@ def example_tomo_1D(
 
     if plot:
         plt.ioff()
+        los_transform.plot()
         tomo.show_reconstruction()
         plt.show()
 
     return inverted_emissivity, data_tomo, bckc_tomo
 
-
-def example_spline_fit(
-    machine: str = "st40",
-    quantity: str = "te",
-    R_shift: float = 0.0,
-    knots: list = None,
-    plot: bool = True,
-):
-    _reader = ModelReader(machine, instruments=["ts"])
-    _reader.set_geometry_transforms(TRANSFORMS["ts"])
-    PLASMA.set_equilibrium(EQUILIBRIUM)
-    _reader.set_plasma(PLASMA)
-    raw_data = _reader()
-
-    if quantity == "te" and knots is None:
-        knots = [0, 0.3, 0.6, 0.8, 1.1]
-    if quantity == "ne" and knots is None:
-        knots = [0, 0.3, 0.6, 0.8, 0.95, 1.1]
-    data_all = raw_data["ts"][quantity]
-    t = data_all.t
-    transform = data_all.transform
-    transform.convert_to_rho_theta(t=data_all.t)
-
-    R = transform.R
-    Rmag = transform.equilibrium.rmag.interp(t=t)
-
-    # Fit all available TS data
-    ind = np.full_like(data_all, True)
-    rho = xr.where(ind, transform.rho, np.nan)
-    data = xr.where(ind, data_all, np.nan)
-    err = xr.where(ind, data_all.error, np.nan)
-    fit = fit_profile(rho, data, err, knots=knots, virtual_knots=False)
-
-    # Use only HFS channels
-    ind = R <= Rmag
-    rho_hfs = xr.where(ind, transform.rho, np.nan)
-    data_hfs = xr.where(ind, data_all, np.nan)
-    err_hfs = xr.where(ind, data_all.error, np.nan)
-    fit_hfs = fit_profile(rho_hfs, data_hfs, err_hfs, knots=knots, virtual_knots=True)
-
-    # Use only LFS channels
-    ind = R >= Rmag
-    rho_lfs = xr.where(ind, transform.rho, np.nan)
-    data_lfs = xr.where(ind, data_all, np.nan)
-    err_lfs = xr.where(ind, data_all.error, np.nan)
-    fit_lfs = fit_profile(rho_lfs, data_lfs, err_lfs, knots=knots, virtual_knots=True)
-
-    if plot:
-        for t in data_all.t:
-            plt.ioff()
-            plt.errorbar(
-                rho_hfs.sel(t=t),
-                data_hfs.sel(t=t),
-                err_hfs.sel(t=t),
-                marker="o",
-                label="data HFS",
-                color="blue",
-            )
-            plt.errorbar(
-                rho_lfs.sel(t=t),
-                data_lfs.sel(t=t),
-                err_lfs.sel(t=t),
-                marker="o",
-                label="data LFS",
-                color="red",
-            )
-            fit.sel(t=t).plot(
-                linewidth=5, alpha=0.5, color="black", label="spline fit all"
-            )
-            fit_lfs.sel(t=t).plot(
-                linewidth=5, alpha=0.5, color="red", label="spline fit LFS"
-            )
-            fit_hfs.sel(t=t).plot(
-                linewidth=5, alpha=0.5, color="blue", label="spline fit HFS"
-            )
-            plt.legend()
-            plt.show()
-
-    return data_all, fit
