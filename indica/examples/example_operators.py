@@ -1,5 +1,6 @@
 import matplotlib.pylab as plt
 import numpy as np
+import xarray as xr
 from xarray import DataArray
 
 from indica.defaults.load_defaults import load_default_objects
@@ -7,12 +8,11 @@ from indica.models import ThomsonScattering
 from indica.operators import tomo_1D
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_2d_map
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
+from indica.operators.spline_fit_R_shift import fit_profile_and_R_shift
 from indica.operators.tomo_asymmetry import InvertPoloidalAsymmetry
 from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
-from indica.operators.spline_fit_R_shift import fit_profile_and_R_shift
-import xarray as xr
 
 PLASMA = load_default_objects("st40", "plasma")
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
@@ -21,6 +21,7 @@ PLASMA.set_equilibrium(EQUILIBRIUM)
 
 NPLOT = 3
 CM, COLS = set_plot_colors()
+
 
 def example_poloidal_asymmetry():
     asymmetry_parameter = centrifugal_asymmetry_parameter(

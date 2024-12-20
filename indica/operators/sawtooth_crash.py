@@ -4,10 +4,12 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 import xarray as xr
 from xarray import DataArray
-from indica.utilities import set_plot_colors
 
 from indica.profilers.profiler_gauss import ProfilerGauss
+from indica.utilities import set_plot_colors
+
 CMAP, COLORS = set_plot_colors()
+
 
 def sawtooth_crash(pre: ProfilerGauss, rho_inv: float, volume: DataArray = None):
     """

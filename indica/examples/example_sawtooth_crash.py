@@ -2,12 +2,14 @@ from copy import deepcopy
 
 import matplotlib.pylab as plt
 import numpy as np
-from indica.operators.sawtooth_crash import sawtooth_crash
 from xarray import DataArray
-from indica.utilities import set_plot_colors
+
+from indica.operators.sawtooth_crash import sawtooth_crash
 from indica.profilers.profiler_gauss import ProfilerGauss
+from indica.utilities import set_plot_colors
 
 CMAP, COLORS = set_plot_colors()
+
 
 def density_crash(
     los_avrg=2.8e19,

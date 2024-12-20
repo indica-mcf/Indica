@@ -3,7 +3,6 @@ from copy import deepcopy
 from matplotlib import cm
 import matplotlib.pylab as plt
 import numpy as np
-from indica.operators.sawtooth_crash import sawtooth_crash
 import xarray as xr
 from xarray import DataArray
 
