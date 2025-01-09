@@ -22,6 +22,7 @@ def fit_profile_and_R_shift(
     bc_type: str = "clamped",
     bounds_R_shift: tuple = (-0.02, 0.02),
     verbose: bool = False,
+    default_perc_err: float = 0.05,
 ):
     """Fit a profile and the R_shift of the equilibrium"""
 
@@ -77,6 +78,8 @@ def fit_profile_and_R_shift(
         norm_factor = np.nanmax(ydata.sel(t=t).values)
         _y = ydata.sel(t=t).values / norm_factor
         _yerr = yerr.sel(t=t).values / norm_factor
+        if np.all(_yerr == 0):
+            _yerr = _y * default_perc_err
 
         _R_shift = 0.0
         _yspl = np.full_like(xspl, 0.0)
