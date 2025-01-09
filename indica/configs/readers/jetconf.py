@@ -9,8 +9,11 @@ class JETConf(MachineConf):
         self.INSTRUMENT_METHODS = {
             "efit": "get_equilibrium",
             "eftp": "get_equilibrium",
+            "eftf": "get_equilibrium",
             "hrts": "get_thomson_scattering",
             "lidr": "get_thomson_scattering",
+            "kg1v": "get_interferometry",
+            "kg4r": "get_polarimetry",
             "kk3": "get_cyclotron_emissions",
             "kg10": "get_density_reflectometer",
             "sxrh": "get_radiation",
@@ -50,6 +53,14 @@ class JETConf(MachineConf):
                 "z": "z",
                 "ne": "ne",
                 "te": "te",
+            },
+            "get_interferometry": {
+                **{"R": "r", "z": "z", "a": "a"},
+                **{"LID{}".format(i): "lid{}".format(i) for i in range(1, 9)},
+            },
+            "get_polarimetry": {
+                **{"R": "r", "z": "z", "a": "a"},
+                **{"FAR{}".format(i): "far{}".format(i) for i in range(1, 9)},
             },
             "get_cyclotron_emissions": {"te": "te"},
             "get_reflectometer": {"ne": "ne"},

@@ -3,6 +3,7 @@ produced by JET
 
 """
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 from typing import Dict
@@ -89,17 +90,27 @@ class JETReader(DataReader):
         transform = assign_transect_transform(data)
         return data, transform
 
-    def _get_cyclotron_emissions(
-        self,
-        data: dict,
+    def _get_interferometry(
+        self, data: dict
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
+        data = _interferometer_polarimeter_coords(data)
+        data["ne"] = np.array([data["LID{}".format(i + 1)] for i in data["channel"]]).T
+        data["t"] = data["LID3_dimensions"][0]
 
-    def _get_density_reflectometer(
-        self,
-        data: dict,
+        transform = assign_lineofsight_transform(data)
+        return data, transform
+
+    def _get_polarimetry(
+        self, data: dict
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
+        data = _interferometer_polarimeter_coords(data)
+        data["dphi"] = np.array(
+            [data["FAR{}".format(i + 1)] for i in data["channel"]]
+        ).T
+        data["t"] = data["FAR3_dimensions"][0]
+
+        transform = assign_lineofsight_transform(data)
+        return data, transform
 
     def _get_charge_exchange(
         self,
@@ -224,6 +235,24 @@ def assign_transect_transform(database_results: Dict):
 def assign_trivial_transform():
     transform = TrivialTransform()
     return transform
+
+
+def _interferometer_polarimeter_coords(data: dict) -> Dict[str, Any]:
+    data = deepcopy(data)
+    x_start, z_start = [], []
+    for i, (R, z, a) in enumerate(zip(data["R"], data["z"], data["a"])):
+        if i < 4:
+            x_start.append(R - (2.5 - z) * np.tan(np.pi / 2 - a))
+            z_start.append(2.5)
+        elif i >= 4:
+            x_start.append(4.5)
+            z_start.append(z + (4.5 - R) * np.tan(a))
+    data["channel"] = np.arange(len(x_start))
+    data["location"] = np.asarray([x_start, [0.0] * len(x_start), z_start]).T
+    data["direction"] = (
+        np.asarray([data["R"], [0.0] * len(data["R"]), data["z"]]).T - data["location"]
+    )
+    return data
 
 
 def _get_cxrs_los_geometry(sav_file: Path, tracks: ArrayLike) -> Any:

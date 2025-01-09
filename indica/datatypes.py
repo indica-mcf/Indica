@@ -119,6 +119,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
         "Centrifugal asymmetry multiplier",
         "none",
     ),
+    "faraday_rotation_integrated": ("rad", "none"),
     "intensity": ("Intensity", "intensity"),
     "radiance": ("Radiance", "radiance"),
     "spectral_radiance": ("Spectral Radiance", "spectral_radiance"),
