@@ -94,8 +94,13 @@ class JETReader(DataReader):
         self, data: dict
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         data = _interferometer_polarimeter_coords(data)
-        data["ne"] = np.array([data["LID{}".format(i + 1)] for i in data["channel"]]).T
         data["t"] = data["LID3_dimensions"][0]
+        data["ne"] = np.array(
+            [
+                data.get("LID{}".format(i + 1), np.zeros_like(data["LID3"]))
+                for i in data["channel"]
+            ]
+        ).T
 
         transform = assign_lineofsight_transform(data)
         return data, transform
@@ -105,7 +110,10 @@ class JETReader(DataReader):
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         data = _interferometer_polarimeter_coords(data)
         data["dphi"] = np.array(
-            [data["FAR{}".format(i + 1)] for i in data["channel"]]
+            [
+                data.get("FAR{}".format(i + 1), np.zeros_like(data["FAR3"]))
+                for i in data["channel"]
+            ]
         ).T
         data["t"] = data["FAR3_dimensions"][0]
 
