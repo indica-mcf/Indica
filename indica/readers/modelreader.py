@@ -1,3 +1,5 @@
+from typing import Dict
+
 from xarray import DataArray
 
 from indica import Equilibrium
@@ -10,8 +12,8 @@ class ModelReader:
 
     def __init__(
         self,
-        models: dict[str, AbstractDiagnostic],
-        model_kwargs: dict,
+        models: Dict[str, AbstractDiagnostic],
+        model_kwargs: dict = {},
     ):
         """Reader for synthetic diagnostic measurements making use of:
 

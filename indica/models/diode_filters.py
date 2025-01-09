@@ -30,13 +30,13 @@ class BremsstrahlungDiode(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
-        filter_wavelength: float = 531.5,  # 532
-        filter_fwhm: float = 1,  # 1
+        filter_wavelength: float = 531.5,
+        filter_fwhm: float = 1,
         filter_type: str = "boxcar",
         etendue: float = 1.0,
         calibration: float = 1,
         instrument_method="get_diode_filters",
-        channel_mask: slice = None,  # =slice(18, 28),
+        channel_mask: slice = None,
     ):
         """
         Filtered diode diagnostic measuring Bremsstrahlung
