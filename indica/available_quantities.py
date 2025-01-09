@@ -104,7 +104,14 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "channel": ("channel", []),
         "location": ("location", []),
         "direction": ("direction", []),
-        "ne": ("electron_density_integrated", ["t"]),
+        "ne": ("electron_density_integrated", ["t", "channel"]),
+    },
+    "get_polarimetry": {
+        "t": ("t", ["t"]),
+        "channel": ("channel", []),
+        "location": ("location", []),
+        "direction": ("direction", []),
+        "dphi": ("faraday_rotation_integrated", ["t", "channel"]),
     },
     "get_equilibrium": {
         "t": ("t", ["t"]),
