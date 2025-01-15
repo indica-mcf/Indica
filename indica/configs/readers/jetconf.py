@@ -49,11 +49,7 @@ class JETConf(MachineConf):
                 "ajac": "ajac",
                 "psi": "psi",
             },
-            "get_thomson_scattering": {
-                "z": "z",
-                "ne": "ne",
-                "te": "te",
-            },
+            "get_thomson_scattering": {"z": "z", "ne": "ne", "te": "te"},
             "get_interferometry": {
                 **{"R": "r", "z": "z", "a": "a"},
                 **{"LID{}".format(i): "lid{}".format(i) for i in range(1, 9)},
@@ -62,8 +58,8 @@ class JETConf(MachineConf):
                 **{"R": "r", "z": "z", "a": "a"},
                 **{"FAR{}".format(i): "far{}".format(i) for i in range(1, 9)},
             },
-            "get_cyclotron_emissions": {"te": "te"},
-            "get_reflectometer": {"ne": "ne"},
+            "get_cyclotron_emissions": {"gen": "gen", "te": "tprf", "R": "cprf"},
+            "get_density_reflectometer": {"R": "r", "z": "z", "ne": "ne"},
             "get_sxr_radiation": {},
             "get_radiation": {},
             "get_zeff": {},
