@@ -10,6 +10,7 @@ from typing import Dict
 from typing import Tuple
 
 import numpy as np
+import scipy.constants as sc
 
 from indica.abstractio import BaseIO
 from indica.configs.readers.jetconf import JETConf
@@ -118,6 +119,34 @@ class JETReader(DataReader):
         data["t"] = data["FAR3_dimensions"][0]
 
         transform = assign_lineofsight_transform(data)
+        return data, transform
+
+    def _get_cyclotron_emissions(
+        self, data: dict
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        channel = np.argwhere(data["gen"][0, :] > 0)[:, 0]
+        freq = data["gen"][15, channel] * 1e9
+        nharm = data["gen"][11, channel]
+        data["btot"] = 2 * np.pi * freq * sc.m_e / (sc.e * nharm)
+        data["R"] = data["R"].mean(0)  # Time-varying R
+        data["x"] = data["R"]
+        data["y"] = np.zeros_like(data["R"])
+        data["z"] = np.zeros_like(data["R"])
+        data["channel"] = channel
+        data["t"] = data["te_dimensions"][0]
+        transform = assign_transect_transform(data)
+        return data, transform
+
+    def _get_density_reflectometer(
+        self, data: dict
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        data["R"] = data["R"].mean(0)  # Time-varying R
+        data["x"] = data["R"]
+        data["y"] = np.zeros_like(data["R"])
+        data["z"] = np.ones_like(data["R"]) * data["z"][0]
+        data["channel"] = range(len(data["R"]))
+        data["t"] = data["ne_dimensions"][0]
+        transform = assign_transect_transform(data)
         return data, transform
 
     def _get_charge_exchange(

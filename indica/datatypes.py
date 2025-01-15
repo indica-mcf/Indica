@@ -100,6 +100,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "impurity": ("Impurity", "none"),
     "beamlet": ("Beamlet", "none"),
     "residence_time": (r"Impurity residence time $\tau$", "time"),
+    "magnetic_field": ("Magnetic field", "magnetic_field"),
     "electron_density": ("$N_e$", "density"),
     "ion_density": ("$N_i$", "density"),
     "fast_ion_density": ("$N_{fast}$", "density"),
