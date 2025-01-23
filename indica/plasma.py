@@ -23,19 +23,19 @@ from indica.utilities import get_element_info
 
 class Plasma:
     def __init__(
-            self,
-            tstart: float = 0.01,
-            tend: float = 0.14,
-            dt: float = 0.01,
-            machine: str = "st40",
-            impurities: Tuple[str, ...] = ("c", "ar"),
-            impurity_concentration: Tuple[float, ...] = (0.02, 0.001),  # should be deleted!
-            main_ion: str = "h",
-            full_run: bool = False,
-            n_rad: int = 41,
-            n_R: int = 100,
-            n_z: int = 100,
-            verbose: bool = False,
+        self,
+        tstart: float = 0.01,
+        tend: float = 0.14,
+        dt: float = 0.01,
+        machine: str = "st40",
+        impurities: Tuple[str, ...] = ("c", "ar"),
+        impurity_concentration: Tuple[float, ...] = (0.02, 0.001),  # should be deleted!
+        main_ion: str = "h",
+        full_run: bool = False,
+        n_rad: int = 41,
+        n_R: int = 100,
+        n_z: int = 100,
+        verbose: bool = False,
     ):
         """
         Class for plasma objects.
@@ -342,8 +342,8 @@ class Plasma:
 
     def calc_thermal_pressure(self):
         self._thermal_pressure.values = (
-                ph.calc_pressure(self.ion_density, self.ion_temperature).sum("element")
-                + self.electron_pressure
+            ph.calc_pressure(self.ion_density, self.ion_temperature).sum("element")
+            + self.electron_pressure
         )
         return self._thermal_pressure
 
@@ -360,15 +360,15 @@ class Plasma:
     def fast_ion_pressure(self):
         # TODO: check whether degrees of freedom are correctly included...
         self._fast_ion_pressure.values = (
-                self.parallel_fast_ion_pressure / 3
-                + self.perpendicular_fast_ion_pressure * 2 / 3
+            self.parallel_fast_ion_pressure / 3
+            + self.perpendicular_fast_ion_pressure * 2 / 3
         )
         return self._fast_ion_pressure
 
     def calc_wth(self):
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._wth.loc[dict(t=t)] = (
-                    3 / 2 * np.trapz(self.thermal_pressure.sel(t=t), self.volume.sel(t=t))
+                3 / 2 * np.trapz(self.thermal_pressure.sel(t=t), self.volume.sel(t=t))
             )
         return self._wth
 
@@ -380,7 +380,7 @@ class Plasma:
     def wfast(self):
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._wfast.loc[dict(t=t)] = (
-                    3 / 2 * np.trapz(self.fast_ion_pressure.sel(t=t), self.volume.sel(t=t))
+                3 / 2 * np.trapz(self.fast_ion_pressure.sel(t=t), self.volume.sel(t=t))
             )
         return self._wfast
 
@@ -404,7 +404,7 @@ class Plasma:
                 if np.any(self.neutral_density != 0):
                     neutral_density = self.neutral_density.sel(t=t)
                 if any(
-                        np.logical_not((electron_temperature > 0) * (electron_density > 0))
+                    np.logical_not((electron_temperature > 0) * (electron_density > 0))
                 ):
                     continue
                 fz_tmp = self.fract_abu[elem](
@@ -422,7 +422,7 @@ class Plasma:
         return self.Zeff()
 
     def calc_zeff(self):
-        self._zeff.values = self.ion_density * self.meanz ** 2 / self.electron_density
+        self._zeff.values = self.ion_density * self.meanz**2 / self.electron_density
         return self._zeff
 
     @property
@@ -437,9 +437,9 @@ class Plasma:
             )
 
         self._ion_density.loc[dict(element=self.main_ion)] = (
-                self.electron_density
-                - self.fast_ion_density * self.meanz.sel(element=self.main_ion)
-                - (self.impurity_density * self.meanz).sum("element")
+            self.electron_density
+            - self.fast_ion_density * self.meanz.sel(element=self.main_ion)
+            - (self.impurity_density * self.meanz).sum("element")
         )
         return self._ion_density
 
@@ -454,7 +454,7 @@ class Plasma:
                 electron_density = self.electron_density.sel(t=t)
                 electron_temperature = self.electron_temperature.sel(t=t)
                 if any(
-                        np.logical_not((electron_temperature > 0) * (electron_density > 0))
+                    np.logical_not((electron_temperature > 0) * (electron_density > 0))
                 ):
                     continue
                 Fz = fz[elem].sel(t=t).transpose()
@@ -479,9 +479,9 @@ class Plasma:
         ion_density = self.ion_density
         for elem in self.elements:
             total_radiation = (
-                    lz_tot[elem].sum("ion_charge")
-                    * self.electron_density
-                    * ion_density.sel(element=elem)
+                lz_tot[elem].sum("ion_charge")
+                * self.electron_density
+                * ion_density.sel(element=elem)
             )
             self._total_radiation.loc[dict(element=elem)] = xr.where(
                 total_radiation >= 0,
@@ -541,11 +541,11 @@ class Plasma:
         return (self.rmjo - self.rmji) / 2.0
 
     def set_impurity_concentration(
-            self,
-            element: str,
-            concentration: float,
-            t: Optional[LabeledArray] = None,
-            flat_zeff: bool = False,
+        self,
+        element: str,
+        concentration: float,
+        t: Optional[LabeledArray] = None,
+        flat_zeff: bool = False,
     ):
         """
         Sets impurity density for a specific element = concentration * electron_density
@@ -569,9 +569,9 @@ class Plasma:
             _imp_dens = el_dens * concentration
             if flat_zeff and np.count_nonzero(_imp_dens) != 0:
                 meanz = self.meanz.sel(element=element).sel(t=t)
-                _zeff = _imp_dens * meanz ** 2 / el_dens
+                _zeff = _imp_dens * meanz**2 / el_dens
                 zeff_core = _zeff.where(self.rhop < 0.5).mean("rhop")
-                imp_dens = el_dens * zeff_core / meanz ** 2
+                imp_dens = el_dens * zeff_core / meanz**2
             else:
                 imp_dens = _imp_dens
 
@@ -611,9 +611,9 @@ class Plasma:
 # Generalized dependency caching
 class TrackDependecies:
     def __init__(
-            self,
-            operator: Callable,
-            dependencies: list,
+        self,
+        operator: Callable,
+        dependencies: list,
     ):
         """
         Call operator only if dependencies variables have changed.
@@ -630,8 +630,8 @@ class TrackDependecies:
         self.dependencies = dependencies
 
     def numpyhash(
-            self,
-            nparray: np.array,
+        self,
+        nparray: np.array,
     ):
         a = nparray.view(np.uint8)
         return hashlib.sha1(a).hexdigest()
@@ -640,22 +640,26 @@ class TrackDependecies:
         """
         Hashing of dependencies for caching
 
-        xr.DataArray, and np.ndarray are the only types currently permitted. Dictionaries contained in dependencies
-        were not updating to match the plasma attributes and so were removed.
+        xr.DataArray, and np.ndarray are the only types currently permitted.
+        Dictionaries contained in dependencies were not updating to match the
+        plasma attributes and so were removed.
 
         TODO: upgrade so other objects can be hashed, e.g. Equilibrium
         """
         _dependencies = []
         for dependency in self.dependencies:
             if type(dependency) == dict:
-                raise NotImplementedError("dictionary dependencies are not working correctly")
+                raise NotImplementedError(
+                    "dictionary dependencies are not working correctly"
+                )
             elif type(dependency) == xr.DataArray:
                 _dependencies.append(dependency.data)
             elif type(dependency) == np.ndarray:
                 _dependencies.append(dependency)
             else:
                 raise NotImplementedError(
-                    f"Hashing only implemented for xr.DataArray and np.ndarray not {type(dependency)}"
+                    f"Hashing only implemented for xr.DataArray and np.ndarray "
+                    f"not {type(dependency)}"
                 )
 
         hashable = tuple((self.numpyhash(dependency),) for dependency in _dependencies)
@@ -676,11 +680,11 @@ class CachedCalculation(TrackDependecies):
 
 class PlasmaProfiler:
     def __init__(
-            self,
-            plasma: Plasma,
-            profilers: dict[ProfilerBase],
-            plasma_attribute_names=None,
-            map_vtor: bool = False,
+        self,
+        plasma: Plasma,
+        profilers: dict[ProfilerBase],
+        plasma_attribute_names=None,
+        map_vtor: bool = False,
     ):
         """
         Interface Profiler objects with Plasma object to generate plasma profiles
@@ -785,13 +789,13 @@ class PlasmaProfiler:
         return plasma_attributes
 
     def map_toroidal_rotation_to_ion_temperature(
-            self,
+        self,
     ):
 
         self.plasma.toroidal_rotation = (
-                self.plasma.ion_temperature
-                / self.plasma.ion_temperature.max("rhop")
-                * self.plasma.toroidal_rotation.max("rhop")
+            self.plasma.ion_temperature
+            / self.plasma.ion_temperature.max("rhop")
+            * self.plasma.toroidal_rotation.max("rhop")
         )
 
     def __call__(self, parameters: dict = None, t=None):
