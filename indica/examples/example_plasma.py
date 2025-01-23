@@ -41,6 +41,7 @@ def example_plasma(
         plasma=plasma,
         profilers=profilers,
     )
+    plasma_profiler()
 
     # Assign profiles to time-points
     nt = len(plasma.t)
