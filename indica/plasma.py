@@ -237,7 +237,10 @@ class Plasma:
         self.Meanz = CachedCalculation(
             self.calc_meanz,
             [
-                self.fz,
+                self.electron_density,
+                self.electron_temperature,
+                self.neutral_density,
+                self.tau,
             ],
         )
 
@@ -255,8 +258,11 @@ class Plasma:
             self.calc_zeff,
             [
                 self.electron_density,
-                self.ion_density,
-                self.meanz,
+                self.electron_temperature,
+                self.impurity_density,
+                self.fast_ion_density,
+                self.neutral_density,
+                self.tau,
             ],
         )
 
@@ -265,7 +271,7 @@ class Plasma:
             [
                 self.electron_density,
                 self.electron_temperature,
-                self.fz,
+                self.tau,
                 self.neutral_density,
             ],
         )
@@ -274,8 +280,42 @@ class Plasma:
             self.calc_total_radiation,
             [
                 self.electron_density,
-                self.ion_density,
-                self.lz_tot,
+                self.electron_temperature,
+                self.impurity_density,
+                self.fast_ion_density,
+                self.tau,
+                self.neutral_density,
+            ],
+        )
+
+        self.Electron_pressure = CachedCalculation(
+            self.calc_electron_pressure,
+            [
+                self.electron_density,
+                self.electron_temperature,
+            ],
+        )
+
+        self.Thermal_pressure = CachedCalculation(
+            self.calc_thermal_pressure,
+            [
+                self.ion_temperature,
+                self.electron_density,
+                self.electron_temperature,
+                self.impurity_density,
+                self.fast_ion_density,
+            ],
+        )
+
+        self.Wth = CachedCalculation(
+            self.calc_wth,
+            [
+                self.ion_temperature,
+                self.electron_density,
+                self.electron_temperature,
+                self.impurity_density,
+                self.fast_ion_density,
+                # Should include volume but requires equilibrium
             ],
         )
 
@@ -292,18 +332,24 @@ class Plasma:
 
     @property
     def electron_pressure(self):
+        return self.Electron_pressure()
+
+    def calc_electron_pressure(self):
         self._electron_pressure.values = ph.calc_pressure(
             self.electron_density, self.electron_temperature
         )
         return self._electron_pressure
 
-    @property
-    def thermal_pressure(self):
+    def calc_thermal_pressure(self):
         self._thermal_pressure.values = (
             ph.calc_pressure(self.ion_density, self.ion_temperature).sum("element")
             + self.electron_pressure
         )
         return self._thermal_pressure
+
+    @property
+    def thermal_pressure(self):
+        return self.Thermal_pressure()
 
     @property
     def pressure(self):
@@ -319,13 +365,16 @@ class Plasma:
         )
         return self._fast_ion_pressure
 
-    @property
-    def wth(self):
+    def calc_wth(self):
         for t in np.array(self.time_to_calculate, ndmin=1):
             self._wth.loc[dict(t=t)] = (
                 3 / 2 * np.trapz(self.thermal_pressure.sel(t=t), self.volume.sel(t=t))
             )
         return self._wth
+
+    @property
+    def wth(self):
+        return self.Wth()
 
     @property
     def wfast(self):
@@ -589,25 +638,28 @@ class TrackDependecies:
 
     def __hash__(self):
         """
-        Caching of dependencies
+        Hashing of dependencies for caching
 
-        xr.DataArray, np.ndarray and dictionaries of xr.DataArrays currently permitted
+        xr.DataArray, and np.ndarray are the only types currently permitted.
+        Dictionaries contained in dependencies were not updating to match the
+        plasma attributes and so were removed.
 
-        TODO: upgrade so other objects being tracked, e.g. Equilibrium
+        TODO: upgrade so other objects can be hashed, e.g. Equilibrium
         """
         _dependencies = []
         for dependency in self.dependencies:
             if type(dependency) == dict:
-                for data in dependency.values():
-                    _dependencies.append(data.data)
+                raise NotImplementedError(
+                    "dictionary dependencies are not working correctly"
+                )
             elif type(dependency) == xr.DataArray:
                 _dependencies.append(dependency.data)
             elif type(dependency) == np.ndarray:
                 _dependencies.append(dependency)
             else:
-                print(type(dependency))
                 raise NotImplementedError(
-                    "Hashing implemented for xr.DataArray, np.ndarray"
+                    f"Hashing only implemented for xr.DataArray and np.ndarray "
+                    f"not {type(dependency)}"
                 )
 
         hashable = tuple((self.numpyhash(dependency),) for dependency in _dependencies)
