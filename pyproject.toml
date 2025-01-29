@@ -17,9 +17,12 @@ exclude = '''
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.pypi-publisher]
+repository="pypi"
+
 [tool.poetry]
 name = "indica"
-version = "0.1.3"
+version = "0.1.6"
 description = "INtegrated DIagnostiC Analysis"
 
 license = "GPL-3.0-or-later"
