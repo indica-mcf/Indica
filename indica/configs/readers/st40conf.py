@@ -20,6 +20,7 @@ class ST40Conf(MachineConf):
             "sxr_spd": "get_radiation",
             "sxrc_xy1": "get_radiation",
             "sxrc_xy2": "get_radiation",
+            "sxrc_rz1": "get_radiation",
             "blom_xy1": "get_radiation",
             "blom_rz1": "get_radiation",
             "blom_dv1": "get_radiation",
