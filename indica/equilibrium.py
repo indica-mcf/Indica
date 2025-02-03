@@ -1,7 +1,9 @@
+from pathlib import Path
 from typing import Dict
 from typing import Optional
 from typing import Tuple
 
+from freeqdsk import geqdsk
 import numpy as np
 import xarray as xr
 from xarray import apply_ufunc
@@ -77,8 +79,11 @@ class Equilibrium:
 
         # Calculate rho-toroidal and 2D rho matrix
         self.rhot = np.sqrt(
-            (self.ftor - self.ftor.sel(rhop=0.0))
-            / (self.ftor.sel(rhop=1.0) - self.ftor.sel(rhop=0.0))
+            (self.ftor - self.ftor.sel(rhop=0.0, method="nearest"))
+            / (
+                self.ftor.sel(rhop=1.0, method="nearest")
+                - self.ftor.sel(rhop=0.0, method="nearest")
+            )
         )
         self.rhop = np.sqrt(
             (self.psi - self.psi_axis) / (self.psi_boundary - self.psi_axis)
@@ -168,9 +173,7 @@ class Equilibrium:
         b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
         b_z.name = "Vertical Magnetic Field (T)"
         b_z = b_z.T
-        _rhop = where(
-            _rhop > np.float64(0.0), _rhop, np.float64(-1.0) * _rhop  # type: ignore
-        )
+        _rhop = where(_rhop > np.float64(0.0), _rhop, np.float64(-1.0) * _rhop)
 
         f = f.interp(rhop=_rhop)
         f.name = self.f.name
@@ -539,6 +542,62 @@ class Equilibrium:
             check_time_present(t, self.t)
         volume = self.area.interp(rhop=rhop).interp(t=t)
         return volume, t
+
+    @classmethod
+    def read_geqdsk(cls, filename: Path) -> "Equilibrium":
+        with open(filename, "r") as f:
+            gf = geqdsk.read(f)
+        R = np.linspace(
+            gf.rleft,
+            gf.rleft + gf.rdim,
+            gf.nr,
+        )
+        z = np.linspace(
+            gf.zmid - (gf.zdim / 2),
+            gf.zmid + (gf.zdim / 2),
+            gf.nz,
+        )
+        psirz = DataArray(
+            data=gf.psirz,
+            coords={"R": R, "z": z},
+            dims=("R", "z"),
+        )
+        psin = (psirz.interp(z=gf.zmaxis) - gf.psi_axis) / (
+            gf.psi_boundary - gf.psi_axis
+        )
+        rmjo = DataArray(
+            R[np.where(R >= gf.rmaxis)[0]],
+            coords={"psin": psin.where(psin.R >= gf.rmaxis, drop=True).data},
+            dims=("psin",),
+        )
+        rmji = DataArray(
+            R[np.where(R <= gf.rmaxis)[0]],
+            coords={"psin": psin.where(psin.R <= gf.rmaxis, drop=True).data},
+            dims=("psin",),
+        ).interp(psin=rmjo.psin)
+        fpol = (
+            DataArray(gf.fpol, coords={"R": R, "psin": psin}, dims=("R",))
+            .interp(R=rmjo)
+            .drop_vars("R")
+        )
+        equilibrium_data = {
+            "R": psirz.R,
+            "z": psirz.z,
+            "t": DataArray([0.0]),
+            "rmjo": rmjo.expand_dims({"t": [0.0]}),
+            "rmji": rmji.expand_dims({"t": [0.0]}),
+            "f": fpol.expand_dims({"t": [0.0]}),
+            "psi": psirz.expand_dims({"t": [0.0]}),
+            "psin": psin.interp(R=rmjo).drop_vars("R"),
+            "psi_boundary": DataArray(gf.psi_boundary),
+            "psi_axis": DataArray(gf.psi_axis),
+            "ftor": xr.zeros_like(fpol).expand_dims({"t": [0.0]}),
+            "rbnd": DataArray(gf.rbdry, dims=("index",)),
+            "zbnd": DataArray(gf.zbdry, dims=("index",)),
+            "rmag": DataArray(gf.rmagx).expand_dims({"t": [0.0]}),
+            "zmag": DataArray(gf.zmagx).expand_dims({"t": [0.0]}),
+        }
+        return cls(equilibrium_data)
 
     def write_to_geqdsk(self):
         # TODO: Implement writing to geqdsk
