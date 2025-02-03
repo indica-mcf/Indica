@@ -94,7 +94,7 @@ def example_diode_filter(
     plot=False,
 ):
     machine = "st40"
-    instrument = "brems"
+    instrument = "sxrc_xy1"
     _model = BremsstrahlungDiode
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
