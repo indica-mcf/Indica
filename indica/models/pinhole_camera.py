@@ -21,8 +21,8 @@ class PinholeCamera(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
+        power_loss: dict[str, PowerLoss],
         instrument_method: str = "get_radiation",
-        power_loss: dict[str, PowerLoss] = None,
     ):
         self.transform: LineOfSightTransform
         self.name = name
@@ -42,6 +42,7 @@ class PinholeCamera(AbstractDiagnostic):
 
     def __call__(
         self,
+        # TODO: all inputs
         Ne: DataArray = None,
         Nion: DataArray = None,
         Lz: dict = None,
@@ -74,24 +75,19 @@ class PinholeCamera(AbstractDiagnostic):
             if t is None:
                 t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
-            _Lz = self.plasma.lz_tot
-            Lz = {}
-            for elem in _Lz.keys():
-                Lz[elem] = _Lz[elem].interp(t=t)
             Nion = self.plasma.ion_density.interp(t=t)
         else:
             if Ne is None or Nion is None or Lz is None:
                 raise ValueError("Give inputs of assign plasma class!")
 
-        if self.power_loss:
-            Lz = {}
-            for elem in self.plasma.ion_density.element.values:
-                Lz[elem] = self.power_loss[elem](
-                    self.plasma.electron_temperature.sel(t=t),
-                    self.plasma.fz[elem].sel(t=t).transpose(),
-                    Ne=self.plasma.electron_density.sel(t=t),
-                    Nh=self.plasma.neutral_density.sel(t=t),
-                ).transpose()
+        Lz = {}
+        for elem in Nion.element.values:
+            Lz[elem] = self.power_loss[elem](
+                Te.sel(t=t),
+                fz[elem].sel(t=t).transpose(),
+                Ne=Ne.sel(t=t),
+                Nh=Nh.sel(t=t),
+            ).transpose()
 
         self.t: DataArray = t
         self.Ne: DataArray = Ne
