@@ -8,6 +8,7 @@ from indica.available_quantities import READER_QUANTITIES
 from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
+from indica.operators import PowerLoss
 from indica.utilities import build_dataarrays
 from indica.utilities import set_axis_sci
 
@@ -20,12 +21,14 @@ class PinholeCamera(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
-        instrument_method="get_radiation",
+        instrument_method: str = "get_radiation",
+        power_loss: dict[str, PowerLoss] = None,
     ):
         self.transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
+        self.power_loss = power_loss
 
     def _build_bckc_dictionary(self):
         bckc = {
@@ -66,6 +69,7 @@ class PinholeCamera(AbstractDiagnostic):
         Dictionary of back-calculated quantities (as datareader.py)
 
         """
+
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
@@ -78,6 +82,16 @@ class PinholeCamera(AbstractDiagnostic):
         else:
             if Ne is None or Nion is None or Lz is None:
                 raise ValueError("Give inputs of assign plasma class!")
+
+        if self.power_loss:
+            Lz = {}
+            for elem in self.plasma.ion_density.element.values:
+                Lz[elem] = self.power_loss[elem](
+                    self.plasma.electron_temperature.sel(t=t),
+                    self.plasma.fz[elem].sel(t=t).transpose(),
+                    Ne=self.plasma.electron_density.sel(t=t),
+                    Nh=self.plasma.neutral_density.sel(t=t),
+                ).transpose()
 
         self.t: DataArray = t
         self.Ne: DataArray = Ne
