@@ -198,4 +198,6 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "absorbed_ohmic_power": ("$P_{ohm, abs}$", "power"),
     "safety_factor": ("q", "none"),
     "parallel_conductivity": (r"$\sigma$", "conductivity"),
+    "frequency": ("$omega$", "frequency"),
+    "operating_mode": ("Operating Mode", "none"),
 }
