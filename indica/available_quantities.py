@@ -116,6 +116,8 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
     "get_cyclotron_emissions": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
+        "fequency": ("frequency", []),
+        "mode": ("operating_mode", []),
         "x": ("x", []),
         "y": ("y", []),
         "z": ("z", []),
