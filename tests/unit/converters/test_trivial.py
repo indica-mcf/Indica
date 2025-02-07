@@ -1,52 +1,55 @@
 """Test the trivial coordinate transform."""
 
-from unittest.mock import MagicMock
-
-from hypothesis import given
-from hypothesis.strategies import composite
 import numpy as np
 
 from indica.converters import TrivialTransform
-from indica.utilities import coord_array
-from ..strategies import arbitrary_coordinates
-from ..strategies import basis_coordinates
+
+TRIVIAL = TrivialTransform()
 
 
-@composite
-def trivial_transforms(draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0))):
-    result = TrivialTransform()
-    result.set_equilibrium(MagicMock())
-    return result
-
-
-@composite
-def trivial_transforms_and_axes(
-    draw, domain=((0.0, 1.0), (0.0, 1.0), (0.0, 1.0)), min_side=2, max_side=12
-):
-    transform = draw(trivial_transforms(domain))
-    min_vals, max_vals = zip(*domain)
-    x1, x2, t = map(
-        np.ravel, draw(basis_coordinates(min_vals, max_vals, min_side, max_side))
-    )
-    return (
-        transform,
-        coord_array(x1, transform.x1_name),
-        coord_array(x2, transform.x2_name),
-        coord_array(t, "t"),
-    )
-
-
-@given(trivial_transforms(), arbitrary_coordinates())
-def test_trivial_to_Rz(transform, coords):
+def test_convert_to_Rz_single():
     """Test trivial transform returns arguments."""
-    R, z = transform.convert_to_Rz(*coords)
-    assert R is coords[0]
-    assert z is coords[1]
+    x1, x2, t = 0, 1, 2
+    _x1, _x2 = TRIVIAL.convert_to_Rz(x1, x2, t)
+    assert x1 is _x1
+    assert x2 is _x2
 
 
-@given(trivial_transforms(), arbitrary_coordinates())
-def test_trivial_from_Rz(transform, coords):
+def test_convert_to_Rz_array():
     """Test trivial transform returns arguments."""
-    x1, x2 = transform.convert_from_Rz(*coords)
-    assert x1 is coords[0]
-    assert x2 is coords[1]
+    x1, x2, t = np.array([0, 1]), np.array([2, 3]), 2
+    _x1, _x2 = TRIVIAL.convert_to_Rz(x1, x2, t)
+    assert x1 is _x1
+    assert x2 is _x2
+
+
+def test_convert_to_Rz_multi_time():
+    """Test trivial transform returns arguments."""
+    x1, x2, t = np.array([0, 1]), np.array([2, 3]), np.array([2, 3, 4, 5])
+    _x1, _x2 = TRIVIAL.convert_to_Rz(x1, x2, t)
+    assert x1 is _x1
+    assert x2 is _x2
+
+
+def test_convert_from_Rz_single():
+    """Test trivial transform returns arguments."""
+    x1, x2, t = 0, 1, 2
+    _x1, _x2 = TRIVIAL.convert_from_Rz(x1, x2, t)
+    assert x1 is _x1
+    assert x2 is _x2
+
+
+def test_convert_from_Rz_array():
+    """Test trivial transform returns arguments."""
+    x1, x2, t = np.array([0, 1]), np.array([2, 3]), 2
+    _x1, _x2 = TRIVIAL.convert_from_Rz(x1, x2, t)
+    assert x1 is _x1
+    assert x2 is _x2
+
+
+def test_convert_from_Rz_multi_time():
+    """Test trivial transform returns arguments."""
+    x1, x2, t = np.array([0, 1]), np.array([2, 3]), np.array([2, 3, 4, 5])
+    _x1, _x2 = TRIVIAL.convert_from_Rz(x1, x2, t)
+    assert x1 is _x1
+    assert x2 is _x2

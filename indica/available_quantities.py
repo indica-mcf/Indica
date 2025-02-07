@@ -77,7 +77,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "channel": ("channel", []),
         "rhop": ("rhop", []),
         "R": ("R_fit", []),
-        "z": ("z", ["channel"]),
+        "z": ("z_fit", []),
         "R_data": ("R", ["channel"]),
         "rhop_data": ("rhop", ["t", "channel"]),
         "ne_rhop": ("electron_density", ["t", "rhop"]),
