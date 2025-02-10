@@ -116,14 +116,14 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
     "get_cyclotron_emissions": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
-        "fequency": ("frequency", []),
-        "mode": ("operating_mode", []),
+        "freq": ("rf_frequency", []),
+        "nharm": ("harmonic_number", []),
         "x": ("x", []),
         "y": ("y", []),
         "z": ("z", []),
         "R": ("R", []),
         "te": ("electron_temperature", ["t", "channel"]),
-        "btot": ("magnetic_field", ["channel"]),
+        "btot": ("total_magnetic_field", ["channel"]),
     },
     "get_density_reflectometer": {
         "t": ("t", ["t"]),

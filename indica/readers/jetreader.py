@@ -125,9 +125,9 @@ class JETReader(DataReader):
         self, data: dict
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         channel = np.argwhere(data["gen"][0, :] > 0)[:, 0]
-        freq = data["gen"][15, channel] * 1e9
-        nharm = data["gen"][11, channel]
-        data["btot"] = 2 * np.pi * freq * sc.m_e / (sc.e * nharm)
+        data["freq"] = data["gen"][15, channel] * 1e9
+        data["nharm"] = data["gen"][11, channel]
+        data["btot"] = 2 * np.pi * data["freq"] * sc.m_e / (sc.e * data["nharm"])
         data["R"] = data["R"].mean(0)  # Time-varying R
         data["x"] = data["R"]
         data["y"] = np.zeros_like(data["R"])
