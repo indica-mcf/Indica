@@ -77,11 +77,8 @@ class Equilibrium:
 
         # Calculate rho-toroidal and 2D rho matrix
         self.rhot = np.sqrt(
-            (self.ftor - self.ftor.sel(rhop=0.0, method="nearest"))
-            / (
-                self.ftor.sel(rhop=1.0, method="nearest")
-                - self.ftor.sel(rhop=0.0, method="nearest")
-            )
+            (self.ftor - self.ftor.sel(rhop=0.0))
+            / (self.ftor.sel(rhop=1.0) - self.ftor.sel(rhop=0.0))
         )
         self.rhop = np.sqrt(
             (self.psi - self.psi_axis) / (self.psi_boundary - self.psi_axis)
