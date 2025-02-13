@@ -43,9 +43,11 @@ class PinholeCamera(AbstractDiagnostic):
     def __call__(
         self,
         # TODO: all inputs
+        Te: DataArray = None,
         Ne: DataArray = None,
         Nion: DataArray = None,
         Lz: dict = None,
+        fz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
         sum_beamlets: bool = True,
@@ -56,12 +58,16 @@ class PinholeCamera(AbstractDiagnostic):
 
         Parameters
         ----------
+        Te
+            Electron temperature profile (dims = "rho", "t")
         Ne
             Electron density profile (dims = "rho", "t")
         Nion
             Ion density profiles (dims = "rho", "t", "element")
         Lz
             Cooling factor dictionary of DataArrays of each element to be included
+        fz
+            Fractional abundance dictionary for each element to be included
         t
             Time (s) for remapping on equilibrium reconstruction
 
@@ -76,23 +82,28 @@ class PinholeCamera(AbstractDiagnostic):
                 t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
             Nion = self.plasma.ion_density.interp(t=t)
+            Te = self.plasma.electron_temperature.interp(t=t)
+            fz = self.plasma.fz
         else:
-            if Ne is None or Nion is None or Lz is None:
-                raise ValueError("Give inputs of assign plasma class!")
-
-        Lz = {}
-        for elem in Nion.element.values:
-            Lz[elem] = self.power_loss[elem](
-                Te.sel(t=t),
-                fz[elem].sel(t=t).transpose(),
-                Ne=Ne.sel(t=t),
-                Nh=Nh.sel(t=t),
-            ).transpose()
+            if Ne is None or Nion is None or Lz is None or Te is None or fz is None:
+                raise ValueError("Give inputs or assign plasma class!")
 
         self.t: DataArray = t
         self.Ne: DataArray = Ne
         self.Nion: DataArray = Nion
         self.Lz: dict = Lz
+        self.Te: DataArray = Te
+        self.fz: dict= fz
+
+        if Lz == None:
+            Lz = {}
+            for elem in Nion.element.values:
+                Lz[elem] = self.power_loss[elem](
+                    Te.sel(t=t),
+                    fz[elem].sel(t=t).transpose(),
+                    Ne=Ne.sel(t=t),
+                    Nh=Nh.sel(t=t),
+                ).transpose()
 
         elements = self.Nion.element.values
 
