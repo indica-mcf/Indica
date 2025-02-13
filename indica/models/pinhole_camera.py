@@ -90,6 +90,16 @@ class PinholeCamera(AbstractDiagnostic):
             if Ne is None or Nion is None or Te is None or fz is None or Nh is None:
                 raise ValueError("Give inputs or assign plasma class!")
 
+        if self.power_loss:
+            Lz = {}
+            for elem in self.plasma.ion_density.element.values:
+                Lz[elem] = self.power_loss[elem](
+                    self.plasma.electron_temperature.sel(t=t),
+                    self.plasma.fz[elem].sel(t=t).transpose(),
+                    Ne=self.plasma.electron_density.sel(t=t),
+                    Nh=self.plasma.neutral_density.sel(t=t),
+                ).transpose()
+
         self.t: DataArray = t
         self.Ne: DataArray = Ne
         self.Nion: DataArray = Nion

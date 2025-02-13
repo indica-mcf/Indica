@@ -60,6 +60,7 @@ class DataReader(ABC):
         passes: int = 1,
         include_error: bool = True,
         return_dataarrays: bool = True,
+        verbose: bool = False,
     ) -> Dict[str, DataArray]:
         """General method that reads data for a requested instrument."""
         if instrument not in self.instrument_methods.keys():
@@ -88,6 +89,7 @@ class DataReader(ABC):
             self.tend,
             transform,
             include_error,
+            verbose=verbose,
         )
         return data_arrays
 
