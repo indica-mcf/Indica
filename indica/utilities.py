@@ -1,5 +1,4 @@
 """Various miscellanious helper functions."""
-
 from copy import deepcopy
 from getpass import getuser
 import hashlib
@@ -254,17 +253,13 @@ def build_dataarrays(
         if verbose:
             print(f"  {quantity} - {datatype}")
 
-        # Assign coords, pop/remove those that have length=1 if shape(dims)>shape(data)
         coords: dict = {}
-        dims_to_pop = []
+        if "channel" in data and "channel" in dims:
+            if np.size(data["channel"]) == 1 and len(dims) > len(np.shape(data)):
+                dims.remove("channel")
+
         for dim in dims:
             coords[dim] = data[dim]
-            if np.size(coords[dim]) == 1 and (len(dims) > len(np.shape(data[quantity]))):
-                dims_to_pop.append(dim)
-
-        for dim in dims_to_pop:
-            coords.pop(dim)
-            dims.remove(dim)
 
         # Build DataArray
         _data = format_dataarray(data[quantity], datatype, coords)
@@ -505,6 +500,7 @@ def save_figure(
 def set_plot_colors(
     color_map: str = "gnuplot2",
 ):
+
     cmap = getattr(cm, color_map)
     colors = {
         "electron": cmap(0.1),
