@@ -10,7 +10,6 @@ from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import Hashable
-from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -255,11 +254,17 @@ def build_dataarrays(
         if verbose:
             print(f"  {quantity} - {datatype}")
 
+        # Assign coords, pop/remove those that have length=1 if shape(dims)>shape(data)
         coords: dict = {}
+        dims_to_pop = []
         for dim in dims:
             coords[dim] = data[dim]
-            if isinstance(coords[dim], Iterable) and len(coords[dim]) == 1:
-                coords[dim] = coords[dim][0]
+            if np.size(coords[dim]) == 1 and (len(dims) > len(np.shape(data[quantity]))):
+                dims_to_pop.append(dim)
+
+        for dim in dims_to_pop:
+            coords.pop(dim)
+            dims.remove(dim)
 
         # Build DataArray
         _data = format_dataarray(data[quantity], datatype, coords)
