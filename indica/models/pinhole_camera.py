@@ -42,7 +42,6 @@ class PinholeCamera(AbstractDiagnostic):
 
     def __call__(
         self,
-        # TODO: all inputs
         Te: DataArray = None,
         Ne: DataArray = None,
         Nion: DataArray = None,
@@ -82,20 +81,24 @@ class PinholeCamera(AbstractDiagnostic):
                 t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
             Nion = self.plasma.ion_density.interp(t=t)
+            Nh = self.plasma.neutral_density.interp(t=t)
             Te = self.plasma.electron_temperature.interp(t=t)
             fz = self.plasma.fz
+        elif Lz is not None and (Ne is None or Nion is None):
+            raise ValueError("Lz was given but not Ne or Nion")
         else:
-            if Ne is None or Nion is None or Lz is None or Te is None or fz is None:
+            if Ne is None or Nion is None or Te is None or fz is None or Nh is None:
                 raise ValueError("Give inputs or assign plasma class!")
 
         self.t: DataArray = t
         self.Ne: DataArray = Ne
         self.Nion: DataArray = Nion
+        self.Nh: DataArray = Nh
         self.Lz: dict = Lz
         self.Te: DataArray = Te
-        self.fz: dict= fz
+        self.fz: dict = fz
 
-        if Lz == None:
+        if Lz is None:
             Lz = {}
             for elem in Nion.element.values:
                 Lz[elem] = self.power_loss[elem](
