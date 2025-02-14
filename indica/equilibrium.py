@@ -168,9 +168,7 @@ class Equilibrium:
         b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
         b_z.name = "Vertical Magnetic Field (T)"
         b_z = b_z.T
-        _rhop = where(
-            _rhop > np.float64(0.0), _rhop, np.float64(-1.0) * _rhop  # type: ignore
-        )
+        _rhop = where(_rhop > np.float64(0.0), _rhop, np.float64(-1.0) * _rhop)
 
         f = f.interp(rhop=_rhop)
         f.name = self.f.name
