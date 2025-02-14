@@ -1,5 +1,4 @@
 """Various miscellanious helper functions."""
-
 from copy import deepcopy
 from getpass import getuser
 import hashlib
@@ -10,7 +9,6 @@ from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import Hashable
-from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -256,10 +254,12 @@ def build_dataarrays(
             print(f"  {quantity} - {datatype}")
 
         coords: dict = {}
+        if "channel" in data and "channel" in dims:
+            if np.size(data["channel"]) == 1 and len(dims) > len(np.shape(data)):
+                dims.remove("channel")
+
         for dim in dims:
             coords[dim] = data[dim]
-            if isinstance(coords[dim], Iterable) and len(coords[dim]) == 1:
-                coords[dim] = coords[dim][0]
 
         # Build DataArray
         _data = format_dataarray(data[quantity], datatype, coords)
@@ -500,6 +500,7 @@ def save_figure(
 def set_plot_colors(
     color_map: str = "gnuplot2",
 ):
+
     cmap = getattr(cm, color_map)
     colors = {
         "electron": cmap(0.1),
