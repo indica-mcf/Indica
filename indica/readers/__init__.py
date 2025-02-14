@@ -4,14 +4,17 @@ filesystem or databases. These objects are all subclasses of
 functionality for a different format of data.
 
 """
+
 from .adas import ADASReader
 from .datareader import DataReader
+from .eqdskreader import EQDSKReader
 from .readerprocessor import ReaderProcessor
 
 __all__ = [
     "ADASReader",
     "DataReader",
     "ReaderProcessor",
+    "EQDSKReader",
 ]
 
 try:

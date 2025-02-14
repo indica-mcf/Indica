@@ -3,12 +3,14 @@ produced by JET
 
 """
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 from typing import Dict
 from typing import Tuple
 
 import numpy as np
+import scipy.constants as sc
 
 from indica.abstractio import BaseIO
 from indica.configs.readers.jetconf import JETConf
@@ -89,17 +91,63 @@ class JETReader(DataReader):
         transform = assign_transect_transform(data)
         return data, transform
 
-    def _get_cyclotron_emissions(
-        self,
-        data: dict,
+    def _get_interferometry(
+        self, data: dict
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
+        data = _interferometer_polarimeter_coords(data)
+        data["t"] = data["LID3_dimensions"][0]
+        data["ne"] = np.array(
+            [
+                data.get("LID{}".format(i + 1), np.zeros_like(data["LID3"]))
+                for i in data["channel"]
+            ]
+        ).T
+
+        transform = assign_lineofsight_transform(data)
+        return data, transform
+
+    def _get_polarimetry(
+        self, data: dict
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        data = _interferometer_polarimeter_coords(data)
+        data["dphi"] = np.array(
+            [
+                data.get("FAR{}".format(i + 1), np.zeros_like(data["FAR3"]))
+                for i in data["channel"]
+            ]
+        ).T
+        data["t"] = data["FAR3_dimensions"][0]
+
+        transform = assign_lineofsight_transform(data)
+        return data, transform
+
+    def _get_cyclotron_emissions(
+        self, data: dict
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        channel = np.argwhere(data["gen"][0, :] > 0)[:, 0]
+        data["freq"] = data["gen"][15, channel] * 1e9
+        data["nharm"] = data["gen"][11, channel]
+        data["btot"] = 2 * np.pi * data["freq"] * sc.m_e / (sc.e * data["nharm"])
+        data["R"] = data["R"].mean(0)  # Time-varying R
+        data["x"] = data["R"]
+        data["y"] = np.zeros_like(data["R"])
+        data["z"] = np.zeros_like(data["R"])
+        data["channel"] = channel
+        data["t"] = data["te_dimensions"][0]
+        transform = assign_transect_transform(data)
+        return data, transform
 
     def _get_density_reflectometer(
-        self,
-        data: dict,
+        self, data: dict
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        raise NotImplementedError
+        data["R"] = data["R"].mean(0)  # Time-varying R
+        data["x"] = data["R"]
+        data["y"] = np.zeros_like(data["R"])
+        data["z"] = np.ones_like(data["R"]) * data["z"][0]
+        data["channel"] = range(len(data["R"]))
+        data["t"] = data["ne_dimensions"][0]
+        transform = assign_transect_transform(data)
+        return data, transform
 
     def _get_charge_exchange(
         self,
@@ -224,6 +272,24 @@ def assign_transect_transform(database_results: Dict):
 def assign_trivial_transform():
     transform = TrivialTransform()
     return transform
+
+
+def _interferometer_polarimeter_coords(data: dict) -> Dict[str, Any]:
+    data = deepcopy(data)
+    x_start, z_start = [], []
+    for i, (R, z, a) in enumerate(zip(data["R"], data["z"], data["a"])):
+        if i < 4:
+            x_start.append(R - (2.5 - z) * np.tan(np.pi / 2 - a))
+            z_start.append(2.5)
+        elif i >= 4:
+            x_start.append(4.5)
+            z_start.append(z + (4.5 - R) * np.tan(a))
+    data["channel"] = np.arange(len(x_start))
+    data["location"] = np.asarray([x_start, [0.0] * len(x_start), z_start]).T
+    data["direction"] = (
+        np.asarray([data["R"], [0.0] * len(data["R"]), data["z"]]).T - data["location"]
+    )
+    return data
 
 
 def _get_cxrs_los_geometry(sav_file: Path, tracks: ArrayLike) -> Any:

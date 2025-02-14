@@ -254,6 +254,10 @@ def build_dataarrays(
             print(f"  {quantity} - {datatype}")
 
         coords: dict = {}
+        if "channel" in data and "channel" in dims:
+            if np.size(data["channel"]) == 1 and len(dims) > len(np.shape(data)):
+                dims.remove("channel")
+
         for dim in dims:
             coords[dim] = data[dim]
 
