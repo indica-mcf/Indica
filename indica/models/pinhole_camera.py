@@ -21,8 +21,8 @@ class PinholeCamera(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
+        power_loss: dict[str, PowerLoss],
         instrument_method: str = "get_radiation",
-        power_loss: dict[str, PowerLoss] = None,
     ):
         self.transform: LineOfSightTransform
         self.name = name
@@ -42,9 +42,11 @@ class PinholeCamera(AbstractDiagnostic):
 
     def __call__(
         self,
+        Te: DataArray = None,
         Ne: DataArray = None,
         Nion: DataArray = None,
         Lz: dict = None,
+        fz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
         sum_beamlets: bool = True,
@@ -55,12 +57,16 @@ class PinholeCamera(AbstractDiagnostic):
 
         Parameters
         ----------
+        Te
+            Electron temperature profile (dims = "rho", "t")
         Ne
             Electron density profile (dims = "rho", "t")
         Nion
             Ion density profiles (dims = "rho", "t", "element")
         Lz
             Cooling factor dictionary of DataArrays of each element to be included
+        fz
+            Fractional abundance dictionary for each element to be included
         t
             Time (s) for remapping on equilibrium reconstruction
 
@@ -74,14 +80,15 @@ class PinholeCamera(AbstractDiagnostic):
             if t is None:
                 t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
-            _Lz = self.plasma.lz_tot
-            Lz = {}
-            for elem in _Lz.keys():
-                Lz[elem] = _Lz[elem].interp(t=t)
             Nion = self.plasma.ion_density.interp(t=t)
+            Nh = self.plasma.neutral_density.interp(t=t)
+            Te = self.plasma.electron_temperature.interp(t=t)
+            fz = self.plasma.fz
+        elif Lz is not None and (Ne is None or Nion is None):
+            raise ValueError("Lz was given but not Ne or Nion")
         else:
-            if Ne is None or Nion is None or Lz is None:
-                raise ValueError("Give inputs of assign plasma class!")
+            if Ne is None or Nion is None or Te is None or fz is None or Nh is None:
+                raise ValueError("Give inputs or assign plasma class!")
 
         if self.power_loss:
             Lz = {}
@@ -96,7 +103,20 @@ class PinholeCamera(AbstractDiagnostic):
         self.t: DataArray = t
         self.Ne: DataArray = Ne
         self.Nion: DataArray = Nion
+        self.Nh: DataArray = Nh
         self.Lz: dict = Lz
+        self.Te: DataArray = Te
+        self.fz: dict = fz
+
+        if Lz is None:
+            Lz = {}
+            for elem in Nion.element.values:
+                Lz[elem] = self.power_loss[elem](
+                    Te.sel(t=t),
+                    fz[elem].sel(t=t).transpose(),
+                    Ne=Ne.sel(t=t),
+                    Nh=Nh.sel(t=t),
+                ).transpose()
 
         elements = self.Nion.element.values
 

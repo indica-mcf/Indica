@@ -19,10 +19,9 @@ class ModelReader:
 
         Parameters
         ----------
+
         models
-
         model_kwargs
-
 
         """
         self.models = models
@@ -57,15 +56,17 @@ class ModelReader:
             model.set_plasma(plasma)
         self.plasma = plasma
 
-    def update_model_settings(self, **update_kwargs):
+    def update_model_settings(self, update_kwargs={}):
         """
         Reinitialise models with model kwargs
         """
         for instrument in self.models:
             self.model_kwargs[instrument] = self.model_kwargs[instrument].update(
-                update_kwargs[instrument]
+                update_kwargs.get(instrument, {})
             )
-            self.models = self.models[instrument](**self.model_kwargs[instrument])
+            self.models[instrument] = self.models[instrument](
+                name=instrument, **self.model_kwargs.get(instrument, {})
+            )
 
     def get(
         self,
