@@ -206,20 +206,16 @@ class LineOfSightTransform(CoordinateTransform):
     def distribute_beamlets(self, debug=False):
         """
         Distribute beamlets using information on spot size and divergence.
-        TODO: currently working only with spot_width and for circular/round spots
-        TODO: expand to include spot_height and other shapes, e.g. rectangular
         """
         # Grid
         n_w = int(np.sqrt(self.beamlets))
         n_v = int(np.sqrt(self.beamlets))
         grid_w = np.linspace(
-            -self.spot_width / 2, self.spot_width / 2, n_w * 2 + 1, dtype=float
+            -self.spot_width / 2, self.spot_width / 2, n_w, dtype=float
         )
-        grid_w = grid_w[1::2]
         grid_v = np.linspace(
-            -self.spot_height / 2, self.spot_height / 2, n_v * 2 + 1, dtype=float
+            -self.spot_height / 2, self.spot_height / 2, n_v, dtype=float
         )
-        grid_v = grid_v[1::2]
         W, V = np.meshgrid(grid_w, grid_v)
         self.weightings = np.ones_like(W)
 
