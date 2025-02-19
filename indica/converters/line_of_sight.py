@@ -207,7 +207,7 @@ class LineOfSightTransform(CoordinateTransform):
         """
         Distribute beamlets using information on spot size and divergence.
         """
-        # Grid
+        # Set-up beamlets grid
         n_w = int(np.sqrt(self.beamlets))
         n_v = int(np.sqrt(self.beamlets))
         grid_w = np.linspace(
@@ -217,7 +217,6 @@ class LineOfSightTransform(CoordinateTransform):
             -self.spot_height / 2, self.spot_height / 2, n_v, dtype=float
         )
         W, V = np.meshgrid(grid_w, grid_v)
-        self.weightings = np.ones_like(W)
 
         # Draw spot
         if self.spot_shape == "round":
@@ -244,6 +243,9 @@ class LineOfSightTransform(CoordinateTransform):
             plt.scatter(W.flatten(), V.flatten(), c="r")
             plt.show()
 
+        # Set weightings
+        self.weightings = np.ones_like(W)
+
         # Find distance to virtual focus position
         distance = self.focal_length
 
@@ -256,23 +258,26 @@ class LineOfSightTransform(CoordinateTransform):
         beamlet_direction_z = np.zeros((len(self.direction_x), self.beamlets))
         for i_los in range(len(self.direction_x)):
 
+            # Direction coordinates
             dir_x = self.direction_x[i_los]
             dir_y = self.direction_y[i_los]
             dir_z = self.direction_z[i_los]
 
+            # Origin coordinates
             orig_x = self.origin_x[i_los]
             orig_y = self.origin_y[i_los]
             orig_z = self.origin_z[i_los]
 
+            # Find the normal of the direction
             normal = np.array([-dir_y, dir_x])
             ang_norm = np.arctan2(normal[1], normal[0])
-            # ang_xy = np.arctan2(dir_y, dir_x)
 
             # Calculate virtual system reference coordinate
             system_x = orig_x + dir_x * distance
             system_y = orig_y + dir_y * distance
             system_z = orig_z + dir_z * distance
 
+            # Iterate over each beamlet
             count = 0
             for i_w in range(n_w):
                 for i_v in range(n_v):
