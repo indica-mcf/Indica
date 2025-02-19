@@ -71,6 +71,7 @@ class LineOfSightTransform(CoordinateTransform):
         spot_width: float = 0.0,
         spot_shape: str = "round",
         div_width: float = 0.0,
+        focal_length: float = np.inf,
         # div_h: float = 0.0,
         # spot_height: float = 0.0,
         **kwargs: Any,
@@ -96,7 +97,8 @@ class LineOfSightTransform(CoordinateTransform):
         self.spot_shape = spot_shape
         self.beamlets = beamlets
         self.div_width = div_width
-        self.distribute_beamlets()
+        self.focal_length = focal_length
+        self.distribute_beamlets(debug=True)
 
         # self.div_height = div_h
         # self.spot_height = spot_height
@@ -228,20 +230,26 @@ class LineOfSightTransform(CoordinateTransform):
             spot_w = 0.5 * self.spot_width * np.cos(th)
             spot_y = 0.5 * self.spot_width * np.sin(th)
 
-            if debug:
-                plt.figure()
-                plt.plot(spot_w, spot_y, "k")
-                plt.scatter(W.flatten(), V.flatten(), c="r")
-                plt.show()
+        elif self.spot_shape == "rectangular":
+
+            spot_w = np.array([
+                -0.5*self.spot_width, 0.5*self.spot_width, 0.5*self.spot_width, -0.5*self.spot_width, -0.5*self.spot_width
+            ])
+            spot_y = np.array([
+                -0.5*self.spot_height, -0.5*self.spot_height, 0.5*self.spot_height, 0.5*self.spot_height, -0.5*self.spot_height
+            ])
 
         else:
             raise ValueError("Spot shape not available")
 
+        if debug:
+            plt.figure()
+            plt.plot(spot_w, spot_y, "k")
+            plt.scatter(W.flatten(), V.flatten(), c="r")
+            plt.show()
+
         # Find distance to virtual focus position
-        if self.div_width > 0.0:
-            distance = self.spot_width / 2 / np.tan(self.div_width)
-        else:
-            distance = np.nan
+        distance = self.focal_length
 
         # Build beamlets
         beamlet_origin_x = np.zeros((len(self.direction_x), self.beamlets))
@@ -265,9 +273,9 @@ class LineOfSightTransform(CoordinateTransform):
             # ang_xy = np.arctan2(dir_y, dir_x)
 
             # Calculate virtual system reference coordinate
-            system_x = orig_x - dir_x * distance
-            system_y = orig_y - dir_y * distance
-            system_z = orig_z - dir_z * distance
+            system_x = orig_x + dir_x * distance
+            system_y = orig_y + dir_y * distance
+            system_z = orig_z + dir_z * distance
 
             count = 0
             for i_w in range(n_w):
@@ -282,7 +290,7 @@ class LineOfSightTransform(CoordinateTransform):
                     beamlet_origin_z[i_los, count] = orig_z + grid_v[i_v]
 
                     # Direction
-                    if self.div_width > 0.0:
+                    if distance < 0:  # fibre optics
                         dir_vec = np.array(
                             [
                                 beamlet_origin_x[i_los, count] - system_x,
@@ -290,14 +298,19 @@ class LineOfSightTransform(CoordinateTransform):
                                 beamlet_origin_z[i_los, count] - system_z,
                             ]
                         )
-                        dir_vec_norm = dir_vec / np.linalg.norm(dir_vec)
-                        beamlet_direction_x[i_los, count] = dir_vec_norm[0]
-                        beamlet_direction_y[i_los, count] = dir_vec_norm[1]
-                        beamlet_direction_z[i_los, count] = dir_vec_norm[2]
-                    else:
-                        beamlet_direction_x[i_los, count] = dir_x
-                        beamlet_direction_y[i_los, count] = dir_y
-                        beamlet_direction_z[i_los, count] = dir_z
+                    else:  # Pinhole cameras and neutral beams
+                        dir_vec = np.array(
+                            [
+                                system_x - beamlet_origin_x[i_los, count],
+                                system_y - beamlet_origin_y[i_los, count],
+                                system_z - beamlet_origin_z[i_los, count],
+                            ]
+                        )
+                    dir_vec_norm = dir_vec / np.linalg.norm(dir_vec)
+                    beamlet_direction_x[i_los, count] = dir_vec_norm[0]
+                    beamlet_direction_y[i_los, count] = dir_vec_norm[1]
+                    beamlet_direction_z[i_los, count] = dir_vec_norm[2]
+
 
                     # TODO: implement divergence, in vertical and horizontal dimensions
                     # Rotate direction
