@@ -22,7 +22,7 @@ repository="pypi"
 
 [tool.poetry]
 name = "indica"
-version = "0.1.11"
+version = "0.1.12"
 description = "INtegrated DIagnostiC Analysis"
 
 license = "GPL-3.0-or-later"
