@@ -68,6 +68,7 @@ class JETConf(MachineConf):
                 "z": "pos",
                 "ti": "ti",
                 "vtor": "angf",
+                "conc": "conc",
             },
         }
         self._BREMSSTRAHLUNG_LOS = {
