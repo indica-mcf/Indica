@@ -4,7 +4,8 @@ import numpy as np
 
 from indica.converters import LineOfSightTransform
 from indica.examples.example_plasma import example_plasma
-from indica.readers.read_st40 import ReadST40
+from indica.readers.st40reader import ST40Reader as ReadST40
+from indica.defaults.load_defaults import load_default_objects
 
 
 # Add Indica to python path
@@ -56,6 +57,19 @@ spot_shape = "round"
 div_width = 70 * 1e-3  # radians
 # div_height = 70 * 1e-3  # radians
 
+focal_length = -100.0  # meter
+spot_width = 0.01  # meter
+spot_height = 0.01  # meter
+spot_shape = "round"
+div_width = 100.0 * 1e-3  # radians
+
+# focal_length = 0.3  # meter
+# spot_width = 0.01  # meter
+# spot_height = 0.01  # meter
+# spot_shape = "round"
+# div_width = 0.0  # radians
+
+
 los_transform = LineOfSightTransform(
     origin_x,
     origin_y,
@@ -71,6 +85,7 @@ los_transform = LineOfSightTransform(
     beamlets=beamlets,
     # div_height=div_height,
     div_width=div_width,
+    focal_length=focal_length,
     machine_dimensions=machine_dims,
     passes=1,
 )
@@ -131,7 +146,7 @@ for x1 in los_transform.x1:
         plt.plot(R, z, c=cols[x1])
 
 plt.tight_layout()
-# plt.show(block=True)
+plt.show(block=True)
 
 """
 NEXT UP PLASMA
@@ -148,9 +163,12 @@ dt = 0.01
 st40 = ReadST40(tstart=tstart, tend=tend, dt=dt, pulse=pulse)
 st40()
 
+# Load equilibrium from default
+equilibrium = load_default_objects("st40", "equilibrium")
+
 # Get plasma
-plasma = example_plasma(tstart=tstart, tend=tend, dt=dt, pulse=pulse)
-plasma.set_equilibrium(st40.equilibrium)
+plasma = example_plasma(tstart=tstart, tend=tend, dt=dt)
+plasma.set_equilibrium(equilibrium=equilibrium)
 los_transform.set_equilibrium(plasma.equilibrium)
 
 #
