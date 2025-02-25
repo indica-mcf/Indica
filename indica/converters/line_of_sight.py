@@ -350,6 +350,7 @@ class LineOfSightTransform(CoordinateTransform):
                         dir_vec_div_xy[0], dir_vec_div_xy[1], zdash
                     ])
 
+                    # ToDo: to remove, temporarily kept in here for debugging reasons
                     # print(' ')
                     # print(grid_w[i_w])
                     # print(grid_v[i_v])
@@ -375,25 +376,6 @@ class LineOfSightTransform(CoordinateTransform):
                     beamlet_direction_x[i_los, count] = dir_vec_norm[0]
                     beamlet_direction_y[i_los, count] = dir_vec_norm[1]
                     beamlet_direction_z[i_los, count] = dir_vec_norm[2]
-
-
-                    # TODO: implement divergence, in vertical and horizontal dimensions
-                    # Rotate direction
-                    # d_direction_x[i_los, count] = (
-                    #     grid_w[i_w] * np.sin(self.div_width) / (0.5 * self.spot_width)
-                    # )
-                    # d_direction_x[i_los, count] = (
-                    #     grid_w[i_w] * np.cos(self.div_width) / (0.5 * self.spot_width)
-                    # )
-                    # ang_xy_new = ang_xy + self.div_width * grid_w[i_w] / (
-                    #     0.5 * self.spot_width
-                    # )
-                    # ang_Rz_new = self.div_width * grid_v[i_v] / \
-                    #              (0.5 * self.spot_width)
-                    # dir_x_new = np.cos(ang_xy_new)
-                    # dir_y_new = np.sin(ang_xy_new)
-                    # d_direction_x[i_los, count] = dir_x_new - dir_x
-                    # d_direction_y[i_los, count] = dir_y_new - dir_y
 
                     count += 1
 
