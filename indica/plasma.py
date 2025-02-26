@@ -715,6 +715,7 @@ class PlasmaProfiler:
                 "pressure",
                 "thermal_pressure",
                 "toroidal_rotation",
+                "total_radiation",
             ]
         self.plasma = plasma
         self.profilers = profilers
