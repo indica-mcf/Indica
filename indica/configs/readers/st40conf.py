@@ -85,6 +85,7 @@ class ST40Conf(MachineConf):
             },
             "get_radiation": {
                 "t": ":time",
+                "bad_channel": ":bad_channels",
                 "location": ".geometry:location",
                 "direction": ".geometry:direction",
                 "brightness": ".profiles:emission",

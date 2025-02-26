@@ -22,6 +22,7 @@ DataType = Union[ArrayType, DatasetType]
 UNITS: Dict[str, str] = {
     "none": "",
     "number": "#",
+    "bool": "bool",
     "length": "m",
     "counts": "Counts",
     "arbitrary": "[a.u]",
@@ -72,6 +73,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "t": ("Time", "time"),
     "time_to_calculate": ("Time", "time"),
     "channel": ("Channel", "number"),
+    "bad_channel": ("Bad channel", "bool"),
     "wavelength": ("Wavelength", "wavelength"),
     "x": ("x", "length"),
     "y": ("y", "length"),
