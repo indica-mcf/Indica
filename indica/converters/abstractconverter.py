@@ -451,7 +451,7 @@ class CoordinateTransform(ABC):
             self.impact_rho = rhop_mean.sel(
                 los_position=self.impact_parameter.index.los_position
             )
-            self.los_length = (xr.where(np.isfinite(rhop_mean), 1, 0) * self.dl).sum(
+            self.los_length = (xr.where(rhop_mean <= 1, 1, 0) * self.dl).sum(
                 "los_position"
             )
 

@@ -7,6 +7,7 @@ from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
+from indica.operators.atomic_data import default_atomic_data
 
 
 class TestModels:
@@ -19,13 +20,14 @@ class TestModels:
         self.equilibrium = load_default_objects(machine, "equilibrium")
         self.plasma = load_default_objects(machine, "plasma")
         self.plasma.set_equilibrium(self.equilibrium)
+        self.fz, self.power_loss = default_atomic_data(self.plasma.elements)
 
-    def run_model(self, instrument: str, model: Callable):
+    def run_model(self, instrument: str, model: Callable, *args, **kwargs):
         """
         Make sure model runs without errors
         """
 
-        _model = model(instrument)
+        _model = model(instrument, *args, **kwargs)
         if instrument in self.transforms.keys():
             transform = self.transforms[instrument]
             if hasattr(transform, "set_equilibrium") and instrument != "efit":
@@ -50,7 +52,8 @@ class TestModels:
         self.run_model("efit", EquilibriumReconstruction)
 
     def test_bolometer(self):
-        self.run_model("blom_xy1", PinholeCamera)
+
+        self.run_model("blom_xy1", PinholeCamera, self.power_loss)
 
     def test_helike_spectroscopy(self):
         self.run_model("xrcs", HelikeSpectrometer)
