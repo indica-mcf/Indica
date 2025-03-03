@@ -363,7 +363,8 @@ class LineOfSightTransform(CoordinateTransform):
                         # while conserving distance of the LOS = 1.0 meter
                         zdash = np.sin(theta_v + div_angle_rz)
 
-                        # Therefore, calculate the new projected distance in the XY plane
+                        # Therefore,
+                        # calculate the new projected distance in the XY plane
                         rdash = np.sqrt(1.0 - zdash**2)
 
                         # Rescale the rotated direction vector in the XY plane
