@@ -3,9 +3,9 @@ import matplotlib.cm as cm
 import numpy as np
 
 from indica.converters import LineOfSightTransform
+from indica.defaults.load_defaults import load_default_objects
 from indica.examples.example_plasma import example_plasma
 from indica.readers.st40reader import ST40Reader as ReadST40
-from indica.defaults.load_defaults import load_default_objects
 
 
 # Add Indica to python path
