@@ -71,7 +71,7 @@ class LineOfSightTransform(CoordinateTransform):
         spot_width: float = 0.0,
         spot_shape: str = "round",
         div_width: float = 0.0,
-        focal_length: float = np.inf,
+        focal_length: float = -1000.0,
         # div_h: float = 0.0,
         # spot_height: float = 0.0,
         **kwargs: Any,
