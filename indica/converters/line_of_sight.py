@@ -49,7 +49,18 @@ class LineOfSightTransform(CoordinateTransform):
     passes
         Number of passes across the plasma (e.g. interferometer
         with corner cube has passes=2)
-
+    beamlets
+        Number of beamlets in the LOS spot cross-section.
+        Currently only works with quadratic sequence (e.g.
+        1^2 = 1, 2^2 = 4, 3^2 = 9, 4^2 = 16, etc...)
+    spot_width
+        Width of the LOS spot in (m).
+    spot_shape
+        Shape of the spot. e.g. "round" or "rectangular"
+    div_width
+        Divergence angle of the width of the spot in (radians).
+    focal_length
+        Focal length of the LOS in (m).
     """
 
     def __init__(
@@ -98,7 +109,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.beamlets = beamlets
         self.div_width = div_width
         self.focal_length = focal_length
-        self.distribute_beamlets(debug=True)
+        self.distribute_beamlets(debug=False)
 
         # self.div_height = div_h
         # self.spot_height = spot_height
