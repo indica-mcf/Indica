@@ -15,7 +15,6 @@ DEFAULT_FILENAME = "te_400_400.txt"
 class SOLPSReader:
     """
     Class for reading SOLPS output
-
     TODO: Currently standalone, should be converted to a child of the datareader class
     """
 
@@ -36,6 +35,9 @@ class SOLPSReader:
         self.datatype = datatype
 
     def _read_solps_txt(self):
+        """
+        Read file and return dictionary with numpy arrays
+        """
         filepath = self.path / self.filename
 
         with filepath.open("r") as f:
@@ -65,7 +67,11 @@ class SOLPSReader:
             self.database_results = database_results
             return database_results
 
-    def get(self, file_type: str = "txt", verbose: bool = False, plot: bool = False):
+    def get(self, file_type: str = "txt", verbose: bool = False):
+        """
+        Temporary get method, similar to indica/readers/datareader
+        Returns DataArray of SOLPS output following Indica standards
+        """
         if file_type == "txt":
             reader_method: Callable = self._read_solps_txt
             available_quantities = {
@@ -86,37 +92,16 @@ class SOLPSReader:
         )
         self.data = data
 
-        if plot:
-            self.plot_solps_output()
-
         return data
 
     def plot_solps_output(self):
         if hasattr(self, "data"):
             plt.figure()
             self.data[self.datatype].plot()
-            plt.vlines(
-                self.data["R"].min(),
-                self.data["z"].min(),
-                self.data["z"].max(),
-                color="k",
-            )
-            plt.vlines(
-                self.data["R"].max(),
-                self.data["z"].min(),
-                self.data["z"].max(),
-                color="k",
-            )
-            plt.hlines(
-                self.data["z"].min(),
-                self.data["R"].min(),
-                self.data["R"].max(),
-                color="k",
-            )
-            plt.hlines(
-                self.data["z"].max(),
-                self.data["R"].min(),
-                self.data["R"].max(),
-                color="k",
-            )
+            Rlim = (self.data["R"].min(), self.data["R"].max())
+            zlim = (self.data["z"].min(), self.data["z"].max())
+            plt.vlines(Rlim[0], zlim[0], zlim[1], color="k")
+            plt.vlines(Rlim[1], zlim[0], zlim[1], color="k")
+            plt.hlines(zlim[0], Rlim[0], Rlim[1], color="k")
+            plt.hlines(zlim[1], Rlim[0], Rlim[1], color="k")
             plt.axis("equal")
