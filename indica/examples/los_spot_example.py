@@ -21,8 +21,6 @@ focal_length = -100.0  # meter
 spot_width = 0.01  # meter
 spot_height = 0.01  # meter
 spot_shape = "round"
-div_width = 100.0 * 1e-3  # radians
-
 
 los_transform = LineOfSightTransform(
     origin_x,
@@ -38,7 +36,7 @@ los_transform = LineOfSightTransform(
     spot_shape=spot_shape,
     beamlets=beamlets,
     # div_height=div_height,
-    div_width=div_width,
+    # div_width=div_width,
     focal_length=focal_length,
     machine_dimensions=machine_dims,
     passes=1,
