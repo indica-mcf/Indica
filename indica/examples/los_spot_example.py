@@ -17,7 +17,7 @@ name = "dummy_los"
 
 # Optional inputs for the spot
 beamlets = int(3 * 3)
-focal_length = -100.0  # meter
+focal_length = -0.5  # meter
 spot_width = 0.01  # meter
 spot_height = 0.01  # meter
 spot_shape = "round"
