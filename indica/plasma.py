@@ -682,7 +682,7 @@ class PlasmaProfiler:
     def __init__(
         self,
         plasma: Plasma,
-        profilers: dict[ProfilerBase],
+        profilers: dict[str, ProfilerBase],
         plasma_attribute_names=None,
         map_vtor: bool = False,
     ):
@@ -792,7 +792,6 @@ class PlasmaProfiler:
     def map_toroidal_rotation_to_ion_temperature(
         self,
     ):
-
         self.plasma.toroidal_rotation = (
             self.plasma.ion_temperature
             / self.plasma.ion_temperature.max("rhop")
