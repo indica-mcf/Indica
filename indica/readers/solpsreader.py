@@ -1,15 +1,29 @@
+import os
 from pathlib import Path
 from typing import Callable
+from typing import Dict
 from typing import Union
 
 import matplotlib.pylab as plt
 import numpy as np
+from xarray import DataArray
 
 from indica.utilities import build_dataarrays
 from indica.utilities import CACHE_DIR
+from indica.utilities import format_dataarray
+from indica.utilities import get_element_info
 
 DEFAULT_PATH = Path("")
-DEFAULT_FILENAME = "te_400_400.txt"
+DEFAULT_PULSE = 11890
+ELEMENTS = ["D", "C", "Ar", "Ne"]
+
+AVAILABLE_QUANTITIES = {
+    "te": ("electron_temperature", ["z", "R"]),
+    "ne": ("electron_density", ["z", "R"]),
+    "nion": ("ion_density", ["element", "z", "R"]),
+    "atomic_number": ("atomic_number", ["element"]),
+    "atomic_weight": ("atomic_weight", ["element"]),
+}
 
 
 class SOLPSReader:
@@ -21,83 +35,137 @@ class SOLPSReader:
     def __init__(
         self,
         path: Union[str, Path] = DEFAULT_PATH,
-        filename: str = DEFAULT_FILENAME,
-        datatype: str = "electron_temperature",
+        pulse: int = DEFAULT_PULSE,
     ):
+        self.available_quantities = AVAILABLE_QUANTITIES
         path = Path(path)
         if path == DEFAULT_PATH:
-            self.namespace = "openadas"
-            self.path = Path.home() / CACHE_DIR / "solps"
+            self.path = Path.home() / CACHE_DIR / "solps" / f"{pulse}"
         else:
-            self.namespace = "localadas"
             self.path = path
-        self.filename = filename
-        self.datatype = datatype
 
-    def _read_solps_txt(self):
+    def _read_solps_txt(self) -> Dict[str, np.array]:
         """
         Read file and return dictionary with numpy arrays
         """
-        filepath = self.path / self.filename
 
-        with filepath.open("r") as f:
-            tmp = f.readline()
-            while "r array" not in tmp:
-                tmp = f.readline()
-            _str = f.readline()
-            R = np.array(_str.strip().split()).astype(float)
+        R, z, database_results = {}, {}, {}
+        available_quantities = {
+            "R": ("R", []),
+            "z": ("z", []),
+        }
+        files = os.listdir(self.path)
+        for _file in files:
+            file_type = _file.split(".")[0]
 
-            while "z array" not in tmp:
+            filepath = self.path / _file
+            with filepath.open("r") as f:
                 tmp = f.readline()
-            _str = f.readline()
-            z = np.array(_str.strip().split()).astype(float)
-
-            while "value array" not in tmp:
-                tmp = f.readline()
-            _list = []
-            for iz in range(len(z)):
+                while "r array" not in tmp:
+                    tmp = f.readline()
                 _str = f.readline()
-                _no_nans = _str.replace("NaN", "-1")
-                _list.append(_no_nans.strip().split())
+                _R = np.array(_str.strip().split()).astype(float)
 
-            _array = np.array(_list).astype(float)
-            values = np.where(_array > 0, _array, np.nan)
+                while "z array" not in tmp:
+                    tmp = f.readline()
+                _str = f.readline()
+                _z = np.array(_str.strip().split()).astype(float)
 
-            database_results = {"R": R, "z": z, self.datatype: values}
-            self.database_results = database_results
-            return database_results
+                while "value array" not in tmp:
+                    tmp = f.readline()
+                _list = []
+                for iz in range(len(_z)):
+                    _str = f.readline()
+                    _no_nans = _str.replace("NaN", "-1")
+                    _list.append(_no_nans.strip().split())
 
-    def get(self, file_type: str = "txt", verbose: bool = False):
+                _array = np.array(_list).astype(float)
+                _data = np.where(_array > 0, _array, np.nan)
+
+                R[file_type] = _R
+                z[file_type] = _z
+                database_results[file_type] = _data
+
+        for k in R.keys():
+            assert np.all(R[k] == _R)
+            assert np.all(z[k] == _z)
+
+        database_results["R"] = _R
+        database_results["z"] = _z
+        self.database_results = database_results
+        self.available_quantities = available_quantities
+
+        return database_results
+
+    def get(
+        self, file_type: str = "txt", verbose: bool = False
+    ) -> Dict[str, DataArray]:
         """
         Temporary get method, similar to indica/readers/datareader
-        Returns DataArray of SOLPS output following Indica standards
+
+        Reformats SOLPS output in standard Indica DataArray format
         """
         if file_type == "txt":
             reader_method: Callable = self._read_solps_txt
-            available_quantities = {
-                "R": ("R", []),
-                "z": ("z", []),
-                self.datatype: (self.datatype, ["z", "R"]),
-            }
         else:
             raise ValueError(f"File type {file_type} not yet supported")
 
         database_results = reader_method()
 
+        # Combine element data into 1 matrixof shape (ion_charge, R, z)
+        nion = []
+        fz = {}
+        element_z, element_a, element_symbol = [], [], []
+        for elem in ELEMENTS:
+            if f"n{elem}0" in database_results.keys():
+                _z, _a, _name, _symbol = get_element_info(elem)
+                element_z.append(_z)
+                element_a.append(_a)
+                element_symbol.append(_symbol)
+
+                _fz = []
+                database_results[f"n{elem}"] = np.full_like(
+                    database_results[f"n{elem}0"], 0.0
+                )
+                ion_charge = np.arange(_z + 1)
+                for q in ion_charge:
+                    _tmp = database_results[f"n{elem}{q}"]
+                    _fz.append(_tmp)
+                    database_results[f"n{elem}"] += _tmp
+                    database_results.pop(f"n{elem}{q}")
+                nion.append(database_results[f"n{elem}"])
+
+                fz_coords = {
+                    "ion_charge": ion_charge,
+                    "z": database_results["z"],
+                    "R": database_results["R"],
+                }
+                fz[f"{elem}"] = format_dataarray(
+                    np.array(_fz) / database_results[f"n{elem}"],
+                    "fractional_abundance",
+                    fz_coords,
+                    make_copy=True,
+                )
+        database_results["nion"] = np.array(nion)
+        database_results["element"] = element_symbol
+        database_results["atomic_number"] = element_z
+        database_results["atomic_weight"] = element_a
+
         data = build_dataarrays(
             database_results,
-            available_quantities,
+            AVAILABLE_QUANTITIES,
             include_error=False,
             verbose=verbose,
         )
+        data["fz"] = fz
         self.data = data
 
         return data
 
-    def plot_solps_output(self):
+    def plot_solps_output(self, datatype: str = "electron_density"):
         if hasattr(self, "data"):
             plt.figure()
-            self.data[self.datatype].plot()
+            self.data[datatype].plot()
             Rlim = (self.data["R"].min(), self.data["R"].max())
             zlim = (self.data["z"].min(), self.data["z"].max())
             plt.vlines(Rlim[0], zlim[0], zlim[1], color="k")
