@@ -218,27 +218,52 @@ class JETReader(DataReader):
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        uid = data["uid"]
-        instrument = data["instrument"]
-        revision = data["revision"]
-        quantity = instrument[-1]
-        instrument = instrument[:-1]
-        qval, qval_dimensions, _, qval_path = self.reader_utils.get_data(
-            uid=uid, instrument="ks3", quantity="zef" + quantity, revision=revision
-        )
-        data["zeff_avrg"] = qval
-        data["t"] = qval_dimensions[0]
-        data["zeff_avrg_records"] = qval_path
-        los, los_path = self.reader_utils.get_signal(
-            uid,
-            self.machine_conf._BREMSSTRAHLUNG_LOS[instrument],
-            "los" + quantity,
-            revision,
-        )
-        data["location"] = np.asarray([[(los[1] / 1000), 0, (los[2] / 1000)]])
-        data["direction"] = (
-            np.asarray([[(los[4] / 1000), 0, (los[5] / 1000)]]) - data["location"]
-        )
+        uid: str = data["uid"]
+        instrument: str = data["instrument"]
+        revision: str = data["revision"]
+        if "ks3" in instrument.lower():
+            quantity = instrument[-1]
+            instrument = instrument[:-1]
+            qval, qval_dimensions, _, qval_path = self.reader_utils.get_data(
+                uid=uid, instrument="ks3", quantity="zef" + quantity, revision=revision
+            )
+            data["zeff_avrg"] = qval
+            data["t"] = qval_dimensions[0]
+            try:
+                data["channel"] = np.arange(len(qval_dimensions[1]))
+            except IndexError:
+                data["channel"] = np.array([0], ndmin=1)
+            data["zeff_avrg_records"] = qval_path
+            los, _ = self.reader_utils.get_signal(
+                uid,
+                self.machine_conf._BREMSSTRAHLUNG_LOS[instrument],
+                "los" + quantity,
+                revision,
+            )
+            data["location"] = np.asarray([[(los[1] / 1000), 0, (los[2] / 1000)]])
+            data["direction"] = (
+                np.asarray([[(los[4] / 1000), 0, (los[5] / 1000)]]) - data["location"]
+            )
+        elif instrument.lower().startswith("cx"):
+            assert self.pulse >= 92671
+            spec = {
+                "cxs": "ks5a",
+                "cxd": "ks5b",
+                "cxf": "ks5c",
+                "cxg": "ks5d",
+                "cxh": "ks5e",
+            }[instrument.lower()[:3]]
+            trck, _ = self.reader_utils._get_signal(uid, instrument, "trck", revision)
+            data["location"], data["direction"] = _get_cxrs_los_geometry(
+                sav_file=_get_cxrs_los_savfile(pulse=self.pulse, spec=spec),
+                tracks=_get_cxrs_active_tracks(
+                    pulse=self.pulse, spec=spec, trck=trck.data
+                ),
+            )
+            data["t"] = data["zeff_avrg_dimensions"][0]
+            data["channel"] = np.arange(len(data["zeff_avrg_dimensions"][1]))
+        else:
+            raise UserWarning(f"{instrument} unsupported for {__class__}")
         transform = assign_lineofsight_transform(data)
         return data, transform
 
@@ -409,9 +434,6 @@ def _get_cxrs_active_tracks(pulse: int, spec: str, trck: ArrayLike) -> ArrayLike
     idlb.execute("track_reshuffle=str1.pulse_setup.ks4fit_track_reshuffle")
     viewing_position = idlb.get("viewing_position")
     track_reshuffle = idlb.get("track_reshuffle")
-    assert len(viewing_position) == len(track_reshuffle) == len(trck)
-    return [
-        viewing_position[i - 1]
-        for i in track_reshuffle
-        if int(trck[len(trck) - i]) == 1
-    ][::-1]
+    assert len(viewing_position) == len(track_reshuffle)
+    assert len(trck) >= len(viewing_position)
+    return [viewing_position[i - 1] for i in track_reshuffle if int(trck[i - 1]) == 1]

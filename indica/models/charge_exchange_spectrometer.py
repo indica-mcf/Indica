@@ -39,6 +39,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             "R": self.transform.R,
             "vtor": self.Vtor_at_channels,
             "ti": self.Ti_at_channels,
+            "conc": self.Conc_at_channels,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 
@@ -46,6 +47,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         self,
         Ti: DataArray = None,
         Vtor: DataArray = None,
+        Conc: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
         **kwargs,
@@ -70,6 +72,9 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
                 t = self.plasma.time_to_calculate
             Ti = self.plasma.ion_temperature.interp(t=t)
             Vtor = self.plasma.toroidal_rotation.interp(t=t)
+            Conc = self.plasma.ion_density.sel(element=self.element).interp(
+                t=t
+            ) / self.plasma.electron_density.interp(t=t)
         else:
             if Ti is None or Vtor is None:
                 raise ValueError("Give inputs or assign plasma class!")
@@ -82,9 +87,13 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         Vtor_at_channels = self.transform.map_profile_to_rho(
             Vtor, t=t, calc_rho=calc_rho
         )
+        Conc_at_channels = self.transform.map_profile_to_rho(
+            Conc, t=t, calc_rho=calc_rho
+        )
 
         self.Ti_at_channels = Ti_at_channels
         self.Vtor_at_channels = Vtor_at_channels
+        self.Conc_at_channels = Conc_at_channels
 
         self._build_bckc_dictionary()
 
@@ -125,5 +134,17 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             plt.scatter(rho, Ti, color=cols_time[i], marker="o", alpha=0.7)
         plt.xlabel("Channel")
         plt.ylabel("Measured ion temperature (eV)")
+        plt.legend()
+        plt.show()
+
+        plt.figure()
+        for i, t in enumerate(self.t):
+            if i % nplot:
+                continue
+            Conc = self.bckc["conc"].sel(t=t, method="nearest")
+            rho = Conc.transform.rhop.sel(t=t, method="nearest")
+            plt.scatter(rho, Conc, color=cols_time[i], marker="o", alpha=0.7)
+        plt.xlabel("Channel")
+        plt.ylabel("Measured impurity concentration")
         plt.legend()
         plt.show()

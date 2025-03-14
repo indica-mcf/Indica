@@ -161,7 +161,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "radial_magnetic_field": ("$B_{r}$", "magnetic_field"),
     "vertical_magnetic_field": ("$B_{z}$", "magnetic_field"),
     "total_magnetic_field": ("$B_{tot}$", "magnetic_field"),
-    "concentration": ("Concentration", "percent"),
+    "concentration": ("Concentration", "none"),
     "scd": ("SCD rate coefficient", "ionisation_rate"),
     "acd": ("ACD rate coefficient", "recombination_rate"),
     "ccd": ("CCD rate coefficient", "recombination_rate"),
