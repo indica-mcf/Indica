@@ -169,6 +169,11 @@ class SALUtils(BaseIO):
             "kb5v": "bolo",
             "ks3h": "ks3",
             "ks3v": "ks3",
+            **{
+                "cx{}{}_zeff".format(val1, val2): "cx{}{}".format(val1, val2)
+                for val1 in ("s", "d", "f", "g", "h")
+                for val2 in ("m", "w", "x", "4", "6", "8")
+            },
         }
         return instrument_mapping.get(instrument, instrument)
 
