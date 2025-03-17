@@ -90,6 +90,7 @@ class LineOfSightTransform(CoordinateTransform):
                 negative value
     """
 
+    # ToDo: Distribute beamlets evenly across the spot cross-section
     # ToDo: Implement divergence
     def __init__(
         self,
