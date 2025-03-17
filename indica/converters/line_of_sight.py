@@ -55,12 +55,17 @@ class LineOfSightTransform(CoordinateTransform):
         1^2 = 1, 2^2 = 4, 3^2 = 9, 4^2 = 16, etc...)
     spot_width
         Width of the LOS spot in (m).
+    spot_height
+        Height of the LOS spot in (m).
     spot_shape
         Shape of the spot. e.g. "round" or "square"
     div_width
         Divergence angle of the width of the spot in (radians).
     focal_length
         Focal length of the LOS in (m).
+    plot_beamlets
+        True/False flag to plot beamlet distribution across
+        the spot
 
     Examples:
         Pinhole Cameras
@@ -85,9 +90,7 @@ class LineOfSightTransform(CoordinateTransform):
                 negative value
     """
 
-    # ToDo: (a) Implement rectangular spots with evenly distributed
-    #  beamlets across the spot cross-section
-    # ToDo: (b) Implement divergence
+    # ToDo: Implement divergence
     def __init__(
         self,
         origin_x: OnlyArray,
@@ -105,9 +108,10 @@ class LineOfSightTransform(CoordinateTransform):
         passes: int = 1,
         beamlets: int = 1,
         spot_width: float = 0.0,
-        # spot_height: float = 0.0,
+        spot_height: float = 0.0,
         spot_shape: str = "round",
         focal_length: float = -1000.0,
+        plot_beamlets: bool = False,
         # div_width: float = 0.0,
         # div_height: float = 0.0,
         **kwargs: Any,
@@ -129,11 +133,11 @@ class LineOfSightTransform(CoordinateTransform):
 
         # Spot info
         self.spot_width = spot_width
-        self.spot_height = spot_width
+        self.spot_height = spot_height
         self.spot_shape = spot_shape
         self.beamlets = beamlets
         self.focal_length = focal_length
-        self.distribute_beamlets(debug=False)
+        self.distribute_beamlets(debug=plot_beamlets)
 
         # self.div_width = div_width
         # self.spot_height = spot_height
@@ -278,6 +282,30 @@ class LineOfSightTransform(CoordinateTransform):
             v = v[inside]
 
         elif self.spot_shape == "square":
+
+            spot_w = np.array(
+                [
+                    -0.5 * self.spot_width,
+                    0.5 * self.spot_width,
+                    0.5 * self.spot_width,
+                    -0.5 * self.spot_width,
+                    -0.5 * self.spot_width,
+                ]
+            )
+            spot_y = np.array(
+                [
+                    -0.5 * self.spot_height,
+                    -0.5 * self.spot_height,
+                    0.5 * self.spot_height,
+                    0.5 * self.spot_height,
+                    -0.5 * self.spot_height,
+                ]
+            )
+
+            if self.spot_width != self.spot_height:
+                raise ValueError("spot_width does not equal spot_height")
+
+        elif self.spot_shape == "rectangular":
 
             spot_w = np.array(
                 [
