@@ -1,3 +1,6 @@
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(message)s')
+
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
@@ -16,6 +19,7 @@ from indica.utilities import get_element_info
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
 
+
 ADF15 = {
     "ne": dict(file_type="pju",
                year="96"),
@@ -32,7 +36,16 @@ ADF15 = {
 }
 
 
-def read_and_format_adf15(elements: list, wavelength_bounds: slice = None):
+def read_and_format_adf15(elements: list, wavelength_bounds: slice = None) -> dict[str, xr.DataArray]:
+    """
+    DataArrays have dimensions of:
+    * electron temperature
+    * electron density
+    * wavelength of transition
+    * type of transition (excit, recom, chexc)
+    * ion charge of parent ion
+    """
+
     reader = ADASReader()
     pecs = {}
     for element in elements:
@@ -40,8 +53,7 @@ def read_and_format_adf15(elements: list, wavelength_bounds: slice = None):
         year = ADF15[element]["year"]
         _pecs = []
         element_info = get_element_info(element)
-        # for charge in range(element_info[0]):
-        for charge in range(16,17):
+        for charge in range(element_info[0]):
             _pec = reader.get_adf15(element=element, charge=str(charge), filetype=file_type, year=year)
             _pec = _pec.swap_dims({"index": "wavelength"}).drop_vars("index")
             types = np.unique(_pec.type)
@@ -61,6 +73,7 @@ def read_and_format_adf15(elements: list, wavelength_bounds: slice = None):
 
             _pec = _pec.expand_dims(
                 {"ion_charge": (charge,)}, )
+            _pec = _pec.assign_coords({"wavelength": _pec.wavelength * 0.1})  # Angstrom -> nm
             if wavelength_bounds is not None:
                 _pec = _pec.where(
                     (_pec.wavelength > wavelength_bounds.start) & (_pec.wavelength < wavelength_bounds.stop), drop=True)
@@ -69,9 +82,6 @@ def read_and_format_adf15(elements: list, wavelength_bounds: slice = None):
         element_pec = xr.concat(_pecs, "ion_charge")
         element_pec = element_pec.interpolate_na("electron_temperature").interpolate_na("electron_density")
         pecs[element] = element_pec
-
-    # TODO: Why does Ar have charge 17 and C only up to 5 ???
-
     return pecs
 
 
@@ -83,21 +93,24 @@ class PassiveSpectrometer(AbstractDiagnostic):
     def __init__(
             self,
             name: str,
-            atomic_data: dict,
+            pecs: dict,
             instrument_method="get_spectrometer",
             window: np.array = None,
     ):
 
         self.transform: LineOfSightTransform
         self.name = name
-        self.atomic_data = atomic_data
+        self.pecs = pecs
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
-        self.window = window
+        self.window = xr.DataArray(window, {"window": window})
 
-    def _transition_matrix(self, element="ar", ):
-        """vectorisation of the transition matrix used to convert
-        PECs to emissivity"""
+        self.intensity: dict[str, xr.DataArray] = None
+
+
+    def _transition_matrix(self, element: str = "ar") -> xr.DataArray:
+        """ Returns transition matrix used to convert
+        PECs to emissivity """
         # fmt: off
         _Nimp = self.Nimp.sel(element=element, )
         _Fz = self.Fz[element]
@@ -112,41 +125,39 @@ class PassiveSpectrometer(AbstractDiagnostic):
 
     def calculate_intensity(
             self,
-    ):
+    ) -> dict[str, xr.DataArray]:
         """
-        Returns DataArrays of emission type with co-ordinates of line label and
-        spatial co-ordinate
+        Returns emissivity with dims:
+        * time
+        * rho poloidal
+        * wavelength of transition
         """
-        intensity = {}
-        for element, pec in self.atomic_data.items():
+        self.intensity = {}
+        for element, pec in self.pecs.items():
             mult = self._transition_matrix(element=element, )
             pec = pec.interp(electron_temperature=self.Te, electron_density=self.Ne)
-            # Swapping to dataset and then dropping line_names with NaNs is much faster
-            intensity[element] = (pec * mult).sum("type").sum("ion_charge")
+            self.intensity[element] = (pec * mult).sum("type").sum("ion_charge")
+        return self.intensity
 
-        self.intensity = intensity
+    def make_spectra(self, ) -> xr.DataArray:
+        """
+        Returns
 
-        return intensity
-
-    def make_spectra(self, ):
-
+        """
         spectra = []
         for element, intensity in self.intensity.items():
             e_info = get_element_info(element)
             _spectra = ph.doppler_broaden(
-                xr.DataArray(self.window, {"window": self.window}),
+                self.window,
                 intensity,
                 intensity.wavelength,
-                e_info[1],
+                e_info[1],  # atomic mass
                 self.Ti,  # + self.instrumental_broadening,
             )
             spectra.append(_spectra.sum("wavelength").expand_dims("element").rename({"window": "wavelength"}))
 
         # TODO: add instrument functions add broadening "filter"
-        spectra = xr.concat(spectra, "element").sum("element")
-
-        self.spectra = spectra
-
+        self.spectra = xr.concat(spectra, "element").sum("element")
         measured_spectra = self.transform.integrate_on_los(
             self.spectra,
             t=self.spectra.t,
@@ -282,30 +293,30 @@ if __name__ == "__main__":
                                      )
                                      )
     # transform.plot()
-
+    log = logging.getLogger()
+    log.info("starting")
+    log.info("loading default objects")
     plasma = load_default_objects("st40", "plasma")
     plasma.electron_temperature *= 0.5
     equilibrium = load_default_objects("st40", "equilibrium")
     transform.set_equilibrium(equilibrium=equilibrium)
     plasma.set_equilibrium(equilibrium)
-
     # atomic_data
-    w_up = 4.2
-    w_low = 3.8
+    w_up = 500
+    w_low = 3
     window = np.linspace(w_low, w_up, 1000)
 
-    atomic_data = read_and_format_adf15(["ar"], wavelength_bounds=slice(w_low, w_up))
+    log.info("reading and formatting adf15")
+    pecs = read_and_format_adf15(["c"], wavelength_bounds=slice(w_low, w_up))
 
-    p_spec = PassiveSpectrometer(name="test", atomic_data=atomic_data, window=window)
+    log.info("Initialising PassiveSpectrometer")
+    p_spec = PassiveSpectrometer(name="test", pecs=pecs, window=window)
     p_spec.set_plasma(plasma)
     p_spec.set_transform(transform)
+    log.info("running model")
     p_spec()
+    log.info("plotting")
     p_spec.plot()
     plt.show(block=True)
-    print()
+    log.info("finished")
 
-    #
-    # model = PassiveSpectrometer(name="test", window=window, atomic_data=None)
-    # model.__call__()
-    # model.plot()
-    # plt.show()
