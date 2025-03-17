@@ -59,8 +59,6 @@ class LineOfSightTransform(CoordinateTransform):
         Height of the LOS spot in (m).
     spot_shape
         Shape of the spot. e.g. "round" or "square"
-    div_width
-        Divergence angle of the width of the spot in (radians).
     focal_length
         Focal length of the LOS in (m).
     plot_beamlets
@@ -73,10 +71,11 @@ class LineOfSightTransform(CoordinateTransform):
             direction - direction vector from detector to the
                 pinhole
             spot_shape - the spot is defined as the detector
-                cross-section, typically rectangular
-            spot_width - width of the detector
-            focal_length - distance from detector to the centre
-                of the pinhole
+                element cross-section, typically rectangular
+            spot_width - width of the detector element
+            spot_height - height of the detector element
+            focal_length - distance from the centre of the
+                detector element to the centre of the pinhole
         Spectrometers
             origin - position vector at a reference position
                 beyond the optics e.g. the front of a lens or
@@ -85,9 +84,10 @@ class LineOfSightTransform(CoordinateTransform):
             spot_shape - the spot is defined as the cross-section
                 of the LOS, typically round
             spot_width - width of the spot
-            focal_length - 'effective' distance from a virtual
-                focal point to define the cone, typically a
-                negative value
+            spot_height - height of the spot
+            focal_length - 'effective' distance from the spot to a
+                virtual focal point to define the cone shape,
+                typically a negative value (behind the lens)
     """
 
     # ToDo: Distribute beamlets evenly across the spot cross-section
@@ -269,15 +269,18 @@ class LineOfSightTransform(CoordinateTransform):
         # Draw spot
         if self.spot_shape == "round":
 
-            th = np.linspace(0.0, 2 * np.pi, 1000)
-            spot_w = 0.5 * self.spot_width * np.cos(th)
-            spot_y = 0.5 * self.spot_width * np.sin(th)
+            # Draw ellipse
+            a = self.spot_width / 2
+            b = self.spot_height / 2
+            spot_w = np.linspace(-a, a, 500, dtype=float)
+            spot_y = (b / a) * np.sqrt(a**2 - spot_w**2)
+            spot_w = np.append(spot_w, np.flip(spot_w))
+            spot_y = np.append(spot_y, np.flip(-spot_y))
 
             # Find beamlets outside of the round shape
             # and remove them
-            spot_r = np.sqrt(w**2 + v**2)
-            inside = spot_r <= (0.5 * self.spot_width)
-
+            val = (w**2 / a**2) + (v**2 / b**2)
+            inside = val <= 1
             self.beamlets = int(np.sum(inside))
             w = w[inside]
             v = v[inside]
@@ -334,6 +337,7 @@ class LineOfSightTransform(CoordinateTransform):
             plt.figure()
             plt.plot(spot_w, spot_y, "k")
             plt.scatter(w, v, c="r")
+            plt.axis("equal")
             plt.show()
 
         # Set weightings

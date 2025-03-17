@@ -21,8 +21,8 @@ def line_of_sight_example(make_plot=True):
     beamlets = int(3 * 3)
     focal_length = -0.5  # meter
     spot_width = 0.01  # meter
-    spot_height = 0.02  # meter
-    spot_shape = "rectangular"
+    spot_height = 0.01  # meter
+    spot_shape = "round"
     plot_beamlets = True
 
     los_transform = LineOfSightTransform(
