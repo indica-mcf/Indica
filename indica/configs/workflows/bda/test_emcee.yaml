@@ -9,8 +9,8 @@ defaults:
   - reader: phantom
 
 param_names: ["ion_temperature.y0", "xrcs.scale_spectra"]
-diagnostics: ["xrcs", "cxff_tws_c", "cxff_pi", "efit"]
-quant_to_optimise: ["xrcs.spectra_raw", "cxff_tws_c.ti", "cxff_pi.ti", "efit.wp"]
+diagnostics: ["xrcs", "cxff_pi", "efit"] #, "cxff_tws_c"
+quant_to_optimise: ["xrcs.spectra_raw", "cxff_pi.ti", "efit.wp"] #, "cxff_tws_c.ti"
 
 tstart: 0.05
 tend: 0.06
