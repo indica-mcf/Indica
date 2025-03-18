@@ -176,6 +176,16 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "zeff": ("effective_charge", ["t", "rhop"]),
         "R_shift": ("R_shift", ["t"]),
     },
+    "get_solps": {
+        "R": ("R", []),
+        "z": ("z", []),
+        "element": ("element", []),
+        "atomic_weight": ("atomic_weight", ["element"]),
+        "atomic_number": ("atomic_number", ["element"]),
+        "te": ("electron_temperature", ["z", "R"]),
+        "ne": ("electron_density", ["z", "R"]),
+        "nion": ("ion_density", ["element", "z", "R"]),
+    },
     # "get_astra": {  # TODO: implement
     # },
 }
