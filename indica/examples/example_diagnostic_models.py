@@ -10,6 +10,7 @@ from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
+from indica.operators.atomic_data import default_atomic_data
 
 
 def run_example_diagnostic_model(
@@ -22,7 +23,13 @@ def run_example_diagnostic_model(
     plasma.set_equilibrium(equilibrium)
     transform = transforms[instrument]
     transform.set_equilibrium(equilibrium)
-    model = model(instrument)
+
+    kwargs = {}
+    if model == PinholeCamera:
+        _, power_loss = default_atomic_data(plasma.elements)
+        kwargs["power_loss"] = power_loss
+
+    model = model(instrument, **kwargs)
     model.set_transform(transform)
     model.set_plasma(plasma)
 
