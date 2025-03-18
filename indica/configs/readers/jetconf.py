@@ -28,6 +28,11 @@ class JETConf(MachineConf):
                 for val1 in ("s", "d", "f", "g", "h")
                 for val2 in ("m", "w", "x", "4", "6", "8")
             },
+            **{
+                "cx{}{}_zeff".format(val1, val2): "get_zeff"
+                for val1 in ("s", "d", "f", "g", "h")
+                for val2 in ("m", "w", "x", "4", "6", "8")
+            },
         }
         self.QUANTITIES_PATH = {
             "get_equilibrium": {
@@ -62,12 +67,13 @@ class JETConf(MachineConf):
             "get_density_reflectometer": {"R": "r", "z": "z", "ne": "ne"},
             "get_sxr_radiation": {},
             "get_radiation": {},
-            "get_zeff": {},
+            "get_zeff": {"zeff_avrg": "zfbr"},
             "get_charge_exchange": {
                 "R": "rpos",
                 "z": "pos",
                 "ti": "ti",
                 "vtor": "angf",
+                "conc": "conc",
             },
         }
         self._BREMSSTRAHLUNG_LOS = {
