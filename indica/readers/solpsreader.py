@@ -1,3 +1,4 @@
+from copy import deepcopy
 import os
 from pathlib import Path
 from typing import Callable
@@ -8,6 +9,7 @@ import matplotlib.pylab as plt
 import numpy as np
 from xarray import DataArray
 
+from indica.available_quantities import READER_QUANTITIES
 from indica.utilities import build_dataarrays
 from indica.utilities import CACHE_DIR
 from indica.utilities import format_dataarray
@@ -16,14 +18,6 @@ from indica.utilities import get_element_info
 DEFAULT_PATH = Path("")
 DEFAULT_PULSE = 11890
 ELEMENTS = ["D", "C", "Ar", "Ne"]
-
-AVAILABLE_QUANTITIES = {
-    "te": ("electron_temperature", ["z", "R"]),
-    "ne": ("electron_density", ["z", "R"]),
-    "nion": ("ion_density", ["element", "z", "R"]),
-    "atomic_number": ("atomic_number", ["element"]),
-    "atomic_weight": ("atomic_weight", ["element"]),
-}
 
 
 class SOLPSReader:
@@ -37,7 +31,7 @@ class SOLPSReader:
         path: Union[str, Path] = DEFAULT_PATH,
         pulse: int = DEFAULT_PULSE,
     ):
-        self.available_quantities = AVAILABLE_QUANTITIES
+        self.available_quantities = READER_QUANTITIES["get_solps"]
         path = Path(path)
         if path == DEFAULT_PATH:
             self.path = Path.home() / CACHE_DIR / "solps" / f"{pulse}"
@@ -50,10 +44,6 @@ class SOLPSReader:
         """
 
         R, z, database_results = {}, {}, {}
-        available_quantities = {
-            "R": ("R", []),
-            "z": ("z", []),
-        }
         files = os.listdir(self.path)
         for _file in files:
             file_type = _file.split(".")[0]
@@ -93,12 +83,11 @@ class SOLPSReader:
         database_results["R"] = _R
         database_results["z"] = _z
         self.database_results = database_results
-        self.available_quantities = available_quantities
 
         return database_results
 
     def get(
-        self, file_type: str = "txt", verbose: bool = False
+        self, file_type: str = "txt", verbose: bool = False, time: float = 0.05
     ) -> Dict[str, DataArray]:
         """
         Temporary get method, similar to indica/readers/datareader
@@ -113,9 +102,10 @@ class SOLPSReader:
         database_results = reader_method()
 
         # Combine element data into 1 matrixof shape (ion_charge, R, z)
-        nion = []
-        fz = {}
-        element_z, element_a, element_symbol = [], [], []
+        t = np.array([time])
+        nion: list = []
+        fz: dict = {}
+        elements, element_z, element_a, element_symbol = [], [], [], []
         for elem in ELEMENTS:
             if f"n{elem}0" in database_results.keys():
                 _z, _a, _name, _symbol = get_element_info(elem)
@@ -123,6 +113,12 @@ class SOLPSReader:
                 element_a.append(_a)
                 element_symbol.append(_symbol)
 
+                if elem == "D":
+                    element = "h"
+                else:
+                    element = _symbol.lower()
+
+                elements.append(element)
                 _fz = []
                 database_results[f"n{elem}"] = np.full_like(
                     database_results[f"n{elem}0"], 0.0
@@ -140,36 +136,55 @@ class SOLPSReader:
                     "z": database_results["z"],
                     "R": database_results["R"],
                 }
-                fz[f"{elem}"] = format_dataarray(
+                fz[f"{element}"] = format_dataarray(
                     np.array(_fz) / database_results[f"n{elem}"],
                     "fractional_abundance",
                     fz_coords,
                     make_copy=True,
-                )
+                ).expand_dims(dim={"t": t})
         database_results["nion"] = np.array(nion)
-        database_results["element"] = element_symbol
-        database_results["atomic_number"] = element_z
+        database_results["element"] = elements
         database_results["atomic_weight"] = element_a
+        database_results["atomic_number"] = element_z
 
         data = build_dataarrays(
             database_results,
-            AVAILABLE_QUANTITIES,
+            self.available_quantities,
             include_error=False,
             verbose=verbose,
         )
-        data["fz"] = fz
+        for k in data.keys():
+            data[k] = data[k].expand_dims(dim={"t": t})
+
+        data["fz"]: dict = fz
         self.data = data
 
         return data
 
-    def plot_solps_output(self, datatype: str = "electron_density"):
+    def plot_solps_output(
+        self, key: str = "te", element: str = "c", ion_charge: int = 0
+    ):
         if hasattr(self, "data"):
+            title = ""
+            data = deepcopy(self.data[key])
+            if key == "fz":
+                data = data[element]
+                title += f"{element} "
+            else:
+                if "element" in data.dims:
+                    data = data.sel(element=element)
+                    title += f"{element} "
+            if "ion_charge" in data.dims:
+                data = data.sel(ion_charge=ion_charge)
+                title += f"{ion_charge}+"
+
             plt.figure()
-            self.data[datatype].plot()
-            Rlim = (self.data["R"].min(), self.data["R"].max())
-            zlim = (self.data["z"].min(), self.data["z"].max())
+            data.plot()
+            Rlim = (data.R.min(), data.R.max())
+            zlim = (data.z.min(), data.z.max())
             plt.vlines(Rlim[0], zlim[0], zlim[1], color="k")
             plt.vlines(Rlim[1], zlim[0], zlim[1], color="k")
             plt.hlines(zlim[0], Rlim[0], Rlim[1], color="k")
             plt.hlines(zlim[1], Rlim[0], Rlim[1], color="k")
             plt.axis("equal")
+            plt.title(title)
