@@ -3,7 +3,7 @@ from indica.configs.readers.machineconf import MachineConf
 
 class ST40Conf(MachineConf):
     def __init__(self):
-        self.MACHINE_DIMS = ((0.15, 0.85), (-0.75, 0.75))
+        self.MACHINE_DIMS = ((0.15, 0.85), (-0.8, 0.8))
         self.INSTRUMENT_METHODS = {
             "efit": "get_equilibrium",
             "xrcs": "get_helike_spectroscopy",
