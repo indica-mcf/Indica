@@ -58,7 +58,7 @@ class LineOfSightTransform(CoordinateTransform):
     spot_height
         Height of the LOS spot in (m).
     spot_shape
-        Shape of the spot. e.g. "round" or "square"
+        Shape of the spot. e.g. "round", "square" or "rectangular"
     focal_length
         Focal length of the LOS in (m).
     plot_beamlets
