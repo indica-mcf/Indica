@@ -7,7 +7,6 @@ from indica.models import HelikeSpectrometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
 from indica.operators.atomic_data import default_atomic_data
-from indica.readers import SOLPSReader
 from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
@@ -72,24 +71,3 @@ def example_model_reader(plot=False):
         plt.show(block=True)
 
     return bckc, model_reader
-
-
-def example_solps_reader():
-    instrument = "blom_dv1"
-    transform = TRANSFORMS[instrument]
-    transform.set_equilibrium(EQUILIBRIUM)
-    solps = SOLPSReader()
-    data = solps.get()
-
-    _, power_loss = default_atomic_data(data["nion"].element.values)
-
-    model = PinholeCamera(name=instrument, power_loss=power_loss)
-    model.set_transform(transform)
-
-    _ = model(
-        Te=data["te"], Ne=data["ne"], Nion=data["nion"], fz=data["fz"], t=data["te"].t
-    )
-
-    model.plot()
-
-    return model

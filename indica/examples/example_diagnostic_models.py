@@ -11,6 +11,7 @@ from indica.models import Interferometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
 from indica.operators.atomic_data import default_atomic_data
+from indica.readers import SOLPSReader
 
 
 def run_example_diagnostic_model(
@@ -113,6 +114,30 @@ def example_equilibrium(
     instrument = "efit"
     _model = EquilibriumReconstruction
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
+
+
+def example_pinhole_camera_2d(machine: str = "st40"):
+    transforms = load_default_objects(machine, "geometry")
+    equilibrium = load_default_objects(machine, "equilibrium")
+
+    instrument = "blom_dv1"
+    transform = transforms[instrument]
+    transform.set_equilibrium(equilibrium)
+    solps = SOLPSReader()
+    data = solps.get()
+
+    _, power_loss = default_atomic_data(data["nion"].element.values)
+
+    model = PinholeCamera(name=instrument, power_loss=power_loss)
+    model.set_transform(transform)
+
+    _ = model(
+        Te=data["te"], Ne=data["ne"], Nion=data["nion"], fz=data["fz"], t=data["te"].t
+    )
+
+    model.plot()
+
+    return model
 
 
 if __name__ == "__main__":
