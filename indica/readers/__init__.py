@@ -9,12 +9,14 @@ from .adas import ADASReader
 from .datareader import DataReader
 from .eqdskreader import EQDSKReader
 from .readerprocessor import ReaderProcessor
+from .solpsreader import SOLPSReader
 
 __all__ = [
     "ADASReader",
     "DataReader",
     "ReaderProcessor",
     "EQDSKReader",
+    "SOLPSReader",
 ]
 
 try:
