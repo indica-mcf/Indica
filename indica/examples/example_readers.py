@@ -6,27 +6,31 @@ from indica.models import ChargeExchangeSpectrometer
 from indica.models import HelikeSpectrometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
+from indica.operators.atomic_data import default_atomic_data
 from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
 
 CMAP, COLORS = set_plot_colors()
+PLASMA = load_default_objects("st40", "plasma")
+TRANSFORMS = load_default_objects("st40", "geometry")
+EQUILIBRIUM = load_default_objects("st40", "equilibrium")
+MODELS = {
+    "cxff_pi": ChargeExchangeSpectrometer,
+    "xrcs": HelikeSpectrometer,
+    "ts": ThomsonScattering,
+    "sxrc_xy1": PinholeCamera,
+}
 
 
 def example_model_reader(plot=False):
-    plasma = load_default_objects("st40", "plasma")
-    transforms = load_default_objects("st40", "geometry")
-    equilibrium = load_default_objects("st40", "equilibrium")
-    models = {
-        "cxff_pi": ChargeExchangeSpectrometer,
-        "xrcs": HelikeSpectrometer,
-        "ts": ThomsonScattering,
-        "sxrc_xy1": PinholeCamera,
-    }
+    _, power_loss = default_atomic_data(PLASMA.elements)
 
-    model_reader = ModelReader(models)
-    model_reader.set_plasma(plasma)
-    model_reader.set_geometry_transforms(transforms, equilibrium)
+    model_reader = ModelReader(
+        MODELS, model_kwargs={"sxrc_xy1": {"power_loss": power_loss}}
+    )
+    model_reader.set_plasma(PLASMA)
+    model_reader.set_geometry_transforms(TRANSFORMS, EQUILIBRIUM)
     bckc = model_reader()
 
     if plot:
@@ -35,8 +39,8 @@ def example_model_reader(plot=False):
         ti = bckc["cxff_pi"]["ti"]
         cols = CMAP(np.linspace(0.75, 0.1, len(ti.t), dtype=float))
         for i, t in enumerate(ti.t):
-            plasma.ion_temperature.sel(t=t, method="nearest").plot(color=cols[i])
-        plasma.ion_temperature.sel(t=t, method="nearest").plot(
+            PLASMA.ion_temperature.sel(t=t, method="nearest").plot(color=cols[i])
+        PLASMA.ion_temperature.sel(t=t, method="nearest").plot(
             color=cols[i], label="Plasma Ti"
         )
         for i, t in enumerate(ti.t):

@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
@@ -9,6 +11,7 @@ from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 from indica.operators import PowerLoss
+from indica.utilities import assign_datatype
 from indica.utilities import build_dataarrays
 from indica.utilities import set_axis_sci
 
@@ -30,6 +33,14 @@ class PinholeCamera(AbstractDiagnostic):
         self.quantities = READER_QUANTITIES[self.instrument_method]
         self.power_loss = power_loss
 
+        self.t: DataArray
+        self.Te: DataArray
+        self.Ne: DataArray
+        self.Nion: DataArray
+        self.Nh: DataArray
+        self.Lz: dict
+        self.fz: dict
+
     def _build_bckc_dictionary(self):
         bckc = {
             "t": self.t,
@@ -45,7 +56,7 @@ class PinholeCamera(AbstractDiagnostic):
         Te: DataArray = None,
         Ne: DataArray = None,
         Nion: DataArray = None,
-        Lz: dict = None,
+        Nh: DataArray = None,
         fz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
@@ -63,8 +74,8 @@ class PinholeCamera(AbstractDiagnostic):
             Electron density profile (dims = "rho", "t")
         Nion
             Ion density profiles (dims = "rho", "t", "element")
-        Lz
-            Cooling factor dictionary of DataArrays of each element to be included
+        Nh
+            Neutral main ion density profiles (dims = "rho", "t")
         fz
             Fractional abundance dictionary for each element to be included
         t
@@ -84,49 +95,50 @@ class PinholeCamera(AbstractDiagnostic):
             Nh = self.plasma.neutral_density.interp(t=t)
             Te = self.plasma.electron_temperature.interp(t=t)
             fz = self.plasma.fz
-        elif Lz is not None and (Ne is None or Nion is None):
-            raise ValueError("Lz was given but not Ne or Nion")
         else:
-            if Ne is None or Nion is None or Te is None or fz is None or Nh is None:
+            if Te is None or Ne is None or Nion is None or fz is None or t is None:
                 raise ValueError("Give inputs or assign plasma class!")
 
-        if self.power_loss:
-            Lz = {}
-            for elem in self.plasma.ion_density.element.values:
-                Lz[elem] = self.power_loss[elem](
-                    self.plasma.electron_temperature.sel(t=t),
-                    self.plasma.fz[elem].sel(t=t).transpose(),
-                    Ne=self.plasma.electron_density.sel(t=t),
-                    Nh=self.plasma.neutral_density.sel(t=t),
-                ).transpose()
+        if Nh is None:
+            Nh = deepcopy(Ne) * 0.0
 
-        self.t: DataArray = t
-        self.Ne: DataArray = Ne
-        self.Nion: DataArray = Nion
-        self.Nh: DataArray = Nh
-        self.Lz: dict = Lz
-        self.Te: DataArray = Te
-        self.fz: dict = fz
+        self.t = t
+        self.Te = Te
+        self.Ne = Ne
+        self.Nion = Nion
+        self.Nh = Nh
+        self.fz = fz
 
-        if Lz is None:
-            Lz = {}
-            for elem in Nion.element.values:
-                Lz[elem] = self.power_loss[elem](
-                    Te.sel(t=t),
-                    fz[elem].sel(t=t).transpose(),
-                    Ne=Ne.sel(t=t),
-                    Nh=Nh.sel(t=t),
-                ).transpose()
+        _isfinite = np.isfinite(self.Ne) * np.isfinite(self.Te)
 
+        self.Lz = {}
+        emissivity_element = []
         elements = self.Nion.element.values
+        for elem in elements:
+            fz = self.fz[elem].sel(t=t)
+            if hasattr(self, "rhop"):
+                fz = fz.transpose()
 
-        _emissivity = []
-        for ielem, elem in enumerate(elements):
-            _emissivity.append(
+            Lz = self.power_loss[elem](
+                Te.sel(t=t),
+                fz,
+                Ne=Ne.sel(t=t),
+                Nh=Nh.sel(t=t),
+            )
+
+            if hasattr(self, "rhop"):
+                Lz = Lz.transpose()
+            self.Lz[elem] = Lz
+
+            _emissivity = (
                 self.Lz[elem].sum("ion_charge") * self.Nion.sel(element=elem) * self.Ne
             )
-        self.emissivity_element = xr.concat(_emissivity, "element")
-        self.emissivity = self.emissivity_element.sum("element")
+            emissivity_element.append(xr.where(_isfinite, _emissivity, np.nan))
+
+        self.emissivity_element = xr.concat(emissivity_element, "element")
+        emissivity = self.emissivity_element.sum("element")
+        self.emissivity = xr.where(np.isfinite(Ne), emissivity, np.nan)
+        assign_datatype(self.emissivity, "total_radiation")
 
         self.los_integral = self.transform.integrate_on_los(
             self.emissivity,
@@ -169,8 +181,6 @@ class PinholeCamera(AbstractDiagnostic):
             brightness.plot(label=f"t={t:1.2f} s", color=cols_time[i])
         set_axis_sci()
         plt.title(self.name.upper())
-        plt.xlabel("Channel")
-        plt.ylabel("Measured brightness (W/m^2)")
         plt.legend()
 
         # Local emissivity profiles
@@ -178,13 +188,25 @@ class PinholeCamera(AbstractDiagnostic):
         for i, t in enumerate(np.array(self.t)):
             if i % nplot:
                 continue
-            plt.plot(
-                self.emissivity.rhop,
-                self.emissivity.sel(t=t),
-                color=cols_time[i],
-                label=f"t={t:1.2f} s",
-            )
-        set_axis_sci()
-        plt.xlabel("rho")
-        plt.ylabel("Local radiated power (W/m^3)")
+            if hasattr(self, "rhop"):
+                _plot = plt.plot(
+                    self.emissivity.rhop,
+                    self.emissivity.sel(t=t),
+                    color=cols_time[i],
+                    label=f"t={t:1.2f} s",
+                )
+            else:
+                _plot = self.emissivity.sel(t=t).plot(
+                    label=f"t={t:1.2f} s", add_labels=True
+                )
+                self.transform.plot(orientation="Rz", figure=False, t=t)
+                break
+
+        set_axis_sci(_plot)
+        if hasattr(self, "rhop"):
+            plt.xlabel("Rho-poloidal")
+            plt.ylabel("(W/m^3)")
+        else:
+            plt.axis("equal")
+        plt.title("Local radiated power")
         plt.legend()
