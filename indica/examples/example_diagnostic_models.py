@@ -1,6 +1,7 @@
 from typing import Callable
 
 import matplotlib.pylab as plt
+import numpy as np
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import BremsstrahlungDiode
@@ -10,10 +11,12 @@ from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
+from indica.models.passive_spectrometer import PassiveSpectrometer
+from indica.models.passive_spectrometer import read_and_format_adf15
 
 
 def run_example_diagnostic_model(
-    machine: str, instrument: str, model: Callable, plot: bool = False
+    machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
 ):
     transforms = load_default_objects(machine, "geometry")
     equilibrium = load_default_objects(machine, "equilibrium")
@@ -22,11 +25,13 @@ def run_example_diagnostic_model(
     plasma.set_equilibrium(equilibrium)
     transform = transforms[instrument]
     transform.set_equilibrium(equilibrium)
-    model = model(instrument)
+    model = model(instrument, **kwargs)
     model.set_transform(transform)
     model.set_plasma(plasma)
 
-    bckc = model(sum_beamlets=False)
+    bckc = model(
+        sum_beamlets=False,
+    )
 
     if plot and hasattr(model, "plot"):
         plt.ioff()
@@ -81,6 +86,26 @@ def example_helike_spectroscopy(
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
 
+def example_passive_spectroscopy(
+    plot=False,
+):
+    machine = "st40"
+    instrument = "sxrc_xy1"  # placeholder
+    _model = PassiveSpectrometer
+    pecs = read_and_format_adf15(
+        ["c"],
+    )
+    window = np.linspace(100, 500, 1000)
+    return run_example_diagnostic_model(
+        machine,
+        instrument,
+        _model,
+        plot=plot,
+        pecs=pecs,
+        window=window,
+    )
+
+
 def example_interferometer(
     plot=False,
 ):
@@ -109,4 +134,4 @@ def example_equilibrium(
 
 
 if __name__ == "__main__":
-    example_helike_spectroscopy(plot=True)
+    example_passive_spectroscopy(plot=True)
