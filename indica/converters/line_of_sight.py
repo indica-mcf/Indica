@@ -110,7 +110,7 @@ class LineOfSightTransform(CoordinateTransform):
         beamlets: int = 1,
         spot_width: float = 0.0,
         spot_height: float = 0.0,
-        spot_shape: str = "round",
+        spot_shape: str = "square",
         focal_length: float = -1000.0,
         plot_beamlets: bool = False,
         # div_width: float = 0.0,
