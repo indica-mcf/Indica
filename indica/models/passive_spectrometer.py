@@ -5,6 +5,7 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.available_quantities import READER_QUANTITIES
+from indica.configs.readers.adasconf import ADF15
 from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
@@ -16,18 +17,29 @@ from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_rcparams
 
 
-ADF15 = {
-    "h": dict(file_type="pju", year="96"),
-    "ne": dict(file_type="pju", year="96"),
-    "c": dict(file_type="pju", year="96"),
-    # "ar": dict(file_type="llu",
-    #            year="transport")
-    "ar": dict(file_type="ic", year="40"),
-}
+def read_adf15s(
+    elements: list,
+) -> dict[str, dict[str, xr.DataArray]]:
+
+    reader = ADASReader()
+    pecs = {}
+    for element in elements:
+        pecs[element] = {}
+        for charge in ADF15[element].keys():
+            file_type = ADF15[element][charge]["file_type"]
+            year = ADF15[element][charge]["year"]
+            _pec = reader.get_adf15(
+                element=element, charge=charge, filetype=file_type, year=year
+            )
+            _pec = _pec.assign_coords(
+                {"wavelength": _pec.wavelength * 0.1}
+            )  # Angstrom -> nm
+            pecs[element][charge] = _pec
+    return pecs
 
 
-def read_and_format_adf15(
-    elements: list, wavelength_bounds: slice = None
+def format_pecs(
+    pecs: dict[str, dict[str, xr.DataArray]], wavelength_bounds: slice = None
 ) -> dict[str, xr.DataArray]:
     """
     DataArrays have dimensions of:
@@ -36,44 +48,28 @@ def read_and_format_adf15(
     * type of transition (excit, recom, chexc)
     * ion charge of parent ion
     * wavelength of transition
-
     """
 
-    reader = ADASReader()
-    pecs = {}
-    for element in elements:
-        file_type = ADF15[element]["file_type"]
-        year = ADF15[element]["year"]
+    formatted_pecs = {}
+    for element, pec in pecs.items():
         _pecs = []
-        element_info = get_element_info(element)
-        for charge in range(element_info[0]):
-            _pec = reader.get_adf15(
-                element=element, charge=str(charge), filetype=file_type, year=year
-            )
-            _pec = _pec.swap_dims({"index": "wavelength"}).drop_vars("index")
-            types = np.unique(_pec.type)
-            pec = []
+        for charge, pec_z in pec.items():
+            pec_z = pec_z.swap_dims({"index": "wavelength"}).drop_vars("index")
+            types = np.unique(pec_z.type)
+            pec_list = []
             for _type in types:
-                type_pec = _pec.where(_pec.type == _type, drop=True).drop_vars("type")
-                type_pec = type_pec.expand_dims(
+                pec_type = pec_z.where(pec_z.type == _type, drop=True).drop_vars("type")
+                pec_type = pec_type.expand_dims(
                     {"type": (_type,)},
                 )
-                type_pec = type_pec.drop_duplicates("wavelength")
+                pec_type = pec_type.drop_duplicates("wavelength")
 
-                pec.append(type_pec)
-            _pec = xr.concat(pec, "type")
-
-            # TODO: sum duplicate wavelengths
-            # w_index = _pec.wavelength.to_index()
-            # _pec.sel(wavelength=w_index.duplicated())
-            # no_duplicates = _pec.drop_duplicates("wavelength")
+                pec_list.append(pec_type)
+            _pec = xr.concat(pec_list, "type")
 
             _pec = _pec.expand_dims(
-                {"ion_charge": (charge,)},
+                {"ion_charge": (int(charge),)},
             )
-            _pec = _pec.assign_coords(
-                {"wavelength": _pec.wavelength * 0.1}
-            )  # Angstrom -> nm
             if wavelength_bounds is not None:
                 _pec = _pec.where(
                     (_pec.wavelength > wavelength_bounds.start)
@@ -82,12 +78,12 @@ def read_and_format_adf15(
                 )
             _pecs.append(_pec)
 
-        element_pec = xr.concat(_pecs, "ion_charge")
-        element_pec = element_pec.interpolate_na("electron_temperature").interpolate_na(
+        pec_element = xr.concat(_pecs, "ion_charge")
+        pec_element = pec_element.interpolate_na("electron_temperature").interpolate_na(
             "electron_density"
         )
-        pecs[element] = element_pec
-    return pecs
+        formatted_pecs[element] = pec_element
+    return formatted_pecs
 
 
 class PassiveSpectrometer(AbstractDiagnostic):
