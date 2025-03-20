@@ -14,7 +14,7 @@ from xarray import DataArray
 from indica.numpy_typing import LabeledArray
 from indica.profilers.profiler_gauss import ProfilerGauss
 from indica.readers.adas import ADASReader
-from indica.readers.adas import ADF11
+from indica.configs.readers.adasconf import ADF11
 from indica.utilities import DATA_PATH
 from indica.utilities import set_plot_colors
 from .abstractoperator import Operator
