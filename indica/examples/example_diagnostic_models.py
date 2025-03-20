@@ -11,8 +11,9 @@ from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
+from indica.models.passive_spectrometer import format_pecs
 from indica.models.passive_spectrometer import PassiveSpectrometer
-from indica.models.passive_spectrometer import read_and_format_adf15
+from indica.models.passive_spectrometer import read_adf15s
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import SOLPSReader
 
@@ -27,11 +28,6 @@ def run_example_diagnostic_model(
     plasma.set_equilibrium(equilibrium)
     transform = transforms[instrument]
     transform.set_equilibrium(equilibrium)
-
-    kwargs = {}
-    if model == PinholeCamera:
-        _, power_loss = default_atomic_data(plasma.elements)
-        kwargs["power_loss"] = power_loss
 
     model = model(instrument, **kwargs)
     model.set_transform(transform)
@@ -64,16 +60,11 @@ def example_bolometer(
     machine = "st40"
     instrument = "blom_xy1"
     _model = PinholeCamera
-    return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
+    _, power_loss = default_atomic_data(["ar", "c", "he"])
 
-
-def example_axuv_unfiltered(
-    plot=False,
-):
-    machine = "st40"
-    instrument = "sxrc_xy1"
-    _model = PinholeCamera
-    return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
+    return run_example_diagnostic_model(
+        machine, instrument, _model, plot=plot, power_loss=power_loss
+    )
 
 
 def example_charge_exchange(
@@ -100,16 +91,24 @@ def example_passive_spectroscopy(
     machine = "st40"
     instrument = "sxrc_xy1"  # placeholder
     _model = PassiveSpectrometer
-    pecs = read_and_format_adf15(
-        ["c"],
+    wlower, wupper = (400, 550)
+
+    pecs = read_adf15s(
+        [
+            "he",
+            "c",
+            "ar",
+        ],
     )
-    window = np.linspace(100, 500, 1000)
+    pec_database = format_pecs(pecs, wavelength_bounds=slice(wlower, wupper))
+
+    window = np.linspace(wlower, wupper, 1000)
     return run_example_diagnostic_model(
         machine,
         instrument,
         _model,
         plot=plot,
-        pecs=pecs,
+        pecs=pec_database,
         window=window,
     )
 
