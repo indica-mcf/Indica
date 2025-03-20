@@ -38,7 +38,7 @@ def ingest_data():
     return Data.Ingestion.online_ingestion.fetch_new_data(model)
 
 @task
-def ingest_larger_dataset(n=30):
+def ingest_larger_dataset(n=50):
     print("Flow run params:",runtime.flow_run.parameters)
     model=set_model(machine="st40",instrument="xrcs",diag=HelikeSpectrometer)
 
@@ -97,8 +97,8 @@ def train_plots(history):
 
 
 @task
-def example_prediction_plot(reconstr,actual):
-    return Visualisations.visualisebasic.plot_reconstructed_vs_actual(reconstr,actual)
+def example_prediction_plot(reconstr,actual, ax, fv):
+    return Visualisations.visualisebasic.plot_reconstructed_vs_actual(reconstr,actual, ax, fv)
 
 """
 
@@ -141,7 +141,7 @@ def mainflow(log_prints=True):
     print(run_identifier)
     
         
-    data=ingest_larger_dataset(n=4)
+    data=ingest_larger_dataset(n=12)
 
     X, norm_scalerX = normalise_data(data["features"])
 
@@ -166,9 +166,64 @@ def mainflow(log_prints=True):
     X_ref=data["features"][rn]
     Y_ref=data["outputs"][rn]
     Y_newpred=predict_single_point(model,X_ref,norm_scalerX,norm_scalerY,pca).flatten()
-    print(X_ref.shape,Y_ref.shape,Y_newpred.shape)
-    fg2,ax2=example_prediction_plot(Y_newpred,Y_ref)
-    fg2.savefig(run_identifier+"_prediction.png")
+    #fg2,ax2=example_prediction_plot(Y_newpred,Y_ref)
+    #fg2.savefig(run_identifier+"_prediction.png")
+
+
+    # Extract the first feature for all data points
+    first_features = np.array(data["features"])[:, 0]
+
+    # Find indices for the highest, lowest, and middle values of the first feature
+    index_high = np.argmax(first_features)
+
+    # Filter the array to get only values less than the threshold
+    filtered_features = first_features[first_features < 1000]
+
+    # Get the largest value below 1000
+    if len(filtered_features) > 0:
+        largest_below_threshold = np.max(filtered_features)
+        
+        # Find the index of this value in the original array
+        index_low = np.where(first_features == largest_below_threshold)[0][0]
+
+
+    index_mid = np.argsort(first_features)[len(first_features) // 2]
+
+    # Get corresponding X_ref and Y_ref for each case
+    X_ref_high = data["features"][index_high]
+    Y_ref_high = data["outputs"][index_high]
+
+    X_ref_mid = data["features"][index_mid]
+    Y_ref_mid = data["outputs"][index_mid]
+
+    X_ref_low = data["features"][index_low]
+    Y_ref_low = data["outputs"][index_low]
+
+    # Make predictions for each case
+    Y_pred_high = predict_single_point(model, X_ref_high, norm_scalerX, norm_scalerY, pca).flatten()
+    Y_pred_mid = predict_single_point(model, X_ref_mid, norm_scalerX, norm_scalerY, pca).flatten()
+    Y_pred_low = predict_single_point(model, X_ref_low, norm_scalerX, norm_scalerY, pca).flatten()
+
+    # Plot each prediction in a separate subplot
+    fig, axs = plt.subplots(3, 1, figsize=(8, 12))
+
+    # Plot for highest feature value
+    fg_high, ax_high = example_prediction_plot(Y_pred_high, Y_ref_high, axs[0], first_features[index_high])
+    ax_high.set_title("Prediction for Highest First Feature Value")
+
+    # Plot for middle feature value
+    fg_mid, ax_mid = example_prediction_plot(Y_pred_mid, Y_ref_mid, axs[1], first_features[index_mid])
+    ax_mid.set_title("Prediction for Middle First Feature Value")
+
+    # Plot for lowest feature value
+    fg_low, ax_low = example_prediction_plot(Y_pred_low, Y_ref_low, axs[2],first_features[index_low])
+    ax_low.set_title("Prediction for Lowest First Feature Value")
+
+    # Adjust layout and save figure
+    plt.tight_layout()
+    fig.savefig(run_identifier + "_predictions_comparison.png")
+
+
 
 
 
