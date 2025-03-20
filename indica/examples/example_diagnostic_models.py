@@ -59,16 +59,9 @@ def example_bolometer(
     machine = "st40"
     instrument = "blom_xy1"
     _model = PinholeCamera
-    return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
+    _, power_loss = default_atomic_data(["ar", "c", "he"])
 
-
-def example_axuv_unfiltered(
-    plot=False,
-):
-    machine = "st40"
-    instrument = "sxrc_xy1"
-    _model = PinholeCamera
-    return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
+    return run_example_diagnostic_model(machine, instrument, _model, plot=plot, power_loss=power_loss)
 
 
 def example_charge_exchange(
