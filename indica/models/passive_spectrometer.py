@@ -17,12 +17,10 @@ from indica.utilities import set_plot_rcparams
 
 
 ADF15 = {
-    "h": dict(file_type="pju", year="96"),
-    "ne": dict(file_type="pju", year="96"),
-    "c": dict(file_type="pju", year="96"),
-    # "ar": dict(file_type="llu",
-    #            year="transport")
-    "ar": dict(file_type="ic", year="40"),
+    "he": dict(file_type="bnd", year="96", charges=[1]),
+    "ne": dict(file_type="pju", year="96", charges=range(0, 8)),
+    "c": dict(file_type="bnd", year="96", charges=range(5, 6)),
+    "ar": dict(file_type="llu", year="transport", charges = range(16,18)),
 }
 
 
@@ -44,12 +42,14 @@ def read_and_format_adf15(
     for element in elements:
         file_type = ADF15[element]["file_type"]
         year = ADF15[element]["year"]
+        charges = ADF15[element]["charges"]
         _pecs = []
-        element_info = get_element_info(element)
-        for charge in range(element_info[0]):
+        # element_info = get_element_info(element)
+        for charge in charges:
             _pec = reader.get_adf15(
                 element=element, charge=str(charge), filetype=file_type, year=year
             )
+
             _pec = _pec.swap_dims({"index": "wavelength"}).drop_vars("index")
             types = np.unique(_pec.type)
             pec = []
