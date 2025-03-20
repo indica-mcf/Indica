@@ -368,7 +368,7 @@ def tssxrflow(log_prints=True):
 
 
     history = model.fit(
-        [input_t, input_obs1_obs2, input_sensor2_features],  # Inputs
+        [input_t, input_obs1_obs2],  # Inputs
         model_targets_cleaned,  # Targets   
         batch_size=16,
         epochs=20,
@@ -377,7 +377,7 @@ def tssxrflow(log_prints=True):
 
 
     # Evaluate on test data
-    test_loss, test_mae, test_mse = model.evaluate([input_t, input_obs1_obs2, input_sensor2_features], model_targets_cleaned, verbose=1)
+    test_loss, test_mae, test_mse = model.evaluate([input_t, input_obs1_obs2], model_targets_cleaned, verbose=1)
 
     print(f"Test Loss: {test_loss}")
     print(f"Test MAE: {test_mae}")
@@ -405,10 +405,13 @@ def tssxrflow(log_prints=True):
         sxr_features_sorted=sxr_features[sorted_indices]
 
         predicted_ts=model.predict([t_vals_sorted.reshape(-1,1),
+                                    obs1_obs2_sorted]).flatten()
+        """
+        predicted_ts=model.predict([t_vals_sorted.reshape(-1,1),
                                     obs1_obs2_sorted,
                                     
-                                    sxr_features_sorted]).flatten()
-        
+                                    sxr_features_sorted]).flatten()"
+                                    """
 
         ts_start=input_obs1_obs2[start_idx,0]
         ts_end=input_obs1_obs2[start_idx,1]
@@ -428,7 +431,7 @@ def tssxrflow(log_prints=True):
         plt.grid(True)
         plt.tight_layout()
 
-        plt.savefig(f"morecomplex_ts_interpolation_interval_{interval_idx}.png",dpi=300)
+        plt.savefig(f"ablationtest_ts_interpolation_interval_{interval_idx}.png",dpi=300)
         plt.close()
         
 
