@@ -28,11 +28,6 @@ def run_example_diagnostic_model(
     transform = transforms[instrument]
     transform.set_equilibrium(equilibrium)
 
-    kwargs = {}
-    if model == PinholeCamera:
-        _, power_loss = default_atomic_data(plasma.elements)
-        kwargs["power_loss"] = power_loss
-
     model = model(instrument, **kwargs)
     model.set_transform(transform)
     model.set_plasma(plasma)
@@ -100,10 +95,12 @@ def example_passive_spectroscopy(
     machine = "st40"
     instrument = "sxrc_xy1"  # placeholder
     _model = PassiveSpectrometer
+    wlower, wupper = (400, 550)
     pecs = read_and_format_adf15(
-        ["c"],
+        ["he", "c", "ar", ],
+        wavelength_bounds=slice(wlower, wupper)
     )
-    window = np.linspace(100, 500, 1000)
+    window = np.linspace(wlower, wupper, 1000)
     return run_example_diagnostic_model(
         machine,
         instrument,
