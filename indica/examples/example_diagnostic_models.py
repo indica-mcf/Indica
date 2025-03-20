@@ -11,8 +11,9 @@ from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
+from indica.models.passive_spectrometer import format_pecs
 from indica.models.passive_spectrometer import PassiveSpectrometer
-from indica.models.passive_spectrometer import read_and_format_adf15
+from indica.models.passive_spectrometer import read_adf15s
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import SOLPSReader
 
@@ -61,7 +62,9 @@ def example_bolometer(
     _model = PinholeCamera
     _, power_loss = default_atomic_data(["ar", "c", "he"])
 
-    return run_example_diagnostic_model(machine, instrument, _model, plot=plot, power_loss=power_loss)
+    return run_example_diagnostic_model(
+        machine, instrument, _model, plot=plot, power_loss=power_loss
+    )
 
 
 def example_charge_exchange(
@@ -89,21 +92,23 @@ def example_passive_spectroscopy(
     instrument = "sxrc_xy1"  # placeholder
     _model = PassiveSpectrometer
     wlower, wupper = (400, 550)
-    pecs = read_and_format_adf15(
+
+    pecs = read_adf15s(
         [
             "he",
             "c",
             "ar",
         ],
-        wavelength_bounds=slice(wlower, wupper),
     )
+    pec_database = format_pecs(pecs, wavelength_bounds=slice(wlower, wupper))
+
     window = np.linspace(wlower, wupper, 1000)
     return run_example_diagnostic_model(
         machine,
         instrument,
         _model,
         plot=plot,
-        pecs=pecs,
+        pecs=pec_database,
         window=window,
     )
 
