@@ -9,8 +9,9 @@ from indica.models import HelikeSpectrometer
 from indica.models import Interferometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
+from indica.models.passive_spectrometer import format_pecs
 from indica.models.passive_spectrometer import PassiveSpectrometer
-from indica.models.passive_spectrometer import read_and_format_adf15
+from indica.models.passive_spectrometer import read_adf15s
 from indica.operators.atomic_data import default_atomic_data
 
 
@@ -63,6 +64,10 @@ class TestModels:
         self.run_model("xrcs", HelikeSpectrometer)
 
     def test_passive_spectroscopy(self):
-        pecs = read_and_format_adf15(["c"], wavelength_bounds=slice(100, 200))
+        pecs = read_adf15s(
+            ["c"],
+        )
+        pec_database = format_pecs(pecs, wavelength_bounds=slice(100, 200))
+
         window = np.linspace(100, 200, 100)
-        self.run_model("xrcs", PassiveSpectrometer, window=window, pecs=pecs)
+        self.run_model("xrcs", PassiveSpectrometer, window=window, pecs=pec_database)
