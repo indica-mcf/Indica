@@ -20,7 +20,7 @@ ADF15 = {
     "he": dict(file_type="bnd", year="96", charges=[1]),
     "ne": dict(file_type="pju", year="96", charges=range(0, 8)),
     "c": dict(file_type="bnd", year="96", charges=range(5, 6)),
-    "ar": dict(file_type="llu", year="transport", charges = range(16,18)),
+    "ar": dict(file_type="llu", year="transport", charges=range(16, 18)),
 }
 
 

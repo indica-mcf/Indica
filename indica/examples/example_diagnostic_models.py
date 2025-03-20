@@ -97,8 +97,12 @@ def example_passive_spectroscopy(
     _model = PassiveSpectrometer
     wlower, wupper = (400, 550)
     pecs = read_and_format_adf15(
-        ["he", "c", "ar", ],
-        wavelength_bounds=slice(wlower, wupper)
+        [
+            "he",
+            "c",
+            "ar",
+        ],
+        wavelength_bounds=slice(wlower, wupper),
     )
     window = np.linspace(wlower, wupper, 1000)
     return run_example_diagnostic_model(
