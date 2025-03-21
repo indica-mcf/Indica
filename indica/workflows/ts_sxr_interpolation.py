@@ -240,6 +240,9 @@ def extract_single_pulse_model_data(sxr_interval_datas,sxr_interval_times,combin
         interval_mean=np.nanmean(sxr_data_for_this_interval)
         interval_variance=np.nanvar(sxr_data_for_this_interval)
         interval_slope= (sxr_data_for_this_interval[-1]-sxr_data_for_this_interval[0])/(sxr_time_for_this_interval[-1]-sxr_time_for_this_interval[0])
+        
+        #extract a sample from the SXR data
+        sxr_resampled=np.interp(np.linspace(0,len(sxr_data_for_this_interval)-1,20),np.arange(len(sxr_data_for_this_interval)),sxr_data_for_this_interval)
 
  
 
@@ -253,8 +256,11 @@ def extract_single_pulse_model_data(sxr_interval_datas,sxr_interval_times,combin
                 pass
             else:
             #print(scaling_param,start_value,end_value,interval_mean,interval_variance)
+                add_list=[scaling_param,start_value,end_value,interval_mean,interval_variance,interval_slope]
+                add_list.extend(sxr_resampled)
 
-                model_inputs.append([scaling_param,start_value,end_value,interval_mean,interval_variance,interval_slope])
+                #model_inputs.append([scaling_param,start_value,end_value,interval_mean,interval_variance,interval_slope])
+                model_inputs.append(add_list)
 
 
                 target=combined_ts[i]*(1-scaling_param)+combined_ts[i+1]*scaling_param
@@ -274,8 +280,7 @@ def extract_single_pulse_model_data(sxr_interval_datas,sxr_interval_times,combin
 @flow
 def tssxrflow(log_prints=True):
     
-    # Define the number of features: t (1) + sensor 1 start/end (2) + sensor 2 features (3) = 6
-    num_features = 6
+
 
     # Initialize storage for inputs and targets
     model_inputs = []
@@ -343,6 +348,11 @@ def tssxrflow(log_prints=True):
     input_sensor2_features=scaler_sxr.fit_transform(input_sensor2_features)
 
 
+    #Last input sxr:min max scale
+    input_sxr_sample=model_inputs[:,6:]
+    scaler_sxr_sample=MinMaxScaler()
+    input_sxr_sample=scaler_sxr_sample.fit_transform(input_sxr_sample)
+
 
 
 
@@ -370,7 +380,7 @@ def tssxrflow(log_prints=True):
 
 
     history = model.fit(
-        [input_t, input_obs1_obs2],  # Inputs
+        [input_t, input_obs1_obs2,input_sxr_sample],  # Inputs
         model_targets_cleaned,  # Targets   
         batch_size=16,
         epochs=20,
@@ -379,7 +389,7 @@ def tssxrflow(log_prints=True):
 
 
     # Evaluate on test data
-    test_loss, test_mae, test_mse = model.evaluate([input_t, input_obs1_obs2], model_targets_cleaned, verbose=1)
+    test_loss, test_mae, test_mse = model.evaluate([input_t, input_obs1_obs2,input_sxr_sample], model_targets_cleaned, verbose=1)
 
     print(f"Test Loss: {test_loss}")
     print(f"Test MAE: {test_mae}")
@@ -407,18 +417,21 @@ def tssxrflow(log_prints=True):
         sxr_features_sorted=sxr_features[sorted_indices]
 
 
+        #Sample the used SXR sample to a higher resolution again
+        sxr_interval_sample=input_sxr_sample[start_idx]
+        upsampled_sxr_interval_sample=np.linspace(0,1,len(sxr_interval_sample))
+        target_x=t_vals_sorted
+        upsampled_sxr_interval_sample=np.interp(target_x,sxr_interval_sample,input_sxr_sample[start_idx])
 
-        #Normalize SXR data for this interval too
-        interval_sxr=combined_sxr.flatten()[start_idx:end_idx]
-        sxr_max=np.max(interval_sxr)
-        sxr_min=np.min(interval_sxr)
-        interval_sxr_normalized=(interval_sxr-sxr_min)/(sxr_max-sxr_min)
-        print(len(interval_sxr_normalized))
+
+
+
+
 
 
 
         predicted_ts=model.predict([t_vals_sorted.reshape(-1,1),
-                                    obs1_obs2_sorted]).flatten()
+                                    obs1_obs2_sorted, np.tile(sxr_interval_sample,(len(t_vals_sorted),1))]).flatten()
         """
         predicted_ts=model.predict([t_vals_sorted.reshape(-1,1),
                                     obs1_obs2_sorted,
@@ -434,9 +447,8 @@ def tssxrflow(log_prints=True):
         plt.figure(figsize=(8,5))
         plt.plot(t_vals_sorted,expected_linear,label="Model Linear", linestyle="--")
         plt.plot(t_vals_sorted,predicted_ts,label="Model Prediction", linewidth=2)
-        plt.plot(t_vals_sorted,interval_sxr_normalized,label="Sxr",linestyle=":")
+        plt.plot(t_vals_sorted,upsampled_sxr_interval_sample,label="Sxr",linestyle=":")
 
-        print(interval_sxr_normalized)
 
 
         plt.scatter([0,1],[ts_start,ts_end],color='black',label="TS ENDPOINTS", zorder=5)
@@ -447,8 +459,10 @@ def tssxrflow(log_prints=True):
         plt.grid(True)
         plt.tight_layout()
 
-        plt.savefig(f"ablationtest_ts_interpolation_interval_{interval_idx}.png",dpi=300)
+        plt.savefig(f"sampledsxr_ts_interpolation_interval_{interval_idx}.png",dpi=300)
         plt.close()
+
+    print(f"Used {len(combined_sxr)} pulses with {len(input_obs1_obs2)} intervals.")
         
 
 
