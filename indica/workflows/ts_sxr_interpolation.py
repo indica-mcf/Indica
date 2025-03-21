@@ -23,7 +23,10 @@ def ingest_data():
     
     #shots=list(range(11415,11430))
     #shots=list(range(12190,12200))
-    shots=list(range(11520,11571))
+    #THe campaign:P2.3C1 started with shot 10131,P2.3C1 ended on shot 11582
+    shots=list(range(10131,11582))
+    shots=[11389,11415,11416,11417,11418,11419,11420,11421,11422,11424,11425,11426,11468,11469,11472,11522,11523
+,11525,11540,11560]
     return Data.Ingestion.offline_ingestion.fetch_data(data_nodes,shots)
 
 @task
