@@ -347,6 +347,8 @@ def tssxrflow(log_prints=True):
 
 
 
+
+
     # Clean targets by replacing NaNs
     model_targets_cleaned = np.nan_to_num(model_targets, nan=0)
     model_targets_cleaned=(model_targets_cleaned-TS_min)/(TS_max-TS_min)
@@ -404,6 +406,17 @@ def tssxrflow(log_prints=True):
 
         sxr_features_sorted=sxr_features[sorted_indices]
 
+
+
+        #Normalize SXR data for this interval too
+        interval_sxr=combined_sxr.flatten()[start_idx:end_idx]
+        sxr_max=np.max(interval_sxr)
+        sxr_min=np.min(interval_sxr)
+        interval_sxr_normalized=(interval_sxr-sxr_min)/(sxr_max-sxr_min)
+        print(len(interval_sxr_normalized))
+
+
+
         predicted_ts=model.predict([t_vals_sorted.reshape(-1,1),
                                     obs1_obs2_sorted]).flatten()
         """
@@ -421,6 +434,9 @@ def tssxrflow(log_prints=True):
         plt.figure(figsize=(8,5))
         plt.plot(t_vals_sorted,expected_linear,label="Model Linear", linestyle="--")
         plt.plot(t_vals_sorted,predicted_ts,label="Model Prediction", linewidth=2)
+        plt.plot(t_vals_sorted,interval_sxr_normalized,label="Sxr",linestyle=":")
+
+        print(interval_sxr_normalized)
 
 
         plt.scatter([0,1],[ts_start,ts_end],color='black',label="TS ENDPOINTS", zorder=5)
