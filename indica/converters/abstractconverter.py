@@ -468,6 +468,8 @@ class CoordinateTransform(ABC):
         markersize: float = None,
         marker: str = "o",
     ):
+        Rlim = self._machine_dims[0]
+        zlim = self._machine_dims[1]
 
         cols = cm.gnuplot2(
             np.linspace(0.1, 0.75, np.size(np.array(self.x1)), dtype=float)
@@ -517,6 +519,8 @@ class CoordinateTransform(ABC):
                 colors=cols,
                 marker=marker,
             )
+            plt.xlim(Rlim[0], Rlim[1])
+            plt.ylim(Rlim[0], Rlim[1])
             plt.xlabel("x [m]")
             plt.ylabel("y [m]")
             plt.axis("scaled")
@@ -547,7 +551,11 @@ class CoordinateTransform(ABC):
                 color="k",
             )
             if hasattr(self, "equilibrium"):
-                rhop_equil.plot.contour(levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99])
+                rhop_equil.plot.contour(
+                    levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99],
+                    linestyle="dotted",
+                    alpha=0.8,
+                )
 
             plot_geometry(
                 self.R,
@@ -556,6 +564,8 @@ class CoordinateTransform(ABC):
                 colors=cols,
                 marker=marker,
             )
+            plt.xlim(Rlim[0], Rlim[1])
+            plt.ylim(zlim[0], zlim[1])
             plt.xlabel("R [m]")
             plt.ylabel("z [m]")
             plt.title(title)
@@ -616,7 +626,7 @@ def plot_geometry(
         if hasattr(abscissa, "beamlet"):
             x = x.sel(beamlet=beamlet)
             y = y.sel(beamlet=beamlet)
-        plt.plot(x, y, color=col, marker=marker)
+        plt.plot(x, y, color=col, marker=marker, alpha=0.5)
 
 
 def find_wall_intersections(

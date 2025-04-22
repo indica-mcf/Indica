@@ -16,7 +16,6 @@ from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
 
 DEFAULT_PATH = Path("")
-DEFAULT_PULSE = 11890
 ELEMENTS = ["D", "C", "Ar", "Ne"]
 
 
@@ -28,15 +27,31 @@ class SOLPSReader:
 
     def __init__(
         self,
+        pulse: int,
+        t: float,
         path: Union[str, Path] = DEFAULT_PATH,
-        pulse: int = DEFAULT_PULSE,
     ):
+        """
+
+        Parameters
+        ----------
+        path
+            local path where SOLPS data is stored
+        pulse
+            pulse number
+        t
+            time (ms)
+        """
         self.available_quantities = READER_QUANTITIES["get_solps"]
         path = Path(path)
         if path == DEFAULT_PATH:
-            self.path = Path.home() / CACHE_DIR / "solps" / f"{pulse}"
+            self.path = Path.home() / CACHE_DIR / "solps" / f"{pulse}_{int(t*1.e3)}"
+            self.pulse = pulse
+            self.t = t
         else:
             self.path = path
+            self.pulse = 0
+            self.t = 0.0
 
     def _read_solps_txt(self) -> Dict[str, np.array]:
         """
@@ -87,7 +102,9 @@ class SOLPSReader:
         return database_results
 
     def get(
-        self, file_type: str = "txt", verbose: bool = False, time: float = 0.05
+        self,
+        file_type: str = "txt",
+        verbose: bool = False,
     ) -> Dict[str, DataArray]:
         """
         Temporary get method, similar to indica/readers/datareader
@@ -102,7 +119,7 @@ class SOLPSReader:
         database_results = reader_method()
 
         # Combine element data into 1 matrixof shape (ion_charge, R, z)
-        t = np.array([time])
+        t = np.array([self.t])
         nion: list = []
         fz: dict = {}
         elements, element_z, element_a, element_symbol = [], [], [], []
