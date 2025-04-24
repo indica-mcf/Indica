@@ -288,6 +288,7 @@ def tssxrflow(log_prints=True):
     # Initialize storage for inputs and targets
     model_inputs = []
     model_targets = []
+    linear_targets=[]
 
 
 
