@@ -29,16 +29,13 @@ class HelikeSpectrometer(AbstractDiagnostic):
     """
     Data and methods to model XRCS spectrometer measurements
 
-    TODO: calibration and Etendue to be correctly included
-    TODO: move window to call instead of init
     """
 
     def __init__(
         self,
         name: str,
         instrument_method="get_helike_spectroscopy",
-        etendue: float = 1.0,
-        calibration: float = 5.0e-19,
+        calibration: float = 1.5e-10,
         element: str = "ar",
         window_len: int = 1030,
         window_lim=None,
@@ -72,7 +69,6 @@ class HelikeSpectrometer(AbstractDiagnostic):
         z_elem, a_elem, name_elem, _ = get_element_info(element)
         self.ion_charge: int = z_elem - 2  # He-like
         self.ion_mass: float = a_elem
-        self.etendue = etendue
         self.calibration = calibration
         self.window_masks = window_masks
         self.line_ranges = LINE_RANGES
@@ -222,6 +218,10 @@ class HelikeSpectrometer(AbstractDiagnostic):
         measured_spectra = measured_spectra.assign_coords(
             {"wavelength": self.spectra.wavelength}
         )
+
+        nm_per_pixel = np.gradient(self.window.wavelength).mean()
+        measured_spectra *= nm_per_pixel  # counts/s/nm -> counts/s/pixel
+
         measured_spectra = xr.where(measured_spectra == 0, np.nan, measured_spectra)
         self.measured_spectra = measured_spectra.sortby("wavelength")
         self.spectra_los = self.transform.along_los
@@ -446,8 +446,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         if moment_analysis:
             self._moment_analysis()
 
-        dt = np.gradient(self.plasma.t).mean()  # Temp hack for count -> count / s
-        self.measured_spectra = self.measured_spectra / dt
+        self.measured_spectra = self.measured_spectra
 
         if norm_spectra is not None:
             self.measured_spectra = (
