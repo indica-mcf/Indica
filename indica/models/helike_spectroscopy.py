@@ -468,7 +468,7 @@ class HelikeSpectrometer(DiagnosticModel):
             )
 
         self._build_bckc_dictionary()
-        return self.bckc
+        return self.bckc, self.spectra
 
     def plot(self):
         set_plot_rcparams("profiles")
