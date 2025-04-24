@@ -29,13 +29,23 @@ class HelikeSpectrometer(AbstractDiagnostic):
     """
     Data and methods to model XRCS spectrometer measurements
 
+    calibration factor accounts for all geometric and optical losses between plasma source and detector (add ref).
+    N[counts/s] = 1/4pi * kappa * A_c * phy_y * R_c * sin(theta) * eta_lambda * integral(E_lambda dz)
+    kappa - illuminated percentage of crystal (=1)
+    A_c - area of crystal
+    phy_y - angle subtended by source perpendicular to dispersion plane
+    R_c - crystal integrated reflectivity
+    theta - angle between source and crystal
+    eta_lambda - detector and filter efficiency
+    E_lambda - plasma emissivity [photons/m^-3/s]
+    dz - distance along diagnostic line of sight
     """
 
     def __init__(
         self,
         name: str,
         instrument_method="get_helike_spectroscopy",
-        calibration: float = 1.5e-10,
+        calibration_factor: float = 1.5e-10,
         element: str = "ar",
         window_len: int = 1030,
         window_lim=None,
@@ -69,7 +79,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         z_elem, a_elem, name_elem, _ = get_element_info(element)
         self.ion_charge: int = z_elem - 2  # He-like
         self.ion_mass: float = a_elem
-        self.calibration = calibration
+        self.calibration_factor = calibration_factor
         self.window_masks = window_masks
         self.line_ranges = LINE_RANGES
         self.line_labels = line_labels
@@ -165,7 +175,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
             for type in _pecs_ds.data_vars.keys()
         ]
         _intensity = xr.merge(temp).to_array("type")
-        intensity = (_intensity * mult * self.calibration).sum("type")
+        intensity = (_intensity * mult * self.calibration_factor).sum("type")
         self.intensity = intensity
 
         return intensity
