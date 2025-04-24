@@ -29,8 +29,11 @@ class HelikeSpectrometer(AbstractDiagnostic):
     """
     Data and methods to model XRCS spectrometer measurements
 
-    calibration factor accounts for all geometric and optical losses between plasma source and detector (add ref).
-    N[counts/s] = 1/4pi * kappa * A_c * phy_y * R_c * sin(theta) * eta_lambda * integral(E_lambda dz)
+    calibration factor accounts for all geometric and optical losses
+    between plasma source and detector (add ref).
+    N[counts/s] = 1/4pi * kappa * A_c * phy_y * R_c * sin(theta)\
+     * eta_lambda * integral(E_lambda dz)
+
     kappa - illuminated percentage of crystal (=1)
     A_c - area of crystal
     phy_y - angle subtended by source perpendicular to dispersion plane
