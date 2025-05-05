@@ -447,9 +447,9 @@ def tssxrflow(log_prints=True):
     print(f"Test MAE: {test_mae}")
 
 
-    model.save("TS_SXR_Interpolation.h5")
+    model.save("TS_SXR_Interpolation.keras")
 
-    
+
     nonzero_idx=np.where(model_targets_cleaned!=0)[0]
     idx=nonzero_idx[15]
     t = input_t[idx][0]
