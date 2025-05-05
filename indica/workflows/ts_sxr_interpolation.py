@@ -424,7 +424,7 @@ def tssxrflow(log_prints=True):
 
 
         # Train the model
-    lambda_end=1.0
+    lambda_end=0
     custom_loss=create_residual_loss(input_t,lambda_endpoints=lambda_end)
     model = Models.Train.train_models.build_TS_SXR_Interpolation_model(custom_loss)
 
@@ -498,7 +498,7 @@ def tssxrflow(log_prints=True):
     plt.legend()
     plt.grid(True)
     plt.show()
-    plt.savefig(f"customloss_smooth_lambda_endpointsupervision{lambda_end}_{idx}.png",dpi=300)
+    plt.savefig(f"pure_mseloss_three_supervision_{idx}.png",dpi=300)
     plt.close()
 
     print(f"Used {len(combined_sxr)} pulses with {len(input_obs1_obs2)} intervals.")
