@@ -232,44 +232,45 @@ def extract_single_pulse_model_data(sxr_interval_datas,sxr_interval_times,combin
 
     model_inputs=[]
     model_targets=[]
-    for i in range(len(combined_time_ts)-1):
-        #For each TS interval
-        ts_interval_start=combined_time_ts[i]
-        ts_interval_end=combined_time_ts[i+1]
+    for i in range(len(combined_time_ts) - 2):
+        ts_interval_start = combined_time_ts[i]
+        ts_interval_end = combined_time_ts[i + 2]
+    
+        ts_start = combined_ts[i]
+        ts_mid = combined_ts[i + 1]
+        ts_end = combined_ts[i + 2]
+    
+        # SXR
+        sxr_data_for_this_interval = sxr_interval_datas[i]
+        sxr_time_for_this_interval = sxr_interval_times[i]
 
-        sxr_data_for_this_interval=sxr_interval_datas[i]
-        sxr_time_for_this_interval=sxr_interval_times[i]
+        if np.abs(ts_start - ts_end) > 1e19 or np.abs(ts_start - ts_mid) > 1e19:
+            continue
 
-        interval_mean=np.nanmean(sxr_data_for_this_interval)
-        interval_variance=np.nanvar(sxr_data_for_this_interval)
-        interval_slope= (sxr_data_for_this_interval[-1]-sxr_data_for_this_interval[0])/(sxr_time_for_this_interval[-1]-sxr_time_for_this_interval[0])
+        desired_points = 20
+        original_len = len(sxr_data_for_this_interval)
         
-        #extract a sample from the SXR data
-        sxr_resampled=np.interp(np.linspace(0,len(sxr_data_for_this_interval)-1,20),np.arange(len(sxr_data_for_this_interval)),sxr_data_for_this_interval)
-
- 
-
-        for data,time in zip(sxr_data_for_this_interval,sxr_time_for_this_interval):
-            scaling_param= (time - ts_interval_start) / (ts_interval_end - ts_interval_start)
-            start_value=combined_ts[i]
-            end_value=combined_ts[i+1]
-
-
-            if np.isnan(combined_ts[i]) or np.isnan(combined_ts[i+1]):
-                pass
-            else:
-            #print(scaling_param,start_value,end_value,interval_mean,interval_variance)
-                add_list=[scaling_param,start_value,end_value,interval_mean,interval_variance,interval_slope]
-                add_list.extend(sxr_resampled)
-
-                #model_inputs.append([scaling_param,start_value,end_value,interval_mean,interval_variance,interval_slope])
-                model_inputs.append(add_list)
-
-
-                target=combined_ts[i]*(1-scaling_param)+combined_ts[i+1]*scaling_param
-                model_targets.append(target)
-
-            #print(target)
+        # Only interpolate if enough points exist
+        if original_len >= 2:
+            sxr_resampled = np.interp(
+                np.linspace(0, original_len - 1, desired_points),
+                np.arange(original_len),
+                sxr_data_for_this_interval
+            )
+        else:
+            # Not enough points to interpolate — pad with edge value or zeros
+            padded = np.full(desired_points, np.nan if original_len == 0 else sxr_data_for_this_interval[0])
+            sxr_resampled = padded
+    
+        # Input and target
+        scaling_param = 0.5
+        ts_linear = ts_start * (1 - scaling_param) + ts_end * scaling_param
+        residual_target = ts_mid - ts_linear
+    
+        input_row = [scaling_param, ts_start, ts_end]
+        input_row.extend(sxr_resampled)
+        model_inputs.append(input_row)
+        model_targets.append(residual_target)
     return model_inputs,model_targets
 
 
@@ -334,6 +335,9 @@ def tssxrflow(log_prints=True):
     model_inputs = np.array(model_inputs)
     model_targets = np.array(model_targets)
 
+    valid_mask= ~np.isnan(model_targets)
+    model_inputs=model_inputs[valid_mask]
+    model_targets=model_targets[valid_mask]
 
 
     # Extract individual input features
@@ -342,18 +346,17 @@ def tssxrflow(log_prints=True):
 
 
     input_obs1_obs2 = model_inputs[:, 1:3]
+
+    input_obs1_obs2=np.nan_to_num(input_obs1_obs2,nan=0.0)
     TS_min=np.min(input_obs1_obs2)
     TS_max=np.max(input_obs1_obs2)
     input_obs1_obs2=(input_obs1_obs2-TS_min)/(TS_max-TS_min)
+    print("NaNs in input_obs1_obs2:", np.isnan(input_obs1_obs2).sum())
 
-
-    input_sensor2_features = model_inputs[:, 3:6]
-    scaler_sxr=MinMaxScaler()
-    input_sensor2_features=scaler_sxr.fit_transform(input_sensor2_features)
 
 
     #Last input sxr:min max scale
-    input_sxr_sample=model_inputs[:,6:]
+    input_sxr_sample=model_inputs[:,3:]
     scaler_sxr_sample=MinMaxScaler()
     input_sxr_sample=scaler_sxr_sample.fit_transform(input_sxr_sample)
 
@@ -365,17 +368,25 @@ def tssxrflow(log_prints=True):
 
     # Clean targets by replacing NaNs
     model_targets_cleaned = np.nan_to_num(model_targets, nan=0)
-    model_targets_cleaned=(model_targets_cleaned-TS_min)/(TS_max-TS_min)
+    residual_mean=np.mean(model_targets_cleaned)
+    residual_std=np.std(model_targets_cleaned) if np.std(model_targets) > 0 else 1e-6
+    model_targets_cleaned=(model_targets_cleaned-residual_mean)/residual_std
+
+    print("NaNs in input_t:", np.isnan(input_t).sum())
+    print("NaNs in input_obs1_obs2:", np.isnan(input_obs1_obs2).sum())
+    print("NaNs in input_sxr_sample:", np.isnan(input_sxr_sample).sum())    
 
 
 
-#Currently not used actually
+    #Currently not used actually
+    """
     custom_loss = create_compute_loss_TESXR(
         input_sensor2_features=input_sensor2_features,  # Sensor 2 features
         scaling_params=input_t,                        # Normalized t values for each point
         lambda_smooth=0.1,
         lambda_similarity=0.1
     )
+    """
 
 
 
@@ -386,7 +397,7 @@ def tssxrflow(log_prints=True):
     history = model.fit(
         [input_t, input_obs1_obs2,input_sxr_sample],  # Inputs
         model_targets_cleaned,  # Targets   
-        batch_size=16,
+        batch_size=32,
         epochs=20,
         verbose=1
     )
@@ -400,71 +411,60 @@ def tssxrflow(log_prints=True):
 
 
 
-    #plot
-    interval_idx=6
-    for interval_idx in [5,10,15]:
+    nonzero_idx=np.where(model_targets_cleaned!=0)[0]
+    idx=nonzero_idx[15]
+    t = input_t[idx][0]
 
-        start_idx=interval_idx*points_per_interval
-        end_idx=start_idx+points_per_interval
+    ts_start, ts_end = input_obs1_obs2[idx]
+    sxr_input = input_sxr_sample[idx].reshape(1, -1)
+    t_input = np.array([[t]])
+    obs_input = np.array([[ts_start, ts_end]])
+    
+    # Predict residual and reconstruct
+    predicted_residual = model.predict([t_input, obs_input, sxr_input])[0][0]
+    ts_linear = ts_start * (1 - t) + ts_end * t
+    ts_predicted = ts_linear + (predicted_residual*residual_std+residual_mean)
+    
+    # Ground truth residual (used for training)
+    ts_residual_target = model_targets_cleaned[idx]*residual_std+residual_mean
+    ts_actual = ts_residual_target + ts_linear
+    print(f"res target:{ts_residual_target}")
 
+    t_range = np.linspace(0, 1, 50)
+    ts_linear_curve = ts_start * (1 - t_range) + ts_end * t_range
+        
+    # Repeat inputs to match t_range
+    t_inputs = t_range.reshape(-1, 1)
+    obs_inputs = np.tile([ts_start, ts_end], (len(t_range), 1))
+    sxr_inputs = np.tile(sxr_input, (len(t_range), 1))
+    
+    # Predict residuals across the range
+    predicted_residuals = model.predict([t_inputs, obs_inputs, sxr_inputs]).flatten()
+    ts_predicted_curve = ts_linear_curve + predicted_residuals
 
-        t_vals=input_t[start_idx:end_idx].flatten()
-
-        obs_1_obs2_vals=input_obs1_obs2[start_idx:end_idx]
-        sxr_features=input_sensor2_features[start_idx:end_idx]
-
-        sorted_indices=np.argsort(t_vals)
-        t_vals_sorted=t_vals[sorted_indices]
-
-        obs1_obs2_sorted=obs_1_obs2_vals[sorted_indices]
-
-        sxr_features_sorted=sxr_features[sorted_indices]
-
-
-        #Sample the used SXR sample to a higher resolution again
-        sxr_interval_sample=input_sxr_sample[start_idx]
-        upsampled_sxr_interval_sample=np.linspace(0,1,len(sxr_interval_sample))
-        target_x=t_vals_sorted
-        upsampled_sxr_interval_sample=np.interp(target_x,sxr_interval_sample,input_sxr_sample[start_idx])
-
-
-
-
-
-
-
-
-        predicted_ts=model.predict([t_vals_sorted.reshape(-1,1),
-                                    obs1_obs2_sorted, np.tile(sxr_interval_sample,(len(t_vals_sorted),1))]).flatten()
-        """
-        predicted_ts=model.predict([t_vals_sorted.reshape(-1,1),
-                                    obs1_obs2_sorted,
-                                    
-                                    sxr_features_sorted]).flatten()"
-                                    """
-
-        ts_start=input_obs1_obs2[start_idx,0]
-        ts_end=input_obs1_obs2[start_idx,1]
-        expected_linear=ts_start*(1-t_vals_sorted)+ts_end*t_vals_sorted
-
-
-        plt.figure(figsize=(8,5))
-        plt.plot(t_vals_sorted,expected_linear,label="Model Linear", linestyle="--")
-        plt.plot(t_vals_sorted,predicted_ts,label="Model Prediction", linewidth=2)
-        plt.plot(t_vals_sorted,upsampled_sxr_interval_sample,label="Sxr",linestyle=":")
-
-
-
-        plt.scatter([0,1],[ts_start,ts_end],color='black',label="TS ENDPOINTS", zorder=5)
-        plt.xlabel("Scaling parameter (t)")
-        plt.ylabel("TS Value (scaled)")
-        plt.title(f"Model prediction vs Linear TS interpolation for interval {interval_idx}")
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
-
-        plt.savefig(f"sampledsxr_ts_interpolation_interval_{interval_idx}.png",dpi=300)
-        plt.close()
+    print(predicted_residuals[:5])
+    print(np.mean(predicted_residuals))
+    
+    # Plot
+    plt.figure(figsize=(8, 5))
+    plt.plot(t_range, ts_linear_curve, linestyle="--", label="Linear Interpolation")
+    plt.plot(t_range, ts_predicted_curve, label="Model Prediction")
+    plt.plot(t_range,predicted_residuals,label="Model residuals")
+    plt.plot(np.linspace(0,1,len(sxr_input.flatten())),
+             sxr_input.flatten(),
+             label="SXR Input (resampled)",color="black",alpha=0.8)
+    #plt.scatter([0.5], [ts_actual], color="black", label="True TS Midpoint")
+    plt.scatter([0],[ts_start],color="black")
+    plt.scatter([1],[ts_end],color="black")
+    plt.title("Model Prediction Across t")
+    plt.xlabel("Scaling parameter t")
+    plt.ylabel("TS Value")
+    plt.ylim(ts_start-0.75,ts_end+0.75   )
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    plt.savefig(f"sampledsxr_ts_interpolation_tripoint_nocustomloss_yet_sxr_plotted{idx}.png",dpi=300)
+    plt.close()
 
     print(f"Used {len(combined_sxr)} pulses with {len(input_obs1_obs2)} intervals.")
         
