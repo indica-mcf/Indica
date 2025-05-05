@@ -441,11 +441,15 @@ def tssxrflow(log_prints=True):
     # Evaluate on test data
     test_loss, test_mae, test_mse = model.evaluate([input_t, input_obs1_obs2,input_sxr_sample], model_targets_cleaned, verbose=1)
 
+
+
     print(f"Test Loss: {test_loss}")
     print(f"Test MAE: {test_mae}")
 
 
+    model.save("TS_SXR_Interpolation.h5")
 
+    
     nonzero_idx=np.where(model_targets_cleaned!=0)[0]
     idx=nonzero_idx[15]
     t = input_t[idx][0]
