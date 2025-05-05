@@ -264,14 +264,17 @@ def extract_single_pulse_model_data(sxr_interval_datas,sxr_interval_times,combin
             sxr_resampled = padded
     
         # Input and target
-        scaling_param = 0.5
-        ts_linear = ts_start * (1 - scaling_param) + ts_end * scaling_param
-        residual_target = ts_mid - ts_linear
+        for scaling_param in [0.0,0.5,1.0]:
+            if scaling_param==0.5:
+                ts_linear = ts_start * (1 - scaling_param) + ts_end * scaling_param
+                residual_target = ts_mid - ts_linear
+            else:
+                residual_target=0.0
     
-        input_row = [scaling_param, ts_start, ts_end]
-        input_row.extend(sxr_resampled)
-        model_inputs.append(input_row)
-        model_targets.append(residual_target)
+            input_row = [scaling_param, ts_start, ts_end]
+            input_row.extend(sxr_resampled)
+            model_inputs.append(input_row)
+            model_targets.append(residual_target)
     return model_inputs,model_targets
 
 
@@ -495,7 +498,7 @@ def tssxrflow(log_prints=True):
     plt.legend()
     plt.grid(True)
     plt.show()
-    plt.savefig(f"customloss_smooth_lambda{lambda_end}_{idx}.png",dpi=300)
+    plt.savefig(f"customloss_smooth_lambda_endpointsupervision{lambda_end}_{idx}.png",dpi=300)
     plt.close()
 
     print(f"Used {len(combined_sxr)} pulses with {len(input_obs1_obs2)} intervals.")
