@@ -4,6 +4,7 @@ import matplotlib.pylab as plt
 import time
 import numpy as np
 import random
+import tensorflow as tf
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import Bolometer
 from indica.models import BremsstrahlungDiode
@@ -275,7 +276,36 @@ def extract_single_pulse_model_data(sxr_interval_datas,sxr_interval_times,combin
 
 
             
+def create_residual_loss(t_values, lambda_endpoints=0.1,smoothness=0.05):
+    """
+    Returns a custom Keras loss function that penalizes deviation from:
+    - the residual target at t=0.5
+    - zero residual at t=0 and t=1
+    """
+ 
+    def residual_loss(y_true, y_pred):
+        t = tf.reshape(t_values, [-1])  # (batch_size,)
+ 
+        # Midpoint mask (supervised target at t=0.5)
+        midpoint_mask = tf.cast(tf.math.equal(t, 0.5), tf.float32)
+        mse_midpoint = tf.reduce_mean(midpoint_mask * tf.square(y_pred - y_true))
+ 
+        # Endpoint penalty (t == 0 or t == 1)
+        endpoint_mask = tf.cast(
+            tf.math.logical_or(
+                tf.math.equal(t, 0.0),
+                tf.math.equal(t, 1.0)
+            ), tf.float32
+        )
+        endpoint_penalty = tf.reduce_mean(endpoint_mask * tf.square(y_pred))
 
+        smoothness_penalty=tf.reduce_mean(tf.square(y_pred[1:]-y_pred[:-1]))
+ 
+        # Total loss
+        total_loss = mse_midpoint + lambda_endpoints * endpoint_penalty+smoothness_penalty*smoothness
+        return total_loss
+ 
+    return residual_loss
 
 
 
@@ -391,7 +421,9 @@ def tssxrflow(log_prints=True):
 
 
         # Train the model
-    model = Models.Train.train_models.build_TS_SXR_Interpolation_model()
+    lambda_end=1.0
+    custom_loss=create_residual_loss(input_t,lambda_endpoints=lambda_end)
+    model = Models.Train.train_models.build_TS_SXR_Interpolation_model(custom_loss)
 
 
     history = model.fit(
@@ -463,7 +495,7 @@ def tssxrflow(log_prints=True):
     plt.legend()
     plt.grid(True)
     plt.show()
-    plt.savefig(f"sampledsxr_ts_interpolation_tripoint_nocustomloss_yet_sxr_plotted{idx}.png",dpi=300)
+    plt.savefig(f"customloss_smooth_lambda{lambda_end}_{idx}.png",dpi=300)
     plt.close()
 
     print(f"Used {len(combined_sxr)} pulses with {len(input_obs1_obs2)} intervals.")
