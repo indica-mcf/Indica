@@ -393,6 +393,8 @@ def tssxrflow(log_prints=True):
     scaler_sxr_sample=MinMaxScaler()
     input_sxr_sample=scaler_sxr_sample.fit_transform(input_sxr_sample)
 
+    np.save("mean_sxr_vector.npy",np.mean(input_sxr_sample,axis=0))
+
 
 
 
@@ -450,65 +452,63 @@ def tssxrflow(log_prints=True):
     model.save("TS_SXR_Interpolation.keras")
 
 
-    nonzero_idx=np.where(model_targets_cleaned!=0)[0]
-    idx=nonzero_idx[15]
-    t = input_t[idx][0]
 
-    ts_start, ts_end = input_obs1_obs2[idx]
-    sxr_input = input_sxr_sample[idx].reshape(1, -1)
-    t_input = np.array([[t]])
-    obs_input = np.array([[ts_start, ts_end]])
-    
-    # Predict residual and reconstruct
-    predicted_residual = model.predict([t_input, obs_input, sxr_input])[0][0]
-    ts_linear = ts_start * (1 - t) + ts_end * t
-    ts_predicted = ts_linear + (predicted_residual*residual_std+residual_mean)
-    
-    # Ground truth residual (used for training)
-    ts_residual_target = model_targets_cleaned[idx]*residual_std+residual_mean
-    ts_actual = ts_residual_target + ts_linear
-    print(f"res target:{ts_residual_target}")
-
-    t_range = np.linspace(0, 1, 50)
-    ts_linear_curve = ts_start * (1 - t_range) + ts_end * t_range
-        
-    # Repeat inputs to match t_range
-    t_inputs = t_range.reshape(-1, 1)
-    obs_inputs = np.tile([ts_start, ts_end], (len(t_range), 1))
-    sxr_inputs = np.tile(sxr_input, (len(t_range), 1))
-    
-    # Predict residuals across the range
-    predicted_residuals = model.predict([t_inputs, obs_inputs, sxr_inputs]).flatten()
-    ts_predicted_curve = ts_linear_curve + predicted_residuals
-
-    print(predicted_residuals[:5])
-    print(np.mean(predicted_residuals))
-    
-    # Plot
-    plt.figure(figsize=(8, 5))
-    plt.plot(t_range, ts_linear_curve, linestyle="--", label="Linear Interpolation")
-    plt.plot(t_range, ts_predicted_curve, label="Model Prediction")
-    plt.plot(t_range,predicted_residuals,label="Model residuals")
-    plt.plot(np.linspace(0,1,len(sxr_input.flatten())),
-             sxr_input.flatten(),
-             label="SXR Input (resampled)",color="black",alpha=0.8)
-    #plt.scatter([0.5], [ts_actual], color="black", label="True TS Midpoint")
-    plt.scatter([0],[ts_start],color="black")
-    plt.scatter([1],[ts_end],color="black")
-    plt.title("Model Prediction Across t")
-    plt.xlabel("Scaling parameter t")
-    plt.ylabel("TS Value")
-    plt.ylim(ts_start-0.75,ts_end+0.75   )
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-    plt.savefig(f"pure_mseloss_three_supervision_{idx}.png",dpi=300)
-    plt.close()
 
     print(f"Used {len(combined_sxr)} pulses with {len(input_obs1_obs2)} intervals.")
         
 
-
+    # Get 4 random non-zero indices
+    nonzero_idx = np.where(model_targets_cleaned != 0)[0]
+    chosen_indices = np.random.choice(nonzero_idx, size=4, replace=False)
+    
+    fig, axs = plt.subplots(2, 2, figsize=(14, 10))
+    axs = axs.flatten()
+    
+    for i, idx in enumerate(chosen_indices):
+        t = input_t[idx][0]
+        ts_start, ts_end = input_obs1_obs2[idx]
+        sxr_input = input_sxr_sample[idx].reshape(1, -1)
+        t_input = np.array([[t]])
+        obs_input = np.array([[ts_start, ts_end]])
+    
+        # Predict residual and reconstruct
+        predicted_residual = model.predict([t_input, obs_input, sxr_input])[0][0]
+        ts_linear = ts_start * (1 - t) + ts_end * t
+        ts_predicted = ts_linear + (predicted_residual * residual_std + residual_mean)
+    
+        # Ground truth
+        ts_residual_target = model_targets_cleaned[idx] * residual_std + residual_mean
+        ts_actual = ts_residual_target + ts_linear
+    
+        # Prediction across t range
+        t_range = np.linspace(0, 1, 50)
+        ts_linear_curve = ts_start * (1 - t_range) + ts_end * t_range
+        t_inputs = t_range.reshape(-1, 1)
+        obs_inputs = np.tile([ts_start, ts_end], (len(t_range), 1))
+        sxr_inputs = np.tile(sxr_input, (len(t_range), 1))
+        predicted_residuals = model.predict([t_inputs, obs_inputs, sxr_inputs]).flatten()
+        ts_predicted_curve = ts_linear_curve + predicted_residuals
+    
+        ax = axs[i]
+        ax.plot(t_range, ts_linear_curve, linestyle="--", label="Linear Interpolation")
+        ax.plot(t_range, ts_predicted_curve, label="Model Prediction")
+        ax.plot(t_range, predicted_residuals, label="Model Residuals")
+        ax.plot(np.linspace(0, 1, len(sxr_input.flatten())),
+                sxr_input.flatten(),
+                label="SXR Input (resampled)", color="black", alpha=0.8)
+        ax.scatter([0], [ts_start], color="black", label="TS Start")
+        ax.scatter([1], [ts_end], color="black", label="TS End")
+        ax.set_title(f"Sample {idx} | t = {t:.2f}")
+        ax.set_xlabel("Scaling parameter t")
+        ax.set_ylabel("TS Value")
+        ax.set_ylim(min(ts_start, ts_end) - 0.75, max(ts_start, ts_end) + 0.75)
+        ax.grid(True)
+        ax.legend(fontsize="small")
+    
+    plt.suptitle("Model Predictions Across t for 4 Random Samples", fontsize=16)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig("model_prediction_grid.png", dpi=300)
+    plt.show()
 
 
 
