@@ -49,10 +49,20 @@ class LineOfSightTransform(CoordinateTransform):
     passes
         Number of passes across the plasma (e.g. interferometer
         with corner cube has passes=2)
-    beamlets
+    beamlets_method
+        Select option for method for distributing beamlets in
+        the LOS.
+        "point" - one beamlet at the centre of the spot
+        "simple" - beamlets distributed using numpy linspace
+            e.g. linspace(-width/2, width/2, n_beamlets_x)
+        "adaptive" (recommended) -  beamlets distributed evenly
+            in both x and y directions.
+    n_beamlets_x
         Number of beamlets in the LOS spot cross-section.
-        Currently only works with quadratic sequence (e.g.
-        1^2 = 1, 2^2 = 4, 3^2 = 9, 4^2 = 16, etc...)
+        Along the width (x)
+    n_beamlets_y
+        Number of beamlets in the LOS spot cross-section.
+        Along the height (y)
     spot_width
         Width of the LOS spot in (m).
     spot_height
@@ -106,7 +116,6 @@ class LineOfSightTransform(CoordinateTransform):
         ),
         dl: float = 0.01,
         passes: int = 1,
-        beamlets: int = 1,
         beamlets_method: str = "simple",
         n_beamlets_x: int = 1,
         n_beamlets_y: int = 1,
