@@ -2,8 +2,8 @@ import numpy as np
 from tensorflow.keras.models import load_model
  
 # Load model and typical SXR vector
-model = load_model("ts_interpolator_with_sxr.h5")
-typical_sxr = np.load("typical_sxr_vector.npy")  # shape (20,)
+model = load_model("/home/jussi.hakosalo/Indica/indica/workflows/TS_SXR_Interpolation.keras")
+typical_sxr = np.load("/home/jussi.hakosalo/Indica/indica/workflows/mean_sxr_vector.npy")  # shape (20,)
  
 def predict_ts(model, ts_start, ts_end, t, sxr_reference=None):
     """
@@ -34,5 +34,13 @@ def predict_ts(model, ts_start, ts_end, t, sxr_reference=None):
  
 # Example use
 if __name__ == "__main__":
-    ts_pred = predict_ts(model, 1.2e19, 1.5e19, 0.5)
-    print("Predicted TS at midpoint:", ts_pred)
+    """
+    The model has been trained st it learns tp operate with 2 TS observations that are 2 apart from each other. Ie.
+    ts[i],ts[i+2]. The scaling parameter (last param) is [0,0.5] for the first half, [0.5,1.0] for the second half.
+    """
+    ts_pred1 = predict_ts(model, 1.2e19, 1.5e19, 0.5)
+    ts_pred2 = predict_ts(model, 1.2e19, 1.5e19, 0.3)
+    ts_pred3 = predict_ts(model, 1.2e19, 1.5e19, 0.7)
+    print("Predicted TS at 0.3:", ts_pred2)
+    print("Predicted TS at midpoint:", ts_pred1)
+    print("Predicted TS at 0.7:", ts_pred3)
