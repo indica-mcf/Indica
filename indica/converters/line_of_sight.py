@@ -52,17 +52,14 @@ class LineOfSightTransform(CoordinateTransform):
     beamlets_method
         Select option for method for distributing beamlets in
         the LOS.
-        "point" - one beamlet at the centre of the spot
         "simple" - beamlets distributed using numpy linspace
             e.g. linspace(-width/2, width/2, n_beamlets_x)
         "adaptive" (recommended) -  beamlets distributed evenly
             in both x and y directions.
-    n_beamlets_x
+    n_beamlets
         Number of beamlets in the LOS spot cross-section.
-        Along the width (x)
-    n_beamlets_y
-        Number of beamlets in the LOS spot cross-section.
-        Along the height (y)
+        Currently only works with quadratic sequence (e.g.
+        1^2 = 1, 2^2 = 4, 3^2 = 9, 4^2 = 16, etc...)
     spot_width
         Width of the LOS spot in (m).
     spot_height
@@ -117,8 +114,7 @@ class LineOfSightTransform(CoordinateTransform):
         dl: float = 0.01,
         passes: int = 1,
         beamlets_method: str = "simple",
-        n_beamlets_x: int = 1,
-        n_beamlets_y: int = 1,
+        n_beamlets: int = 1,
         spot_width: float = 0.0,
         spot_height: float = 0.0,
         spot_shape: str = "square",
@@ -148,8 +144,8 @@ class LineOfSightTransform(CoordinateTransform):
         self.spot_height = spot_height
         self.spot_shape = spot_shape
         self.beamlets_method = beamlets_method
-        self.n_beamlets_x = n_beamlets_x
-        self.n_beamlets_y = n_beamlets_y
+        self.n_beamlets_x = int(np.sqrt(n_beamlets))
+        self.n_beamlets_y = int(np.sqrt(n_beamlets))
         self.focal_length = focal_length
         self.distribute_beamlets(debug=plot_beamlets)
 
@@ -262,107 +258,97 @@ class LineOfSightTransform(CoordinateTransform):
         yr = np.sin(theta) * (x - xo) + np.cos(theta) * (y - yo) + yo
         return np.array([xr, yr])
 
+    # Function for adaptive beamlets
+    def adaptive_beamlets(self, debug=False):
+        # The size of each filament box
+        delta = self.spot_width / float(self.n_beamlets_x)
+
+        # The number of filament rows in the vertical dimension
+        # Such that delta_x = delta_y - e.g. square
+        m_dash = self.spot_height / delta
+        m = int(np.ceil(m_dash))
+
+        # Check "m" is odd or even
+        if m % 2 == 0:  # even
+            m = m + 1  # iterate to the next odd number
+        else:  # odd
+            pass
+
+        param = (m * delta - self.spot_height) / 2
+        param2 = delta / 2
+
+        if debug:
+            print(f"self.spot_width = {self.spot_width}")
+            print(f"self.spot_height = {self.spot_height}")
+            print(f"self.n_beamlets_x = {self.n_beamlets_x}")
+            print(f"self.n_beamlets_y = {self.n_beamlets_y}")
+            print(f"delta = {delta}")
+            print(f"m_dash = {m_dash}")
+            print(f"m = {m}")
+            print(f"param = {param}")
+            print(f"param2 = {param2}")
+            print(" ")
+
+        return param, param2, m
+
     # Function to define beamlets grid points
-    def define_beamlets_grid(self):
+    def define_beamlets_simple(self):
         # Set-up beamlets grid
-        if self.beamlets_method == "simple":
-            grid_w = np.linspace(
-                -self.spot_width / 2,
-                self.spot_width / 2,
-                self.n_beamlets_x,
-                dtype=float,
-            )
-            grid_v = np.linspace(
-                -self.spot_height / 2,
-                self.spot_height / 2,
-                self.n_beamlets_y,
-                dtype=float,
-            )
-            W, V = np.meshgrid(grid_w, grid_v)
-            w = W.flatten()
-            v = V.flatten()
+        grid_w = np.linspace(
+            -self.spot_width / 2,
+            self.spot_width / 2,
+            self.n_beamlets_x,
+            dtype=float,
+        )
+        grid_v = np.linspace(
+            -self.spot_height / 2,
+            self.spot_height / 2,
+            self.n_beamlets_y,
+            dtype=float,
+        )
+        W, V = np.meshgrid(grid_w, grid_v)
+        w = W.flatten()
+        v = V.flatten()
 
-        elif self.beamlets_method == "point":
-            w = np.array([0.0])
-            v = np.array([0.0])
+        return w, v
 
-        elif self.beamlets_method == "adaptive":
+    # Function to define beamlets grid points
+    def define_beamlets_adaptive(self):
+        # Calculate parameters
+        param, param2, m = self.adaptive_beamlets()
 
-            # Function for adaptive beamlets
-            def adaptive_beamlets(debug=False):
-                # The size of each filament box
-                delta = self.spot_width / float(self.n_beamlets_x)
-
-                # The number of filament rows in the vertical dimension
-                # Such that delta_x = delta_y - e.g. square
-                m_dash = self.spot_height / delta
-                m = int(np.ceil(m_dash))
-
-                # Check "m" is odd or even
-                if m % 2 == 0:  # even
-                    m = m + 1  # iterate to the next odd number
-                else:  # odd
-                    pass
-
-                param = (m * delta - self.spot_height) / 2
-                param2 = delta / 2
-
-                if debug:
-                    print(f"self.spot_width = {self.spot_width}")
-                    print(f"self.spot_height = {self.spot_height}")
-                    print(f"self.n_beamlets_x = {self.n_beamlets_x}")
-                    print(f"self.n_beamlets_y = {self.n_beamlets_y}")
-                    print(f"delta = {delta}")
-                    print(f"m_dash = {m_dash}")
-                    print(f"m = {m}")
-                    print(f"param = {param}")
-                    print(f"param2 = {param2}")
-                    print(" ")
-
-                return param, param2, m
+        count = 0
+        while param > param2:
+            # Go to next odd number
+            self.n_beamlets_x = self.n_beamlets_x + 2
 
             # Calculate parameters
-            param, param2, m = adaptive_beamlets()
+            param, param2, m = self.adaptive_beamlets()
 
-            count = 0
-            while param > param2:
-                # Go to next odd number
-                self.n_beamlets_x = self.n_beamlets_x + 2
+            # Iterate
+            count += 1
+            if count == 9:
+                raise ValueError("Beamlets solution not found")
 
-                # Calculate parameters
-                param, param2, m = adaptive_beamlets()
+        self.n_beamlets_y = m
 
-                # Iterate
-                count += 1
-                if count == 9:
-                    raise ValueError("Beamlets solution not found")
-
-            self.n_beamlets_y = m
-
-            grid_w = np.linspace(
-                -self.spot_width / 2,
-                self.spot_width / 2,
-                self.n_beamlets_x * 2 + 1,
-                dtype=float,
-            )
-            grid_v = np.linspace(
-                -self.spot_height / 2,
-                self.spot_height / 2,
-                self.n_beamlets_y * 2 + 1,
-                dtype=float,
-            )
-            grid_w = grid_w[1::2]
-            grid_v = grid_v[1::2]
-            W, V = np.meshgrid(grid_w, grid_v)
-            w = W.flatten()
-            v = V.flatten()
-        else:
-            raise ValueError(
-                f"Invalid 'beamlets_method' option: {self.beamlets_method}"
-            )
-
-        # Set number of beamlets
-        self.beamlets = int(self.n_beamlets_x * self.n_beamlets_y)
+        grid_w = np.linspace(
+            -self.spot_width / 2,
+            self.spot_width / 2,
+            self.n_beamlets_x * 2 + 1,
+            dtype=float,
+        )
+        grid_v = np.linspace(
+            -self.spot_height / 2,
+            self.spot_height / 2,
+            self.n_beamlets_y * 2 + 1,
+            dtype=float,
+        )
+        grid_w = grid_w[1::2]
+        grid_v = grid_v[1::2]
+        W, V = np.meshgrid(grid_w, grid_v)
+        w = W.flatten()
+        v = V.flatten()
 
         return w, v
 
@@ -372,7 +358,22 @@ class LineOfSightTransform(CoordinateTransform):
         """
 
         # Define beamlets grid
-        w, v = self.define_beamlets_grid()
+        if self.n_beamlets_x > 1:
+
+            if self.beamlets_method == "adaptive":
+                w, v = self.define_beamlets_adaptive()
+            elif self.beamlets_method == "simple":
+                w, v = self.define_beamlets_simple()
+            else:
+                raise ValueError(
+                    f"Invalid 'beamlets_method' option: {self.beamlets_method}"
+                )
+        else:
+            w = np.array([0.0])
+            v = np.array([0.0])
+
+        # Set number of beamlets
+        self.beamlets = int(self.n_beamlets_x * self.n_beamlets_y)
 
         # Draw spot
         if self.spot_shape == "round":
