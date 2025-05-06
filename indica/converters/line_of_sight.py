@@ -253,10 +253,8 @@ class LineOfSightTransform(CoordinateTransform):
         yr = np.sin(theta) * (x - xo) + np.cos(theta) * (y - yo) + yo
         return np.array([xr, yr])
 
-    def distribute_beamlets(self, debug=False):
-        """
-        Distribute beamlets using information on spot size and divergence.
-        """
+    # Function to define beamlets grid points
+    def define_beamlets_grid(self):
         # Set-up beamlets grid
         if self.beamlets_method == "simple":
             grid_w = np.linspace(
@@ -274,6 +272,10 @@ class LineOfSightTransform(CoordinateTransform):
             W, V = np.meshgrid(grid_w, grid_v)
             w = W.flatten()
             v = V.flatten()
+
+        elif self.beamlets_method == "point":
+            w = np.array([0.0])
+            v = np.array([0.0])
 
         elif self.beamlets_method == "adaptive":
 
@@ -350,7 +352,18 @@ class LineOfSightTransform(CoordinateTransform):
                 f"Invalid 'beamlets_method' option: {self.beamlets_method}"
             )
 
+        # Set number of beamlets
         self.beamlets = int(self.n_beamlets_x * self.n_beamlets_y)
+
+        return w, v
+
+    def distribute_beamlets(self, debug=False):
+        """
+        Distribute beamlets using information on spot size and divergence.
+        """
+
+        # Define beamlets grid
+        w, v = self.define_beamlets_grid()
 
         # Draw spot
         if self.spot_shape == "round":
