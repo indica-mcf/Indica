@@ -18,11 +18,12 @@ def line_of_sight_example(make_plot=True):
     name = "dummy_los"
 
     # Optional inputs for the spot
-    beamlets = int(3 * 3)
     focal_length = -0.5  # meter
-    spot_width = 0.01  # meter
-    spot_height = 0.01  # meter
+    spot_width = 0.010  # meter
+    spot_height = 0.015  # meter
     spot_shape = "round"
+    beamlets_method = "adaptive"
+    n_beamlets = 25
     plot_beamlets = True
 
     los_transform = LineOfSightTransform(
@@ -37,7 +38,8 @@ def line_of_sight_example(make_plot=True):
         spot_width=spot_width,
         spot_height=spot_height,
         spot_shape=spot_shape,
-        beamlets=beamlets,
+        beamlets_method=beamlets_method,
+        n_beamlets=n_beamlets,
         focal_length=focal_length,
         machine_dimensions=machine_dims,
         passes=1,
