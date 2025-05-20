@@ -80,15 +80,15 @@ def bin_data_in_time(
 
             if "t" in data_quant.coords:
                 data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
-            # Using groupedby_bins always removes error from coords so adding it back
-            if "error" in raw_data[instr][quant].coords:
-                error = convert_in_time_dt(
-                    tstart, tend, dt, raw_data[instr][quant].error
-                )
-                data_quant = data_quant.assign_coords(
-                    error=(raw_data[instr][quant].dims, error.data)
-                )
-            binned_quantities[quant] = data_quant
+                # Using groupedby_bins always removes error from coords so adding it
+                if "error" in raw_data[instr][quant].coords:
+                    error = convert_in_time_dt(
+                        tstart, tend, dt, raw_data[instr][quant].error
+                    )
+                    data_quant = data_quant.assign_coords(
+                        error=(raw_data[instr][quant].dims, error.data)
+                    )
+                binned_quantities[quant] = data_quant
         binned_data[instr] = binned_quantities
     return binned_data
 
