@@ -120,10 +120,10 @@ class PinholeCamera(AbstractDiagnostic):
                 fz = fz.transpose()
 
             Lz = self.power_loss[elem](
-                Te.sel(t=t),
+                Te,
                 fz,
-                Ne=Ne.sel(t=t),
-                Nh=Nh.sel(t=t),
+                Ne=Ne,
+                Nh=Nh,
             )
 
             if hasattr(self, "rhop"):
