@@ -59,7 +59,7 @@ def example_bolometer(
     machine = "st40"
     instrument = "blom_xy1"
     _model = PinholeCamera
-    _, power_loss = default_atomic_data(["ar", "c", "he"])
+    _, power_loss = default_atomic_data(["h", "ar", "c", "he"])
 
     return run_example_diagnostic_model(
         machine, instrument, _model, plot=plot, power_loss=power_loss

@@ -188,22 +188,22 @@ class PinholeCamera(AbstractDiagnostic):
         for i, t in enumerate(np.array(self.t)):
             if i % nplot:
                 continue
-            if hasattr(self, "rhop"):
-                _plot = plt.plot(
+            if hasattr(self.emissivity, "rhop"):
+                plt.plot(
                     self.emissivity.rhop,
                     self.emissivity.sel(t=t),
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
             else:
-                _plot = self.emissivity.sel(t=t).plot(
-                    label=f"t={t:1.2f} s", add_labels=True
+                self.emissivity.sel(t=t).plot(
+                    label=f"t={t:1.2f} s",
                 )
                 self.transform.plot(orientation="Rz", figure=False, t=t)
                 break
 
-        set_axis_sci(_plot)
-        if hasattr(self, "rhop"):
+        set_axis_sci()
+        if hasattr(self.emissivity, "rhop"):
             plt.xlabel("Rho-poloidal")
             plt.ylabel("(W/m^3)")
         else:
