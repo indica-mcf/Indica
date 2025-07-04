@@ -159,12 +159,14 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
     },
     "get_radiation": {
         "t": ("t", ["t"]),
+        "rhop": ("rhop", []),
         "channel": ("channel", []),
         "bad_channel": ("bad_channel", ["channel"]),
         "label": ("label", ["channel"]),
         "location": ("location", []),
         "direction": ("direction", []),
         "brightness": ("brightness", ["t", "channel"]),
+        "emissivity": ("sxr_radiation", ["t", "rhop"]),
     },
     "get_zeff": {
         "t": ("t", ["t"]),
