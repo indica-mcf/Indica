@@ -48,6 +48,8 @@ class PinholeCamera(AbstractDiagnostic):
             "location": self.transform.origin,
             "direction": self.transform.direction,
             "brightness": self.los_integral,
+            "emissivity": self.emissivity,
+            "rhop": self.plasma.rhop
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 
