@@ -1,3 +1,4 @@
+from copy import deepcopy
 import time as tt
 
 import matplotlib.pylab as plt
@@ -546,11 +547,12 @@ class SXR_tomography:
         ax[0].ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
         ax[1].ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
 
-        global cont
+        global cont, it_eq_old
         cvals = np.linspace(0, 1, 20)
 
+        it_eq_old = 0
         cont = ax[2].contour(
-            self.eq["R"], self.eq["z"], self.eq["rho"][0], cvals, colors="red"
+            self.eq["R"], self.eq["z"], self.eq["rho"][it_eq_old], cvals, colors="red"
         )
 
         ax[2].axis("equal")
@@ -573,7 +575,17 @@ class SXR_tomography:
         title = f.suptitle("")
 
         def update(reg=None, time=None):
-            global cont
+            global cont, it_eq_old
+
+            # cover old contour (collections.remove has been deprecated)
+            cont = ax[2].contour(
+                self.eq["R"],
+                self.eq["z"],
+                self.eq["rho"][it_eq_old],
+                cvals,
+                colors=["w"] * len(cvals),
+            )
+
             if reg is not None:
                 self.calc_tomo(reg_level=reg, nfisher=3, eps=1e-5)
 
@@ -581,6 +593,7 @@ class SXR_tomography:
                 time = slide_time.val
 
             it = np.argmin(np.abs(self.tvec - time))
+            it_eq_old = deepcopy(it)
 
             update_fill_between(
                 tomo_var,
@@ -601,9 +614,6 @@ class SXR_tomography:
             retro.set_data(self.x, self.backprojection[it])
 
             update_errorbar(errorbar, self.x, self.data[it], self.err[it])
-
-            for c in cont.collections:
-                c.remove()  # removes only the contours, leaves the rest intact
 
             it_eq = np.argmin(np.abs(self.eq["t"] - time))
 
