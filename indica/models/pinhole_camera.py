@@ -60,6 +60,7 @@ class PinholeCamera(AbstractDiagnostic):
         fz: dict = None,
         t: LabeledArray = None,
         calc_rho=False,
+        return_emissivity=False,
         sum_beamlets: bool = True,
         **kwargs,
     ):
@@ -138,6 +139,10 @@ class PinholeCamera(AbstractDiagnostic):
         self.emissivity_element = xr.concat(emissivity_element, "element")
         emissivity = self.emissivity_element.sum("element")
         self.emissivity = xr.where(np.isfinite(Ne), emissivity, np.nan)
+
+        
+
+        
         assign_datatype(self.emissivity, "total_radiation")
 
         self.los_integral = self.transform.integrate_on_los(
@@ -148,6 +153,9 @@ class PinholeCamera(AbstractDiagnostic):
         )
 
         self._build_bckc_dictionary()
+
+        if (return_emissivity):
+            return self.bckc, self.emissivity
 
         return self.bckc
 
@@ -182,6 +190,7 @@ class PinholeCamera(AbstractDiagnostic):
         set_axis_sci()
         plt.title(self.name.upper())
         plt.legend()
+        plt.savefig("backcalc")
 
         # Local emissivity profiles
         plt.figure()
@@ -210,3 +219,4 @@ class PinholeCamera(AbstractDiagnostic):
             plt.axis("equal")
         plt.title("Local radiated power")
         plt.legend()
+        plt.savefig("localradiated.png")

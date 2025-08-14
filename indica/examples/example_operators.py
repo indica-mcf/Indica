@@ -214,6 +214,9 @@ def example_tomo_1D(
     los_integral = los_transform.integrate_on_los(
         phantom_emission, phantom_emission.t.values
     )
+    print("phantom em")
+    print(phantom_emission.shape)
+    sas
 
     z = los_transform.z.mean("beamlet")
     R = los_transform.R.mean("beamlet")
@@ -237,6 +240,7 @@ def example_tomo_1D(
     )
     if emissivity is not None:
         input_dict["emissivity"] = emissivity
+
 
     tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
     tomo()
