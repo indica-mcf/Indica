@@ -140,4 +140,4 @@ def example_equilibrium(
 
 
 if __name__ == "__main__":
-    example_passive_spectroscopy(plot=True)
+    example_bolometer(plot=True)

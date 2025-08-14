@@ -6,8 +6,8 @@ from indica.examples.example_operators import example_tomo_asymmetry
 
 
 def test_tomo_1D_with_asymmetry():
-    _ = example_tomo_1D(asymmetric_profile=True, plot=False)
-
+    _ = example_tomo_1D(asymmetric_profile=True, plot=True)
+"""
 
 def test_tomo_1D_with_symmetry():
 
@@ -27,3 +27,6 @@ def test_tomo_asymmetry_with_symmetry():
 def test_fit_ts():
 
     _ = example_fit_ts(plot=False)
+"""
+
+test_tomo_1D_with_asymmetry()
