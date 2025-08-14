@@ -123,6 +123,26 @@ def run_example_diagnostic_model(
     ax2=inverted_emissivity[2].plot()
     plt.savefig("jussitesting/emissivity2.png")
 
+    #This has 100 radials
+    print(inverted_emissivity)
+    print(inverted_emissivity.shape)
+    #This has 41 radials
+    print(emissivity)
+    print(emissivity.shape)
+
+    #Interpolate the 100 to 41
+    downsampled_inverted=inverted_emissivity.interp(rhop=emissivity["rhop"])
+    print(downsampled_inverted.shape)
+
+    #Difference
+    diff=emissivity-downsampled_inverted
+    mse=(diff**2).mean(dim=("t","rhop"))
+    print(mse)
+
+    import xarray
+    corr=xarray.corr(emissivity.stack(points=("t","rhop")),downsampled_inverted.stack(points=("t","rhop")),dim="points")
+    print(corr)
+
 
     
     ata
