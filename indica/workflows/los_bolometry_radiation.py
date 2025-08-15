@@ -143,9 +143,28 @@ def run_example_diagnostic_model(
     corr=xarray.corr(emissivity.stack(points=("t","rhop")),downsampled_inverted.stack(points=("t","rhop")),dim="points")
     print(corr)
 
+
+    
+
+
+
+
+
+    #Now for the LOS change
+
+    #npa=np.append(transform.origin,[0.45,-1.25,0])
+    #npb=np.append(transform.direction,[0.35,0.99,0])
+    #transform.origin=npa
+    #transform.direction=npb
+    #transform.set_dl(0.01)
+
+    print(transform.origin.x)
+    print(transform.direction)
+    ata
+
+
     transform.plot(np.mean(0.02))
     plt.show()
-
     
     ata
 
