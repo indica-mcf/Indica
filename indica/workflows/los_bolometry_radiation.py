@@ -152,16 +152,15 @@ def run_example_diagnostic_model(
 
     #Now for the LOS change
 
-    #npa=np.append(transform.origin,[0.45,-1.25,0])
-    #npb=np.append(transform.direction,[0.35,0.99,0])
-    #transform.origin=npa
-    #transform.direction=npb
-    #transform.set_dl(0.01)
+    transform.add_origin((0.45,-1.25,0))
+    transform.add_direction((0.35,0.99,0))
 
-    print(transform.origin.x)
+    transform.set_dl(0.01)
+
+    print(transform.origin)
     print(transform.direction)
-    ata
 
+    ata
 
     transform.plot(np.mean(0.02))
     plt.show()
