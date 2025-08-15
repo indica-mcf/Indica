@@ -166,10 +166,10 @@ class LineOfSightTransform(CoordinateTransform):
         return self._origin
 
     def add_origin(self,value):
-        arr=np.array(value,dtype=float)
-        if arr.shape !=(3,):
-            raise ValueError("Origin must have 3 componets")
-        self._origin=np.vstack([self._origin,arr])
+        x,y,z = np.asarray(value).reshape(3,)
+        self.origin_x=np.append(self.origin_x,x)
+        self.origin_y=np.append(self.origin_y,y)
+        self.origin_z=np.append(self.origin_z,z)
 
     @property
     def direction(self):
@@ -179,10 +179,10 @@ class LineOfSightTransform(CoordinateTransform):
         return self._direction
     
     def add_direction(self,value):
-        arr=np.array(value)
-        if arr.shape !=(3,):
-            raise ValueError("Dir must have 3 componets")
-        self._direction=np.vstack([self._direction,arr])
+        x,y,z = np.asarray(value).reshape(3,)
+        self.direction_x=np.append(self.direction_x,x)
+        self.direction_y=np.append(self.direction_y,y)
+        self.direction_z=np.append(self.direction_z,z)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):

@@ -152,10 +152,11 @@ def run_example_diagnostic_model(
 
     #Now for the LOS change
 
+    print(len(transform.origin))
     transform.add_origin((0.45,-1.25,0))
     transform.add_direction((0.35,0.99,0))
 
-    transform.set_dl(0.01)
+    #transform.set_dl(0.01)
 
     print(transform.origin)
     print(transform.direction)
