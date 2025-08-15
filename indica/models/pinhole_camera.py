@@ -219,4 +219,3 @@ class PinholeCamera(AbstractDiagnostic):
             plt.axis("equal")
         plt.title("Local radiated power")
         plt.legend()
-        plt.savefig("localradiated.png")

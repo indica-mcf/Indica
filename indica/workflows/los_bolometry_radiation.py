@@ -50,8 +50,8 @@ def run_example_diagnostic_model(
         return_emissivity=True
     )
 
-    ax=emissivity[2].plot()
-    plt.savefig("jussitesting/emissivity.png")
+    #ax=emissivity[2].plot()
+    #plt.savefig("/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/emissivity.png")
 
     los_integral=bckc["brightness"]
     #print(los_integral)
@@ -119,9 +119,9 @@ def run_example_diagnostic_model(
 
     data_tomo = los_integral
     bckc_tomo = DataArray(tomo.backprojection.T, coords=data_tomo.coords)
-    plt.close()
-    ax2=inverted_emissivity[2].plot()
-    plt.savefig("jussitesting/emissivity2.png")
+    #plt.close()
+    #ax2=inverted_emissivity[2].plot()
+    #plt.savefig("/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/emissivity2.png")
 
     #This has 100 radials
     print(inverted_emissivity)
@@ -143,6 +143,8 @@ def run_example_diagnostic_model(
     corr=xarray.corr(emissivity.stack(points=("t","rhop")),downsampled_inverted.stack(points=("t","rhop")),dim="points")
     print(corr)
 
+    transform.plot(np.mean(0.02))
+    plt.show()
 
     
     ata
