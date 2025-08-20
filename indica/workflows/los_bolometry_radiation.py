@@ -11,6 +11,11 @@ from typing import Callable
 
 import matplotlib.pylab as plt
 
+
+
+def cartesian_from_polar_angle(angle,machine_r):
+    return np.cos(angle),np.sin(angle)
+
 def example_poloidal_asymmetry(plasma, equilibrium):
     PLASMA=plasma
     asymmetry_parameter = centrifugal_asymmetry_parameter(
@@ -128,6 +133,8 @@ def run_example_diagnostic_model(
     model.set_transform(transform)
     model.set_plasma(plasma)
 
+    machine_r=transform._machine_dims[0][1]
+    
 
     #Need to add to defaults
     transform.spot_shape="square"
