@@ -31,6 +31,13 @@ def example_poloidal_asymmetry(plasma, equilibrium):
 
     return ion_density_2d
 
+def update_los(transform):
+
+    transform.x1=list(np.arange(0,len(transform.origin)))
+
+    transform.distribute_beamlets(debug=False)
+    transform.set_dl(0.01)
+
 def reconstruction_metric(emissivity, downsampled_inverted):
         #Difference
     diff=emissivity-downsampled_inverted
@@ -175,12 +182,17 @@ def run_example_diagnostic_model(
     transform.add_origin((0.115,-1.045,0))
     transform.add_direction((-0.18,0.98,0))
 
-    transform.x1=list(np.arange(0,len(transform.origin)))
+    origin=transform.origin
+    origin=np.delete(origin,[5,6,7,8,9,10],axis=0)
+    transform.set_origin(origin)
 
-    #transform.set_dl(0.01)
 
-    transform.distribute_beamlets(debug=False)
-    transform.set_dl(0.01)
+    direction=transform.direction
+    direction=np.delete(direction,[5,6,7,8,9,10],axis=0)
+    transform.set_direction(direction)
+
+
+    update_los(transform)
 
 
     inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
