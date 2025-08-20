@@ -124,15 +124,15 @@ def run_example_diagnostic_model(
     #plt.savefig("/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/emissivity2.png")
 
     #This has 100 radials
-    print(inverted_emissivity)
-    print(inverted_emissivity.shape)
+    #print(inverted_emissivity)
+    #print(inverted_emissivity.shape)
     #This has 41 radials
-    print(emissivity)
-    print(emissivity.shape)
+    #print(emissivity)
+    #print(emissivity.shape)
 
     #Interpolate the 100 to 41
     downsampled_inverted=inverted_emissivity.interp(rhop=emissivity["rhop"])
-    print(downsampled_inverted.shape)
+    #print(downsampled_inverted.shape)
 
     #Difference
     diff=emissivity-downsampled_inverted
@@ -152,16 +152,17 @@ def run_example_diagnostic_model(
 
     #Now for the LOS change
 
-    print(len(transform.origin))
-    transform.add_origin((0.45,-1.25,0))
-    transform.add_direction((0.35,0.99,0))
+    transform.add_origin((0.425,-1.245,0))
+    transform.add_direction((-0.18,0.98,0))
 
     #transform.set_dl(0.01)
 
-    print(transform.origin)
-    print(transform.direction)
+    transform.spot_shape="square"
+    transform.focal_length= -1000.0
+    transform.x1=list(np.arange(0,9))
+    transform.distribute_beamlets(debug=False)
+    transform.set_dl(0.01)
 
-    ata
 
     transform.plot(np.mean(0.02))
     plt.show()

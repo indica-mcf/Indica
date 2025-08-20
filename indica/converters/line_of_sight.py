@@ -368,7 +368,8 @@ class LineOfSightTransform(CoordinateTransform):
         """
         Distribute beamlets using information on spot size and divergence.
         """
-
+        self.n_beamlets_x=1
+        self.n_beamlets_y=1
         # Define beamlets grid
         if self.n_beamlets_x > 1:
 
