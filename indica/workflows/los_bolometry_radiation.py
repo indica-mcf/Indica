@@ -4,6 +4,7 @@ from indica.operators.atomic_data import default_atomic_data
 from indica.operators import tomo_1D
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter, centrifugal_asymmetry_2d_map
 import numpy as np
+import random
 
 import xarray
 from xarray import DataArray
@@ -12,8 +13,15 @@ from typing import Callable
 import matplotlib.pylab as plt
 
 
+def random_feasible_direction_from_polar_angle(angle,machine_r):
+    inward_direction=(angle+180)%360
+    low_angle_limit=(angle-89)%360
+    high_angle_limit=(angle+89)%360
+    direction_angle=random.uniform(low_angle_limit,high_angle_limit)
+    return np.cos(direction_angle),machine_r*np.sin(direction_angle)
 
-def cartesian_from_polar_angle(angle,machine_r):
+
+def origin_from_polar_angle(angle,machine_r):
     return np.cos(angle),np.sin(angle)
 
 def example_poloidal_asymmetry(plasma, equilibrium):
@@ -176,7 +184,7 @@ def run_example_diagnostic_model(
 
 
 
-
+    """
     #Now for the LOS change
 
     transform.add_origin((0.425,-1.245,0))
@@ -197,7 +205,16 @@ def run_example_diagnostic_model(
     direction=transform.direction
     direction=np.delete(direction,[5,6,7,8,9,10],axis=0)
     transform.set_direction(direction)
+    """
+    los_angles=[100,200,300]
+    origin=transform.origin
+    origin=np.delete(origin,[1,2,3,4,5,6,7,8,9,10])
+    new_origin_x,new_origin_y=origin_from_polar_angle(100,machine_r)
 
+    dir_x,dir_y=random_feasible_direction_from_polar_angle(100,machine_r)
+    print(new_origin_x,new_origin_y)
+    print(dir_x,dir_y)
+    ata
 
     update_los(transform)
 
