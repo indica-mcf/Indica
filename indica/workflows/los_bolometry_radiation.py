@@ -18,6 +18,7 @@ def random_feasible_direction_from_polar_angle(angle,machine_r):
     low_angle_limit=(angle-89)%360
     high_angle_limit=(angle+89)%360
     direction_angle=random.uniform(low_angle_limit,high_angle_limit)
+    print("dir ang:",direction_angle)
     return np.cos(direction_angle),machine_r*np.sin(direction_angle)
 
 
@@ -208,14 +209,20 @@ def run_example_diagnostic_model(
     """
     los_angles=[100,200,300]
     origin=transform.origin
-    origin=np.delete(origin,[1,2,3,4,5,6,7,8,9,10])
+    direction=transform.direction
+    origin=np.delete(origin,[1,2,3,4,5,6],axis=0)
+    transform.set_origin(origin)
+    direction=np.delete(direction,[1,2,3,4,5,6],axis=0)
+    transform.set_direction(direction)
+
     new_origin_x,new_origin_y=origin_from_polar_angle(100,machine_r)
+    transform.add_origin((new_origin_x,new_origin_y,0))
 
-    dir_x,dir_y=random_feasible_direction_from_polar_angle(100,machine_r)
-    print(new_origin_x,new_origin_y)
-    print(dir_x,dir_y)
-    ata
+    new_dir_x,new_dir_y=random_feasible_direction_from_polar_angle(100,machine_r)
+    transform.add_direction((new_dir_x,new_dir_y,0))
 
+    print(transform.origin)
+    print(transform.direction)
     update_los(transform)
 
 
