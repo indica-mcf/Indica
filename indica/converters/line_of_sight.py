@@ -171,6 +171,14 @@ class LineOfSightTransform(CoordinateTransform):
         self.origin_y=np.append(self.origin_y,y)
         self.origin_z=np.append(self.origin_z,z)
 
+
+    def set_origin(self,value):
+        x,y,z = np.asarray(value).reshape(3,)
+        self.origin_x=x
+        self.origin_y=y
+        self.origin_z=z
+    
+
     @property
     def direction(self):
         self._direction = np.array(
@@ -183,6 +191,12 @@ class LineOfSightTransform(CoordinateTransform):
         self.direction_x=np.append(self.direction_x,x)
         self.direction_y=np.append(self.direction_y,y)
         self.direction_z=np.append(self.direction_z,z)
+
+    def set_direction(self,value):
+        x,y,z = np.asarray(value).reshape(3,)
+        self.direction_x=x
+        self.direction_y=y
+        self.direction_z=z
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, self.__class__):

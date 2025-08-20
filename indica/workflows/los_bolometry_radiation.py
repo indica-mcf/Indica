@@ -153,7 +153,7 @@ def run_example_diagnostic_model(
     )
     phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
 
-
+    
 
     inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
 
@@ -167,7 +167,15 @@ def run_example_diagnostic_model(
 
     transform.add_origin((0.425,-1.245,0))
     transform.add_direction((-0.18,0.98,0))
-    transform.x1=list(np.arange(0,9))
+
+    transform.add_origin((0.105,-1.045,0))
+    transform.add_direction((0.18,0.98,0))
+
+
+    transform.add_origin((0.115,-1.045,0))
+    transform.add_direction((-0.18,0.98,0))
+
+    transform.x1=list(np.arange(0,len(transform.origin)))
 
     #transform.set_dl(0.01)
 
@@ -182,8 +190,8 @@ def run_example_diagnostic_model(
     print(mse,mse2)
     print(corr,corr2)
 
-    #transform.plot(np.mean(0.02))
-    #plt.show()
+    transform.plot(np.mean(0.02))
+    plt.show()
     
     ata
 
