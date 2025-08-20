@@ -5,6 +5,7 @@ from indica.operators import tomo_1D
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter, centrifugal_asymmetry_2d_map
 import numpy as np
 
+import xarray
 from xarray import DataArray
 from typing import Callable
 
@@ -30,54 +31,24 @@ def example_poloidal_asymmetry(plasma, equilibrium):
 
     return ion_density_2d
 
-def run_example_diagnostic_model(
-    machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
-):
-    transforms = load_default_objects(machine, "geometry")
-    equilibrium = load_default_objects(machine, "equilibrium")
-    plasma = load_default_objects(machine, "plasma")
+def reconstruction_metric(emissivity, downsampled_inverted):
+        #Difference
+    diff=emissivity-downsampled_inverted
+    mse=(diff**2).mean(dim=("t","rhop"))
 
-    plasma.set_equilibrium(equilibrium)
-    transform = transforms[instrument]
-    transform.set_equilibrium(equilibrium)
+    corr=xarray.corr(emissivity.stack(points=("t","rhop")),downsampled_inverted.stack(points=("t","rhop")),dim="points")
+    return mse,corr
 
-    model = model(instrument, **kwargs)
-    model.set_transform(transform)
-    model.set_plasma(plasma)
 
-    bckc, emissivity = model(
-        sum_beamlets=False,
-        return_emissivity=True
-    )
-
-    #ax=emissivity[2].plot()
-    #plt.savefig("/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/emissivity.png")
-
-    los_integral=bckc["brightness"]
-    #print(los_integral)
+def calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity):
     PLASMA=plasma
-    element: str = "ar"
-    asymmetric_profile=False
-    if asymmetric_profile:
-        ion_density_2d = example_poloidal_asymmetry(plasma,equilibrium)
-        emissivity = None
-    else:
-        rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t.values)
-        ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
-        emissivity = emissivity
-    imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
-    el_density_2d = PLASMA.electron_density.interp(rhop=imp_density_2d.rhop)
-    lz_tot_2d = (
-        PLASMA.lz_tot[element].sum("ion_charge").interp(rhop=imp_density_2d.rhop)
-    )
-    phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
     los_transform = transform
     los_transform.set_equilibrium(PLASMA.equilibrium)
     los_integral = los_transform.integrate_on_los(
         phantom_emission, phantom_emission.t.values
     )
-    print("phantom em")
-    print(phantom_emission.shape)
+    #print("phantom em")
+    #print(phantom_emission.shape)
 
     z = los_transform.z.mean("beamlet")
     R = los_transform.R.mean("beamlet")
@@ -133,18 +104,60 @@ def run_example_diagnostic_model(
     #Interpolate the 100 to 41
     downsampled_inverted=inverted_emissivity.interp(rhop=emissivity["rhop"])
     #print(downsampled_inverted.shape)
+    return inverted_emissivity,downsampled_inverted
 
-    #Difference
-    diff=emissivity-downsampled_inverted
-    mse=(diff**2).mean(dim=("t","rhop"))
-    print(mse)
+def run_example_diagnostic_model(
+    machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
+):
+    transforms = load_default_objects(machine, "geometry")
+    equilibrium = load_default_objects(machine, "equilibrium")
+    plasma = load_default_objects(machine, "plasma")
 
-    import xarray
-    corr=xarray.corr(emissivity.stack(points=("t","rhop")),downsampled_inverted.stack(points=("t","rhop")),dim="points")
-    print(corr)
+    plasma.set_equilibrium(equilibrium)
+    transform = transforms[instrument]
+    transform.set_equilibrium(equilibrium)
+
+    model = model(instrument, **kwargs)
+    model.set_transform(transform)
+    model.set_plasma(plasma)
 
 
-    
+    #Need to add to defaults
+    transform.spot_shape="square"
+    transform.focal_length= -1000.0
+
+    bckc, emissivity = model(
+        sum_beamlets=False,
+        return_emissivity=True
+    )
+
+    #ax=emissivity[2].plot()
+    #plt.savefig("/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/emissivity.png")
+
+    los_integral=bckc["brightness"]
+    #print(los_integral)
+    PLASMA=plasma
+    element: str = "ar"
+    asymmetric_profile=False
+    if asymmetric_profile:
+        ion_density_2d = example_poloidal_asymmetry(plasma,equilibrium)
+        emissivity = None
+    else:
+        rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t.values)
+        ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
+        emissivity = emissivity
+    imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
+    el_density_2d = PLASMA.electron_density.interp(rhop=imp_density_2d.rhop)
+    lz_tot_2d = (
+        PLASMA.lz_tot[element].sum("ion_charge").interp(rhop=imp_density_2d.rhop)
+    )
+    phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
+
+
+
+    inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
+
+    mse,corr=reconstruction_metric(emissivity,downsampled_inverted)
 
 
 
@@ -154,18 +167,23 @@ def run_example_diagnostic_model(
 
     transform.add_origin((0.425,-1.245,0))
     transform.add_direction((-0.18,0.98,0))
+    transform.x1=list(np.arange(0,9))
 
     #transform.set_dl(0.01)
 
-    transform.spot_shape="square"
-    transform.focal_length= -1000.0
-    transform.x1=list(np.arange(0,9))
     transform.distribute_beamlets(debug=False)
     transform.set_dl(0.01)
 
 
-    transform.plot(np.mean(0.02))
-    plt.show()
+    inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
+
+    mse2,corr2=reconstruction_metric(emissivity,downsampled_inverted)
+
+    print(mse,mse2)
+    print(corr,corr2)
+
+    #transform.plot(np.mean(0.02))
+    #plt.show()
     
     ata
 
