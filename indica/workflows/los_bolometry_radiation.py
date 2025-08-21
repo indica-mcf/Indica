@@ -125,6 +125,32 @@ def calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity):
     #print(downsampled_inverted.shape)
     return inverted_emissivity,downsampled_inverted
 
+
+def get_phantom_emission(bckc,plasma,equilibrium,emissivity):
+
+    los_integral=bckc["brightness"]
+    #print(los_integral)
+    PLASMA=plasma
+    element: str = "ar"
+    asymmetric_profile=False
+    if asymmetric_profile:
+        ion_density_2d = example_poloidal_asymmetry(plasma,equilibrium)
+        emissivity = None
+    else:
+        rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t.values)
+        ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
+        emissivity = emissivity
+    imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
+    el_density_2d = PLASMA.electron_density.interp(rhop=imp_density_2d.rhop)
+    lz_tot_2d = (
+        PLASMA.lz_tot[element].sum("ion_charge").interp(rhop=imp_density_2d.rhop)
+    )
+    phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
+    return phantom_emission
+
+
+
+
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
 ):
@@ -152,27 +178,9 @@ def run_example_diagnostic_model(
         return_emissivity=True
     )
 
-    #ax=emissivity[2].plot()
-    #plt.savefig("/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/emissivity.png")
 
-    los_integral=bckc["brightness"]
-    #print(los_integral)
-    PLASMA=plasma
-    element: str = "ar"
-    asymmetric_profile=False
-    if asymmetric_profile:
-        ion_density_2d = example_poloidal_asymmetry(plasma,equilibrium)
-        emissivity = None
-    else:
-        rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t.values)
-        ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
-        emissivity = emissivity
-    imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
-    el_density_2d = PLASMA.electron_density.interp(rhop=imp_density_2d.rhop)
-    lz_tot_2d = (
-        PLASMA.lz_tot[element].sum("ion_charge").interp(rhop=imp_density_2d.rhop)
-    )
-    phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
+
+    phantom_emission=get_phantom_emission(bckc,plasma,equilibrium,emissivity)
 
     
 
@@ -183,34 +191,12 @@ def run_example_diagnostic_model(
 
 
 
-    """
-    #Now for the LOS change
-
-    transform.add_origin((0.425,-1.245,0))
-    transform.add_direction((-0.18,0.98,0))
-
-    transform.add_origin((0.105,-1.045,0))
-    transform.add_direction((0.18,0.98,0))
-
-
-    transform.add_origin((0.115,-1.045,0))
-    transform.add_direction((-0.18,0.98,0))
-
-    origin=transform.origin
-    origin=np.delete(origin,[5,6,7,8,9,10],axis=0)
-    transform.set_origin(origin)
-
-
-    direction=transform.direction
-    direction=np.delete(direction,[5,6,7,8,9,10],axis=0)
-    transform.set_direction(direction)
-    """
-    los_angles=[100*np.random.rand(3,),200,300]
-    print(los_angles)
-    ata
+    los_angles=np.array(360*np.random.rand(10,))
     origin=transform.origin
     direction=transform.direction
     origin=np.delete(origin,[0,1,2,3,4,5,6,7],axis=0)
+    print(origin.shape)
+    ata
     transform.set_origin(origin)
     direction=np.delete(direction,[0,1,2,3,4,5,6,7],axis=0)
     transform.set_direction(direction)
