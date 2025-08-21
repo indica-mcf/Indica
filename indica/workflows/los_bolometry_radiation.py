@@ -13,6 +13,27 @@ from typing import Callable
 import matplotlib.pylab as plt
 
 
+
+def random_angle_test(transform,machine_r):
+    los_angles=np.array(360*np.random.rand(10,))
+    origin=transform.origin
+    direction=transform.direction
+    origin=np.delete(origin,[0,1,2,3,4,5,6,7],axis=0)
+    print(origin.shape)
+    transform.set_origin(origin)
+    direction=np.delete(direction,[0,1,2,3,4,5,6,7],axis=0)
+    transform.set_direction(direction)
+
+
+    for angle in los_angles:
+        new_origin_x,new_origin_y=origin_from_polar_angle(angle,machine_r)
+        transform.add_origin((new_origin_x,new_origin_y,0))
+
+        new_dir_x,new_dir_y=random_feasible_direction_from_polar_angle(angle,machine_r)
+        transform.add_direction((new_dir_x,new_dir_y,0))
+
+    update_los(transform)
+
 def random_feasible_direction_from_polar_angle(angle,machine_r):
     inward_direction=(angle+180)%360
     direction_angle=inward_direction+random.uniform(-60,60)
@@ -186,47 +207,18 @@ def run_example_diagnostic_model(
 
     inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
 
+
+
+
+
+
     mse,corr=reconstruction_metric(emissivity,downsampled_inverted)
+    print("MSE: ",mse)
 
 
 
 
-    los_angles=np.array(360*np.random.rand(10,))
-    origin=transform.origin
-    direction=transform.direction
-    origin=np.delete(origin,[0,1,2,3,4,5,6,7],axis=0)
-    print(origin.shape)
-    ata
-    transform.set_origin(origin)
-    direction=np.delete(direction,[0,1,2,3,4,5,6,7],axis=0)
-    transform.set_direction(direction)
 
-
-    for angle in los_angles:
-        new_origin_x,new_origin_y=origin_from_polar_angle(angle,machine_r)
-        transform.add_origin((new_origin_x,new_origin_y,0))
-
-        new_dir_x,new_dir_y=random_feasible_direction_from_polar_angle(angle,machine_r)
-        transform.add_direction((new_dir_x,new_dir_y,0))
-
-
-
-    print(transform.origin)
-    print(transform.direction)
-    update_los(transform)
-
-
-    inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
-
-    mse2,corr2=reconstruction_metric(emissivity,downsampled_inverted)
-
-    print(mse,mse2)
-    print(corr,corr2)
-
-    transform.plot(np.mean(0.02))
-    plt.show()
-    
-    ata
 
     if plot and hasattr(model, "plot"):
         plt.ioff()
