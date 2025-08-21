@@ -15,15 +15,13 @@ import matplotlib.pylab as plt
 
 def random_feasible_direction_from_polar_angle(angle,machine_r):
     inward_direction=(angle+180)%360
-    low_angle_limit=(angle-89)%360
-    high_angle_limit=(angle+89)%360
-    direction_angle=random.uniform(low_angle_limit,high_angle_limit)
+    direction_angle=inward_direction+random.uniform(-60,60)
     print("dir ang:",direction_angle)
-    return np.cos(direction_angle),machine_r*np.sin(direction_angle)
+    return np.cos(np.deg2rad(direction_angle)),np.sin(np.deg2rad(direction_angle))
 
 
 def origin_from_polar_angle(angle,machine_r):
-    return np.cos(angle),np.sin(angle)
+    return machine_r*np.cos(np.deg2rad(angle)),machine_r*np.sin(np.deg2rad(angle))
 
 def example_poloidal_asymmetry(plasma, equilibrium):
     PLASMA=plasma
@@ -207,19 +205,25 @@ def run_example_diagnostic_model(
     direction=np.delete(direction,[5,6,7,8,9,10],axis=0)
     transform.set_direction(direction)
     """
-    los_angles=[100,200,300]
+    los_angles=[100*np.random.rand(3,),200,300]
+    print(los_angles)
+    ata
     origin=transform.origin
     direction=transform.direction
-    origin=np.delete(origin,[1,2,3,4,5,6],axis=0)
+    origin=np.delete(origin,[0,1,2,3,4,5,6,7],axis=0)
     transform.set_origin(origin)
-    direction=np.delete(direction,[1,2,3,4,5,6],axis=0)
+    direction=np.delete(direction,[0,1,2,3,4,5,6,7],axis=0)
     transform.set_direction(direction)
 
-    new_origin_x,new_origin_y=origin_from_polar_angle(100,machine_r)
-    transform.add_origin((new_origin_x,new_origin_y,0))
 
-    new_dir_x,new_dir_y=random_feasible_direction_from_polar_angle(100,machine_r)
-    transform.add_direction((new_dir_x,new_dir_y,0))
+    for angle in los_angles:
+        new_origin_x,new_origin_y=origin_from_polar_angle(angle,machine_r)
+        transform.add_origin((new_origin_x,new_origin_y,0))
+
+        new_dir_x,new_dir_y=random_feasible_direction_from_polar_angle(angle,machine_r)
+        transform.add_direction((new_dir_x,new_dir_y,0))
+
+
 
     print(transform.origin)
     print(transform.direction)
