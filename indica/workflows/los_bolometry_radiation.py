@@ -5,12 +5,55 @@ from indica.operators import tomo_1D
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter, centrifugal_asymmetry_2d_map
 import numpy as np
 import random
+import pygad
 
 import xarray
 from xarray import DataArray
 from typing import Callable
 
 import matplotlib.pylab as plt
+
+
+
+def fitness_func(ga_instance,solution,solution_idx):
+    fitness=
+
+def on_generation(ga_instance):
+    global last_fitness
+    print(f"Generation = {ga_instance.generations_completed}")
+    print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
+    print(f"Change     = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1] - last_fitness}")
+    last_fitness = ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]
+
+def define_ga():
+    los_angles=np.array(360*np.random.rand(6,))
+    los_dir_offsets=np.array(2*np.random.rand(6,)-1)
+
+    func_inputs=np.concatenate((los_angles,los_dir_offsets),axis=0)
+    
+    ga_instance = pygad.GA(num_generations=100,
+                        num_parents_mating=10,
+                        sol_per_pop=20,
+                        num_genes=len(func_inputs),
+                        mutation_num_genes=6,
+                        fitness_func=fitness_func,
+                        allow_duplicate_genes=False,
+                        on_generation=on_generation,
+                        gene_constraint=[
+                                            lambda x,v: [val for val in v if 0<val<360],
+                                            lambda x,v: [val for val in v if 0<val<360],
+                                            lambda x,v: [val for val in v if 0<val<360],
+                                            lambda x,v: [val for val in v if 0<val<360],
+                                            lambda x,v: [val for val in v if 0<val<360],
+                                            lambda x,v: [val for val in v if 0<val<360],
+                                            lambda x,v: [val for val in v if -1<val<1],
+                                            lambda x,v: [val for val in v if -1<val<1],
+                                            lambda x,v: [val for val in v if -1<val<1],
+                                            lambda x,v: [val for val in v if -1<val<1],
+                                            lambda x,v: [val for val in v if -1<val<1],
+                                            lambda x,v: [val for val in v if -1<val<1]]
+                        )
+    return ga_instance
 
 
 
@@ -130,9 +173,7 @@ def calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity):
 
     data_tomo = los_integral
     bckc_tomo = DataArray(tomo.backprojection.T, coords=data_tomo.coords)
-    #plt.close()
-    #ax2=inverted_emissivity[2].plot()
-    #plt.savefig("/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/emissivity2.png")
+
 
     #This has 100 radials
     #print(inverted_emissivity)
@@ -203,6 +244,9 @@ def run_example_diagnostic_model(
 
     phantom_emission=get_phantom_emission(bckc,plasma,equilibrium,emissivity)
 
+    
+    ga_instance=define_ga()
+    ga_instance.run()
     
 
     inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
