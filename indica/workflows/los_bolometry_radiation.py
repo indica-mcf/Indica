@@ -22,23 +22,7 @@ def define_ga():
     creator.create("Individual", list, fitness=creator.FitnessMin)
 
 
-def rotate_origin_direction(origin,direction,min_angle):
-    ox, oy, _ = origin
-    dx, dy, _ = direction
- 
-    phi = np.deg2rad(-min_angle) 
-    c, s = np.cos(phi), np.sin(phi)
- 
-    ox_new = c * ox - s * oy
-    oy_new = s * ox + c * oy
- 
-    dx_new = c * dx - s * dy
-    dy_new = s * dx + c * dy
- 
-    origin_rot = np.array([ox_new, oy_new, 0.0])
-    direction_rot = np.array([dx_new, dy_new, 0.0])
- 
-    return origin_rot, direction_rot
+
 
 
 def rotate_all(transform, t_min_deg):
