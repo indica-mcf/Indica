@@ -17,9 +17,16 @@ import matplotlib.pylab as plt
 
 
 
-def define_ga():
+def define_ga(number_of_los=8):
     creator.create("FitnessMax", base.Fitness, weights=(1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
+
+    toolbox=base.toolbox()
+
+    toolbox.register("attr_angle",random.randint,0,359)
+    toolbox.register("attr_direction",random.randint,-1,1)
+    toolbox.register("individual",tools.initRepeat,creator.Individual,toolbox.attr_angle, number_of_los,toolbox.attr_direction,number_of_los)
+    toolbox.register("population",tools.initRepeat,list,toolbox.individual)
 
 
 
@@ -72,7 +79,6 @@ def random_angle_test(transform,machine_r):
     origin=transform.origin
     direction=transform.direction
     origin=np.delete(origin,[0,1,2,3,4,5,6,7],axis=0)
-    print(origin.shape)
     transform.set_origin(origin)
     direction=np.delete(direction,[0,1,2,3,4,5,6,7],axis=0)
     transform.set_direction(direction)
@@ -91,9 +97,14 @@ def random_angle_test(transform,machine_r):
 
 def random_feasible_direction_from_polar_angle(angle,machine_r):
     inward_direction=(angle+180)%360
-    direction_angle=inward_direction+random.uniform(-60,60)
-    print("dir ang:",direction_angle)
+    direction_angle=inward_direction+random.uniform(-85,85)
     return np.cos(np.deg2rad(direction_angle)),np.sin(np.deg2rad(direction_angle))
+
+def direction_from_polar_and_dir_offset(angle,machine_r,dir_offset):
+    inward_direction=(angle+180)%360
+    direction_angle=inward_direction+90*dir_offset
+    return np.cos(np.deg2rad(direction_angle)),np.sin(np.deg2rad(direction_angle))
+
 
 
 def origin_from_polar_angle(angle,machine_r):
