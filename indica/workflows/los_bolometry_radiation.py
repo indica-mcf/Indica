@@ -17,19 +17,44 @@ import matplotlib.pylab as plt
 
 
 
+def evaluateIndividual(individual):
+    #In comes a list 
+    print(individual)
+    ata
+
+
+def random_angle():
+    return random.uniform(0.0,360.0)
+def random_offset():
+    return random.uniform(-1.0,1.0)
+
+
 def define_ga(number_of_los=8):
-    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
 
-    toolbox=base.toolbox()
+    toolbox=base.Toolbox()
 
-    toolbox.register("attr_angle",random.randint,0,359)
-    toolbox.register("attr_direction",random.randint,-1,1)
-    toolbox.register("individual",tools.initRepeat,creator.Individual,toolbox.attr_angle, number_of_los,toolbox.attr_direction,number_of_los)
+
+    toolbox.register("attr_angle",random_angle)
+    toolbox.register("attr_offset",random_offset)
+    toolbox.register("individual",tools.initCycle,creator.Individual,(toolbox.attr_angle,)*number_of_los+(toolbox.attr_offset,)*number_of_los,n=1,)
     toolbox.register("population",tools.initRepeat,list,toolbox.individual)
 
+    toolbox.register("evaluate",evaluateIndividual)
+    return toolbox
 
 
+
+
+
+def run_ga():
+    number_of_los=8
+    toolbox=define_ga(number_of_los)
+    pop=toolbox.population(n=100)
+
+    print(toolbox.evaluate(pop[1]))
+    ata
 
 
 def rotate_all(transform, t_min_deg):
@@ -270,6 +295,8 @@ def run_example_diagnostic_model(
     
     ##ga_instance=define_ga()
     ##ga_instance.run()
+
+    run_ga()
 
     random_angle_test(transform,machine_r)
     #Fitness should be: redefine the transform and origin, run update transform function, then calculate tomo inversion,
