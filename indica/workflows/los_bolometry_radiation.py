@@ -5,7 +5,9 @@ from indica.operators import tomo_1D
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter, centrifugal_asymmetry_2d_map
 import numpy as np
 import random
-import pygad
+from deap import base
+from deap import creator
+from deap import tools
 
 import xarray
 from xarray import DataArray
@@ -15,50 +17,74 @@ import matplotlib.pylab as plt
 
 
 
-def fitness_func(ga_instance,solution,solution_idx):
-    fitness=
-
-def on_generation(ga_instance):
-    global last_fitness
-    print(f"Generation = {ga_instance.generations_completed}")
-    print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
-    print(f"Change     = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1] - last_fitness}")
-    last_fitness = ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]
-
 def define_ga():
-    los_angles=np.array(360*np.random.rand(6,))
-    los_dir_offsets=np.array(2*np.random.rand(6,)-1)
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+    creator.create("Individual", list, fitness=creator.FitnessMin)
 
-    func_inputs=np.concatenate((los_angles,los_dir_offsets),axis=0)
-    
-    ga_instance = pygad.GA(num_generations=100,
-                        num_parents_mating=10,
-                        sol_per_pop=20,
-                        num_genes=len(func_inputs),
-                        mutation_num_genes=6,
-                        fitness_func=fitness_func,
-                        allow_duplicate_genes=False,
-                        on_generation=on_generation,
-                        gene_constraint=[
-                                            lambda x,v: [val for val in v if 0<val<360],
-                                            lambda x,v: [val for val in v if 0<val<360],
-                                            lambda x,v: [val for val in v if 0<val<360],
-                                            lambda x,v: [val for val in v if 0<val<360],
-                                            lambda x,v: [val for val in v if 0<val<360],
-                                            lambda x,v: [val for val in v if 0<val<360],
-                                            lambda x,v: [val for val in v if -1<val<1],
-                                            lambda x,v: [val for val in v if -1<val<1],
-                                            lambda x,v: [val for val in v if -1<val<1],
-                                            lambda x,v: [val for val in v if -1<val<1],
-                                            lambda x,v: [val for val in v if -1<val<1],
-                                            lambda x,v: [val for val in v if -1<val<1]]
-                        )
-    return ga_instance
+
+def rotate_origin_direction(origin,direction,min_angle):
+    ox, oy, _ = origin
+    dx, dy, _ = direction
+ 
+    phi = np.deg2rad(-min_angle) 
+    c, s = np.cos(phi), np.sin(phi)
+ 
+    ox_new = c * ox - s * oy
+    oy_new = s * ox + c * oy
+ 
+    dx_new = c * dx - s * dy
+    dy_new = s * dx + c * dy
+ 
+    origin_rot = np.array([ox_new, oy_new, 0.0])
+    direction_rot = np.array([dx_new, dy_new, 0.0])
+ 
+    return origin_rot, direction_rot
+
+
+def rotate_all(transform, t_min_deg):
+    """
+    Rotate arrays of origins (N,3) and directions (N,3) in the XY-plane
+    by -t_min_deg degrees. Z is left unchanged.
+ 
+    Parameters
+    ----------
+    origins : array-like, shape (N,3)
+        Array of origins, each (x,y,0).
+    directions : array-like, shape (N,3)
+        Array of directions, each (dx,dy,0).
+    t_min_deg : float
+        Minimum angle in degrees; rotation is by -t_min_deg CCW.
+ 
+    Returns
+    -------
+    origins_rot : np.ndarray, shape (N,3)
+    directions_rot : np.ndarray, shape (N,3)
+    """
+    origins = transform.origin
+    directions = transform.direction
+ 
+    phi = np.deg2rad(-t_min_deg)  # CCW rotation by -t_min
+    c, s = np.cos(phi), np.sin(phi)
+    R = np.array([[c, -s],
+                  [s,  c]])  # 2x2 rotation matrix
+ 
+    # apply rotation to x,y parts
+    origins_xy = origins[:, :2] @ R.T
+    dirs_xy = directions[:, :2] @ R.T
+ 
+    # reassemble with z untouched
+    origins_rot = np.column_stack([origins_xy, origins[:, 2]])
+    directions_rot = np.column_stack([dirs_xy, directions[:, 2]])
+ 
+    transform.set_origin(origins_rot)
+    transform.set_direction(directions_rot)
+
 
 
 
 def random_angle_test(transform,machine_r):
     los_angles=np.array(360*np.random.rand(10,))
+    min_los_angle=np.min(los_angles)
     origin=transform.origin
     direction=transform.direction
     origin=np.delete(origin,[0,1,2,3,4,5,6,7],axis=0)
@@ -74,6 +100,8 @@ def random_angle_test(transform,machine_r):
 
         new_dir_x,new_dir_y=random_feasible_direction_from_polar_angle(angle,machine_r)
         transform.add_direction((new_dir_x,new_dir_y,0))
+
+    rotate_all(transform,min_los_angle)
 
     update_los(transform)
 
@@ -245,8 +273,12 @@ def run_example_diagnostic_model(
     phantom_emission=get_phantom_emission(bckc,plasma,equilibrium,emissivity)
 
     
-    ga_instance=define_ga()
-    ga_instance.run()
+    ##ga_instance=define_ga()
+    ##ga_instance.run()
+
+    random_angle_test(transform,machine_r)
+    #Fitness should be: redefine the transform and origin, run update transform function, then calculate tomo inversion,
+    #fitness is the reconstruction metric.
     
 
     inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
@@ -258,6 +290,8 @@ def run_example_diagnostic_model(
 
     mse,corr=reconstruction_metric(emissivity,downsampled_inverted)
     print("MSE: ",mse)
+    transform.plot(0.02)
+    plt.show()
 
 
 
