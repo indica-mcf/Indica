@@ -191,6 +191,7 @@ class LineOfSightTransform(CoordinateTransform):
         self.direction_y=np.append(self.direction_y,y)
         self.direction_z=np.append(self.direction_z,z)
 
+
     def set_direction(self,value):
         self.direction_x=value[:,0]
         self.direction_y=value[:,1]

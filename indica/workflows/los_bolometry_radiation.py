@@ -8,7 +8,9 @@ import random
 from deap import base
 from deap import creator
 from deap import tools
-
+from functools import partial
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import xarray
 from xarray import DataArray
 from typing import Callable
@@ -17,19 +19,49 @@ import matplotlib.pylab as plt
 
 
 
-def evaluateIndividual(individual):
-    #In comes a list 
-    print(individual)
-    ata
+
+
+def evaluateIndividual(individual,transform,machine_r,phantom_emission,emissivity,plasma):
+    N=len(individual)//2
+    los_angles=individual[:N]
+    min_los_angle=np.min(los_angles)
+    offsets=individual[N:]
+    directions=[]
+    origins=[]
+    for i in range(N):
+        new_origin_x,new_origin_y=origin_from_polar_angle(los_angles[i],machine_r)
+        origins.append((new_origin_x,new_origin_y,0))
+        new_dir_x,new_dir_y=direction_from_polar_and_dir_offset(los_angles[i],machine_r,offsets[i])
+        directions.append((new_dir_x,new_dir_y,0))
+    transform.set_origin(np.array(origins))
+    transform.set_direction(np.array(directions))
+
+    rotate_all(transform,min_los_angle)
+    update_los(transform)
+
+    inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
+
+
+
+
+
+
+    mse,corr=reconstruction_metric(emissivity,downsampled_inverted)
+    #print("Inidividual MSE: ",mse)
+    return(float(mse))
+    
+
+
+
 
 
 def random_angle():
     return random.uniform(0.0,360.0)
 def random_offset():
-    return random.uniform(-1.0,1.0)
+    return random.uniform(-0.8,0.8)
 
 
-def define_ga(number_of_los=8):
+def define_ga(transform,machine_r,number_of_los,phantom_emission,emissivity,plasma):
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
 
@@ -41,20 +73,33 @@ def define_ga(number_of_los=8):
     toolbox.register("individual",tools.initCycle,creator.Individual,(toolbox.attr_angle,)*number_of_los+(toolbox.attr_offset,)*number_of_los,n=1,)
     toolbox.register("population",tools.initRepeat,list,toolbox.individual)
 
-    toolbox.register("evaluate",evaluateIndividual)
+    toolbox.register("evaluate",partial(evaluateIndividual,transform=transform,machine_r=machine_r,phantom_emission=phantom_emission,emissivity=emissivity,plasma=plasma))
     return toolbox
 
 
 
 
 
-def run_ga():
-    number_of_los=8
-    toolbox=define_ga(number_of_los)
-    pop=toolbox.population(n=100)
+def run_ga(number_of_los,machine_r,transform,phantom_emission,emissivity,plasma):
+    toolbox=define_ga(transform,machine_r,number_of_los,phantom_emission,emissivity,plasma)
+    pop=toolbox.population(n=30)
+    fitnesses=list(map(toolbox.evaluate,pop))
+    print(fitnesses)
 
-    print(toolbox.evaluate(pop[1]))
+    CXPB, MUTPB = 0.5, 0.2
+    gens=0
+    while gens<10:
+        g=g+1
+        print("-- Generation %i --" % g)
+
+
+        # Select the next generation individuals
+        offspring = toolbox.select(pop, len(pop))
+        # Clone the selected individuals
+        offspring = list(map(toolbox.clone, offspring))
+
     ata
+
 
 
 def rotate_all(transform, t_min_deg):
@@ -289,16 +334,15 @@ def run_example_diagnostic_model(
     )
 
 
-
     phantom_emission=get_phantom_emission(bckc,plasma,equilibrium,emissivity)
 
     
     ##ga_instance=define_ga()
     ##ga_instance.run()
 
-    run_ga()
+    run_ga(8,machine_r,transform,phantom_emission,emissivity,plasma)
 
-    random_angle_test(transform,machine_r)
+    #random_angle_test(transform,machine_r)
     #Fitness should be: redefine the transform and origin, run update transform function, then calculate tomo inversion,
     #fitness is the reconstruction metric.
     

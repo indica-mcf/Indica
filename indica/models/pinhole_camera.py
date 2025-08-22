@@ -111,7 +111,6 @@ class PinholeCamera(AbstractDiagnostic):
         self.fz = fz
 
         _isfinite = np.isfinite(self.Ne) * np.isfinite(self.Te)
-
         self.Lz = {}
         emissivity_element = []
         elements = self.Nion.element.values
