@@ -19,15 +19,16 @@ from indica.utilities import set_plot_rcparams
 
 def read_adf15s(
     elements: list,
+    config=ADF15,
 ) -> dict[str, dict[str, xr.DataArray]]:
 
     reader = ADASReader()
     pecs = {}
     for element in elements:
         pecs[element] = {}
-        for charge in ADF15[element].keys():
-            file_type = ADF15[element][charge]["file_type"]
-            year = ADF15[element][charge]["year"]
+        for charge in config[element].keys():
+            file_type = config[element][charge]["file_type"]
+            year = config[element][charge]["year"]
             _pec = reader.get_adf15(
                 element=element, charge=charge, filetype=file_type, year=year
             )
@@ -39,10 +40,13 @@ def read_adf15s(
 
 
 def format_pecs(
-    pecs: dict[str, dict[str, xr.DataArray]], wavelength_bounds: slice = None
+    pecs: dict[str, dict[str, xr.DataArray]],
+    wavelength_bounds: slice = None,
+    electron_density_bounds: slice = slice(1.e16, np.inf),
+    electron_temperature_bounds: slice = slice(5, np.inf),
 ) -> dict[str, xr.DataArray]:
     """
-    DataArrays have dimensions of:
+    Returns DataArrays with dimensions of:
     * electron temperature
     * electron density
     * type of transition (excit, recom, chexc)
@@ -66,22 +70,42 @@ def format_pecs(
 
                 pec_list.append(pec_type)
             _pec = xr.concat(pec_list, "type")
-
+            # Changing the ADAS adf15 convention of using the charge state of the product ion to instead using the
+            # parent ion. This simplifies the forward models.
             _pec = _pec.expand_dims(
-                {"ion_charge": (int(charge),)},
+                {"ion_charge": (int(charge), int(charge)+1)},
             )
+            _pec = _pec.where(((_pec.ion_charge == int(charge)) & (_pec.type == "excit")) | (
+                        (_pec.ion_charge == int(charge)+1) & ((_pec.type == "recom") | (_pec.type == "chexc"))))
+
+
+            # bounds downsize the array to save memory
             if wavelength_bounds is not None:
                 _pec = _pec.where(
                     (_pec.wavelength > wavelength_bounds.start)
                     & (_pec.wavelength < wavelength_bounds.stop),
                     drop=True,
                 )
+            if electron_density_bounds is not None:
+                _pec = _pec.where(
+                    (_pec.electron_density > electron_density_bounds.start)
+                    & (_pec.electron_density < electron_density_bounds.stop),
+                    drop=True,
+                )
+            if electron_density_bounds is not None:
+                _pec = _pec.where(
+                    (_pec.electron_temperature > electron_temperature_bounds.start)
+                    & (_pec.electron_temperature < electron_temperature_bounds.stop),
+                    drop=True,
+                )
+            _pec.name = charge
             _pecs.append(_pec)
 
-        pec_element = xr.concat(_pecs, "ion_charge")
-        pec_element = pec_element.interpolate_na("electron_temperature").interpolate_na(
-            "electron_density"
-        )
+        pec_element = xr.merge(_pecs).to_dataarray().sum("variable", )
+        pec_element = pec_element.where(pec_element>0, )
+        pec_element = pec_element.interpolate_na("electron_temperature", ).interpolate_na(
+                "electron_density",
+            )
         formatted_pecs[element] = pec_element
     return formatted_pecs
 
@@ -112,12 +136,12 @@ class PassiveSpectrometer(AbstractDiagnostic):
         """Returns transition matrix used to convert
         PECs to emissivity"""
         # fmt: off
-        _Nimp = self.Nimp.sel(element=element, )
+        _Ni = self.Ni.sel(element=element, )
         _Fz = self.Fz[element]
         transition_matrix = xr.concat([
-            self.Ne * _Nimp * _Fz,
-            self.Ne * _Nimp * _Fz,
-            self.Nh * _Nimp * _Fz,
+            self.Ne * _Ni * _Fz,
+            self.Ne * _Ni * _Fz,
+            self.Nh * _Ni * _Fz,
         ], "type").assign_coords(
             type=["excit", "recom", "chexc", ])
         # fmt: on
@@ -133,11 +157,11 @@ class PassiveSpectrometer(AbstractDiagnostic):
         * wavelength of transition
         """
         self.intensity = {}
-        for element, pec in self.pecs.items():
+        for element in self.Ni.element.values:
             mult = self._transition_matrix(
                 element=element,
             )
-            pec = pec.interp(electron_temperature=self.Te, electron_density=self.Ne)
+            pec = self.pecs[element].interp(electron_temperature=self.Te, electron_density=self.Ne)
             self.intensity[element] = (pec * mult).sum("type").sum("ion_charge")
         return self.intensity
 
@@ -182,15 +206,16 @@ class PassiveSpectrometer(AbstractDiagnostic):
             "location": self.transform.origin,
             "direction": self.transform.direction,
             "spectra": self.measured_spectra,
+
         }
-        self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
+        self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform, include_error=False)
 
     def __call__(
         self,
         Te: DataArray = None,
         Ti: DataArray = None,
         Ne: DataArray = None,
-        Nimp: DataArray = None,
+        Ni: DataArray = None,
         Fz: dict = None,
         Nh: DataArray = None,
         t: LabeledArray = None,
@@ -204,7 +229,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         Te - electron temperature (eV)
         Ti - ion temperature (eV)
         Ne - electron density (m**-3)
-        Nimp - impurity density (m**-3)
+        Ni - ion densities (m**-3)
         fractional_abundance - fractional abundance
         Nh - neutral density (m**-3)
         t - time (s)
@@ -214,7 +239,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
 
         """
 
-        if hasattr(self, "plasma"):
+        if getattr(self, "plasma"):
             if t is None:
                 t = self.plasma.time_to_calculate
             Te = self.plasma.electron_temperature.sel(
@@ -232,7 +257,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
                 Fz[elem] = _Fz[elem].sel(t=t)
 
             Ti = self.plasma.ion_temperature.sel(t=t)
-            Nimp = self.plasma.impurity_density.sel(t=t)
+            Ni = self.plasma.ion_density.sel(t=t)
         else:
             if (
                 Ne is None
@@ -240,7 +265,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
                 or Nh is None
                 or Fz is None
                 or Ti is None
-                or Nimp is None
+                or Ni is None
             ):
                 raise ValueError("Give inputs or assign plasma class!")
 
@@ -250,7 +275,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         self.Nh = Nh
         self.Fz = Fz
         self.Ti = Ti
-        self.Nimp = Nimp
+        self.Ni = Ni
 
         self.calculate_intensity()
         self.make_spectra()
@@ -276,7 +301,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
-            plt.ylabel("Emissivity (W/m^3/nm)")
+            plt.ylabel("Spectral Irradiance (photon/m^2/nm)")
             plt.xlabel("Wavelength (nm)")
             plt.legend()
             set_axis_sci()
