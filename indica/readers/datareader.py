@@ -203,6 +203,12 @@ class DataReader(ABC):
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
+    def _get_radiation_inversion(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
     def _get_helike_spectroscopy(
         self,
         data: dict,

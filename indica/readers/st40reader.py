@@ -1,8 +1,4 @@
-"""Provides implementation of :py:class:`readers.DataReader` for
-reading MDS+ data produced by ST40.
-
-"""
-
+"""Refactoring of data read from the database to build DataArrays"""
 
 from typing import Any
 from typing import Dict
@@ -69,9 +65,12 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: R_data and zpos issues need to be fixed in the database
         R_data = database_results["R_data"]
         if len(np.shape(R_data)) > 1:
             database_results["R_data"] = R_data[0, :]
+        if "zpos" not in database_results:
+            database_results["z"] = np.full_like(database_results["R"], 0)
         database_results["channel"] = np.arange(len(database_results["R_data"]))
         transform = assign_trivial_transform()
         return database_results, transform
@@ -141,6 +140,13 @@ class ST40Reader(DataReader):
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         database_results["channel"] = np.arange(database_results["location"][:, 0].size)
         transform = assign_lineofsight_transform(database_results)
+        return database_results, transform
+
+    def _get_radiation_inversion(
+        self,
+        database_results: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        transform = assign_trivial_transform()
         return database_results, transform
 
     def _get_helike_spectroscopy(
