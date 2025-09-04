@@ -161,6 +161,7 @@ class ST40Conf(MachineConf):
             },
             "get_zeff": {
                 "t": ":time",
+                "channel": ".diag_data.pi:label",
                 "rhop": ".profiles.psi_norm:rhop",
                 "R_shift": ".global:rshift",
                 "bremss_avrg": ".global:brems",
@@ -169,6 +170,7 @@ class ST40Conf(MachineConf):
                 "zeff_avrg": ".global:zeff",
                 "zeff_hi": ".global:zeff_hi",
                 "zeff_low": ".global:zeff_low",
+                "brightness": ".diag_data.pi:emis_int",
                 "zeff": ".profiles.psi_norm:zeff",
                 "bremss_emission": ".profiles.psi_norm:emis_loc",
                 "te": ".profiles.psi_norm:te",

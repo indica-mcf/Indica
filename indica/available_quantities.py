@@ -188,6 +188,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "zeff_avrg": ("effective_charge", ["t"]),
         "zeff_hi": ("effective_charge", ["t"]),
         "zeff_low": ("effective_charge", ["t"]),
+        "brightness": ("brightness", ["t", "channel"]),
         "zeff": ("effective_charge", ["t", "rhop"]),
         "bremss_emission": ("emissivity", ["t", "rhop"]),
         "te": ("electron_temperature", ["t", "rhop"]),
