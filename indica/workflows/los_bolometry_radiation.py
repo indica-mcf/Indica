@@ -21,7 +21,9 @@ import matplotlib.pylab as plt
 
 
 
-def evaluateIndividual(individual,transform,machine_r,phantom_emission,emissivity,plasma):
+def evaluateIndividual(individual,transform,machine_r,phantom_emission,emissivity,plasma,model,equilibrium):
+
+
     N=len(individual)//2
     los_angles=individual[:N]
     min_los_angle=np.min(los_angles)
@@ -39,9 +41,13 @@ def evaluateIndividual(individual,transform,machine_r,phantom_emission,emissivit
     rotate_all(transform,min_los_angle)
     update_los(transform)
 
+
+    
+    #transform.plot(0.02)
+    #plt.show()
+    
+
     inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
-
-
 
 
 
@@ -85,18 +91,21 @@ def run_ga(number_of_los,machine_r,transform,phantom_emission,emissivity,plasma)
     pop=toolbox.population(n=30)
     fitnesses=list(map(toolbox.evaluate,pop))
     print(fitnesses)
+    
+
 
     CXPB, MUTPB = 0.5, 0.2
     gens=0
     while gens<10:
-        g=g+1
-        print("-- Generation %i --" % g)
+        gens=gens+1
+        print("-- Generation %i --" % gens)
 
 
         # Select the next generation individuals
         offspring = toolbox.select(pop, len(pop))
         # Clone the selected individuals
         offspring = list(map(toolbox.clone, offspring))
+        at
 
     ata
 
@@ -347,7 +356,7 @@ def run_example_diagnostic_model(
     #fitness is the reconstruction metric.
     
 
-    inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
+    #inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
 
 
 
