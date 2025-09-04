@@ -21,7 +21,10 @@ import matplotlib.pylab as plt
 
 
 
-def evaluateIndividual(individual,transform,machine_r,phantom_emission,emissivity,plasma):
+def evaluateIndividual(individual,model,machine_r,phantom_emission):
+    transform = model.los_transform
+
+    # Change origin and direction of lines of sight
     N=len(individual)//2
     los_angles=individual[:N]
     min_los_angle=np.min(los_angles)
@@ -35,33 +38,24 @@ def evaluateIndividual(individual,transform,machine_r,phantom_emission,emissivit
         directions.append((new_dir_x,new_dir_y,0))
     transform.set_origin(np.array(origins))
     transform.set_direction(np.array(directions))
-
     rotate_all(transform,min_los_angle)
     update_los(transform)
 
-    inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
+    # Re-run model and calculate inversion
+    bckc = model()
+    downsampled_inverted = calculate_tomo_inversion(bckc, transform, phantom_emission.rhop)
 
-
-
-
-
-
-    mse,corr=reconstruction_metric(emissivity,downsampled_inverted)
+    mse,corr=reconstruction_metric(phantom_emission,downsampled_inverted)
     #print("Inidividual MSE: ",mse)
     return(float(mse))
     
-
-
-
-
 
 def random_angle():
     return random.uniform(0.0,360.0)
 def random_offset():
     return random.uniform(-0.8,0.8)
 
-
-def define_ga(transform,machine_r,number_of_los,phantom_emission,emissivity,plasma):
+def define_ga(model,machine_r,number_of_los,phantom_emission):
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
 
@@ -73,15 +67,15 @@ def define_ga(transform,machine_r,number_of_los,phantom_emission,emissivity,plas
     toolbox.register("individual",tools.initCycle,creator.Individual,(toolbox.attr_angle,)*number_of_los+(toolbox.attr_offset,)*number_of_los,n=1,)
     toolbox.register("population",tools.initRepeat,list,toolbox.individual)
 
-    toolbox.register("evaluate",partial(evaluateIndividual,transform=transform,machine_r=machine_r,phantom_emission=phantom_emission,emissivity=emissivity,plasma=plasma))
+    toolbox.register("evaluate",partial(evaluateIndividual,model=model,machine_r=machine_r,phantom_emission=phantom_emission))
     return toolbox
 
 
 
 
 
-def run_ga(number_of_los,machine_r,transform,phantom_emission,emissivity,plasma):
-    toolbox=define_ga(transform,machine_r,number_of_los,phantom_emission,emissivity,plasma)
+def run_ga(number_of_los,machine_r,model,phantom_emission):
+    toolbox=define_ga(model,machine_r,number_of_los,phantom_emission)
     pop=toolbox.population(n=30)
     fitnesses=list(map(toolbox.evaluate,pop))
     print(fitnesses)
@@ -180,26 +174,6 @@ def direction_from_polar_and_dir_offset(angle,machine_r,dir_offset):
 def origin_from_polar_angle(angle,machine_r):
     return machine_r*np.cos(np.deg2rad(angle)),machine_r*np.sin(np.deg2rad(angle))
 
-def example_poloidal_asymmetry(plasma, equilibrium):
-    PLASMA=plasma
-    asymmetry_parameter = centrifugal_asymmetry_parameter(
-        PLASMA.ion_density,
-        PLASMA.ion_temperature,
-        PLASMA.electron_temperature,
-        PLASMA.toroidal_rotation,
-        PLASMA.meanz,
-        PLASMA.zeff,
-        PLASMA.main_ion,
-    )
-
-    ion_density_2d = centrifugal_asymmetry_2d_map(
-        PLASMA.ion_density,
-        asymmetry_parameter,
-        equilibrium,
-    )
-
-    return ion_density_2d
-
 def update_los(transform):
 
     transform.x1=list(np.arange(0,len(transform.origin)))
@@ -216,27 +190,15 @@ def reconstruction_metric(emissivity, downsampled_inverted):
     return mse,corr
 
 
-def calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity):
-    PLASMA=plasma
-    los_transform = transform
-    los_transform.set_equilibrium(PLASMA.equilibrium)
-    los_integral = los_transform.integrate_on_los(
-        phantom_emission, phantom_emission.t.values
-    )
-    #print("phantom em")
-    #print(phantom_emission.shape)
-
-    z = los_transform.z.mean("beamlet")
-    R = los_transform.R.mean("beamlet")
-    dl = los_transform.dl
-    has_data = np.logical_not(np.isnan(los_integral.isel(t=0).data))
-    rho_equil = los_transform.equilibrium.rhop.interp(t=los_integral.t)
+def calculate_tomo_inversion(brightness, transform, rhop_out, reg_level_guess:float=0.8):
+    has_data = np.logical_not(np.isnan(brightness.isel(t=0).data))
+    rho_equil = transform.equilibrium.rhop.interp(t=brightness.t)
     input_dict = dict(
-        brightness=los_integral.data.T,
-        dl=dl,
-        t=los_integral.t.data,
-        R=R.data,
-        z=z.data,
+        brightness=brightness.data.T,
+        dl=transform.dl,
+        t=brightness.t.data,
+        R=transform.R.mean("beamlet").data,
+        z=transform.z.mean("beamlet").data,
         rho_equil=dict(
             R=rho_equil.R.data,
             z=rho_equil.z.data,
@@ -246,11 +208,8 @@ def calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity):
         has_data=has_data,
         debug=False,
     )
-    if emissivity is not None:
-        input_dict["emissivity"] = emissivity
 
-
-    tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=0.8)
+    tomo = tomo_1D.SXR_tomography(input_dict, reg_level_guess=reg_level_guess)
     tomo()
 
     inverted_emissivity = DataArray(
@@ -264,10 +223,6 @@ def calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity):
         error=(inverted_emissivity.dims, inverted_error.data)
     )
 
-    data_tomo = los_integral
-    bckc_tomo = DataArray(tomo.backprojection.T, coords=data_tomo.coords)
-
-
     #This has 100 radials
     #print(inverted_emissivity)
     #print(inverted_emissivity.shape)
@@ -275,40 +230,16 @@ def calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity):
     #print(emissivity)
     #print(emissivity.shape)
 
-    #Interpolate the 100 to 41
-    downsampled_inverted=inverted_emissivity.interp(rhop=emissivity["rhop"])
+    #Interpolate the desired output radial grid
+    downsampled_inverted = inverted_emissivity.interp(rhop=rhop_out)
     #print(downsampled_inverted.shape)
-    return inverted_emissivity,downsampled_inverted
-
-
-def get_phantom_emission(bckc,plasma,equilibrium,emissivity):
-
-    los_integral=bckc["brightness"]
-    #print(los_integral)
-    PLASMA=plasma
-    element: str = "ar"
-    asymmetric_profile=False
-    if asymmetric_profile:
-        ion_density_2d = example_poloidal_asymmetry(plasma,equilibrium)
-        emissivity = None
-    else:
-        rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t.values)
-        ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
-        emissivity = emissivity
-    imp_density_2d = ion_density_2d.sel(element=element).drop_vars("element")
-    el_density_2d = PLASMA.electron_density.interp(rhop=imp_density_2d.rhop)
-    lz_tot_2d = (
-        PLASMA.lz_tot[element].sum("ion_charge").interp(rhop=imp_density_2d.rhop)
-    )
-    phantom_emission = el_density_2d * imp_density_2d * lz_tot_2d
-    return phantom_emission
-
-
+    return downsampled_inverted
 
 
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
 ):
+    # Initialise plasma and diagnostic model
     transforms = load_default_objects(machine, "geometry")
     equilibrium = load_default_objects(machine, "equilibrium")
     plasma = load_default_objects(machine, "plasma")
@@ -322,39 +253,30 @@ def run_example_diagnostic_model(
     model.set_plasma(plasma)
 
     machine_r=transform._machine_dims[0][1]
-    
 
-    #Need to add to defaults
-    transform.spot_shape="square"
-    transform.focal_length= -1000.0
-
-    bckc, emissivity = model(
-        sum_beamlets=False,
+    # Run model and inversion
+    bckc, phantom_emission = model(
         return_emissivity=True
     )
-
-
-    phantom_emission=get_phantom_emission(bckc,plasma,equilibrium,emissivity)
-
     
     ##ga_instance=define_ga()
     ##ga_instance.run()
 
-    run_ga(8,machine_r,transform,phantom_emission,emissivity,plasma)
+    run_ga(8,machine_r,model,phantom_emission)
 
     #random_angle_test(transform,machine_r)
     #Fitness should be: redefine the transform and origin, run update transform function, then calculate tomo inversion,
     #fitness is the reconstruction metric.
     
 
-    inverted,downsampled_inverted=calculate_tomo_inversion(transform,plasma,phantom_emission,emissivity)
+    downsampled_inverted = calculate_tomo_inversion(bckc, transform, phantom_emission.rhop)
 
 
 
 
 
 
-    mse,corr=reconstruction_metric(emissivity,downsampled_inverted)
+    mse,corr=reconstruction_metric(phantom_emission, downsampled_inverted)
     print("MSE: ",mse)
     transform.plot(0.02)
     plt.show()
