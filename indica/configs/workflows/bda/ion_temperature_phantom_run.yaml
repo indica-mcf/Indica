@@ -15,8 +15,8 @@ optimisation:
   n_calls: 50
 param_names: ["ion_temperature.y0", "ion_temperature.shape1", "ion_temperature.shape2", "ion_temperature.shape3", "ion_temperature.shape4",
 "xrcs.scale_spectra"]
-diagnostics: ["xrcs", "cxff_tws_c", "cxff_pi", "efit"]
-quant_to_optimise: ["xrcs.spectra_raw", "cxff_tws_c.ti", "cxff_pi.ti", "efit.wp"]
+diagnostics: ["xrcs", "cxff_pi", "efit"]
+quant_to_optimise: ["xrcs.spectra_raw",  "cxff_pi.ti", "efit.wp"]
 
 tstart: 0.05
 tend: 0.06
