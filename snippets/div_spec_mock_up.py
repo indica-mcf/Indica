@@ -66,7 +66,7 @@ transforms = load_default_objects("st40", "geometry")
 # plasma_profiler()
 # plasma.set_equilibrium(equilibrium=equilibrium)
 
-transform = transforms["sxrc_rz1"]
+transform = transforms["blom_dv1"]
 transform.set_equilibrium(equilibrium=equilibrium)
 
 adf15 = read_adf15s(elements=config.keys(), config=config)
