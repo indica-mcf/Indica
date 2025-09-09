@@ -251,10 +251,10 @@ def bda_phantom_optimisation(  # noqa: C901
 
     log.info("Running BDA Driver")
     _results = driver(config=config)
-    if save_results:
-        filepath = "./results/phantom/"
-        save_pickle(_results, filepath)
-        plot_bda(_results, filepath)
+    # if save_results:
+    #     filepath = "./results/phantom/"
+    #     save_pickle(_results, filepath)
+    #     plot_bda(_results, filepath)
 
 
 if __name__ == "__main__":

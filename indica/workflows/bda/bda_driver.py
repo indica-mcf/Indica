@@ -55,10 +55,10 @@ class BDADriver:
 
         result["ELEMENT"] = self.plasma_profiler.plasma.elements
         result["TIME"] = self.plasma_profiler.plasma.t.values
-        git_id = git.Repo(search_parent_directories=True).head.object.hexsha
+        # git_id = git.Repo(search_parent_directories=True).head.object.hexsha
 
         result["INPUT"] = {
-            "GIT_ID": f"{git_id}",
+            # "GIT_ID": f"{git_id}",
             "USER": f"{getpass.getuser()}",
             "SETTINGS": self.config,
             "DATETIME": datetime.utcnow().__str__(),
