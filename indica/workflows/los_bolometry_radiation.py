@@ -150,11 +150,13 @@ def rotate_all(transform, t_min_deg):
     transform.set_direction(directions_rot)
 
 
-def random_angle_test(transform, machine_r):
+def random_angle_test(transform):
+
+
     los_angles = np.array(
         360
         * np.random.rand(
-            10,
+            8
         )
     )
     min_los_angle = np.min(los_angles)
@@ -166,33 +168,58 @@ def random_angle_test(transform, machine_r):
     transform.set_direction(direction)
 
     for angle in los_angles:
-        new_origin_x, new_origin_y = origin_from_polar_angle(angle, machine_r)
-        transform.add_origin((new_origin_x, new_origin_y, 0))
+        new_origin_x, new_origin_z = origin_from_polar_angle(angle, transform)
+        transform.add_origin((new_origin_x, 0, new_origin_z))
 
-        new_dir_x, new_dir_y = random_feasible_direction_from_polar_angle(
-            angle, machine_r
+        new_dir_x, new_dir_z = random_feasible_direction_from_polar_angle(
+            angle
         )
-        transform.add_direction((new_dir_x, new_dir_y, 0))
+        transform.add_direction((new_dir_x, 0, new_dir_z))
 
     rotate_all(transform, min_los_angle)
 
     update_los(transform)
 
 
-def random_feasible_direction_from_polar_angle(angle, machine_r):
-    inward_direction = (angle + 180) % 360
-    direction_angle = inward_direction + random.uniform(-85, 85)
-    return np.cos(np.deg2rad(direction_angle)), np.sin(np.deg2rad(direction_angle))
+def _rect_center_and_extents(transform):
+    x0 = transform._machine_dims[0][0]
+    x1 = transform._machine_dims[0][1]
+    z0 = transform._machine_dims[1][0]
+    z1 = transform._machine_dims[1][1]
+    cx = 0.5 * (x0 + x1)
+    cz = 0.5 * (z0 + z1)
+    ax = 0.5 * (x1 - x0)  # half-width x
+    az = 0.5 * (z1 - z0)  # half-height z
+    return cx, cz, ax, az
+ 
+def _ray_to_rect_boundary(angle_deg, transform):
+    cx, cz, ax, az = _rect_center_and_extents(transform)
+    th = np.deg2rad(angle_deg)
+    ux, uz = np.cos(th), np.sin(th)  # unit direction in x–z
+    eps = 1e-12
+    tx = ax / (abs(ux) + eps)
+    tz = az / (abs(uz) + eps)
+    t = min(tx, tz)
+    return cx + t * ux, cz + t * uz
+ 
 
+def random_feasible_direction_from_polar_angle(angle):
 
-def direction_from_polar_and_dir_offset(angle, machine_r, dir_offset):
-    inward_direction = (angle + 180) % 360
-    direction_angle = inward_direction + 90 * dir_offset
-    return np.cos(np.deg2rad(direction_angle)), np.sin(np.deg2rad(direction_angle))
+    inward_direction = (angle + 180.0) % 360.0
+    direction_angle = inward_direction + random.uniform(-75.0, 75.0)
+    th = np.deg2rad(direction_angle)
+    return np.cos(th), np.sin(th)  # (dx, dz)
+ 
+def direction_from_polar_and_dir_offset(angle, dir_offset):
 
+    inward_direction = (angle + 180.0) % 360.0
+    direction_angle = inward_direction + 90.0 * float(dir_offset)
+    th = np.deg2rad(direction_angle)
+    return np.cos(th), np.sin(th)  # (dx, dz)
+ 
+def origin_from_polar_angle(angle, transform):
 
-def origin_from_polar_angle(angle, machine_r):
-    return machine_r * np.cos(np.deg2rad(angle)), machine_r * np.sin(np.deg2rad(angle))
+    return _ray_to_rect_boundary(angle, transform)  # (x, z)
 
 
 def update_los(transform):
@@ -284,6 +311,13 @@ def run_example_diagnostic_model(
 
     machine_r = transform._machine_dims[0][1]
 
+    machine_x0 = transform._machine_dims[0][0]
+    machine_x1= transform._machine_dims[0][1]
+    machine_z0=transform._machine_dims[1][0]
+    machine_z1=transform._machine_dims[1][1]
+
+
+
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
@@ -292,14 +326,13 @@ def run_example_diagnostic_model(
 
     # run_ga(8,machine_r,model,phantom_emission)
 
-    # random_angle_test(transform,machine_r)
-    # Fitness should be: redefine the transform and origin, run update transform function, then calculate tomo inversion,
-    # fitness is the reconstruction metric.
+    random_angle_test(transform)
 
     downsampled_inverted = calculate_tomo_inversion(
         bckc["brightness"], transform, phantom_emission.rhop
     )
 
+    """
     for t in phantom_emission.t:
         plt.plot(phantom_emission.rhop, phantom_emission.sel(t=t), label="Phantom")
         plt.plot(
@@ -310,11 +343,14 @@ def run_example_diagnostic_model(
         )
         plt.legend()
         plt.show()
+    """
 
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
     print("MSE: ", mse)
     transform.plot(0.02)
     plt.show()
+
+    ata
 
     if plot and hasattr(model, "plot"):
         plt.ioff()
@@ -336,4 +372,4 @@ def run_bm():
     )
 
 
-# run_bm()
+run_bm()
