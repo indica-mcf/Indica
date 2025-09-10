@@ -19,37 +19,41 @@ from indica.operators.atomic_data import default_atomic_data
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
-def evaluateIndividual(individual, model, machine_r, phantom_emission):
+def evaluateIndividual(individual, model, phantom_emission):
     transform = model.transform
 
-    # Change origin and direction of lines of sight
-    N = len(individual) // 2
-    los_angles = individual[:N]
-    min_los_angle = np.min(los_angles)
-    offsets = individual[N:]
-    directions = []
-    origins = []
-    for i in range(N):
-        new_origin_x, new_origin_y = origin_from_polar_angle(los_angles[i], machine_r)
-        origins.append((new_origin_x, new_origin_y, 0))
-        new_dir_x, new_dir_y = direction_from_polar_and_dir_offset(
-            los_angles[i], machine_r, offsets[i]
+    try:
+        # Change origin and direction of lines of sight
+        N = len(individual) // 2
+        los_angles = individual[:N]
+        min_los_angle = np.min(los_angles)
+        offsets = individual[N:]
+        directions = []
+        origins = []
+        for i in range(N):
+            new_origin_x, new_origin_z = origin_from_polar_angle(los_angles[i], model.transform)
+            origins.append((new_origin_x, 0, new_origin_z))
+            new_dir_x, new_dir_z = direction_from_polar_and_dir_offset(
+                los_angles[i], offsets[i]
+            )
+            directions.append((new_dir_x, 0, new_dir_z))
+
+        transform.set_origin(np.array(origins))
+        transform.set_direction(np.array(directions))
+        rotate_all(transform, min_los_angle)
+        update_los(transform)
+
+        # Re-run model and calculate inversion
+        bckc = model()
+        downsampled_inverted = calculate_tomo_inversion(
+            bckc["brightness"], transform, phantom_emission.rhop
         )
-        directions.append((new_dir_x, new_dir_y, 0))
-    transform.set_origin(np.array(origins))
-    transform.set_direction(np.array(directions))
-    rotate_all(transform, min_los_angle)
-    update_los(transform)
 
-    # Re-run model and calculate inversion
-    bckc = model()
-    downsampled_inverted = calculate_tomo_inversion(
-        bckc["brightness"], transform, phantom_emission.rhop
-    )
-
-    mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
-    # print("Inidividual MSE: ",mse)
-    return float(mse)
+        mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
+        # print("Inidividual MSE: ",mse)
+        return (float(mse),)
+    except ValueError:
+        return (1e13,)
 
 
 def random_angle():
@@ -57,16 +61,16 @@ def random_angle():
 
 
 def random_offset():
-    return random.uniform(-0.8, 0.8)
+    return random.uniform(-0.99, 0.9)
 
 
-def define_ga(model, machine_r, number_of_los, phantom_emission):
+def define_ga(model, number_of_los, phantom_emission):
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", list, fitness=creator.FitnessMin)
 
     toolbox = base.Toolbox()
 
-    toolbox.register("attr_angle", random_angle)
+    toolbox.register("attr_angle", partial(random_angle_avoiding_left,transform=model.transform))
     toolbox.register("attr_offset", random_offset)
     toolbox.register(
         "individual",
@@ -82,34 +86,105 @@ def define_ga(model, machine_r, number_of_los, phantom_emission):
         partial(
             evaluateIndividual,
             model=model,
-            machine_r=machine_r,
             phantom_emission=phantom_emission,
         ),
     )
+
+    toolbox.register("mate",tools.cxTwoPoint)
+    toolbox.register("mutate",tools.mutFlipBit, indpb=0.05)
+    toolbox.register("select",tools.selTournament,tournsize=3)
+
     return toolbox
 
 
-def run_ga(number_of_los, machine_r, model, phantom_emission):
-    toolbox = define_ga(model, machine_r, number_of_los, phantom_emission)
-    pop = toolbox.population(n=30)
-    fitnesses = list(map(toolbox.evaluate, pop))
-    print(fitnesses)
+def canonicalize_population(pop):
+    n_pairs=int(len(pop[0])/2)
+    for ind in pop:
+        t = np.asarray(ind[:n_pairs], dtype=float) % 360.0
+        s = np.asarray(ind[n_pairs:], dtype=float)
+        order = np.lexsort((s, t))  # primary t, secondary s
+        ind[:n_pairs] = t[order].tolist()
+        ind[n_pairs:] = s[order].tolist()
+        # invalidate fitness
+        if getattr(ind.fitness, "valid", False):
+            del ind.fitness.values
+
+
+
+def run_ga(number_of_los, model, phantom_emission):
+    toolbox = define_ga(model, number_of_los, phantom_emission)
+    pop = toolbox.population(n=20)
+    # evaluate invalid only
+    invalid = [ind for ind in pop if not ind.fitness.valid]
+    fits = list(map(toolbox.evaluate, invalid))
+    for ind, fit in zip(invalid, fits):
+        ind.fitness.values = fit   
+
+    avg_hist=[]
+    best_hist=[]
+    best_ind=[]
+
+    hof=tools.HallOfFame(maxsize=5)
+    hof.update(pop)
     
 
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 10:
-        g = g + 1
-        print("-- Generation %i --" % g)
+    while gens < 4:
+        gens = gens + 1
+        print("-- Generation %i --" % gens)
 
         # Select the next generation individuals
         offspring = toolbox.select(pop, len(pop))
         # Clone the selected individuals
         offspring = list(map(toolbox.clone, offspring))
-        at
+        # variation (no deletes here)
+        for child1, child2 in zip(offspring[::2], offspring[1::2]):
+            if random.random() < CXPB:
+                toolbox.mate(child1, child2)
+        
+        for mutant in offspring:
+            if random.random() < MUTPB:
+                toolbox.mutate(mutant)
+        
+        # canonicalize and invalidate
+        canonicalize_population(offspring)  # this does the deletion
 
-    ata
+        # evaluate invalid only
+        invalid = [ind for ind in offspring if not ind.fitness.valid]
+        fits = list(map(toolbox.evaluate, invalid))
+        for ind, fit in zip(invalid, fits):
+            ind.fitness.values = fit
+
+        
+        pop[:]=offspring
+        hof.update(pop)
+
+
+        fitslist=[ind.fitness.values[0] for ind in pop if ind.fitness.valid]
+        print(f"Generation average: {float(np.mean(fitslist))}")
+        avg_hist.append(float(np.mean(fitslist)))
+        best_hist.append(float(np.min(fitslist)))
+        best_ind.append(toolbox.clone(tools.selBest(pop,1)[0]))
+
+
+
+    #plotting
+    gens = np.arange(len(avg_hist))
+    plt.subplot(1, 2, 1)
+    plt.plot(gens,avg_hist,label="AVerage fitness")
+    plt.xlabel("Generation")
+    plt.ylabel("Fitness")
+
+    plt.subplot(1, 2, 2)
+    plt.plot(gens,best_hist,label="Best fitness")
+    plt.xlabel("Generation")
+    plt.ylabel("Fitness")
+    plt.legend()
+    plt.show()
+
+    return hof[0]
 
 
 def rotate_all(transform, t_min_deg):
@@ -213,7 +288,6 @@ def random_angle_avoiding_left(transform, ):
     alpha = np.degrees(np.arctan2(az, ax))  # deg
     start = 180.0 - alpha
     end   = 180.0 + alpha
-    print(start,end)
  
     # Allowed set: [0, start) U (end, 360)
     width1 = max(0.0, start - 0.0)
@@ -344,19 +418,19 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    ##ga_instance=define_ga()
-    ##ga_instance.run()
 
-    # run_ga(8,machine_r,model,phantom_emission)
+    best=run_ga(8,model,phantom_emission)
+    print(best)
+    lol
 
-    random_angle_test(transform)
+    #random_angle_test(transform)
 
     transform.plot(0.02)
     plt.show()
 
-    downsampled_inverted = calculate_tomo_inversion(
-        bckc["brightness"], transform, phantom_emission.rhop
-    )
+    #downsampled_inverted = calculate_tomo_inversion(
+    #    bckc["brightness"], transform, phantom_emission.rhop
+    #)
 
     """
     for t in phantom_emission.t:
@@ -371,10 +445,9 @@ def run_example_diagnostic_model(
         plt.show()
     """
 
-    mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
-    print("MSE: ", mse)
+    #mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
+    #print("MSE: ", mse)
 
-    ata
 
     if plot and hasattr(model, "plot"):
         plt.ioff()

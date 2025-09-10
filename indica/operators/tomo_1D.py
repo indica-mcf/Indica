@@ -425,7 +425,8 @@ class SXR_tomography:
 
                 invalid = H.sum(0) == 0
                 if np.any(invalid):
-                    print("Warning - some LOS are not linearly independent")
+                    pass
+                    ##print("Warning - some LOS are not linearly independent")
 
                 # fast method to calculate U,S,V = svd(H.T) of rectangular matrix
                 U, S = fast_svd(H)
