@@ -6,6 +6,7 @@ from typing import Tuple
 
 import numpy as np
 
+from indica import Equilibrium
 from indica.configs.readers import ST40Conf
 from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
@@ -180,6 +181,7 @@ class ST40Reader(DataReader):
         # if database_results["instrument"] == "smmh":
         #     location = (location + location_r) / 2.0
         #     direction = (direction + direction_r) / 2.0
+        database_results["passes"] = 2
         database_results["channel"] = np.arange(database_results["location"][:, 0].size)
         rearrange_geometry(database_results["location"], database_results["direction"])
         transform = assign_lineofsight_transform(database_results)
@@ -197,6 +199,7 @@ class ST40Reader(DataReader):
         instruments: list = None,
         revisions: Dict[str, RevisionLike] = None,
         debug: bool = False,
+        equilibrium: Equilibrium = None,
     ):
 
         if instruments is None:
@@ -215,6 +218,7 @@ class ST40Reader(DataReader):
                     "",
                     instrument,
                     revisions[instrument],
+                    equilibrium=equilibrium,
                 )
             except Exception as e:
                 print(f"error reading: {instrument} \nException: {e}")
