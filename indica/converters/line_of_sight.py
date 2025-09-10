@@ -378,21 +378,28 @@ class LineOfSightTransform(CoordinateTransform):
         # Draw spot
         if self.spot_shape == "round":
 
-            # Draw ellipse
-            a = self.spot_width / 2
-            b = self.spot_height / 2
-            spot_w = np.linspace(-a, a, 500, dtype=float)
-            spot_y = (b / a) * np.sqrt(a**2 - spot_w**2)
-            spot_w = np.append(spot_w, np.flip(spot_w))
-            spot_y = np.append(spot_y, np.flip(-spot_y))
+            if self.n_beamlets_x > 1:
 
-            # Find beamlets outside of the round shape
-            # and remove them
-            val = (w**2 / a**2) + (v**2 / b**2)
-            inside = val <= 1
-            self.beamlets = int(np.sum(inside))
-            w = w[inside]
-            v = v[inside]
+                # Draw ellipse
+                a = self.spot_width / 2
+                b = self.spot_height / 2
+                spot_w = np.linspace(-a, a, 500, dtype=float)
+                spot_y = (b / a) * np.sqrt(a**2 - spot_w**2)
+                spot_w = np.append(spot_w, np.flip(spot_w))
+                spot_y = np.append(spot_y, np.flip(-spot_y))
+
+                # Find beamlets outside of the round shape
+                # and remove them
+                val = (w**2 / a**2) + (v**2 / b**2)
+                inside = val <= 1
+                self.beamlets = int(np.sum(inside))
+                w = w[inside]
+                v = v[inside]
+
+            else:
+
+                spot_w = np.nan
+                spot_y = np.nan
 
         elif self.spot_shape == "square":
 
