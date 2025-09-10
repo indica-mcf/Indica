@@ -820,7 +820,7 @@ class LineOfSightTransform(CoordinateTransform):
             profile = profile_to_map
 
         if np.size(time) == 1:
-            if np.isclose(profile.t, time, rtol=1.0e-4):
+            if np.any(np.isclose(profile.t, time, rtol=1.0e-3)):
                 if "t" in profile_to_map.dims:
                     profile = profile.sel(t=time, method="nearest")
             else:
