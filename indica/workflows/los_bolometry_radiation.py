@@ -154,11 +154,12 @@ def random_angle_test(transform):
 
 
     los_angles = np.array(
-        360
+        random_angle_avoiding_left(transform)
         * np.random.rand(
             8
         )
     )
+    print(los_angles)
     min_los_angle = np.min(los_angles)
     origin = transform.origin
     direction = transform.direction
@@ -203,10 +204,35 @@ def _ray_to_rect_boundary(angle_deg, transform):
     return cx + t * ux, cz + t * uz
  
 
+def random_angle_avoiding_left(transform, ):
+
+    # Half-extents
+    x0, x1 = transform._machine_dims[0]
+    z0, z1 = transform._machine_dims[1]
+    ax = 0.5 * abs(x1 - x0)  # half-width
+    az = 0.5 * abs(z1 - z0)  # half-height
+ 
+    # Angular half-width of the left-edge exclusion
+    alpha = np.degrees(np.arctan2(az, ax))  # deg
+    start = 180.0 - alpha
+    end   = 180.0 + alpha
+    print(start,end)
+ 
+    # Allowed set: [0, start) U (end, 360)
+    width1 = max(0.0, start - 0.0)
+    width2 = max(0.0, 360.0 - end)
+    total = width1 + width2
+ 
+    if random.random() < (width1 / total):
+        angle = random.uniform(0.0, start)
+    else:
+        angle = random.uniform(end, 360.0)
+    return angle
+
 def random_feasible_direction_from_polar_angle(angle):
 
     inward_direction = (angle + 180.0) % 360.0
-    direction_angle = inward_direction + random.uniform(-75.0, 75.0)
+    direction_angle = inward_direction + random.uniform(-65.0, 65.0)
     th = np.deg2rad(direction_angle)
     return np.cos(th), np.sin(th)  # (dx, dz)
  
