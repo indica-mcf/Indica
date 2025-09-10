@@ -113,7 +113,7 @@ def canonicalize_population(pop):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=20)
+    pop = toolbox.population(n=10)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -131,7 +131,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 4:
+    while gens < 5:
         gens = gens + 1
         print("-- Generation %i --" % gens)
 
@@ -163,7 +163,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
 
         fitslist=[ind.fitness.values[0] for ind in pop if ind.fitness.valid]
-        print(f"Generation average: {float(np.mean(fitslist))}")
+        print(f"Generation average: {np.format_float_scientific(np.mean(fitslist),precision=3)}")
         avg_hist.append(float(np.mean(fitslist)))
         best_hist.append(float(np.min(fitslist)))
         best_ind.append(toolbox.clone(tools.selBest(pop,1)[0]))
@@ -231,8 +231,13 @@ def random_angle_test(transform):
     los_angles = np.array(
         [random_angle_avoiding_left(transform) for _ in range(8)]
     )
-    print(los_angles)
-    min_los_angle = np.min(los_angles)
+    los_angles=[59.63209549196224, 95.6216568731703, 266.8815031970812, 268.4670419152264, 308.5250168863993, 341.2164113018966, 342.5982764331459, 357.7043321523542]
+    offsets=[-0.9581814903561077, 0.3645514201473765, 0.0, -0.1651885848622241, 0.3344766602479097, -0.41803296599972817, 0.18487535897572593, -0.0416023700388628]
+    dirs=[]
+    for angle, offset in zip(los_angles,offsets):
+        dirs.append(direction_from_polar_and_dir_offset(angle,offset))
+
+    #min_los_angle = np.min(los_angles)
     origin = transform.origin
     direction = transform.direction
     origin = np.delete(origin, [0, 1, 2, 3, 4, 5, 6, 7], axis=0)
@@ -240,16 +245,19 @@ def random_angle_test(transform):
     direction = np.delete(direction, [0, 1, 2, 3, 4, 5, 6, 7], axis=0)
     transform.set_direction(direction)
 
+    a=0
     for angle in los_angles:
         new_origin_x, new_origin_z = origin_from_polar_angle(angle, transform)
         transform.add_origin((new_origin_x, 0, new_origin_z))
 
-        new_dir_x, new_dir_z = random_feasible_direction_from_polar_angle(
-            angle
-        )
+        #new_dir_x, new_dir_z = random_feasible_direction_from_polar_angle(
+        #    angle
+        #)
+        new_dir_x,new_dir_z=dirs[a]
         transform.add_direction((new_dir_x, 0, new_dir_z))
+        a+=1
 
-    rotate_all(transform, min_los_angle)
+    #rotate_all(transform, min_los_angle)
 
     update_los(transform)
 
@@ -388,6 +396,36 @@ def calculate_tomo_inversion(
     return downsampled_inverted
 
 
+def apply_individual_to_transform(individual, transform):
+    """
+    Genome layout: first half = direction offsets in [-1,1],
+                   second half = angles in degrees [0,360).
+    Recomputes ALL origins and directions and writes them to `transform`.
+    """
+    g = np.asarray(individual, dtype=float)
+    n = g.size // 2
+    dir_offsets = np.clip(g[:n], -1.0, 1.0)
+    angles = (g[n:] % 360.0 + 360.0) % 360.0
+ 
+    # Build origins (x,0,z) from angles
+    origins = np.empty((n, 3), dtype=float)
+    for i, ang in enumerate(angles):
+        x, z = origin_from_polar_angle(ang, transform)
+        origins[i] = (x, 0.0, z)
+ 
+    # Build directions (dx,0,dz) from (angle, offset)
+    directions = np.empty((n, 3), dtype=float)
+    for i, (ang, off) in enumerate(zip(angles, dir_offsets)):
+        dx, dz = direction_from_polar_and_dir_offset(ang, off)
+        directions[i] = (dx, 0.0, dz)
+ 
+    # Replace all LOS and update
+    transform.set_origin(origins)
+    transform.set_direction(directions)
+    update_los(transform)
+ 
+    return transform, directions, origins
+
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
 ):
@@ -418,15 +456,31 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-
     best=run_ga(8,model,phantom_emission)
+
+
+    #Best individual to a transform
     print(best)
-    lol
+    """
+    transform=apply_individual_to_transform(best,model.transform)
+        # Re-run model and calculate inversion
+    bckc = model()
 
-    #random_angle_test(transform)
+    """
+    downsampled_inverted = calculate_tomo_inversion(
+        bckc["brightness"], transform, phantom_emission.rhop
+    )
 
-    transform.plot(0.02)
+
+    #then set and recalculate?
+    
+
+
+ #   random_angle_test(transform)
+
+    transform.plot()
     plt.show()
+    ata
 
     #downsampled_inverted = calculate_tomo_inversion(
     #    bckc["brightness"], transform, phantom_emission.rhop
