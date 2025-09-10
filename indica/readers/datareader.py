@@ -9,6 +9,7 @@ import numpy as np
 from xarray import DataArray
 
 from indica import BaseIO
+from indica import Equilibrium
 from indica.available_quantities import READER_QUANTITIES
 from indica.configs.readers.machineconf import MachineConf
 from indica.converters import CoordinateTransform
@@ -61,6 +62,7 @@ class DataReader(ABC):
         include_error: bool = True,
         return_dataarrays: bool = True,
         verbose: bool = False,
+        equilibrium: Equilibrium = None,
     ) -> Dict[str, DataArray]:
         """General method that reads data for a requested instrument."""
         if instrument not in self.instrument_methods.keys():
@@ -80,6 +82,9 @@ class DataReader(ABC):
         database_results, transform = getattr(self, f"_{method}")(_database_results)
         if not return_dataarrays:
             return database_results
+
+        if hasattr(transform, "set_equilibrium") and equilibrium is not None:
+            transform.set_equilibrium(equilibrium)
 
         quantities = READER_QUANTITIES[method]
         data_arrays = build_dataarrays(
