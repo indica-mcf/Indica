@@ -154,10 +154,7 @@ def random_angle_test(transform):
 
 
     los_angles = np.array(
-        random_angle_avoiding_left(transform)
-        * np.random.rand(
-            8
-        )
+        [random_angle_avoiding_left(transform) for _ in range(8)]
     )
     print(los_angles)
     min_los_angle = np.min(los_angles)
@@ -354,6 +351,9 @@ def run_example_diagnostic_model(
 
     random_angle_test(transform)
 
+    transform.plot(0.02)
+    plt.show()
+
     downsampled_inverted = calculate_tomo_inversion(
         bckc["brightness"], transform, phantom_emission.rhop
     )
@@ -373,8 +373,6 @@ def run_example_diagnostic_model(
 
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
     print("MSE: ", mse)
-    transform.plot(0.02)
-    plt.show()
 
     ata
 
