@@ -15,10 +15,11 @@ from indica.defaults.load_defaults import load_default_objects
 from indica.models import PinholeCamera
 from indica.operators import tomo_1D
 from indica.operators.atomic_data import default_atomic_data
+from rich.progress import Progress
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-
+BIG=1e13
 def evaluateIndividual(individual, model, phantom_emission):
     transform = model.transform
 
@@ -40,7 +41,7 @@ def evaluateIndividual(individual, model, phantom_emission):
 
         transform.set_origin(np.array(origins))
         transform.set_direction(np.array(directions))
-        rotate_all(transform, min_los_angle)
+        #rotate_all(transform, min_los_angle)
         update_los(transform)
 
         # Re-run model and calculate inversion
@@ -53,8 +54,7 @@ def evaluateIndividual(individual, model, phantom_emission):
         # print("Inidividual MSE: ",mse)
         return (float(mse),)
     except ValueError:
-        print("The error")
-        return (1e13,)
+        return (BIG,)
 
 
 def random_angle():
@@ -64,6 +64,25 @@ def random_angle():
 def random_offset():
     return random.uniform(-0.99, 0.9)
 
+i=0
+def make_feasible_individual(generator, evaluate, max_tries=500):
+    """
+    Keep sampling with `generator()` and testing with `evaluate()`
+    until fitness is finite and below BIG. Assign fitness and return.
+    """
+    global i
+    i+=1
+    print(f"Created {i} feasible individuals in total")
+    for _ in range(max_tries):
+        ind = generator()
+        fit = evaluate(ind)  # must return a tuple, e.g. (loss,)
+        if isinstance(fit, tuple) and len(fit) >= 1:
+            f0 = float(fit[0])
+            if np.isfinite(f0) and f0 < BIG:
+                ind.fitness.values = fit
+                return ind
+        # else: try again
+    raise RuntimeError("Failed to sample a feasible individual after max_tries")
 
 def define_ga(model, number_of_los, phantom_emission):
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -73,14 +92,15 @@ def define_ga(model, number_of_los, phantom_emission):
 
     toolbox.register("attr_angle", partial(random_angle_avoiding_left,transform=model.transform))
     toolbox.register("attr_offset", random_offset)
+
+
     toolbox.register(
-        "individual",
+        "individual_raw",
         tools.initCycle,
         creator.Individual,
         (toolbox.attr_angle,) * number_of_los + (toolbox.attr_offset,) * number_of_los,
         n=1,
     )
-    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     toolbox.register(
         "evaluate",
@@ -90,6 +110,17 @@ def define_ga(model, number_of_los, phantom_emission):
             phantom_emission=phantom_emission,
         ),
     )
+    
+    toolbox.register(
+        "individual",
+        make_feasible_individual,
+        generator=toolbox.individual_raw,
+        evaluate=toolbox.evaluate,
+        max_tries=500,
+    )
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+
 
     toolbox.register("mate",tools.cxTwoPoint)
     toolbox.register("mutate",tools.mutFlipBit, indpb=0.05)
@@ -114,7 +145,7 @@ def canonicalize_population(pop):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=50)
+    pop = toolbox.population(n=20)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -132,7 +163,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 20 :
+    while gens < 5 :
         gens = gens + 1
         print("-- Generation %i --" % gens)
 
@@ -187,7 +218,7 @@ def run_ga(number_of_los, model, phantom_emission):
     plt.ylabel("Fitness")
     plt.show()
 
-    return hof[0]
+    return hof
 
 
 def rotate_all(transform, t_min_deg):
@@ -340,6 +371,7 @@ def update_los(transform):
 
 def reconstruction_metric(emissivity, downsampled_inverted):
     # Difference
+
     diff = emissivity - downsampled_inverted
     mse = (diff**2).mean(dim=("t", "rhop"))
 
@@ -459,21 +491,41 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    best=run_ga(8,model,phantom_emission)
+    hof=run_ga(8,model,phantom_emission)
+    best=hof[0]
 
 
     #Best individual to a transform
     print(f"Best individual, to be applied: {best}")
-    transform=apply_individual_to_transform(best,model.transform)
-        # Re-run model and calculate inversion
-    bckc = model()
+    individual=best
 
+    N = len(individual) // 2
+    los_angles = individual[:N]
+    min_los_angle = np.min(los_angles)
+    offsets = individual[N:]
+    directions = []
+    origins = []
+    for i in range(N):
+        new_origin_x, new_origin_z = origin_from_polar_angle(los_angles[i], transform)
+        origins.append((new_origin_x, 0, new_origin_z))
+        new_dir_x, new_dir_z = direction_from_polar_and_dir_offset(
+            los_angles[i], offsets[i]
+        )
+        directions.append((new_dir_x, 0, new_dir_z))
+
+    transform.set_origin(np.array(origins))
+    transform.set_direction(np.array(directions))
+    #rotate_all(transform, min_los_angle)
+    update_los(transform)
+
+    # Re-run model and calculate inversion
+    bckc = model()
     downsampled_inverted = calculate_tomo_inversion(
         bckc["brightness"], transform, phantom_emission.rhop
     )
 
 
-    #then set and recalculate?
+
     
 
 
@@ -482,8 +534,9 @@ def run_example_diagnostic_model(
     transform.plot()
     plt.show()
 
-
+    t=0
     for t in phantom_emission.t:
+        plt.subplot(3,3,t)
         plt.plot(phantom_emission.rhop, phantom_emission.sel(t=t), label="Phantom")
         plt.plot(
             downsampled_inverted.rhop,
@@ -492,7 +545,8 @@ def run_example_diagnostic_model(
             label="Reconstructed",
         )
         plt.legend()
-        plt.show()
+        t+=1
+    plt.show()
 
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
     print("MSE: ", mse)
