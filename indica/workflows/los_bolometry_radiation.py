@@ -53,6 +53,7 @@ def evaluateIndividual(individual, model, phantom_emission):
         # print("Inidividual MSE: ",mse)
         return (float(mse),)
     except ValueError:
+        print("The error")
         return (1e13,)
 
 
