@@ -158,6 +158,45 @@ class LineOfSightTransform(CoordinateTransform):
         # Calculate LOS coordinates
         self.set_dl(dl)
 
+
+    def set_or_update_los(self, origins=None, directions=None, mode="set"):
+        """
+        Update origins and/or directions.
+        Parameters
+        ----------
+        origins : np.ndarray of shape (N,3) or (3,)
+            Array of origins.
+        directions : np.ndarray of shape (N,3) or (3,)
+            Array of directions.
+        mode : str, 'set' or 'add'
+            'set' replaces, 'add' appends.
+        """
+        if origins is not None:
+            arr = np.atleast_2d(origins)  # ensures (N,3)
+            if mode == "set":
+                self.origin_x, self.origin_y, self.origin_z = arr[:,0], arr[:,1], arr[:,2]
+            elif mode == "add":
+                self.origin_x = np.append(self.origin_x, arr[:,0])
+                self.origin_y = np.append(self.origin_y, arr[:,1])
+                self.origin_z = np.append(self.origin_z, arr[:,2])
+        if directions is not None:
+            arr = np.atleast_2d(directions)
+            if mode == "set":
+                self.direction_x, self.direction_y, self.direction_z = arr[:,0], arr[:,1], arr[:,2]
+            elif mode == "add":
+                self.direction_x = np.append(self.direction_x, arr[:,0])
+                self.direction_y = np.append(self.direction_y, arr[:,1])
+                self.direction_z = np.append(self.direction_z, arr[:,2])
+        self.distribute_beamlets(False)
+
+
+        # Channel number
+        self.x1: list = list(np.arange(0, len(self.origin_x)))
+
+        # Calculate LOS coordinates
+        self.set_dl(self.dl)
+
+
     @property
     def origin(self):
         self._origin = np.array(
