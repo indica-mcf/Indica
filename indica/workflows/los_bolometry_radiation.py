@@ -113,7 +113,7 @@ def canonicalize_population(pop):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=10)
+    pop = toolbox.population(n=50)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -131,7 +131,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 5:
+    while gens < 20 :
         gens = gens + 1
         print("-- Generation %i --" % gens)
 
@@ -164,8 +164,9 @@ def run_ga(number_of_los, model, phantom_emission):
 
         fitslist=[ind.fitness.values[0] for ind in pop if ind.fitness.valid]
         print(f"Generation average: {np.format_float_scientific(np.mean(fitslist),precision=3)}")
+        print(f"Best so far: {np.format_float_scientific(toolbox.evaluate(hof[0])[0],precision=3)}")
         avg_hist.append(float(np.mean(fitslist)))
-        best_hist.append(float(np.min(fitslist)))
+        best_hist.append(toolbox.evaluate(hof[0])[0])
         best_ind.append(toolbox.clone(tools.selBest(pop,1)[0]))
 
 
@@ -173,15 +174,16 @@ def run_ga(number_of_los, model, phantom_emission):
     #plotting
     gens = np.arange(len(avg_hist))
     plt.subplot(1, 2, 1)
-    plt.plot(gens,avg_hist,label="AVerage fitness")
+    plt.plot(gens,avg_hist)
+    plt.title("Average fitness of gen")
     plt.xlabel("Generation")
     plt.ylabel("Fitness")
 
     plt.subplot(1, 2, 2)
-    plt.plot(gens,best_hist,label="Best fitness")
+    plt.plot(gens,best_hist)
+    plt.title("Best individual so far")
     plt.xlabel("Generation")
     plt.ylabel("Fitness")
-    plt.legend()
     plt.show()
 
     return hof[0]
@@ -460,13 +462,11 @@ def run_example_diagnostic_model(
 
 
     #Best individual to a transform
-    print(best)
-    """
+    print(f"Best individual, to be applied: {best}")
     transform=apply_individual_to_transform(best,model.transform)
         # Re-run model and calculate inversion
     bckc = model()
 
-    """
     downsampled_inverted = calculate_tomo_inversion(
         bckc["brightness"], transform, phantom_emission.rhop
     )
@@ -480,13 +480,8 @@ def run_example_diagnostic_model(
 
     transform.plot()
     plt.show()
-    ata
 
-    #downsampled_inverted = calculate_tomo_inversion(
-    #    bckc["brightness"], transform, phantom_emission.rhop
-    #)
 
-    """
     for t in phantom_emission.t:
         plt.plot(phantom_emission.rhop, phantom_emission.sel(t=t), label="Phantom")
         plt.plot(
@@ -497,10 +492,9 @@ def run_example_diagnostic_model(
         )
         plt.legend()
         plt.show()
-    """
 
-    #mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
-    #print("MSE: ", mse)
+    mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
+    print("MSE: ", mse)
 
 
     if plot and hasattr(model, "plot"):
