@@ -160,7 +160,7 @@ def canonicalize_population(pop):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=60)
+    pop = toolbox.population(n=50)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -178,7 +178,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 25 :
+    while gens < 20 :
         gens = gens + 1
         print("-- Generation %i --" % gens)
 
@@ -233,6 +233,7 @@ def run_ga(number_of_los, model, phantom_emission):
     plt.ylabel("Fitness")
     plt.show()
 
+    print(best_ind)
     return hof,best_ind
 
 
@@ -738,7 +739,7 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
         return ymin, ymax * 1.05
  
     # --- pull initial solution ---
-    phantom, recon, artist_fn = solutions[init_solution]
+    phantom, recon, artist_fn, mse = solutions[init_solution]
     t_vals = np.asarray(phantom.t)
     i0 = 0
     t0 = t_vals[i0]
@@ -748,6 +749,8 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
         1, 2, figsize=(10, 5), gridspec_kw={'width_ratios': [1, 1]}
     )
     plt.subplots_adjust(bottom=0.20)
+
+    fig.suptitle(f"Solution {init_solution}, MSE= {mse:.4f}")
  
     # --- left panel (lines) ---
     (line_phantom,) = ax_left.plot(
@@ -786,6 +789,7 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
         "recon": recon,
         "t_vals": t_vals,
         "artist_fn": artist_fn,
+        "mse": mse,
         "time_slider": s_time,
         "time_ax": ax_slider_time,
         "current_t_idx": i0,
@@ -813,12 +817,13 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
         sol_idx = int(sol_idx)
         if sol_idx == state["current_sol_idx"]:
             return
-        phantom_i, recon_i, artist_fn_i = solutions[sol_idx]
+        phantom_i, recon_i, artist_fn_i, mse_i = solutions[sol_idx]
  
         # update state
         state["phantom"] = phantom_i
         state["recon"]   = recon_i
         state["artist_fn"] = artist_fn_i
+        state["mse"]= mse_i
         state["t_vals"]  = np.asarray(phantom_i.t)
         state["current_sol_idx"] = sol_idx
  
@@ -1126,7 +1131,8 @@ def get_solution(individual, transform, model, phantom_emission):
         return any(ax.get_xlabel() == "R [m]" for ax in fig.axes)
     
     geom_R_artist = grab_figure_as_image(lambda: transform.plot(), pick=pick_geom)
-    return (phantom_emission,downsampled_inverted,geom_R_artist)
+    mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
+    return (phantom_emission,downsampled_inverted,geom_R_artist,mse)
 
 
 def run_example_diagnostic_model(
@@ -1167,10 +1173,14 @@ def run_example_diagnostic_model(
     with open('fullrunBESTOFGEN', 'wb') as file:
         # Dump data with highest protocol for best performance
         pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL)
+
+    #with open('fullrunHOF.pkl','rb') as file:
+    #    hof=pickle.load(file)
     best=hof[0]
 
     solutions=[]
-    for sol in bestPerGen:
+    #for sol in bestPerGen:
+    for sol in hof:
         solutions.append(get_solution(sol,transform,model,phantom_emission))
 
     interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
