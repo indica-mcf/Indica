@@ -160,7 +160,7 @@ def canonicalize_population(pop):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=10)
+    pop = toolbox.population(n=60)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -178,7 +178,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 2 :
+    while gens < 25 :
         gens = gens + 1
         print("-- Generation %i --" % gens)
 
@@ -233,7 +233,7 @@ def run_ga(number_of_los, model, phantom_emission):
     plt.ylabel("Fitness")
     plt.show()
 
-    return hof
+    return hof,best_ind
 
 
 def rotate_all(transform, t_min_deg):
@@ -445,11 +445,7 @@ def calculate_tomo_inversion(
     # print(downsampled_inverted.shape)
     return downsampled_inverted
 
-import numpy as np
 
-import matplotlib.pyplot as plt
-
-from matplotlib.widgets import Slider
  
 def interactive_timeslice_plot(phantom_emission, downsampled_inverted, artist_fn):
 
@@ -569,7 +565,302 @@ def interactive_timeslice_plot(phantom_emission, downsampled_inverted, artist_fn
  
     plt.show()
 
+
+    """
+    A 2-slider browser:
+      - Slider 1 (left, bottom-left): time index for current solution
+      - Slider 2 (right, bottom-right): solution index
  
+    Parameters
+    ----------
+    get_solution : callable
+        get_solution(sol_idx) -> (phantom_emission, downsampled_inverted, artist_fn)
+        - phantom_emission, downsampled_inverted: xarray.DataArray with dims ('t','rhop')
+        - artist_fn: callable(ax) that draws the geometry (rasterized image, etc.) into ax
+                     (You can use your grab_figure_as_image(...) factory to build these.)
+    n_solutions : int
+        Number of solutions available (discrete).
+    init_solution : int
+        Initial solution index.
+    """
+ 
+    # --- cache for loaded solutions ---
+    cache = {}
+    def load(sol_idx):
+        if sol_idx not in cache:
+            cache[sol_idx] = get_solution(sol_idx)
+        return cache[sol_idx]
+ 
+    # --- initial data ---
+    phantom, recon, artist_fn = load(init_solution)
+    t_vals = np.asarray(phantom.t)
+    i0 = 0
+    t0 = t_vals[i0]
+ 
+    # --- figure & axes ---
+    fig, (ax_left, ax_right) = plt.subplots(
+        1, 2, figsize=(10, 5), gridspec_kw={'width_ratios': [1, 1]}
+    )
+    plt.subplots_adjust(bottom=0.20)  # a bit more room for two sliders
+ 
+    # --- left panel (lines) ---
+    (line_phantom,) = ax_left.plot(
+        np.asarray(phantom.rhop),
+        np.asarray(phantom.sel(t=t0, method="nearest")),
+        label="Phantom",
+    )
+    (line_recon,) = ax_left.plot(
+        np.asarray(recon.rhop),
+        np.asarray(recon.sel(t=t0, method="nearest")),
+        linestyle="dashed",
+        label="Reconstructed",
+    )
+    ax_left.set_xlabel("rhop"); ax_left.set_ylabel("emission"); ax_left.legend()
+    # per-solution y-limits
+    def set_left_ylim(p, r):
+        ymin = float(np.nanmin([p.min(), r.min()]))
+        ymax = float(np.nanmax([p.max(), r.max()]))
+        ax_left.set_ylim(ymin, ymax * 1.05)
+    set_left_ylim(phantom, recon)
+    ax_left.set_title(f"t = {t0}")
+ 
+    # --- right panel (geometry image) ---
+    ax_right.cla()
+    artist_fn(ax_right)            # draw current solution’s geometry
+    ax_right.set_axis_off()        # keep it as an image panel
+ 
+    # --- sliders: time (left) and solution (right) ---
+    ax_slider_time = fig.add_axes([0.12, 0.10, 0.35, 0.05])
+    s_time = Slider(ax=ax_slider_time, label="t index", valmin=0, valmax=len(t_vals)-1,
+                    valinit=i0, valstep=1)
+ 
+    ax_slider_sol  = fig.add_axes([0.57, 0.10, 0.30, 0.05])
+    s_sol  = Slider(ax=ax_slider_sol,  label="solution", valmin=0, valmax=n_solutions-1,
+                    valinit=init_solution, valstep=1)
+ 
+    # --- state holder (so callbacks always see the latest objects) ---
+    state = {
+        "phantom": phantom,
+        "recon":   recon,
+        "t_vals":  t_vals,
+        "artist_fn": artist_fn,
+        "time_slider": s_time,
+        "time_ax": ax_slider_time,
+        "current_t_idx": i0,
+    }
+ 
+    # --- callbacks ---
+    def update_time(idx):
+        idx = int(idx)
+        state["current_t_idx"] = idx
+        tt = state["t_vals"][idx]
+        p  = state["phantom"].sel(t=tt, method="nearest")
+        r  = state["recon"].sel(t=tt,   method="nearest")
+ 
+        # update x and y (rhop may differ per solution)
+        line_phantom.set_xdata(np.asarray(state["phantom"].rhop))
+        line_phantom.set_ydata(np.asarray(p))
+        line_recon.set_xdata(np.asarray(state["recon"].rhop))
+        line_recon.set_ydata(np.asarray(r))
+ 
+        ax_left.set_title(f"t = {tt}")
+        fig.canvas.draw_idle()
+ 
+    def change_solution(sol_idx):
+        sol_idx = int(sol_idx)
+        p, r, art = load(sol_idx)
+ 
+        # update state
+        state["phantom"] = p
+        state["recon"]   = r
+        state["artist_fn"] = art
+        state["t_vals"]  = np.asarray(p.t)
+ 
+        # (1) possibly rebuild the time slider if length changed
+        new_len = len(state["t_vals"])
+        old_slider = state["time_slider"]
+        need_rebuild = int(old_slider.valmax) != (new_len - 1)
+        # clamp current t to new range
+        new_t_idx = min(state["current_t_idx"], new_len - 1)
+        if need_rebuild:
+            # remove old slider axes
+            state["time_ax"].remove()
+            # create new slider with updated range
+            ax_new = fig.add_axes([0.12, 0.10, 0.35, 0.05])
+            s_new  = Slider(ax=ax_new, label="t index", valmin=0, valmax=new_len-1,
+                            valinit=new_t_idx, valstep=1)
+            s_new.on_changed(update_time)
+            state["time_ax"] = ax_new
+            state["time_slider"] = s_new
+        else:
+            # just set its value (this triggers update_time)
+            state["time_slider"].set_val(new_t_idx)
+ 
+        # (2) update left y-limits for the new solution
+        set_left_ylim(p, r)
+ 
+        # (3) update right panel image
+        ax_right.cla()
+        state["artist_fn"](ax_right)
+        ax_right.set_axis_off()
+ 
+        # (4) force a redraw (update_time is called via slider if rebuilt)
+        if not need_rebuild:
+            update_time(new_t_idx)
+        fig.canvas.draw_idle()
+ 
+    # wire callbacks
+    s_time.on_changed(update_time)
+    s_sol.on_changed(change_solution)
+ 
+    plt.show()
+ 
+def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
+    """
+    Two-slider browser over a LIST of solutions.
+ 
+    Parameters
+    ----------
+    solutions : list of (phantom, recon, artist_fn)
+        - phantom, recon: xarray.DataArray with dims ('t','rhop')
+        - artist_fn: callable(ax) -> draws right-panel geometry for that solution
+    init_solution : int
+        Index of the initial solution to show.
+    """
+    if not solutions:
+        raise ValueError("`solutions` must be a non-empty list.")
+    if not (0 <= init_solution < len(solutions)):
+        raise ValueError("`init_solution` out of range.")
+ 
+    def _y_limits(p, r):
+        ymin = float(np.nanmin([p.min(), r.min()]))
+        ymax = float(np.nanmax([p.max(), r.max()]))
+        return ymin, ymax * 1.05
+ 
+    # --- pull initial solution ---
+    phantom, recon, artist_fn = solutions[init_solution]
+    t_vals = np.asarray(phantom.t)
+    i0 = 0
+    t0 = t_vals[i0]
+ 
+    # --- figure & axes ---
+    fig, (ax_left, ax_right) = plt.subplots(
+        1, 2, figsize=(10, 5), gridspec_kw={'width_ratios': [1, 1]}
+    )
+    plt.subplots_adjust(bottom=0.20)
+ 
+    # --- left panel (lines) ---
+    (line_phantom,) = ax_left.plot(
+        np.asarray(phantom.rhop),
+        np.asarray(phantom.sel(t=t0, method="nearest")),
+        label="Phantom",
+    )
+    (line_recon,) = ax_left.plot(
+        np.asarray(recon.rhop),
+        np.asarray(recon.sel(t=t0, method="nearest")),
+        linestyle="dashed",
+        label="Reconstructed",
+    )
+    ax_left.set_xlabel("rhop"); ax_left.set_ylabel("emission"); ax_left.legend()
+    ymin, ymax = _y_limits(phantom, recon)
+    ax_left.set_ylim(ymin, ymax)
+    ax_left.set_title(f"t = {t0}")
+ 
+    # --- right panel (geometry for initial solution) ---
+    ax_right.cla()
+    artist_fn(ax_right)
+    ax_right.set_axis_off()
+ 
+    # --- sliders: time (left) and solution (right) ---
+    ax_slider_time = fig.add_axes([0.12, 0.10, 0.35, 0.05])
+    s_time = Slider(ax=ax_slider_time, label="t index",
+                    valmin=0, valmax=len(t_vals)-1, valinit=i0, valstep=1)
+ 
+    ax_slider_sol  = fig.add_axes([0.57, 0.10, 0.30, 0.05])
+    s_sol  = Slider(ax=ax_slider_sol,  label="solution",
+                    valmin=0, valmax=len(solutions)-1, valinit=init_solution, valstep=1)
+ 
+    # --- state ---
+    state = {
+        "phantom": phantom,
+        "recon": recon,
+        "t_vals": t_vals,
+        "artist_fn": artist_fn,
+        "time_slider": s_time,
+        "time_ax": ax_slider_time,
+        "current_t_idx": i0,
+        "current_sol_idx": init_solution,
+    }
+ 
+    # --- callbacks ---
+    def update_time(idx):
+        idx = int(idx)
+        state["current_t_idx"] = idx
+        tt = state["t_vals"][idx]
+ 
+        p  = state["phantom"].sel(t=tt, method="nearest")
+        r  = state["recon"].sel(t=tt,   method="nearest")
+ 
+        line_phantom.set_xdata(np.asarray(state["phantom"].rhop))
+        line_phantom.set_ydata(np.asarray(p))
+        line_recon.set_xdata(np.asarray(state["recon"].rhop))
+        line_recon.set_ydata(np.asarray(r))
+ 
+        ax_left.set_title(f"t = {tt}")
+        fig.canvas.draw_idle()
+ 
+    def change_solution(sol_idx):
+        sol_idx = int(sol_idx)
+        if sol_idx == state["current_sol_idx"]:
+            return
+        phantom_i, recon_i, artist_fn_i = solutions[sol_idx]
+ 
+        # update state
+        state["phantom"] = phantom_i
+        state["recon"]   = recon_i
+        state["artist_fn"] = artist_fn_i
+        state["t_vals"]  = np.asarray(phantom_i.t)
+        state["current_sol_idx"] = sol_idx
+ 
+        # rebuild time slider if length changed
+        new_len = len(state["t_vals"])
+        old_len = int(state["time_slider"].valmax) + 1
+        new_t_idx = min(state["current_t_idx"], new_len - 1)
+ 
+        if new_len != old_len:
+            # remove old slider axes
+            state["time_ax"].remove()
+            # new time slider
+            ax_new = fig.add_axes([0.12, 0.10, 0.35, 0.05])
+            s_new  = Slider(ax=ax_new, label="t index",
+                            valmin=0, valmax=new_len-1, valinit=new_t_idx, valstep=1)
+            s_new.on_changed(update_time)
+            state["time_ax"] = ax_new
+            state["time_slider"] = s_new
+        else:
+            # trigger update_time via setting value
+            state["time_slider"].set_val(new_t_idx)
+ 
+        # refresh left y-limits for this solution
+        ymin, ymax = _y_limits(phantom_i, recon_i)
+        ax_left.set_ylim(ymin, ymax)
+ 
+        # refresh right panel geometry
+        ax_right.cla()
+        state["artist_fn"](ax_right)
+        ax_right.set_axis_off()
+ 
+        # ensure left panel data also updated (if we didn't rebuild slider)
+        if new_len == old_len:
+            update_time(new_t_idx)
+ 
+        fig.canvas.draw_idle()
+ 
+    # wire
+    s_time.on_changed(update_time)
+    s_sol.on_changed(change_solution)
+ 
+    plt.show()
 def apply_individual_to_transform(individual, transform):
     """
     Genome layout: first half = direction offsets in [-1,1],
@@ -718,7 +1009,6 @@ def apply_individual_to_transform(individual, transform):
 
 from io import BytesIO
 
-import matplotlib.pyplot as plt
  
 def grab_figure_as_image(callable_plotter, *, pick=None, dpi=200):
 
@@ -806,7 +1096,38 @@ def grab_figure_as_image(callable_plotter, *, pick=None, dpi=200):
  
     return artist_fn
 
- 
+
+def get_solution(individual, transform, model, phantom_emission):
+    N = len(individual) // 2
+    los_angles = individual[:N]
+    min_los_angle = np.min(los_angles)
+    offsets = individual[N:]
+    directions = []
+    origins = []
+    for i in range(N):
+        new_origin_x, new_origin_z = origin_from_polar_angle(los_angles[i], transform)
+        origins.append((new_origin_x, 0, new_origin_z))
+        new_dir_x, new_dir_z = direction_from_polar_and_dir_offset(
+            los_angles[i], offsets[i]
+        )
+        directions.append((new_dir_x, 0, new_dir_z))
+
+    transform.set_origin(np.array(origins))
+    transform.set_direction(np.array(directions))
+    #rotate_all(transform, min_los_angle)
+    update_los(transform)
+
+    # Re-run model and calculate inversion
+    bckc = model()
+    downsampled_inverted = calculate_tomo_inversion(
+        bckc["brightness"], transform, phantom_emission.rhop
+    )
+    def pick_geom(fig):
+        return any(ax.get_xlabel() == "R [m]" for ax in fig.axes)
+    
+    geom_R_artist = grab_figure_as_image(lambda: transform.plot(), pick=pick_geom)
+    return (phantom_emission,downsampled_inverted,geom_R_artist)
+
 
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
@@ -838,14 +1159,23 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    hof=run_ga(8,model,phantom_emission)
+    hof,bestPerGen=run_ga(8,model,phantom_emission)
     with open('fullrunHOF.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
         pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
 
+    with open('fullrunBESTOFGEN', 'wb') as file:
+        # Dump data with highest protocol for best performance
+        pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL)
     best=hof[0]
-    
 
+    solutions=[]
+    for sol in bestPerGen:
+        solutions.append(get_solution(sol,transform,model,phantom_emission))
+
+    interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
+    
+    """
 
     #Best individual to a transform
     print(f"Best individual, to be applied: {best}")
@@ -879,12 +1209,8 @@ def run_example_diagnostic_model(
 
 
 
-
     # choose the figure whose Axes has xlabel "R [m]"
-    def pick_geom(fig):
-        return any(ax.get_xlabel() == "R [m]" for ax in fig.axes)
-    
-    geom_R_artist = grab_figure_as_image(lambda: transform.plot(), pick=pick_geom)
+
     
     interactive_timeslice_plot(
         phantom_emission,
@@ -894,8 +1220,6 @@ def run_example_diagnostic_model(
     #transform.plot()
     #plt.show()
 
-
-    """
     r=1
     for t in phantom_emission.t:
         plt.subplot(3,3,r)
@@ -914,11 +1238,7 @@ def run_example_diagnostic_model(
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
     print("MSE: ", mse)
 
-
-    if plot and hasattr(model, "plot"):
-        plt.ioff()
-        model.plot()
-        plt.show()
+    
 
     return plasma, model, phantom_emission
 
