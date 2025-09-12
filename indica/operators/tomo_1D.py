@@ -73,7 +73,7 @@ def triband_diag_multi(A, D):
 def fast_svd(H):
     # fast method to calculate U,S,V = svd(H.T) of thin rectangular matrix
     LL = np.dot(H.T, H)
-    S2, U = eigh(LL, overwrite_a=True, check_finite=True, lower=True)
+    S2, U = eigh(LL, overwrite_a=True, check_finite=True, lower=True, driver="evd")
     S = (
         np.maximum(S2, S2[-1] * 1e-20) ** 0.5
     )  # singular values S can be negative due to numerical uncertainty

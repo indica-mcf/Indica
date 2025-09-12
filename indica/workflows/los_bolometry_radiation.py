@@ -22,6 +22,8 @@ import matplotlib.pylab as plt
 import numpy as np
 import xarray
 from xarray import DataArray
+import pickle
+from matplotlib.widgets import Slider
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import PinholeCamera
@@ -156,7 +158,7 @@ def canonicalize_population(pop):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=80)
+    pop = toolbox.population(n=10)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -174,7 +176,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 25 :
+    while gens < 2 :
         gens = gens + 1
         print("-- Generation %i --" % gens)
 
@@ -472,6 +474,124 @@ def apply_individual_to_transform(individual, transform):
  
     return transform, directions, origins
 
+
+ 
+def interactive_timeslice_plot(phantom_emission, downsampled_inverted):
+
+    """
+
+    Interactive plot with a slider to explore timeslices.
+ 
+    Parameters
+
+    ----------
+
+    phantom_emission : xarray.DataArray
+
+        True emission, with dims including 't' and 'rhop'.
+
+    downsampled_inverted : xarray.DataArray
+
+        Reconstructed emission, with dims including 't' and 'rhop'.
+
+    """
+
+    # Extract time coordinates as a NumPy array
+
+    t_vals = np.asarray(phantom_emission.t)
+
+    nT = len(t_vals)
+ 
+    # Initial index/time
+
+    i0 = 0
+
+    t0 = t_vals[i0]
+ 
+    # Create figure and axis
+
+    fig, ax = plt.subplots()
+
+    plt.subplots_adjust(bottom=0.18)  # leave space for slider
+ 
+    # Initial plot
+
+    (line_phantom,) = ax.plot(
+
+        phantom_emission.rhop,
+
+        phantom_emission.sel(t=t0, method="nearest"),
+
+        label="Phantom",
+
+    )
+
+    (line_recon,) = ax.plot(
+
+        downsampled_inverted.rhop,
+
+        downsampled_inverted.sel(t=t0, method="nearest"),
+
+        linestyle="dashed",
+
+        label="Reconstructed",
+
+    )
+
+    ax.set_xlabel("rhop")
+
+    ax.set_ylabel("emission")
+
+    ax.legend()
+ 
+    # Fix initial y-limits (optional)
+
+    ymin = float(np.nanmin([phantom_emission.min(), downsampled_inverted.min()]))
+    ymax = float(np.nanmax([phantom_emission.max(), downsampled_inverted.max()]))
+    ax.set_ylim(ymin, ymax * 1.05)  # +5% headroom
+
+    ax.set_title(f"t = {t0}")
+ 
+    # Add slider
+
+    ax_slider = fig.add_axes([0.15, 0.08, 0.7, 0.04])
+
+    s_t = Slider(
+
+        ax=ax_slider, label="t index",
+
+        valmin=0, valmax=nT - 1,
+
+        valinit=i0, valstep=1
+
+    )
+ 
+    # Update function
+
+    def update(idx):
+
+        idx = int(idx)
+
+        tt = t_vals[idx]
+
+        y_p = phantom_emission.sel(t=tt, method="nearest")
+
+        y_r = downsampled_inverted.sel(t=tt, method="nearest")
+
+        line_phantom.set_ydata(y_p)
+
+        line_recon.set_ydata(y_r)
+
+        ax.set_title(f"t = {tt}")
+
+        fig.canvas.draw_idle()
+ 
+    s_t.on_changed(update)
+ 
+    plt.show()
+
+ 
+    
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
 ):
@@ -503,6 +623,10 @@ def run_example_diagnostic_model(
     bckc, phantom_emission = model(return_emissivity=True)
 
     hof=run_ga(8,model,phantom_emission)
+    with open('fullrunHOF.pkl', 'wb') as file:
+        # Dump data with highest protocol for best performance
+        pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
+
     best=hof[0]
     
 
@@ -537,8 +661,7 @@ def run_example_diagnostic_model(
     )
 
 
-
-    
+    interactive_timeslice_plot(phantom_emission,downsampled_inverted)
 
 
  #   random_angle_test(transform)
@@ -546,6 +669,8 @@ def run_example_diagnostic_model(
     transform.plot()
     plt.show()
 
+
+    """
     r=1
     for t in phantom_emission.t:
         plt.subplot(3,3,r)
@@ -559,6 +684,7 @@ def run_example_diagnostic_model(
         plt.legend()
         r+=1
     plt.show()
+    """
 
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
     print("MSE: ", mse)

@@ -608,6 +608,7 @@ def plot_geometry(
     trans_name: str,
     colors: ArrayLike,
     marker: str = "o",
+    return_plot=False
 ):
 
     if "LineOfSight" in trans_name:
