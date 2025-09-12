@@ -1,3 +1,15 @@
+# ---
+# jupyter:
+#   jupytext:
+#     cell_metadata_filter: -all
+#     formats: ipynb,py:light
+#     text_representation:
+#       extension: .py
+#       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.17.3
+# ---
+
 from functools import partial
 import random
 from typing import Callable
@@ -15,7 +27,6 @@ from indica.defaults.load_defaults import load_default_objects
 from indica.models import PinholeCamera
 from indica.operators import tomo_1D
 from indica.operators.atomic_data import default_atomic_data
-from rich.progress import Progress
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -62,7 +73,7 @@ def random_angle():
 
 
 def random_offset():
-    return random.uniform(-0.99, 0.9)
+    return random.uniform(-0.99, 0.99)
 
 i=0
 def make_feasible_individual(generator, evaluate, max_tries=500):
@@ -145,7 +156,7 @@ def canonicalize_population(pop):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=20)
+    pop = toolbox.population(n=80)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -163,7 +174,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 5 :
+    while gens < 25 :
         gens = gens + 1
         print("-- Generation %i --" % gens)
 
@@ -306,7 +317,7 @@ def _rect_center_and_extents(transform):
     ax = 0.5 * (x1 - x0)  # half-width x
     az = 0.5 * (z1 - z0)  # half-height z
     return cx, cz, ax, az
- 
+
 def _ray_to_rect_boundary(angle_deg, transform):
     cx, cz, ax, az = _rect_center_and_extents(transform)
     th = np.deg2rad(angle_deg)
@@ -316,7 +327,7 @@ def _ray_to_rect_boundary(angle_deg, transform):
     tz = az / (abs(uz) + eps)
     t = min(tx, tz)
     return cx + t * ux, cz + t * uz
- 
+
 
 def random_angle_avoiding_left(transform, ):
 
@@ -348,14 +359,14 @@ def random_feasible_direction_from_polar_angle(angle):
     direction_angle = inward_direction + random.uniform(-65.0, 65.0)
     th = np.deg2rad(direction_angle)
     return np.cos(th), np.sin(th)  # (dx, dz)
- 
+
 def direction_from_polar_and_dir_offset(angle, dir_offset):
 
     inward_direction = (angle + 180.0) % 360.0
     direction_angle = inward_direction + 90.0 * float(dir_offset)
     th = np.deg2rad(direction_angle)
     return np.cos(th), np.sin(th)  # (dx, dz)
- 
+
 def origin_from_polar_angle(angle, transform):
 
     return _ray_to_rect_boundary(angle, transform)  # (x, z)
@@ -493,6 +504,7 @@ def run_example_diagnostic_model(
 
     hof=run_ga(8,model,phantom_emission)
     best=hof[0]
+    
 
 
     #Best individual to a transform
@@ -534,9 +546,9 @@ def run_example_diagnostic_model(
     transform.plot()
     plt.show()
 
-    t=0
+    r=1
     for t in phantom_emission.t:
-        plt.subplot(3,3,t)
+        plt.subplot(3,3,r)
         plt.plot(phantom_emission.rhop, phantom_emission.sel(t=t), label="Phantom")
         plt.plot(
             downsampled_inverted.rhop,
@@ -545,7 +557,7 @@ def run_example_diagnostic_model(
             label="Reconstructed",
         )
         plt.legend()
-        t+=1
+        r+=1
     plt.show()
 
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
