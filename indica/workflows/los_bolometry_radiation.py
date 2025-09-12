@@ -717,6 +717,9 @@ def interactive_timeslice_plot(phantom_emission, downsampled_inverted, artist_fn
     plt.show()
  
 def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
+
+
+
     """
     Two-slider browser over a LIST of solutions.
  
@@ -750,7 +753,7 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
     )
     plt.subplots_adjust(bottom=0.20)
 
-    fig.suptitle(f"Solution {init_solution}, MSE= {mse:.4f}")
+    supt=fig.suptitle(f"Solution {init_solution}, MSE= {mse:.4e}")
  
     # --- left panel (lines) ---
     (line_phantom,) = ax_left.plot(
@@ -790,6 +793,7 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
         "t_vals": t_vals,
         "artist_fn": artist_fn,
         "mse": mse,
+        "suptitle":supt,
         "time_slider": s_time,
         "time_ax": ax_slider_time,
         "current_t_idx": i0,
@@ -824,6 +828,7 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
         state["recon"]   = recon_i
         state["artist_fn"] = artist_fn_i
         state["mse"]= mse_i
+        state["suptitle"].set_text(f"Solution {sol_idx},MSE={mse_i:.4e}")
         state["t_vals"]  = np.asarray(phantom_i.t)
         state["current_sol_idx"] = sol_idx
  
@@ -866,6 +871,8 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
     s_sol.on_changed(change_solution)
  
     plt.show()
+
+
 def apply_individual_to_transform(individual, transform):
     """
     Genome layout: first half = direction offsets in [-1,1],
@@ -1165,6 +1172,7 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
+    """
     hof,bestPerGen=run_ga(8,model,phantom_emission)
     with open('fullrunHOF.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
@@ -1174,8 +1182,9 @@ def run_example_diagnostic_model(
         # Dump data with highest protocol for best performance
         pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-    #with open('fullrunHOF.pkl','rb') as file:
-    #    hof=pickle.load(file)
+    """
+    with open('fullrunHOF.pkl','rb') as file:
+        hof=pickle.load(file)
     best=hof[0]
 
     solutions=[]
