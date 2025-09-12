@@ -15,6 +15,7 @@ import random
 from typing import Callable
 import warnings
 
+from io import BytesIO
 from deap import base
 from deap import creator
 from deap import tools
@@ -24,6 +25,7 @@ import xarray
 from xarray import DataArray
 import pickle
 from matplotlib.widgets import Slider
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import PinholeCamera
@@ -443,7 +445,131 @@ def calculate_tomo_inversion(
     # print(downsampled_inverted.shape)
     return downsampled_inverted
 
+import numpy as np
 
+import matplotlib.pyplot as plt
+
+from matplotlib.widgets import Slider
+ 
+def interactive_timeslice_plot(phantom_emission, downsampled_inverted, artist_fn):
+
+    """
+
+    Interactive plot with slider on the LEFT, custom artist on the RIGHT.
+ 
+    Parameters
+
+    ----------
+
+    phantom_emission : xarray.DataArray
+
+        True emission, with dims including 't' and 'rhop'.
+
+    downsampled_inverted : xarray.DataArray
+
+        Reconstructed emission, with dims including 't' and 'rhop'.
+
+    artist_fn : callable
+
+        A function taking a Matplotlib Axes as input, and drawing whatever
+
+        you like into it (e.g., artist_fn(ax2)).
+
+    """
+
+    t_vals = np.asarray(phantom_emission.t)
+
+    nT = len(t_vals)
+ 
+    i0 = 0
+
+    t0 = t_vals[i0]
+ 
+    # two subplots side by side with equal width
+
+    fig, (ax_left, ax_right) = plt.subplots(
+
+        1, 2, figsize=(10, 5), gridspec_kw={'width_ratios': [1, 1]}
+
+    )
+
+    plt.subplots_adjust(bottom=0.18)
+ 
+    # --- left panel: timeslice plot ---
+
+    (line_phantom,) = ax_left.plot(
+
+        phantom_emission.rhop,
+
+        phantom_emission.sel(t=t0, method="nearest"),
+
+        label="Phantom",
+
+    )
+
+    (line_recon,) = ax_left.plot(
+
+        downsampled_inverted.rhop,
+
+        downsampled_inverted.sel(t=t0, method="nearest"),
+
+        linestyle="dashed",
+
+        label="Reconstructed",
+
+    )
+
+    ax_left.set_xlabel("rhop")
+
+    ax_left.set_ylabel("emission")
+
+    ax_left.legend()
+ 
+    # Global ylim with margin
+
+    ymin = float(np.nanmin([phantom_emission.min(), downsampled_inverted.min()]))
+
+    ymax = float(np.nanmax([phantom_emission.max(), downsampled_inverted.max()]))
+
+    ax_left.set_ylim(ymin, ymax * 1.05)
+
+    ax_left.set_title(f"t = {t0}")
+ 
+    # --- slider under the left panel ---
+
+    ax_slider = fig.add_axes([0.15, 0.08, 0.35, 0.04])  # narrower to fit under left half
+
+    s_t = Slider(ax=ax_slider, label="t index", valmin=0, valmax=nT - 1,
+
+                 valinit=i0, valstep=1)
+ 
+    def update(idx):
+
+        idx = int(idx)
+
+        tt = t_vals[idx]
+
+        y_p = phantom_emission.sel(t=tt, method="nearest")
+
+        y_r = downsampled_inverted.sel(t=tt, method="nearest")
+
+        line_phantom.set_ydata(y_p)
+
+        line_recon.set_ydata(y_r)
+
+        ax_left.set_title(f"t = {tt}")
+
+        fig.canvas.draw_idle()
+ 
+    s_t.on_changed(update)
+ 
+    # --- right panel: user-supplied artist ---
+
+    artist_fn(ax_right)
+ 
+    plt.show()
+
+ 
 def apply_individual_to_transform(individual, transform):
     """
     Genome layout: first half = direction offsets in [-1,1],
@@ -476,7 +602,7 @@ def apply_individual_to_transform(individual, transform):
 
 
  
-def interactive_timeslice_plot(phantom_emission, downsampled_inverted):
+
 
     """
 
@@ -590,8 +716,98 @@ def interactive_timeslice_plot(phantom_emission, downsampled_inverted):
  
     plt.show()
 
+from io import BytesIO
+
+import matplotlib.pyplot as plt
  
-    
+def grab_figure_as_image(callable_plotter, *, pick=None, dpi=200):
+
+    was_interactive = plt.isinteractive()
+
+    plt.ioff()
+
+    try:
+
+        before = set(plt.get_fignums())
+
+        callable_plotter()
+
+        new_ids = [n for n in plt.get_fignums() if n not in before]
+
+        if not new_ids:
+
+            raise RuntimeError("No new figures were created.")
+
+        new_figs = [plt.figure(n) for n in new_ids]
+ 
+        # choose figure
+
+        if pick is None:
+
+            fig = new_figs[-1]
+
+        elif isinstance(pick, int):
+
+            fig = new_figs[pick]
+
+        else:
+
+            matches = [f for f in new_figs if pick(f)]
+
+            if not matches:
+
+                raise RuntimeError("No figure matched the predicate.")
+
+            fig = matches[0]
+ 
+        # optional: tighten layout inside the fig before saving (helps some cases)
+
+        try:
+
+            fig.tight_layout()
+
+        except Exception:
+
+            pass
+ 
+        # save tightly-cropped PNG to memory
+
+        buf = BytesIO()
+
+        fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0.2, dpi=dpi)
+
+        buf.seek(0)
+
+        img = plt.imread(buf)
+
+    finally:
+
+        # close all temp figs
+
+        for f in plt.get_fignums():
+
+            if f in new_ids:
+
+                plt.close(f)
+
+        if was_interactive:
+
+            plt.ion()
+ 
+    def artist_fn(ax):
+
+        # Fill the entire right-hand axes with the image
+
+        ax.imshow(img, aspect="auto", extent=[0, 1, 0, 1])
+
+        ax.set_axis_off()
+
+        return ax
+ 
+    return artist_fn
+
+ 
+
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
 ):
@@ -661,13 +877,22 @@ def run_example_diagnostic_model(
     )
 
 
-    interactive_timeslice_plot(phantom_emission,downsampled_inverted)
 
 
- #   random_angle_test(transform)
 
-    transform.plot()
-    plt.show()
+    # choose the figure whose Axes has xlabel "R [m]"
+    def pick_geom(fig):
+        return any(ax.get_xlabel() == "R [m]" for ax in fig.axes)
+    
+    geom_R_artist = grab_figure_as_image(lambda: transform.plot(), pick=pick_geom)
+    
+    interactive_timeslice_plot(
+        phantom_emission,
+        downsampled_inverted,
+        artist_fn=geom_R_artist
+)
+    #transform.plot()
+    #plt.show()
 
 
     """
