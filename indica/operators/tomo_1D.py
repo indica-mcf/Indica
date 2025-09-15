@@ -7,7 +7,6 @@ from matplotlib.widgets import Slider
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.interpolate import RectBivariateSpline
-from scipy.linalg import svd
 from scipy.linalg import eigh
 from scipy.linalg import solve_banded
 from scipy.ndimage import convolve
@@ -81,28 +80,44 @@ def fast_svd(H):
     )
     return U, S
 
-def svd_safe(H):
-    H = np.asarray(H)
-    if H.ndim != 2:
-        raise ValueError("H must be 2D")
-    m, n = H.shape
-    if m == 0 or n == 0:
-        # Handle empties explicitly
-        return np.empty((m, min(m, n))), np.empty((min(m, n),)), np.empty((min(m, n), n))
-    if not np.isfinite(H).all():
-        raise ValueError("NaN/Inf in H")
  
-    # Fortran-order float64 copy to keep LAPACK happy
-    HF = np.array(H, dtype=np.float64, order="F")
+def _require_finite(arr, name, allow_pos=False):
+    if arr.size == 0:
+        raise ValueError(f"{name} is empty")
+    if not np.isfinite(arr).all():
+        raise ValueError(f"{name} has NaN/Inf")
+    if allow_pos and np.any(arr <= 0):
+        raise ValueError(f"{name} must be > 0")
  
-    try:
-        # lean shapes (no padding) avoids LD(U/VT) pitfalls
-        U, S, Vt = svd(HF, full_matrices=False, lapack_driver="gesdd", check_finite=False)
-    except Exception:
-        # fallback to classic algorithm if your BLAS doesn’t like gesdd
-        U, S, Vt = svd(HF, full_matrices=False, lapack_driver="gesvd", check_finite=False)
+def _check_banded_gb(ab, l=1, u=1, name="banded"):
+    if ab.ndim != 2 or ab.shape[0] != l+u+1:
+        raise ValueError(f"{name} has wrong band shape {ab.shape} for l,u=({l},{u})")
+    if ab.shape[1] == 0:
+        raise ValueError(f"{name} has zero columns")
+    _require_finite(ab, name)
+    # main diagonal is at row u
+    diag = ab[u]
+    _require_finite(diag, f"{name} main diagonal")
+    if np.any(np.abs(diag) < 1e-14):
+        # singular / nearly singular -> treat as invalid (or add damping)
+        raise ValueError(f"{name} main diagonal near-zero")
  
-    return U, S, Vt
+def _validate_before_solve_banded(T, DTW):
+    # T expected shape: (n_valid, nr)
+    if T.ndim != 2:
+        raise ValueError(f"T must be 2D, got ndim={T.ndim}")
+    n_valid, nr = T.shape
+    if n_valid == 0 or nr == 0:
+        raise ValueError(f"T has empty dimension: {T.shape}")
+    _require_finite(T, "T")
+    _check_banded_gb(DTW, l=1, u=1, name="DTW")
+    if DTW.shape[1] != nr:
+        raise ValueError(f"DTW width {DTW.shape[1]} != nr {nr} (T.shape[1])")
+
+
+
+
+
 
 class SXR_tomography:
     def __init__(
@@ -442,6 +457,8 @@ class SXR_tomography:
                 # transpose the band matrix WD
                 DTW = triband_transpose(WD)
 
+                _validate_before_solve_banded(T,DTW)
+
                 # calculate (D.TW)^-1*T.T
                 H = solve_banded(
                     (1, 1), DTW, T.T, overwrite_ab=False, check_finite=False
@@ -450,18 +467,10 @@ class SXR_tomography:
                 invalid = H.sum(0) == 0
                 if np.any(invalid):
                     pass
-                    ##print("Warning - some LOS are not linearly independent")
-
-                if not H.shape[1]:
-                    #Matrix is Nx0 so inalid. 
-                    pass
-
 
 
                 # fast method to calculate U,S,V = svd(H.T) of rectangular matrix
-                #U, S = fast_svd(H)
-                #U,S=svd(H,full_matrices=False,lapack_driver="gesdd")
-                U,S=svd_safe(H)
+                U, S = fast_svd(H)
 
                 # projection of the data on the U base
                 mean_p = np.dot(mean_d, U)
