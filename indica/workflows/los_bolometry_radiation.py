@@ -36,38 +36,80 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 
+
+from collections import deque
+
 class EarlyStopper:
+
     """
-    Stop when BOTH best and average haven't improved for `patience` consecutive generations.
+
+    Stop when BOTH:
+
+      - best-of-gen hasn't improved for `patience` consecutive generations, and
+
+      - rolling-mean(gen-average) over `win` hasn't improved for `patience` consecutive generations.
+
     Minimization: lower is better.
+
     """
-    def __init__(self, patience=3, eps=1e-9):
+
+    def __init__(self, patience=4, win=4, eps=1e-9):
+
         self.patience = patience
+
+        self.win = win
+
         self.eps = eps
-        self.best_counter = 0
-        self.avg_counter = 0
+ 
         self.best_prev = None
-        self.avg_prev = None
+
+        self.best_stall = 0
+ 
+        self.avg_buf = deque(maxlen=win)
+
+        self.roll_prev = None
+
+        self.roll_stall = 0
  
     def update(self, best_now, avg_now):
-        # initialize on first call
+
+        # --- best-of-gen tracking ---
+
         if self.best_prev is None:
+
             self.best_prev = best_now
-            self.avg_prev = avg_now
+
+            # also seed rolling average
+
+            self.avg_buf.append(avg_now)
+
+            self.roll_prev = np.mean(self.avg_buf)
+
             return False
  
-        # improvement if strictly lower by more than eps
         best_improved = (self.best_prev - best_now) > self.eps
-        avg_improved  = (self.avg_prev  - avg_now)  > self.eps
- 
-        self.best_counter = 0 if best_improved else self.best_counter + 1
-        self.avg_counter  = 0 if avg_improved  else self.avg_counter  + 1
- 
+
+        self.best_stall = 0 if best_improved else self.best_stall + 1
+
         self.best_prev = best_now
-        self.avg_prev  = avg_now
  
-        # stop only if BOTH have failed to improve for `patience` consecutive gens
-        return (self.best_counter >= self.patience) and (self.avg_counter >= self.patience)
+        # --- rolling average of gen averages ---
+
+        self.avg_buf.append(avg_now)
+
+        roll_now = np.mean(self.avg_buf)
+
+        roll_improved = (self.roll_prev - roll_now) > self.eps
+
+        self.roll_stall = 0 if roll_improved else self.roll_stall + 1
+
+        self.roll_prev = roll_now
+ 
+        # stop only if BOTH stalled for `patience` consecutive gens
+        print(f"Rolling average: {roll_now:.4e}")
+
+        return (self.best_stall >= self.patience) and (self.roll_stall >= self.patience)
+ 
 
 
 def random_angle():
@@ -129,7 +171,7 @@ def obstacle_penalty_factor(individual, transform, rects):
         origins[i] = (ox, oz)
         dirs[i]    = (dx, dz)
  
-    return 1.5 if _any_los_hits_rects(origins, dirs, rects) else 1.0
+    return 2 if _any_los_hits_rects(origins, dirs, rects) else 1.0
 
 
 def obstacle_penalty_factor(individual, transform, rects):
@@ -340,7 +382,7 @@ def run_ga(number_of_los, model, phantom_emission):
     
         if stopper.update(best_now, avg_now):
 
-            print(f"Early stop at gen {gen}: best={best_now:.6g}, avg={avg_now:.6g}")
+            print(f"Early stop at gen {gens}: best={best_now:.6g}, avg={avg_now:.6g}")
 
             break
  
@@ -1307,13 +1349,14 @@ def run_example_diagnostic_model(
 
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
-    los_count=4
+    los_count=12
     hof,bestPerGen=run_ga(los_count,model,phantom_emission)
-    with open(f'fullrunHOF_{los_count}.pkl', 'wb') as file:
+    gens=len(bestPerGen)
+    with open(f'indica/workflows/jussitesting/fullrunHOF_{los_count}_gens{gens}.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
         pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'fullrunBESTOFGEN_{los_count}los.pkl', 'wb') as file:
+    with open(f'indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
         pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL)
     """
