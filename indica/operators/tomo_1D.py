@@ -7,6 +7,7 @@ from matplotlib.widgets import Slider
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.interpolate import RectBivariateSpline
+from scipy.linalg import svd
 from scipy.linalg import eigh
 from scipy.linalg import solve_banded
 from scipy.ndimage import convolve
@@ -74,15 +75,34 @@ def fast_svd(H):
     # fast method to calculate U,S,V = svd(H.T) of thin rectangular matrix
     LL = np.dot(H.T, H)
     S2, U = eigh(LL, overwrite_a=True, check_finite=True, lower=True, driver="evd")
-    if not len(S2):
-        raise IndexError("SVD S2 is zero length. Invalid.")
-    else:
     
-        S = (
-            np.maximum(S2, S2[-1] * 1e-20) ** 0.5
-        )  # singular values S can be negative due to numerical uncertainty
-        return U, S
+    S = (
+        np.maximum(S2, S2[-1] * 1e-20) ** 0.5
+    )
+    return U, S
 
+def svd_safe(H):
+    H = np.asarray(H)
+    if H.ndim != 2:
+        raise ValueError("H must be 2D")
+    m, n = H.shape
+    if m == 0 or n == 0:
+        # Handle empties explicitly
+        return np.empty((m, min(m, n))), np.empty((min(m, n),)), np.empty((min(m, n), n))
+    if not np.isfinite(H).all():
+        raise ValueError("NaN/Inf in H")
+ 
+    # Fortran-order float64 copy to keep LAPACK happy
+    HF = np.array(H, dtype=np.float64, order="F")
+ 
+    try:
+        # lean shapes (no padding) avoids LD(U/VT) pitfalls
+        U, S, Vt = svd(HF, full_matrices=False, lapack_driver="gesdd", check_finite=False)
+    except Exception:
+        # fallback to classic algorithm if your BLAS doesn’t like gesdd
+        U, S, Vt = svd(HF, full_matrices=False, lapack_driver="gesvd", check_finite=False)
+ 
+    return U, S, Vt
 
 class SXR_tomography:
     def __init__(
@@ -438,10 +458,10 @@ class SXR_tomography:
 
 
 
-                print("presvd")
                 # fast method to calculate U,S,V = svd(H.T) of rectangular matrix
-                U, S = fast_svd(H)
-                print("postsvd")
+                #U, S = fast_svd(H)
+                #U,S=svd(H,full_matrices=False,lapack_driver="gesdd")
+                U,S=svd_safe(H)
 
                 # projection of the data on the U base
                 mean_p = np.dot(mean_d, U)
