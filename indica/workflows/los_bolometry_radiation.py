@@ -315,6 +315,8 @@ def evaluateIndividual(individual, model, phantom_emission):
         return (float(mse)*divertor_penalty,)
     except ValueError:
         return (BIG,)
+    except IndexError:
+        return (BIG,)
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
@@ -1349,14 +1351,14 @@ def run_example_diagnostic_model(
 
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
-    los_count=12
+    los_count=11
     hof,bestPerGen=run_ga(los_count,model,phantom_emission)
     gens=len(bestPerGen)
-    with open(f'indica/workflows/jussitesting/fullrunHOF_{los_count}_gens{gens}.pkl', 'wb') as file:
+    with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_{los_count}_gens{gens}.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
         pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(f'indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens.pkl', 'wb') as file:
+    with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
         pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL)
     """
