@@ -240,10 +240,9 @@ def evaluateIndividual(individual, model, phantom_emission):
     except ValueError:
         return (BIG,)
 
-
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=60)
+    pop = toolbox.population(n=40)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -1263,13 +1262,13 @@ def run_example_diagnostic_model(
 
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
-
-    hof,bestPerGen=run_ga(8,model,phantom_emission)
-    with open('fullrunHOF.pkl', 'wb') as file:
+    los_count=3
+    hof,bestPerGen=run_ga(los_count,model,phantom_emission)
+    with open(f'fullrunHOF_{los_count}.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
         pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open('fullrunBESTOFGEN', 'wb') as file:
+    with open(f'fullrunBESTOFGEN_{los_count}los.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
         pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL)
     """
