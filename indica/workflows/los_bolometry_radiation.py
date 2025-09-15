@@ -36,6 +36,40 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 
+class EarlyStopper:
+    """
+    Stop when BOTH best and average haven't improved for `patience` consecutive generations.
+    Minimization: lower is better.
+    """
+    def __init__(self, patience=3, eps=1e-9):
+        self.patience = patience
+        self.eps = eps
+        self.best_counter = 0
+        self.avg_counter = 0
+        self.best_prev = None
+        self.avg_prev = None
+ 
+    def update(self, best_now, avg_now):
+        # initialize on first call
+        if self.best_prev is None:
+            self.best_prev = best_now
+            self.avg_prev = avg_now
+            return False
+ 
+        # improvement if strictly lower by more than eps
+        best_improved = (self.best_prev - best_now) > self.eps
+        avg_improved  = (self.avg_prev  - avg_now)  > self.eps
+ 
+        self.best_counter = 0 if best_improved else self.best_counter + 1
+        self.avg_counter  = 0 if avg_improved  else self.avg_counter  + 1
+ 
+        self.best_prev = best_now
+        self.avg_prev  = avg_now
+ 
+        # stop only if BOTH have failed to improve for `patience` consecutive gens
+        return (self.best_counter >= self.patience) and (self.avg_counter >= self.patience)
+
+
 def random_angle():
     return random.uniform(0.0, 360.0)
 
@@ -256,11 +290,12 @@ def run_ga(number_of_los, model, phantom_emission):
     hof=tools.HallOfFame(maxsize=10)
     hof.update(pop)
     
+    stopper=EarlyStopper()
 
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 25 :
+    while gens < 50 :
         gens = gens + 1
         print("-- Generation %i --" % gens)
 
@@ -299,6 +334,16 @@ def run_ga(number_of_los, model, phantom_emission):
         best_ind.append(toolbox.clone(tools.selBest(pop,1)[0]))
 
 
+        best_now = min(fitslist)
+
+        avg_now  = sum(fitslist) / len(fitslist)
+    
+        if stopper.update(best_now, avg_now):
+
+            print(f"Early stop at gen {gen}: best={best_now:.6g}, avg={avg_now:.6g}")
+
+            break
+ 
 
     #plotting
     gens = np.arange(len(avg_hist))
