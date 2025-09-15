@@ -242,7 +242,7 @@ def evaluateIndividual(individual, model, phantom_emission):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=40)
+    pop = toolbox.population(n=60)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -253,7 +253,7 @@ def run_ga(number_of_los, model, phantom_emission):
     best_hist=[]
     best_ind=[]
 
-    hof=tools.HallOfFame(maxsize=5)
+    hof=tools.HallOfFame(maxsize=10)
     hof.update(pop)
     
 
@@ -1262,7 +1262,7 @@ def run_example_diagnostic_model(
 
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
-    los_count=3
+    los_count=4
     hof,bestPerGen=run_ga(los_count,model,phantom_emission)
     with open(f'fullrunHOF_{los_count}.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
