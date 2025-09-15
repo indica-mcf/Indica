@@ -160,7 +160,7 @@ def canonicalize_population(pop):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=50)
+    pop = toolbox.population(n=60)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -178,7 +178,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
     CXPB, MUTPB = 0.5, 0.2
     gens = 0
-    while gens < 20 :
+    while gens < 25 :
         gens = gens + 1
         print("-- Generation %i --" % gens)
 
@@ -233,7 +233,6 @@ def run_ga(number_of_los, model, phantom_emission):
     plt.ylabel("Fitness")
     plt.show()
 
-    print(best_ind)
     return hof,best_ind
 
 
@@ -391,12 +390,21 @@ def reconstruction_metric(emissivity, downsampled_inverted):
     diff = emissivity - downsampled_inverted
     mse = (diff**2).mean(dim=("t", "rhop"))
 
+    var_mse=(diff**2).mean(dim="rhop").var(dim="t",ddof=0)
+    cv2=var_mse/(mse**2+1e-12)
+
+
     corr = xarray.corr(
         emissivity.stack(points=("t", "rhop")),
         downsampled_inverted.stack(points=("t", "rhop")),
         dim="points",
     )
-    return mse, corr
+
+    #Normalized variance. Alpha 0.1 is tiny variance minimization, alpha=1 is consistency equally as important
+    alpha=0.1
+    loss=mse*(1+alpha*cv2)
+
+    return loss, corr
 
 
 def calculate_tomo_inversion(
@@ -1172,7 +1180,7 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    """
+    
     hof,bestPerGen=run_ga(8,model,phantom_emission)
     with open('fullrunHOF.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
@@ -1185,6 +1193,7 @@ def run_example_diagnostic_model(
     """
     with open('fullrunHOF.pkl','rb') as file:
         hof=pickle.load(file)
+    """
     best=hof[0]
 
     solutions=[]
