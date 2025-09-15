@@ -601,15 +601,15 @@ class CoordinateTransform(ABC):
 
         return cols
 
-
 def plot_geometry(
     abscissa: DataArray,
     ordinate: DataArray,
     trans_name: str,
     colors: ArrayLike,
     marker: str = "o",
-    return_plot=False
+    plot_divertor_rectangle=True
 ):
+    
 
     if "LineOfSight" in trans_name:
         marker = None
@@ -628,6 +628,12 @@ def plot_geometry(
             x = x.sel(beamlet=beamlet)
             y = y.sel(beamlet=beamlet)
         plt.plot(x, y, color=col, marker=marker, alpha=0.5)
+
+    if plot_divertor_rectangle:
+        x0,x1=0.15,0.45
+        y0,y1=0.4,0.8
+        plt.plot([x0,x1,x1,x0,x0],[y0,y0,y1,y1,y0],color="red")
+        plt.plot([x0,x1,x1,x0,x0],[-y0,-y0,-y1,-y1,-y0],color="red")
 
 
 def find_wall_intersections(

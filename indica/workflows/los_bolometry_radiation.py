@@ -34,47 +34,90 @@ from indica.operators.atomic_data import default_atomic_data
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-BIG=1e13
-def evaluateIndividual(individual, model, phantom_emission):
-    transform = model.transform
-
-    try:
-        # Change origin and direction of lines of sight
-        N = len(individual) // 2
-        los_angles = individual[:N]
-        min_los_angle = np.min(los_angles)
-        offsets = individual[N:]
-        directions = []
-        origins = []
-        for i in range(N):
-            new_origin_x, new_origin_z = origin_from_polar_angle(los_angles[i], model.transform)
-            origins.append((new_origin_x, 0, new_origin_z))
-            new_dir_x, new_dir_z = direction_from_polar_and_dir_offset(
-                los_angles[i], offsets[i]
-            )
-            directions.append((new_dir_x, 0, new_dir_z))
-
-        transform.set_origin(np.array(origins))
-        transform.set_direction(np.array(directions))
-        #rotate_all(transform, min_los_angle)
-        update_los(transform)
-
-        # Re-run model and calculate inversion
-        bckc = model()
-        downsampled_inverted = calculate_tomo_inversion(
-            bckc["brightness"], transform, phantom_emission.rhop
-        )
-
-        mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
-        # print("Inidividual MSE: ",mse)
-        return (float(mse),)
-    except ValueError:
-        return (BIG,)
 
 
 def random_angle():
     return random.uniform(0.0, 360.0)
 
+def _ray_intersects_rect_2d(origin, direction, rect):
+    """
+    Ray (origin + t*dir, t>=0) vs axis-aligned rectangle in x–z.
+    origin: (x,z), direction: (dx,dz), rect: (xmin,xmax,zmin,zmax)
+    """
+    ox, oz = float(origin[0]), float(origin[1])
+    dx, dz = float(direction[0]), float(direction[1])
+    xmin, xmax, zmin, zmax = rect
+ 
+    # If starting inside, count as intersecting
+    if (xmin <= ox <= xmax) and (zmin <= oz <= zmax):
+        return True
+ 
+    inv_dx = np.inf if dx == 0.0 else 1.0 / dx
+    inv_dz = np.inf if dz == 0.0 else 1.0 / dz
+ 
+    t1x = (xmin - ox) * inv_dx
+    t2x = (xmax - ox) * inv_dx
+    tmin_x, tmax_x = (min(t1x, t2x), max(t1x, t2x))
+ 
+    t1z = (zmin - oz) * inv_dz
+    t2z = (zmax - oz) * inv_dz
+    tmin_z, tmax_z = (min(t1z, t2z), max(t1z, t2z))
+ 
+    t_enter = max(tmin_x, tmin_z)
+    t_exit  = min(tmax_x, tmax_z)
+    return (t_exit >= max(t_enter, 0.0))
+
+
+def _any_los_hits_rects(origins_xz, dirs_xz, rects):
+    for (ox, oz), (dx, dz) in zip(origins_xz, dirs_xz):
+        for rect in rects:
+            if _ray_intersects_rect_2d((ox, oz), (dx, dz), rect):
+                return True
+    return False
+
+
+def obstacle_penalty_factor(individual, transform, rects):
+    """
+    Genome: first half = angles (deg), second half = dir_offsets [-1,1].
+    rects: list of (xmin,xmax,zmin,zmax) rectangles in x–z.
+    Returns 1.5 if any LOS intersects any rect, else 1.0.
+    """
+    g = np.asarray(individual, dtype=float)
+    n = g.size // 2
+    angles = (g[:n] % 360.0 + 360.0) % 360.0
+    offsets = np.clip(g[n:], -1.0, 1.0)
+ 
+    origins = np.empty((n, 2), dtype=float)
+    dirs    = np.empty((n, 2), dtype=float)
+    for i, (ang, off) in enumerate(zip(angles, offsets)):
+        ox, oz = origin_from_polar_angle(ang, transform)           # (x,z)
+        dx, dz = direction_from_polar_and_dir_offset(ang, off)     # (dx,dz)
+        origins[i] = (ox, oz)
+        dirs[i]    = (dx, dz)
+ 
+    return 1.5 if _any_los_hits_rects(origins, dirs, rects) else 1.0
+
+
+def obstacle_penalty_factor(individual, transform, rects):
+    """
+    Genome: first half = angles (deg), second half = dir_offsets [-1,1].
+    rects: list of (xmin,xmax,zmin,zmax) rectangles in x–z.
+    Returns 1.5 if any LOS intersects any rect, else 1.0.
+    """
+    g = np.asarray(individual, dtype=float)
+    n = g.size // 2
+    angles = (g[:n] % 360.0 + 360.0) % 360.0
+    offsets = np.clip(g[n:], -1.0, 1.0)
+ 
+    origins = np.empty((n, 2), dtype=float)
+    dirs    = np.empty((n, 2), dtype=float)
+    for i, (ang, off) in enumerate(zip(angles, offsets)):
+        ox, oz = origin_from_polar_angle(ang, transform)           # (x,z)
+        dx, dz = direction_from_polar_and_dir_offset(ang, off)     # (dx,dz)
+        origins[i] = (ox, oz)
+        dirs[i]    = (dx, dz)
+ 
+    return 1.5 if _any_los_hits_rects(origins, dirs, rects) else 1.0
 
 def random_offset():
     return random.uniform(-0.99, 0.99)
@@ -156,6 +199,46 @@ def canonicalize_population(pop):
         if getattr(ind.fitness, "valid", False):
             del ind.fitness.values
 
+BIG=1e13
+def evaluateIndividual(individual, model, phantom_emission):
+    transform = model.transform
+
+    try:
+        # Change origin and direction of lines of sight
+        N = len(individual) // 2
+        los_angles = individual[:N]
+        min_los_angle = np.min(los_angles)
+        offsets = individual[N:]
+        directions = []
+        origins = []
+        for i in range(N):
+            new_origin_x, new_origin_z = origin_from_polar_angle(los_angles[i], model.transform)
+            origins.append((new_origin_x, 0, new_origin_z))
+            new_dir_x, new_dir_z = direction_from_polar_and_dir_offset(
+                los_angles[i], offsets[i]
+            )
+            directions.append((new_dir_x, 0, new_dir_z))
+
+        transform.set_origin(np.array(origins))
+        transform.set_direction(np.array(directions))
+        #rotate_all(transform, min_los_angle)
+        update_los(transform)
+
+        # Re-run model and calculate inversion
+        bckc = model()
+        downsampled_inverted = calculate_tomo_inversion(
+            bckc["brightness"], transform, phantom_emission.rhop
+        )
+
+        mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
+        # print("Inidividual MSE: ",mse)
+
+
+        rects=[(0.15,0.45,0.8,0.4),(0.15,0.45,-0.4,-0.8)]
+        divertor_penalty=obstacle_penalty_factor(individual,transform,rects)
+        return (float(mse)*divertor_penalty,)
+    except ValueError:
+        return (BIG,)
 
 
 def run_ga(number_of_los, model, phantom_emission):
@@ -1177,10 +1260,10 @@ def run_example_diagnostic_model(
 
 
 
+
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    
     hof,bestPerGen=run_ga(8,model,phantom_emission)
     with open('fullrunHOF.pkl', 'wb') as file:
         # Dump data with highest protocol for best performance
@@ -1189,13 +1272,11 @@ def run_example_diagnostic_model(
     with open('fullrunBESTOFGEN', 'wb') as file:
         # Dump data with highest protocol for best performance
         pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL)
-
     """
     with open('fullrunHOF.pkl','rb') as file:
         hof=pickle.load(file)
-    """
     best=hof[0]
-
+    """
     solutions=[]
     #for sol in bestPerGen:
     for sol in hof:
