@@ -74,10 +74,14 @@ def fast_svd(H):
     # fast method to calculate U,S,V = svd(H.T) of thin rectangular matrix
     LL = np.dot(H.T, H)
     S2, U = eigh(LL, overwrite_a=True, check_finite=True, lower=True, driver="evd")
-    S = (
-        np.maximum(S2, S2[-1] * 1e-20) ** 0.5
-    )  # singular values S can be negative due to numerical uncertainty
-    return U, S
+    if not len(S2):
+        raise IndexError("SVD S2 is zero length. Invalid.")
+    else:
+    
+        S = (
+            np.maximum(S2, S2[-1] * 1e-20) ** 0.5
+        )  # singular values S can be negative due to numerical uncertainty
+        return U, S
 
 
 class SXR_tomography:
@@ -428,8 +432,16 @@ class SXR_tomography:
                     pass
                     ##print("Warning - some LOS are not linearly independent")
 
+                if not H.shape[1]:
+                    #Matrix is Nx0 so inalid. 
+                    pass
+
+
+
+                print("presvd")
                 # fast method to calculate U,S,V = svd(H.T) of rectangular matrix
                 U, S = fast_svd(H)
+                print("postsvd")
 
                 # projection of the data on the U base
                 mean_p = np.dot(mean_d, U)
