@@ -39,6 +39,159 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 from collections import deque
 
+
+import numpy as np
+ 
+ 
+def _normalize_rects(rects):
+
+    out = []
+
+    for xmin, xmax, zmin, zmax in rects:
+
+        if xmin > xmax: xmin, xmax = xmax, xmin
+
+        if zmin > zmax: zmin, zmax = zmax, zmin
+
+        out.append((xmin, xmax, zmin, zmax))
+
+    return out
+ 
+def _ray_hits_rect_2d(origin_xz, dir_xz, rect):
+
+    ox, oz = origin_xz
+
+    dx, dz = dir_xz
+
+    xmin, xmax, zmin, zmax = rect
+
+    # starts inside -> hit
+
+    if xmin <= ox <= xmax and zmin <= oz <= zmax:
+
+        return True
+
+    inv_dx = np.inf if dx == 0.0 else 1.0/dx
+
+    inv_dz = np.inf if dz == 0.0 else 1.0/dz
+
+    t1x = (xmin - ox)*inv_dx; t2x = (xmax - ox)*inv_dx
+
+    t1z = (zmin - oz)*inv_dz; t2z = (zmax - oz)*inv_dz
+
+    tmin_x, tmax_x = (min(t1x,t2x), max(t1x,t2x))
+
+    tmin_z, tmax_z = (min(t1z,t2z), max(t1z,t2z))
+
+    t_enter = max(tmin_x, tmin_z)
+
+    t_exit  = min(tmax_x, tmax_z)
+
+    return t_exit >= max(t_enter, 0.0)
+ 
+def generate_valid_pair_pool(transform, rects, *,
+
+                             angle_step_deg=1.0,
+
+                             offsets_per_angle= 13,
+
+                             offset_kind="grid",   # "grid" or "random"
+
+                             max_pairs=None,
+
+                             rng=None):
+
+    """
+
+    Returns an array of shape (K, 2): columns = [angle_deg, offset].
+
+    """
+
+    rects = _normalize_rects(rects)
+
+    if rng is None:
+
+        rng = np.random.default_rng()
+ 
+    angles = np.arange(0.0, 360.0, angle_step_deg, dtype=float)
+ 
+    # optionally: skip left-edge origins (fast, conservative)
+
+    # Uncomment if you want this pre-filter.
+
+    cx, cz = 0.5*(transform._machine_dims[0][0] + transform._machine_dims[0][1]), 0.5*(transform._machine_dims[1][0] + transform._machine_dims[1][1])
+
+    ax = 0.5*abs(transform._machine_dims[0][1] - transform._machine_dims[0][0])
+
+    az = 0.5*abs(transform._machine_dims[1][1] - transform._machine_dims[1][0])
+
+    alpha = np.degrees(np.arctan2(az, ax))
+
+    mask = ~(((angles >= (180.0 - alpha)) & (angles <= (180.0 + alpha))))
+
+    angles = angles[mask]
+ 
+    # offsets to try per angle
+
+    if offset_kind == "grid":
+
+        offsets = np.linspace(-1.0, 1.0, offsets_per_angle)
+
+    else:
+
+        offsets = None  # sample random for each angle
+ 
+    out = []
+
+    for ang in angles:
+
+        # origins on perimeter for this angle
+
+        ox, oz = origin_from_polar_angle(ang, transform)
+ 
+        # try offsets
+
+        if offsets is None:
+
+            offs = rng.uniform(-1.0, 1.0, size=offsets_per_angle)
+
+        else:
+
+            offs = offsets
+ 
+        inward = (ang + 180.0) % 360.0
+
+        for off in offs:
+
+            # direction from angle+offset
+
+            dx, dz = direction_from_polar_and_dir_offset(ang, off)
+
+            # if any rect hit, reject
+
+            hit = any(_ray_hits_rect_2d((ox, oz), (dx, dz), R) for R in rects)
+
+            if not hit:
+
+                out.append((float(ang % 360.0), float(np.clip(off, -1.0, 1.0))))
+
+                if max_pairs is not None and len(out) >= max_pairs:
+
+                    return np.array(out, dtype=float)
+ 
+    return np.array(out, dtype=float)
+ 
+def save_pair_pool_csv(pairs, path):
+
+    # columns: angle_deg, offset
+
+    header = "angle_deg,offset"
+
+    np.savetxt(path, pairs, delimiter=",", header=header, comments="", fmt="%.8f")
+
+ 
+
+
 class EarlyStopper:
 
     """
@@ -151,7 +304,23 @@ def _any_los_hits_rects(origins_xz, dirs_xz, rects):
                 return True
     return False
 
-
+def load_pair_pool_csv(path):
+    print(f"Loading valid pairs from {path}")
+    return np.loadtxt(path, delimiter=",", skiprows=1)
+ 
+def make_individual_from_pool(pair_pool, n_los, rng=None):
+    """
+    Returns an Individual with genome [angles..., offsets...].
+    Samples n_los rows from the pool (without replacement by default).
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    idx = rng.choice(len(pair_pool), size=n_los, replace=False)
+    sel = pair_pool[idx]
+    angles  = sel[:, 0]
+    offsets = sel[:, 1]
+    genome = np.concatenate([angles, offsets]).tolist()
+    return creator.Individual(genome)
 
 def obstacle_penalty_factor(individual, transform, rects):
     """
@@ -203,17 +372,48 @@ def define_ga(model, number_of_los, phantom_emission):
 
     toolbox = base.Toolbox()
 
-    toolbox.register("attr_angle", partial(random_angle_avoiding_left,transform=model.transform))
-    toolbox.register("attr_offset", random_offset)
+    preload=True
+    if preload:
+        pool = load_pair_pool_csv("/home/jussi.hakosalo/Indica/indica/workflows/valid_los_bolom_pairs.csv")
+        _rng = np.random.default_rng()
+        
+        toolbox.register(
+            "individual_raw",
+            make_individual_from_pool,
+            pair_pool=pool,
+            n_los=number_of_los,
+            
+            rng=_rng,
+        )
+        
+        # If you still want a feasibility wrapper, keep it; otherwise:
+        toolbox.register("individual", toolbox.individual_raw)
+        toolbox.register("population", tools.initRepeat, list, toolbox.individual) 
+    else:
+
+        toolbox.register("attr_angle", partial(random_angle_avoiding_left,transform=model.transform))
+        toolbox.register("attr_offset", random_offset)
 
 
-    toolbox.register(
-        "individual_raw",
-        tools.initCycle,
-        creator.Individual,
-        (toolbox.attr_angle,) * number_of_los + (toolbox.attr_offset,) * number_of_los,
-        n=1,
-    )
+        toolbox.register(
+            "individual_raw",
+            tools.initCycle,
+            creator.Individual,
+            (toolbox.attr_angle,) * number_of_los + (toolbox.attr_offset,) * number_of_los,
+            n=1,
+        )
+
+
+        
+        toolbox.register(
+            "individual",
+            make_feasible_individual,
+            generator=toolbox.individual_raw,
+            evaluate=toolbox.evaluate,
+            max_tries=500,
+        )
+        toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
 
     toolbox.register(
         "evaluate",
@@ -223,15 +423,6 @@ def define_ga(model, number_of_los, phantom_emission):
             phantom_emission=phantom_emission,
         ),
     )
-    
-    toolbox.register(
-        "individual",
-        make_feasible_individual,
-        generator=toolbox.individual_raw,
-        evaluate=toolbox.evaluate,
-        max_tries=500,
-    )
-    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 
 
@@ -1332,11 +1523,27 @@ def run_example_diagnostic_model(
     machine_z1=transform._machine_dims[1][1]
 
 
+    pair_generation=False
+    if pair_generation:
+        rects = [
+            (0.15, 0.45,  0.4,  0.8),   # upper-left block
+            (0.15, 0.45, -0.8, -0.4),   # lower-left block
+        ]
+        pairs = generate_valid_pair_pool(
+            transform=model.transform,
+            rects=rects,
+            angle_step_deg=1.0,
+            offsets_per_angle= 15,     # e.g., 9 or 13
+            offset_kind="grid",          # or "random"
+            max_pairs=50000,             # optional cap
+        )
+        save_pair_pool_csv(pairs, "/home/jussi.hakosalo/Indica/indica/workflows/valid_los_bolom_pairs.csv")
+        print("Saved", pairs.shape[0], "valid (angle, offset) pairs.")
 
 
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
-    los_count=3
+    los_count=6
 
     savepickle=True
     if savepickle:
