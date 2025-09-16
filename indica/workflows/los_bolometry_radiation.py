@@ -493,7 +493,7 @@ def evaluateIndividual(individual, model, phantom_emission):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=50)
+    pop = toolbox.population(n=70)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -561,7 +561,7 @@ def run_ga(number_of_los, model, phantom_emission):
 
             break
  
-
+    """
     #plotting
     gens = np.arange(len(avg_hist))
     plt.subplot(1, 2, 1)
@@ -576,6 +576,7 @@ def run_ga(number_of_los, model, phantom_emission):
     plt.xlabel("Generation")
     plt.ylabel("Fitness")
     plt.show()
+    """
 
     return hof,best_ind
 
@@ -1543,23 +1544,27 @@ def run_example_diagnostic_model(
 
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
-    los_count=6
 
-    savepickle=True
-    if savepickle:
-        hof,bestPerGen=run_ga(los_count,model,phantom_emission)
-        gens=len(bestPerGen)
-        with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_{los_count}_gens{gens}.pkl', 'wb') as file:
-            # Dump data with highest protocol for best performance
-            pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
+    for los_count in range(3,11):
 
-        with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens.pkl', 'wb') as file:
-            # Dump data with highest protocol for best performance
-            pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL) 
+        savepickle=True
+        if savepickle:
+            hof,bestPerGen=run_ga(los_count,model,phantom_emission)
+            gens=len(bestPerGen)
+            with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_{los_count}_gens{gens}.pkl', 'wb') as file:
+                # Dump data with highest protocol for best performance
+                pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-    else:
-        with open('/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_12_gens36.pkl','rb') as file:
-                hof=pickle.load(file)
+            with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens.pkl', 'wb') as file:
+                # Dump data with highest protocol for best performance
+                pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL) 
+
+        else:
+            with open('/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_12_gens36.pkl','rb') as file:
+                    hof=pickle.load(file)
+        
+
+    return
     solutions=[]
     #for sol in bestPerGen:
     for sol in hof:
@@ -1646,5 +1651,5 @@ def run_bm():
         machine, instrument, _model, plot=False, power_loss=power_loss
     )
 
-
-run_bm()
+if __name__ == "__main__":
+    run_bm()
