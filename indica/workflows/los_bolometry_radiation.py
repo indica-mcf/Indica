@@ -1084,6 +1084,14 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0, sh
     init_solution : int
         Index of the initial solution to show.
     """
+
+
+    #Sort list
+    solutions = sorted(solutions, key=lambda x: x[-2])
+    #take only top 10:
+ 
+    solutions=solutions[:10]
+    print(len(solutions))
     if not solutions:
         raise ValueError("`solutions` must be a non-empty list.")
     if not (0 <= init_solution < len(solutions)):
@@ -1507,7 +1515,7 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
 
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
     if los_penalty=="sqrt":
-        mse_penalized=np.sqrt(N)*mse
+        mse_penalized=(np.sqrt(N))*mse
         return (phantom_emission,downsampled_inverted,geom_R_artist,mse,mse_penalized,N)
     else:
         return (phantom_emission,downsampled_inverted,geom_R_artist,mse,)
