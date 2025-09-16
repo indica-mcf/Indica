@@ -82,7 +82,7 @@ def run_example_diagnostic_model(
                 hofs.append(pickle.load(file))
         solutions=[]
     for sol in hofs[0]:
-        solutions.append(get_solution(sol,transform,model,phantom_emission))
+        solutions.append(get_solution(sol,transform,model,phantom_emission,"sqrt"))
 
     interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
 
