@@ -139,21 +139,20 @@ class LineOfSightTransform(CoordinateTransform):
         self.direction_y = direction_y
         self.direction_z = direction_z
 
+        # Channel number
+        # TODO: change x1 coordinate name to "channel"
+        self.n_channels = len(origin_x)
+        self.x1: list = list(np.arange(0, self.n_channels))
+
         # Spot info
         self.spot_width = spot_width
         self.spot_height = spot_height
         self.spot_shape = spot_shape
-        self.beamlets_method = beamlets_method
-        self.n_beamlets_x = int(np.sqrt(n_beamlets))
-        self.n_beamlets_y = int(np.sqrt(n_beamlets))
         self.focal_length = focal_length
-        self.distribute_beamlets(debug=plot_beamlets)
+        self.distribute_beamlets(n_beamlets, beamlets_method, debug=plot_beamlets)
 
         # self.div_width = div_width
         # self.spot_height = spot_height
-
-        # Channel number
-        self.x1: list = list(np.arange(0, len(origin_x)))
 
         # Calculate LOS coordinates
         self.set_dl(dl)
@@ -259,9 +258,9 @@ class LineOfSightTransform(CoordinateTransform):
         return np.array([xr, yr])
 
     # Function for adaptive beamlets
-    def adaptive_beamlets(self, debug=False):
+    def adaptive_beamlets(self, n_beamlets_x: int, n_beamlets_y: int, debug=False):
         # The size of each filament box
-        delta = self.spot_width / float(self.n_beamlets_x)
+        delta = self.spot_width / float(n_beamlets_x)
 
         # The number of filament rows in the vertical dimension
         # Such that delta_x = delta_y - e.g. square
@@ -280,8 +279,8 @@ class LineOfSightTransform(CoordinateTransform):
         if debug:
             print(f"self.spot_width = {self.spot_width}")
             print(f"self.spot_height = {self.spot_height}")
-            print(f"self.n_beamlets_x = {self.n_beamlets_x}")
-            print(f"self.n_beamlets_y = {self.n_beamlets_y}")
+            print(f"self.n_beamlets_x = {n_beamlets_x}")
+            print(f"self.n_beamlets_y = {n_beamlets_y}")
             print(f"delta = {delta}")
             print(f"m_dash = {m_dash}")
             print(f"m = {m}")
@@ -292,56 +291,56 @@ class LineOfSightTransform(CoordinateTransform):
         return param, param2, m
 
     # Function to define beamlets grid points
-    def define_beamlets_simple(self):
+    def define_beamlets_simple(self, n_beamlets_x: int, n_beamlets_y: int):
         # Set-up beamlets grid
         grid_w = np.linspace(
             -self.spot_width / 2,
             self.spot_width / 2,
-            self.n_beamlets_x,
+            n_beamlets_x,
             dtype=float,
         )
         grid_v = np.linspace(
             -self.spot_height / 2,
             self.spot_height / 2,
-            self.n_beamlets_y,
+            n_beamlets_y,
             dtype=float,
         )
         W, V = np.meshgrid(grid_w, grid_v)
         w = W.flatten()
         v = V.flatten()
 
-        return w, v
+        return w, v, n_beamlets_x, n_beamlets_y
 
     # Function to define beamlets grid points
-    def define_beamlets_adaptive(self):
+    def define_beamlets_adaptive(self, n_beamlets_x: int, n_beamlets_y: int):
         # Calculate parameters
-        param, param2, m = self.adaptive_beamlets()
+        param, param2, m = self.adaptive_beamlets(n_beamlets_x, n_beamlets_y)
 
         count = 0
         while param > param2:
             # Go to next odd number
-            self.n_beamlets_x = self.n_beamlets_x + 2
+            n_beamlets_x = n_beamlets_x + 2
 
             # Calculate parameters
-            param, param2, m = self.adaptive_beamlets()
+            param, param2, m = self.adaptive_beamlets(n_beamlets_x, n_beamlets_y)
 
             # Iterate
             count += 1
             if count == 9:
                 raise ValueError("Beamlets solution not found")
 
-        self.n_beamlets_y = m
+        n_beamlets_y = m
 
         grid_w = np.linspace(
             -self.spot_width / 2,
             self.spot_width / 2,
-            self.n_beamlets_x * 2 + 1,
+            n_beamlets_x * 2 + 1,
             dtype=float,
         )
         grid_v = np.linspace(
             -self.spot_height / 2,
             self.spot_height / 2,
-            self.n_beamlets_y * 2 + 1,
+            n_beamlets_y * 2 + 1,
             dtype=float,
         )
         grid_w = grid_w[1::2]
@@ -350,83 +349,63 @@ class LineOfSightTransform(CoordinateTransform):
         w = W.flatten()
         v = V.flatten()
 
-        return w, v
+        return w, v, n_beamlets_x, n_beamlets_y
 
-    def distribute_beamlets(self, debug=False):
+    def distribute_beamlets(self, n_beamlets: int, beamlets_method: str, debug=False):
         """
         Distribute beamlets using information on spot size and divergence.
         """
 
+        # Reshape origin and direction arrays if only 1 beamlet
+        if n_beamlets == 1:
+            self.beamlets_method = ""
+            self.n_beamlets = 1
+            self.beamlets = list(np.arange(0, n_beamlets))
+            self.beamlet_origin_x = np.expand_dims(self.origin_x, 1)
+            self.beamlet_origin_y = np.expand_dims(self.origin_y, 1)
+            self.beamlet_origin_z = np.expand_dims(self.origin_z, 1)
+            self.beamlet_direction_x = np.expand_dims(self.direction_x, 1)
+            self.beamlet_direction_y = np.expand_dims(self.direction_y, 1)
+            self.beamlet_direction_z = np.expand_dims(self.direction_z, 1)
+            return
+
         # Define beamlets grid
-        if self.n_beamlets_x > 1:
-
-            if self.beamlets_method == "adaptive":
-                w, v = self.define_beamlets_adaptive()
-            elif self.beamlets_method == "simple":
-                w, v = self.define_beamlets_simple()
-            else:
-                raise ValueError(
-                    f"Invalid 'beamlets_method' option: {self.beamlets_method}"
-                )
+        # self.n_beamlets = n_beamlets
+        self.beamlets_method = beamlets_method
+        _n_beamlets_x = int(np.sqrt(n_beamlets))
+        _n_beamlets_y = int(np.sqrt(n_beamlets))
+        if beamlets_method == "adaptive":
+            w, v, n_beamlets_x, n_beamlets_y = self.define_beamlets_adaptive(
+                _n_beamlets_x, _n_beamlets_y
+            )
+        elif beamlets_method == "simple":
+            w, v, n_beamlets_x, n_beamlets_y = self.define_beamlets_simple(
+                _n_beamlets_x, _n_beamlets_y
+            )
         else:
-            w = np.array([0.0])
-            v = np.array([0.0])
-
-        # Set number of beamlets
-        self.beamlets = int(self.n_beamlets_x * self.n_beamlets_y)
+            raise ValueError(f"Invalid 'beamlets_method' option: {beamlets_method}")
 
         # Draw spot
+        n_beamlets = int(n_beamlets_x * n_beamlets_y)
         if self.spot_shape == "round":
+            # Draw ellipse
+            a = self.spot_width / 2
+            b = self.spot_height / 2
+            spot_w = np.linspace(-a, a, 500, dtype=float)
+            spot_y = (b / a) * np.sqrt(a**2 - spot_w**2)
+            spot_w = np.append(spot_w, np.flip(spot_w))
+            spot_y = np.append(spot_y, np.flip(-spot_y))
 
-            if self.n_beamlets_x > 1:
-
-                # Draw ellipse
-                a = self.spot_width / 2
-                b = self.spot_height / 2
-                spot_w = np.linspace(-a, a, 500, dtype=float)
-                spot_y = (b / a) * np.sqrt(a**2 - spot_w**2)
-                spot_w = np.append(spot_w, np.flip(spot_w))
-                spot_y = np.append(spot_y, np.flip(-spot_y))
-
-                # Find beamlets outside of the round shape
-                # and remove them
-                val = (w**2 / a**2) + (v**2 / b**2)
-                inside = val <= 1
-                self.beamlets = int(np.sum(inside))
-                w = w[inside]
-                v = v[inside]
-
-            else:
-
-                spot_w = np.nan
-                spot_y = np.nan
-
+            # Find beamlets outside of the round shape
+            # and remove them
+            val = (w**2 / a**2) + (v**2 / b**2)
+            inside = val <= 1
+            n_beamlets = int(np.sum(inside))
+            w = w[inside]
+            v = v[inside]
         elif self.spot_shape == "square":
-
-            spot_w = np.array(
-                [
-                    -0.5 * self.spot_width,
-                    0.5 * self.spot_width,
-                    0.5 * self.spot_width,
-                    -0.5 * self.spot_width,
-                    -0.5 * self.spot_width,
-                ]
-            )
-            spot_y = np.array(
-                [
-                    -0.5 * self.spot_height,
-                    -0.5 * self.spot_height,
-                    0.5 * self.spot_height,
-                    0.5 * self.spot_height,
-                    -0.5 * self.spot_height,
-                ]
-            )
-
             if self.spot_width != self.spot_height:
                 raise ValueError("spot_width does not equal spot_height")
-
-        elif self.spot_shape == "rectangular":
-
             spot_w = np.array(
                 [
                     -0.5 * self.spot_width,
@@ -445,9 +424,27 @@ class LineOfSightTransform(CoordinateTransform):
                     -0.5 * self.spot_height,
                 ]
             )
-
+        elif self.spot_shape == "rectangular":
+            spot_w = np.array(
+                [
+                    -0.5 * self.spot_width,
+                    0.5 * self.spot_width,
+                    0.5 * self.spot_width,
+                    -0.5 * self.spot_width,
+                    -0.5 * self.spot_width,
+                ]
+            )
+            spot_y = np.array(
+                [
+                    -0.5 * self.spot_height,
+                    -0.5 * self.spot_height,
+                    0.5 * self.spot_height,
+                    0.5 * self.spot_height,
+                    -0.5 * self.spot_height,
+                ]
+            )
         else:
-            raise ValueError("Spot shape not available")
+            raise ValueError(f"Spot shape {self.spot_shape} not available")
 
         if debug:
             plt.figure()
@@ -456,21 +453,20 @@ class LineOfSightTransform(CoordinateTransform):
             plt.axis("equal")
             plt.show()
 
-        # Set weightings
-        self.weightings = np.ones_like(w)
-
         # Find distance to virtual focus position
         distance = self.focal_length
 
-        # Build beamlets
-        beamlet_origin_x = np.zeros((len(self.direction_x), self.beamlets))
-        beamlet_origin_y = np.zeros((len(self.direction_x), self.beamlets))
-        beamlet_origin_z = np.zeros((len(self.direction_x), self.beamlets))
-        beamlet_direction_x = np.zeros((len(self.direction_x), self.beamlets))
-        beamlet_direction_y = np.zeros((len(self.direction_x), self.beamlets))
-        beamlet_direction_z = np.zeros((len(self.direction_x), self.beamlets))
-        for i_los in range(len(self.direction_x)):
+        # Beamlet array
+        beamlets = list(np.arange(0, n_beamlets))
 
+        # Build beamlets
+        beamlet_origin_x = np.zeros((self.n_channels, n_beamlets))
+        beamlet_origin_y = np.zeros((self.n_channels, n_beamlets))
+        beamlet_origin_z = np.zeros((self.n_channels, n_beamlets))
+        beamlet_direction_x = np.zeros((self.n_channels, n_beamlets))
+        beamlet_direction_y = np.zeros((self.n_channels, n_beamlets))
+        beamlet_direction_z = np.zeros((self.n_channels, n_beamlets))
+        for i_los in self.x1:
             # Direction coordinates
             dir_x = self.direction_x[i_los]
             dir_y = self.direction_y[i_los]
@@ -491,7 +487,7 @@ class LineOfSightTransform(CoordinateTransform):
             system_z = orig_z + dir_z * distance
 
             # Iterate over each beamlet
-            for i_beamlet in range(self.beamlets):
+            for i_beamlet in beamlets:
                 # Move origin along plane normal to the direction
                 beamlet_origin_x[i_los, i_beamlet] = orig_x + w[i_beamlet] * np.cos(
                     ang_norm
@@ -587,7 +583,7 @@ class LineOfSightTransform(CoordinateTransform):
             if debug:
                 plt.figure()
                 plt.plot(orig_x, orig_y, "kx")
-                for i_beamlet in range(self.beamlets):
+                for i_beamlet in beamlets:
                     x_ = np.array(
                         [
                             beamlet_origin_x[i_los, i_beamlet],
@@ -605,12 +601,15 @@ class LineOfSightTransform(CoordinateTransform):
                     plt.plot(x_, y_)
                 plt.show()
 
+        self.n_beamlets = np.size(beamlets)
+        self.beamlets = beamlets
         self.beamlet_origin_x = beamlet_origin_x
         self.beamlet_origin_y = beamlet_origin_y
         self.beamlet_origin_z = beamlet_origin_z
         self.beamlet_direction_x = beamlet_direction_x
         self.beamlet_direction_y = beamlet_direction_y
         self.beamlet_direction_z = beamlet_direction_z
+        self.weightings = np.ones_like(w)
 
     # def set_weightings(
     #     self, weightings: LabeledArray,
@@ -659,20 +658,7 @@ class LineOfSightTransform(CoordinateTransform):
             x_end.append([])
             y_end.append([])
             z_end.append([])
-            for beamlet in range(self.beamlets):
-                # origin = (
-                #     self.origin_x[channel] + self.delta_origin_x[channel, beamlet],
-                #     self.origin_y[channel] + self.delta_origin_y[channel, beamlet],
-                #     self.origin_z[channel] + self.delta_origin_z[channel, beamlet],
-                # )
-                # direction = (
-                #     self.direction_x[channel]
-                #     + self.delta_direction_x[channel, beamlet],
-                #     self.direction_y[channel]
-                #     + self.delta_direction_y[channel, beamlet],
-                #     self.direction_z[channel]
-                #     + self.delta_direction_z[channel, beamlet],
-                # )
+            for beamlet in self.beamlets:
                 origin = (
                     self.beamlet_origin_x[channel, beamlet],
                     self.beamlet_origin_y[channel, beamlet],
@@ -695,28 +681,27 @@ class LineOfSightTransform(CoordinateTransform):
 
         self.x_start = DataArray(
             x_start,
-            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+            coords=[(self.x1_name, self.x1), ("beamlet", self.beamlets)],
         )
         self.y_start = DataArray(
             y_start,
-            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+            coords=[(self.x1_name, self.x1), ("beamlet", self.beamlets)],
         )
         self.z_start = DataArray(
             z_start,
-            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+            coords=[(self.x1_name, self.x1), ("beamlet", self.beamlets)],
         )
-
         x_end = DataArray(
             x_end,
-            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+            coords=[(self.x1_name, self.x1), ("beamlet", self.beamlets)],
         )
         y_end = DataArray(
             y_end,
-            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+            coords=[(self.x1_name, self.x1), ("beamlet", self.beamlets)],
         )
         z_end = DataArray(
             z_end,
-            coords=[(self.x1_name, self.x1), ("beamlet", np.arange(0, self.beamlets))],
+            coords=[(self.x1_name, self.x1), ("beamlet", self.beamlets)],
         )
 
         # Fix identical length of all lines of sight
@@ -757,7 +742,7 @@ class LineOfSightTransform(CoordinateTransform):
         # TODO: Loop over DataArray to NaN where los length > LOS distance
         for x1 in self.x1:
 
-            for beamlet in range(self.beamlets):
+            for beamlet in self.beamlets:
                 dist = self.distance(self.x2_name, x1, x2, 0)
                 _x = x[x1].sel(beamlet=beamlet)
                 _y = y[x1].sel(beamlet=beamlet)
@@ -938,7 +923,7 @@ class LineOfSightTransform(CoordinateTransform):
                 self.passes
                 * along_los.sum(["los_position", "beamlet"], skipna=True)
                 * self.dl
-                / float(self.beamlets)
+                / float(self.n_beamlets)
             )
         else:
             los_integral = (
