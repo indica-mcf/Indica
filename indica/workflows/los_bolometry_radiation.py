@@ -53,7 +53,7 @@ class EarlyStopper:
 
     """
 
-    def __init__(self, patience=4, win=4, eps=1e-9):
+    def __init__(self, patience=3, win=3, eps=1e-9):
 
         self.patience = patience
 
@@ -151,27 +151,6 @@ def _any_los_hits_rects(origins_xz, dirs_xz, rects):
                 return True
     return False
 
-
-def obstacle_penalty_factor(individual, transform, rects):
-    """
-    Genome: first half = angles (deg), second half = dir_offsets [-1,1].
-    rects: list of (xmin,xmax,zmin,zmax) rectangles in x–z.
-    Returns 1.5 if any LOS intersects any rect, else 1.0.
-    """
-    g = np.asarray(individual, dtype=float)
-    n = g.size // 2
-    angles = (g[:n] % 360.0 + 360.0) % 360.0
-    offsets = np.clip(g[n:], -1.0, 1.0)
- 
-    origins = np.empty((n, 2), dtype=float)
-    dirs    = np.empty((n, 2), dtype=float)
-    for i, (ang, off) in enumerate(zip(angles, offsets)):
-        ox, oz = origin_from_polar_angle(ang, transform)           # (x,z)
-        dx, dz = direction_from_polar_and_dir_offset(ang, off)     # (dx,dz)
-        origins[i] = (ox, oz)
-        dirs[i]    = (dx, dz)
- 
-    return 2 if _any_los_hits_rects(origins, dirs, rects) else 1.0
 
 
 def obstacle_penalty_factor(individual, transform, rects):
@@ -310,10 +289,10 @@ def evaluateIndividual(individual, model, phantom_emission):
         # print("Inidividual MSE: ",mse)
 
 
-        rects=[(0.15,0.45,0.8,0.4),(0.15,0.45,-0.4,-0.8)]
+        rects=[(0.15,0.45,0.4,0.8),(0.15,0.45,-0.8,-0.4)]
         divertor_penalty=obstacle_penalty_factor(individual,transform,rects)
         if divertor_penalty==2.5:
-            return BIG
+            return (BIG,)
         else:
             return (float(mse),)
     except ValueError:
