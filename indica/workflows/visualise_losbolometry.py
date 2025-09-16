@@ -79,9 +79,10 @@ def run_example_diagnostic_model(
 
 
         with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/{filename}','rb') as file:
-                hofs.append(pickle.load(file))
+                hofs.extend(pickle.load(file))
         solutions=[]
-    for sol in hofs[0]:
+    print(len(hofs))
+    for sol in hofs:
         solutions.append(get_solution(sol,transform,model,phantom_emission,"sqrt"))
 
     interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
