@@ -1462,7 +1462,7 @@ def grab_figure_as_image(callable_plotter, *, pick=None, dpi=200):
     return artist_fn
 
 
-def get_solution(individual, transform, model, phantom_emission):
+def get_solution(individual, transform, model, phantom_emission,los_penalty="sqrt"):
     N = len(individual) // 2
     los_angles = individual[:N]
     min_los_angle = np.min(los_angles)
@@ -1495,6 +1495,8 @@ def get_solution(individual, transform, model, phantom_emission):
 
 
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
+    if los_penalty=="sqrt":
+        mse=np.sqrt(N)*mse
     return (phantom_emission,downsampled_inverted,geom_R_artist,mse,)
 
 
