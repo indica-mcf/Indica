@@ -193,7 +193,7 @@ def obstacle_penalty_factor(individual, transform, rects):
         origins[i] = (ox, oz)
         dirs[i]    = (dx, dz)
  
-    return 1.5 if _any_los_hits_rects(origins, dirs, rects) else 1.0
+    return 2.5 if _any_los_hits_rects(origins, dirs, rects) else 1.0
 
 def random_offset():
     return random.uniform(-0.99, 0.99)
@@ -312,7 +312,10 @@ def evaluateIndividual(individual, model, phantom_emission):
 
         rects=[(0.15,0.45,0.8,0.4),(0.15,0.45,-0.4,-0.8)]
         divertor_penalty=obstacle_penalty_factor(individual,transform,rects)
-        return (float(mse)*divertor_penalty,)
+        if divertor_penalty==2.5:
+            return BIG
+        else:
+            return (float(mse),)
     except ValueError:
         return (BIG,)
     except IndexError:
@@ -320,7 +323,7 @@ def evaluateIndividual(individual, model, phantom_emission):
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
-    pop = toolbox.population(n=60)
+    pop = toolbox.population(n=50)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
@@ -1317,8 +1320,11 @@ def get_solution(individual, transform, model, phantom_emission):
         return any(ax.get_xlabel() == "R [m]" for ax in fig.axes)
     
     geom_R_artist = grab_figure_as_image(lambda: transform.plot(), pick=pick_geom)
+
+
+
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
-    return (phantom_emission,downsampled_inverted,geom_R_artist,mse)
+    return (phantom_emission,downsampled_inverted,geom_R_artist,mse,)
 
 
 def run_example_diagnostic_model(
@@ -1351,21 +1357,23 @@ def run_example_diagnostic_model(
 
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
-    los_count=11
-    hof,bestPerGen=run_ga(los_count,model,phantom_emission)
-    gens=len(bestPerGen)
-    with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_{los_count}_gens{gens}.pkl', 'wb') as file:
-        # Dump data with highest protocol for best performance
-        pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
+    los_count=3
 
-    with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens.pkl', 'wb') as file:
-        # Dump data with highest protocol for best performance
-        pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL)
-    """
-    with open('fullrunHOF.pkl','rb') as file:
-        hof=pickle.load(file)
-    best=hof[0]
-    """
+    savepickle=True
+    if savepickle:
+        hof,bestPerGen=run_ga(los_count,model,phantom_emission)
+        gens=len(bestPerGen)
+        with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_{los_count}_gens{gens}.pkl', 'wb') as file:
+            # Dump data with highest protocol for best performance
+            pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens.pkl', 'wb') as file:
+            # Dump data with highest protocol for best performance
+            pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL) 
+
+    else:
+        with open('/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_12_gens36.pkl','rb') as file:
+                hof=pickle.load(file)
     solutions=[]
     #for sol in bestPerGen:
     for sol in hof:
