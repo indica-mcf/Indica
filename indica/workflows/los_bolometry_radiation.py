@@ -1069,7 +1069,7 @@ def interactive_timeslice_plot(phantom_emission, downsampled_inverted, artist_fn
  
     plt.show()
  
-def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
+def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0, show_penalties=True):
 
 
 
@@ -1095,7 +1095,11 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
         return ymin, ymax * 1.05
  
     # --- pull initial solution ---
-    phantom, recon, artist_fn, mse = solutions[init_solution]
+    if not show_penalties:
+        phantom, recon, artist_fn, mse = solutions[init_solution]
+    else:
+        phantom, recon, artist_fn, mse, pen_mse, n_los = solutions[init_solution]
+
     t_vals = np.asarray(phantom.t)
     i0 = 0
     t0 = t_vals[i0]
@@ -1106,7 +1110,7 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
     )
     plt.subplots_adjust(bottom=0.20)
 
-    supt=fig.suptitle(f"Solution {init_solution}, MSE= {mse:.4e}")
+    supt=fig.suptitle(f"Solution {init_solution},LOS: {n_los},\npenalized MSE= {pen_mse:.4e}, MSE= {mse:.4e} ")
  
     # --- left panel (lines) ---
     (line_phantom,) = ax_left.plot(
@@ -1146,6 +1150,8 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
         "t_vals": t_vals,
         "artist_fn": artist_fn,
         "mse": mse,
+        "pen_mse": pen_mse,
+        "n_los": n_los,
         "suptitle":supt,
         "time_slider": s_time,
         "time_ax": ax_slider_time,
@@ -1174,14 +1180,19 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0):
         sol_idx = int(sol_idx)
         if sol_idx == state["current_sol_idx"]:
             return
-        phantom_i, recon_i, artist_fn_i, mse_i = solutions[sol_idx]
+        if show_penalties:
+            phantom_i, recon_i, artist_fn_i, mse_i, pen_mse_i, n_los = solutions[sol_idx]
+        else:
+            phantom_i, recon_i, artist_fn_i, mse_i = solutions[sol_idx]
  
         # update state
         state["phantom"] = phantom_i
         state["recon"]   = recon_i
         state["artist_fn"] = artist_fn_i
         state["mse"]= mse_i
-        state["suptitle"].set_text(f"Solution {sol_idx},MSE={mse_i:.4e}")
+        state["pen_mse"]= pen_mse_i
+        state["n_los"]=n_los
+        state["suptitle"].set_text(f"Solution {sol_idx},LOS: {n_los},\npenalized MSE= {pen_mse_i:.4e}, MSE= {mse_i:.4e} ")
         state["t_vals"]  = np.asarray(phantom_i.t)
         state["current_sol_idx"] = sol_idx
  
@@ -1462,7 +1473,7 @@ def grab_figure_as_image(callable_plotter, *, pick=None, dpi=200):
     return artist_fn
 
 
-def get_solution(individual, transform, model, phantom_emission,los_penalty="sqrt"):
+def get_solution(individual, transform, model, phantom_emission,los_penalty=None):
     N = len(individual) // 2
     los_angles = individual[:N]
     min_los_angle = np.min(los_angles)
@@ -1496,8 +1507,11 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty="sqr
 
     mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
     if los_penalty=="sqrt":
-        mse=np.sqrt(N)*mse
-    return (phantom_emission,downsampled_inverted,geom_R_artist,mse,)
+        mse_penalized=np.sqrt(N)*mse
+        return (phantom_emission,downsampled_inverted,geom_R_artist,mse,mse_penalized,N)
+    else:
+        return (phantom_emission,downsampled_inverted,geom_R_artist,mse,)
+
 
 
 def run_example_diagnostic_model(
