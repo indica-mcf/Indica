@@ -41,8 +41,64 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 from collections import deque
 
-
+import re
+import os
 import numpy as np
+
+
+from collections import defaultdict
+ 
+def group_hof_files_by_los(folder):
+    grouped = defaultdict(list)
+    pattern = re.compile(r'_.*?(\d+)los')
+ 
+    for fname in os.listdir(folder):
+        if "HOF" not in fname:
+            continue
+        match = pattern.search(fname)
+        if match:
+            los_num = int(match.group(1))
+            grouped[los_num].append(os.path.join(folder, fname))
+    return dict(grouped)
+
+
+
+def prune_by_cosine(vectors, sim_thresh=0.95):
+    """
+    vectors: list of lists (or 2D array), shape (N, D)
+    sim_thresh: float in (0,1], higher = stricter (fewer kept)
+ 
+    Returns:
+      keep_idxs: indices of selected representatives
+      clusters:  list of lists of original indices grouped with each rep
+    """
+    X = np.asarray(vectors, dtype=float)
+    # normalize rows (avoid div by zero)
+    norms = np.linalg.norm(X, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    Xn = X / norms
+ 
+    keep_idxs = []
+    clusters = []
+ 
+    for i, xi in enumerate(Xn):
+        if not keep_idxs:
+            keep_idxs.append(i)
+            clusters.append([i])
+            continue
+        # compute cosine sim to current reps
+        reps = Xn[keep_idxs]                     # (K, D)
+        sims = reps @ xi                         # (K,)
+        k = np.argmax(sims)
+        if sims[k] >= sim_thresh:
+            clusters[k].append(i)                # assign to closest rep
+        else:
+            keep_idxs.append(i)                  # new cluster
+            clusters.append([i])
+ 
+    return keep_idxs, clusters
+
+
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
 ):
@@ -69,38 +125,41 @@ def run_example_diagnostic_model(
     machine_z1=transform._machine_dims[1][1]
     bckc, phantom_emission = model(return_emissivity=True)
 
-    filelist=[
-         "fullrunHOF_3los16_gens.pkl",
-         "fullrunHOF_4los50_gens.pkl",
-         "fullrunHOF_5los43_gens.pkl",
-         "fullrunHOF_6los50_gens.pkl",
-         "fullrunHOF_7los50_gens.pkl",
-         "fullrunHOF_8los31_gens.pkl",
-         "fullrunHOF_9los34_gens.pkl",
 
-              ]
+    #Get a grouped dict of all files that have the same los number
+    filelist_grouped=group_hof_files_by_los("/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/")
             
     hofs=[]
-    for filename in filelist:
+
+    for los_number in filelist_grouped.keys():
+        filelist=filelist_grouped[los_number]
+        all_solutions_from_same_los_run=[]
+
+        for filename in filelist:
 
 
-        with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/{filename}','rb') as file:
-                newhof=pickle.load(file)
-                hofs.extend(newhof[:4])
-        solutions=[]
-    print(len(hofs))
+            with open(f'{filename}','rb') as file:
+                    all_solutions_from_same_los_run.extend(pickle.load(file))
+        print(len(all_solutions_from_same_los_run))
+        keep_idx,_=prune_by_cosine(all_solutions_from_same_los_run,sim_thresh=0.90)
+        print(len(keep_idx))
+        hofs.extend([all_solutions_from_same_los_run[i] for i in keep_idx])
+
+    solutions=[]
+
+    print(f"Pruned to a length of {len(hofs)}")
     for sol in hofs:
         solutions.append(get_solution(sol,transform,model,phantom_emission,"sqrt"))
 
     #Sort list: sort by best penalised
-    sort_by_penalized=False
+    sort_by_penalized=True
     if sort_by_penalized:
         solutions = sorted(solutions, key=lambda x: x[-2])
     else:
 
         solutions = sorted(solutions, key=lambda x: x[-3])
  
-    solutions=solutions[:20]
+    solutions=solutions[:10]
 
     interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
 
