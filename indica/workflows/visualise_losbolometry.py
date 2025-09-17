@@ -73,17 +73,29 @@ def run_example_diagnostic_model(
               "fullrunHOF_4_gens28.pkl",
               "fullrunHOF_5_gens33.pkl",
               "fullrunHOF_6_gens48.pkl",
+              "fullrunHOF_7_gens21.pkl",
+              "fullrunHOF_8_gens13.pkl",
+              "fullrunHOF_9_gens15.pkl",
+              "fullrunHOF_10_gens27.pkl",
+              "fullrunHOF_11_gens13.pkl",
               ]
+            
     hofs=[]
     for filename in filelist:
 
 
         with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/{filename}','rb') as file:
-                hofs.extend(pickle.load(file))
+                newhof=pickle.load(file)
+                hofs.extend(newhof[:5])
         solutions=[]
     print(len(hofs))
     for sol in hofs:
         solutions.append(get_solution(sol,transform,model,phantom_emission,"sqrt"))
+    #Sort list
+    solutions = sorted(solutions, key=lambda x: x[-2])
+    #take only top 20:
+ 
+    solutions=solutions[:20]
 
     interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
 

@@ -1086,12 +1086,7 @@ def interactive_solution_timeslice_plot_from_list(solutions, init_solution=0, sh
     """
 
 
-    #Sort list
-    solutions = sorted(solutions, key=lambda x: x[-2])
-    #take only top 10:
- 
-    solutions=solutions[:10]
-    print(len(solutions))
+
     if not solutions:
         raise ValueError("`solutions` must be a non-empty list.")
     if not (0 <= init_solution < len(solutions)):
@@ -1569,7 +1564,7 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    for los_count in range(3,11):
+    for los_count in range(10,11):
 
         savepickle=True
         if savepickle:
