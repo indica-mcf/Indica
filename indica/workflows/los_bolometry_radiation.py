@@ -206,7 +206,7 @@ class EarlyStopper:
 
     """
 
-    def __init__(self, patience=3, win=3, eps=1e-9):
+    def __init__(self, patience=4, win=4, eps=1e-9):
 
         self.patience = patience
 
@@ -1564,24 +1564,25 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    for los_count in range(10,11):
+    for los_count in range(3,10):
+        for runs in range(5):
 
-        savepickle=True
-        if savepickle:
-            hof,bestPerGen=run_ga(los_count,model,phantom_emission)
-            gens=len(bestPerGen)
-            with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_{los_count}_gens{gens}.pkl', 'wb') as file:
-                # Dump data with highest protocol for best performance
-                pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
+            savepickle=True
+            if savepickle:
+                hof,bestPerGen=run_ga(los_count,model,phantom_emission)
+                gens=len(bestPerGen)
+                with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_{los_count}los{gens}_gens_run{runs}.pkl', 'wb') as file:
+                    # Dump data with highest protocol for best performance
+                    pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-            with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens.pkl', 'wb') as file:
-                # Dump data with highest protocol for best performance
-                pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL) 
+                with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens_run{runs}.pkl', 'wb') as file:
+                    # Dump data with highest protocol for best performance
+                    pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL) 
 
-        else:
-            with open('/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_12_gens36.pkl','rb') as file:
-                    hof=pickle.load(file)
-        
+            else:
+                with open('/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_12_gens36.pkl','rb') as file:
+                        hof=pickle.load(file)
+            
 
     return
     solutions=[]

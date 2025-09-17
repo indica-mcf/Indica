@@ -69,15 +69,15 @@ def run_example_diagnostic_model(
     machine_z1=transform._machine_dims[1][1]
     bckc, phantom_emission = model(return_emissivity=True)
 
-    filelist=["fullrunHOF_3_gens35.pkl",
-              "fullrunHOF_4_gens28.pkl",
-              "fullrunHOF_5_gens33.pkl",
-              "fullrunHOF_6_gens48.pkl",
-              "fullrunHOF_7_gens21.pkl",
-              "fullrunHOF_8_gens13.pkl",
-              "fullrunHOF_9_gens15.pkl",
-              "fullrunHOF_10_gens27.pkl",
-              "fullrunHOF_11_gens13.pkl",
+    filelist=[
+         "fullrunHOF_3los16_gens.pkl",
+         "fullrunHOF_4los50_gens.pkl",
+         "fullrunHOF_5los43_gens.pkl",
+         "fullrunHOF_6los50_gens.pkl",
+         "fullrunHOF_7los50_gens.pkl",
+         "fullrunHOF_8los31_gens.pkl",
+         "fullrunHOF_9los34_gens.pkl",
+
               ]
             
     hofs=[]
@@ -86,14 +86,19 @@ def run_example_diagnostic_model(
 
         with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/{filename}','rb') as file:
                 newhof=pickle.load(file)
-                hofs.extend(newhof[:5])
+                hofs.extend(newhof[:4])
         solutions=[]
     print(len(hofs))
     for sol in hofs:
         solutions.append(get_solution(sol,transform,model,phantom_emission,"sqrt"))
-    #Sort list
-    solutions = sorted(solutions, key=lambda x: x[-2])
-    #take only top 20:
+
+    #Sort list: sort by best penalised
+    sort_by_penalized=False
+    if sort_by_penalized:
+        solutions = sorted(solutions, key=lambda x: x[-2])
+    else:
+
+        solutions = sorted(solutions, key=lambda x: x[-3])
  
     solutions=solutions[:20]
 
