@@ -73,6 +73,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "t": ("Time", "time"),
     "time_to_calculate": ("Time", "time"),
     "channel": ("Channel", "number"),
+    "beamlet": ("Beamlet", "number"),
     "bad_channel": ("Bad channel", "bool"),
     "wavelength": ("Wavelength", "wavelength"),
     "x": ("x", "length"),
@@ -101,7 +102,6 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "direction": ("Direction", "length"),  # this is an array (dx, dy, dz)
     "element": ("Element", "none"),
     "impurity": ("Impurity", "none"),
-    "beamlet": ("Beamlet", "none"),
     "residence_time": (r"Impurity residence time $\tau$", "time"),
     "electron_density": ("$N_e$", "density"),
     "ion_density": ("$N_i$", "density"),

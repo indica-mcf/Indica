@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
@@ -49,6 +47,9 @@ class PinholeCamera(AbstractDiagnostic):
             "direction": self.transform.direction,
             "brightness": self.los_integral,
         }
+        if "beamlet" in self.los_integral.coords:
+            bckc["beamlet"] = self.los_integral.beamlet
+
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 
     def __call__(
@@ -99,9 +100,6 @@ class PinholeCamera(AbstractDiagnostic):
             if Te is None or Ne is None or Nion is None or fz is None or t is None:
                 raise ValueError("Give inputs or assign plasma class!")
 
-        if Nh is None:
-            Nh = deepcopy(Ne) * 0.0
-
         self.t = t
         self.Te = Te
         self.Ne = Ne
@@ -114,21 +112,21 @@ class PinholeCamera(AbstractDiagnostic):
         self.Lz = {}
         emissivity_element = []
         elements = self.Nion.element.values
+
         for elem in elements:
-            fz = self.fz[elem].sel(t=t)
-            if hasattr(self, "rhop"):
-                fz = fz.transpose()
+            Lz = []
+            for _t in t:
+                fz = self.fz[elem].sel(t=_t)
 
-            Lz = self.power_loss[elem](
-                Te,
-                fz,
-                Ne=Ne,
-                Nh=Nh,
-            )
+                _Lz = self.power_loss[elem](
+                    Te.sel(t=_t),
+                    fz,
+                    Ne=Ne.sel(t=_t),
+                    Nh=Nh.sel(t=_t),
+                )
+                Lz.append(_Lz)
 
-            if hasattr(self, "rhop"):
-                Lz = Lz.transpose()
-            self.Lz[elem] = Lz
+            self.Lz[elem] = xr.concat(Lz, "t")
 
             _emissivity = (
                 self.Lz[elem].sum("ion_charge") * self.Nion.sel(element=elem) * self.Ne

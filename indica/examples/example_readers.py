@@ -73,6 +73,18 @@ def example_model_reader(plot=False):
         spectra.transform.plot()
         plt.show(block=True)
 
+        plt.figure()
+        brightness = bckc["sxrc_xy1"]["brightness"]
+        cols = CMAP(np.linspace(0.75, 0.1, len(spectra.t), dtype=float))
+        for i, t in enumerate(spectra.t):
+            plt.plot(brightness.channel, brightness.sel(t=t), color=cols[i])
+        plt.title("SXR brightness")
+        plt.legend()
+        set_axis_sci()
+
+        brightness.transform.plot()
+        plt.show(block=True)
+
     return bckc, model_reader
 
 

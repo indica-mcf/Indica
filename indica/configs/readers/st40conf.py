@@ -83,7 +83,7 @@ class ST40Conf(MachineConf):
                 "t": ":time",
                 "location": ".geometry:location",
                 "direction": ".geometry:direction",
-                "ne": ".global:ne_int",
+                "ne": ".global:ne_int_s",
             },
             "get_diode_filters": {
                 "t": ":time",

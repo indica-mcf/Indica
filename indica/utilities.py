@@ -267,13 +267,14 @@ def build_dataarrays(
             _data = _data.sel(t=slice(tstart, tend))
             _data = _data.sortby([dim for dim in dims if dim != "t"])
 
-        # Build error DataArray and assign as coordinate
+        # Build error DataArray, filter negative values, assign as coordinate
         if include_error and len(dims) != 0:
             _error = xr.zeros_like(_data)
             if quantity + "_error" in data:
                 _error = format_dataarray(data[quantity + "_error"], datatype, coords)
                 if "t" in _error.dims and tstart is not None and tend is not None:
                     _error = _error.sel(t=slice(tstart, tend))
+                _error = xr.where((_error >= 0) * (_error / _data < 1), _error, np.nan)
             _data = _data.assign_coords(error=(_data.dims, _error.data))
 
         # Check that times are unique
@@ -520,23 +521,23 @@ def set_plot_colors(
 def set_plot_rcparams(option: str = "profiles"):
     plot_params: dict = {
         "profiles": {
-            "font.size": 13,
+            "font.size": 12,
             "legend.fontsize": 11,
-            "lines.markersize": 10,
+            "lines.markersize": 6,
             "lines.linewidth": 2,
         },
         "multi": {
-            "font.size": 13,
+            "font.size": 12,
             "legend.fontsize": 13,
-            "lines.markersize": 10,
+            "lines.markersize": 6,
             "lines.linewidth": 2,
             "figure.figsize": [6.4, 3.8],
             "figure.subplot.bottom": 0.15,
         },
         "time_evolution": {
-            "font.size": 11,
+            "font.size": 12,
             "legend.fontsize": 8,
-            "lines.markersize": 5,
+            "lines.markersize": 6,
             "lines.linewidth": 2,
             "font.weight": 600,
         },
