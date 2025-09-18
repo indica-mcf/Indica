@@ -237,3 +237,35 @@ class DataReader(ABC):
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
+
+    def __call__(
+        self,
+        instruments: list = None,
+        revisions: Dict[str, RevisionLike] = None,
+        debug: bool = False,
+        equilibrium: Equilibrium = None,
+    ):
+
+        if instruments is None:
+            instruments = self.machine_conf.INSTRUMENT_METHODS.keys()
+        if revisions is None:
+            revisions = {instrument: 0 for instrument in instruments}
+        for instr in instruments:
+            if instr not in revisions.keys():
+                revisions[instr] = 0
+
+        self.data = {}
+        for instrument in instruments:
+            print(f"Reading {instrument}")
+            try:
+                self.data[instrument] = self.get(
+                    "",
+                    instrument,
+                    revisions[instrument],
+                    equilibrium=equilibrium,
+                )
+            except Exception as e:
+                print(f"error reading: {instrument} \nException: {e}")
+                if debug:
+                    raise e
+        return self.data
