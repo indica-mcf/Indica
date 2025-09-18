@@ -1477,43 +1477,46 @@ def grab_figure_as_image(callable_plotter, *, pick=None, dpi=200):
 
 
 def get_solution(individual, transform, model, phantom_emission,los_penalty=None):
-    N = len(individual) // 2
-    los_angles = individual[:N]
-    min_los_angle = np.min(los_angles)
-    offsets = individual[N:]
-    directions = []
-    origins = []
-    for i in range(N):
-        new_origin_x, new_origin_z = origin_from_polar_angle(los_angles[i], transform)
-        origins.append((new_origin_x, 0, new_origin_z))
-        new_dir_x, new_dir_z = direction_from_polar_and_dir_offset(
-            los_angles[i], offsets[i]
+    try:
+        N = len(individual) // 2
+        los_angles = individual[:N]
+        min_los_angle = np.min(los_angles)
+        offsets = individual[N:]
+        directions = []
+        origins = []
+        for i in range(N):
+            new_origin_x, new_origin_z = origin_from_polar_angle(los_angles[i], transform)
+            origins.append((new_origin_x, 0, new_origin_z))
+            new_dir_x, new_dir_z = direction_from_polar_and_dir_offset(
+                los_angles[i], offsets[i]
+            )
+            directions.append((new_dir_x, 0, new_dir_z))
+
+        transform.set_origin(np.array(origins))
+        transform.set_direction(np.array(directions))
+        #rotate_all(transform, min_los_angle)
+        update_los(transform)
+
+        # Re-run model and calculate inversion
+        bckc = model()
+        downsampled_inverted = calculate_tomo_inversion(
+            bckc["brightness"], transform, phantom_emission.rhop
         )
-        directions.append((new_dir_x, 0, new_dir_z))
-
-    transform.set_origin(np.array(origins))
-    transform.set_direction(np.array(directions))
-    #rotate_all(transform, min_los_angle)
-    update_los(transform)
-
-    # Re-run model and calculate inversion
-    bckc = model()
-    downsampled_inverted = calculate_tomo_inversion(
-        bckc["brightness"], transform, phantom_emission.rhop
-    )
-    def pick_geom(fig):
-        return any(ax.get_xlabel() == "R [m]" for ax in fig.axes)
-    
-    geom_R_artist = grab_figure_as_image(lambda: transform.plot(), pick=pick_geom)
+        def pick_geom(fig):
+            return any(ax.get_xlabel() == "R [m]" for ax in fig.axes)
+        
+        geom_R_artist = grab_figure_as_image(lambda: transform.plot(), pick=pick_geom)
 
 
 
-    mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
-    if los_penalty=="sqrt":
-        mse_penalized=(np.sqrt(N))*mse
-        return (phantom_emission,downsampled_inverted,geom_R_artist,mse,mse_penalized,N)
-    else:
-        return (phantom_emission,downsampled_inverted,geom_R_artist,mse,)
+        mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
+        if los_penalty=="sqrt":
+            mse_penalized=(np.sqrt(N))*mse
+            return (phantom_emission,downsampled_inverted,geom_R_artist,mse,mse_penalized,N)
+        else:
+            return (phantom_emission,downsampled_inverted,geom_R_artist,mse,)
+    except ValueError:
+        return None
 
 
 
@@ -1564,7 +1567,7 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    for los_count in range(3,10):
+    for los_count in range(9,12):
         for runs in range(5):
 
             savepickle=True
