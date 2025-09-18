@@ -149,7 +149,11 @@ def run_example_diagnostic_model(
 
     print(f"Pruned to a length of {len(hofs)}")
     for sol in hofs:
-        solutions.append(get_solution(sol,transform,model,phantom_emission,"sqrt"))
+        solu=get_solution(sol,transform,model,phantom_emission,"sqrt")
+        if solu:
+            solutions.append(solu)
+        else:
+            print("NAN slice in one o the final solutions, hide.")
 
     #Sort list: sort by best penalised
     sort_by_penalized=True
@@ -159,7 +163,7 @@ def run_example_diagnostic_model(
 
         solutions = sorted(solutions, key=lambda x: x[-3])
  
-    solutions=solutions[:10]
+    solutions=solutions[:20]
 
     interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
 
