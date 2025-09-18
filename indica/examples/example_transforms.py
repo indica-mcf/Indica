@@ -60,7 +60,7 @@ def line_of_sight_example(make_plot=True):
         plt.plot(x_cc, y_cc, c="k", lw=2.0)
         plt.plot(x_ivc, y_ivc, c="k", lw=2.0)
         for x1 in los_transform.x1:
-            for beamlet in range(los_transform.beamlets):
+            for beamlet in los_transform.beamlets:
                 x = los_transform.x.sel(channel=x1, beamlet=beamlet)
                 y = los_transform.y.sel(channel=x1, beamlet=beamlet)
 
@@ -85,7 +85,7 @@ def line_of_sight_example(make_plot=True):
         )
 
         for x1 in los_transform.x1:
-            for beamlet in range(los_transform.beamlets):
+            for beamlet in los_transform.beamlets:
                 R = los_transform.R.sel(channel=x1, beamlet=beamlet)
                 z = los_transform.z.sel(channel=x1, beamlet=beamlet)
 
