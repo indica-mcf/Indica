@@ -470,6 +470,8 @@ def evaluateIndividual(individual, model, phantom_emission):
         #rotate_all(transform, min_los_angle)
         update_los(transform)
 
+        assert_valid_impact_params(transform)
+
         # Re-run model and calculate inversion
         bckc = model()
         downsampled_inverted = calculate_tomo_inversion(
@@ -490,6 +492,8 @@ def evaluateIndividual(individual, model, phantom_emission):
         return (BIG,)
     except IndexError:
         return (BIG,)
+    except AssertionError:
+        return(BIG,)
 
 def run_ga(number_of_los, model, phantom_emission):
     toolbox = define_ga(model, number_of_los, phantom_emission)
@@ -1535,7 +1539,7 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
 def assert_valid_impact_params(transform):
     
     imp=np.sort(transform.impact_parameter["dist"])
-    assert(np.all(0.016<np.diff(imp)))
+    assert(np.all(0.02<np.diff(imp)))
 
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
@@ -1584,8 +1588,8 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    for los_count in range(9,12):
-        for runs in range(5):
+    for los_count in range(5,10):
+        for runs in range(3):
 
             savepickle=True
             if savepickle:
