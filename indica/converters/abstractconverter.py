@@ -443,7 +443,7 @@ class CoordinateTransform(ABC):
             if var in theta.coords:
                 theta = theta.drop_vars(var)
 
-        self.t = t
+        #self.t = t
         self.rhop = rhop
         self.theta = theta
         if "los_position" in self.rhop.dims:

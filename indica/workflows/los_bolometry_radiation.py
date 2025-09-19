@@ -727,6 +727,8 @@ def update_los(transform):
 
     transform.distribute_beamlets(debug=False)
     transform.set_dl(0.01)
+    #transform.convert_to_rho_theta()
+
 
 
 def reconstruction_metric(emissivity, downsampled_inverted):
@@ -1496,8 +1498,11 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
         transform.set_direction(np.array(directions))
         #rotate_all(transform, min_los_angle)
         update_los(transform)
-        print(transform.impact_parameter["value"])
-        print(transform.impact_rho)
+        print(transform.impact_parameter["R"])
+        print(transform.impact_parameter["x"])
+        print(transform.impact_parameter["y"])
+        print(transform.impact_parameter["z"])
+        print(transform.impact_parameter["dist"])
         # Re-run model and calculate inversion
         bckc = model()
         downsampled_inverted = calculate_tomo_inversion(
