@@ -1032,7 +1032,6 @@ class LineOfSightTransform(CoordinateTransform):
             y.append(y_mean[_index])
             z.append(z_mean[_index])
             R.append(np.sqrt(x_mean[_index] ** 2 + y_mean[_index] ** 2))
-            dist.append
             dist.append(np.sqrt(x_mean[_index] ** 2 + y_mean[_index] ** 2+z_mean[_index] ** 2))
 
         impact = Dataset(

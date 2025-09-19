@@ -32,7 +32,7 @@ from indica.models import PinholeCamera
 from indica.operators import tomo_1D
 from indica.operators.atomic_data import default_atomic_data
 
-from los_bolometry_radiation import get_solution, interactive_solution_timeslice_plot_from_list
+from los_bolometry_radiation import get_solution, interactive_solution_timeslice_plot_from_list, assert_valid_impact_params
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -147,14 +147,13 @@ def run_example_diagnostic_model(
 
     solutions=[]
 
-    hofs=[[-40,-20,0,20,40,0.45,0.22,0,-0.22,-0.45],[-70,84,-0.15,0.05  ]]
-    print(f"Pruned to a length of {len(hofs)}")
+
+    print(f"Cos pruned to a length of {len(hofs)}")
     for sol in hofs:
         solu=get_solution(sol,transform,model,phantom_emission,"sqrt")
         if solu:
             solutions.append(solu)
-        else:
-            print("NAN slice in one o the final solutions, hide.")
+    print(f"Validity filtered to a length of {len(solutions)}")
 
     #Sort list: sort by best penalised
     sort_by_penalized=True
@@ -164,7 +163,7 @@ def run_example_diagnostic_model(
 
         solutions = sorted(solutions, key=lambda x: x[-3])
  
-    solutions=solutions[:20]
+
 
     interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
 
