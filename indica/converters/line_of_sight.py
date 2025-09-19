@@ -1018,6 +1018,7 @@ class LineOfSightTransform(CoordinateTransform):
         y = []
         z = []
         R = []
+        dist=[]
         for ch in self.x1:
             x_mean = self.x.sel(channel=ch).mean("beamlet")
             y_mean = self.y.sel(channel=ch).mean("beamlet")
@@ -1031,6 +1032,8 @@ class LineOfSightTransform(CoordinateTransform):
             y.append(y_mean[_index])
             z.append(z_mean[_index])
             R.append(np.sqrt(x_mean[_index] ** 2 + y_mean[_index] ** 2))
+            dist.append
+            dist.append(np.sqrt(x_mean[_index] ** 2 + y_mean[_index] ** 2+z_mean[_index] ** 2))
 
         impact = Dataset(
             {
@@ -1040,6 +1043,7 @@ class LineOfSightTransform(CoordinateTransform):
                 "y": xr.concat(y, "channel"),
                 "z": xr.concat(z, "channel"),
                 "R": xr.concat(R, "channel"),
+                "dist":xr.concat(dist, "channel")
             }
         )
 
