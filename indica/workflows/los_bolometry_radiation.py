@@ -1391,6 +1391,8 @@ def apply_individual_to_transform(individual, transform):
 from io import BytesIO
 
  
+
+
 def grab_figure_as_image(callable_plotter, *, pick=None, dpi=200):
 
     was_interactive = plt.isinteractive()
@@ -1498,11 +1500,6 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
         transform.set_direction(np.array(directions))
         #rotate_all(transform, min_los_angle)
         update_los(transform)
-        print(transform.impact_parameter["R"])
-        print(transform.impact_parameter["x"])
-        print(transform.impact_parameter["y"])
-        print(transform.impact_parameter["z"])
-        print(transform.impact_parameter["dist"])
         # Re-run model and calculate inversion
         bckc = model()
         downsampled_inverted = calculate_tomo_inversion(
@@ -1511,20 +1508,34 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
         def pick_geom(fig):
             return any(ax.get_xlabel() == "R [m]" for ax in fig.axes)
         
+
+        
         geom_R_artist = grab_figure_as_image(lambda: transform.plot(), pick=pick_geom)
+        
 
 
 
         mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
+
+        assert_valid_impact_params(transform)
+
         if los_penalty=="sqrt":
             mse_penalized=(np.sqrt(N))*mse
             return (phantom_emission,downsampled_inverted,geom_R_artist,mse,mse_penalized,N)
         else:
             return (phantom_emission,downsampled_inverted,geom_R_artist,mse,)
     except ValueError:
+        print("Nan slice somwhere")
+        return None
+    except AssertionError:
+        print("Impact param overlap")
         return None
 
 
+def assert_valid_impact_params(transform):
+    
+    imp=np.sort(transform.impact_parameter["dist"])
+    assert(np.all(0.016<np.diff(imp)))
 
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
