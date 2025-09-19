@@ -147,6 +147,7 @@ def run_example_diagnostic_model(
 
     solutions=[]
 
+    hofs=[[-40,-20,0,20,40,0.45,0.22,0,-0.22,-0.45,]]
     print(f"Pruned to a length of {len(hofs)}")
     for sol in hofs:
         solu=get_solution(sol,transform,model,phantom_emission,"sqrt")

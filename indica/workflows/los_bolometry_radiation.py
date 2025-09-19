@@ -1496,7 +1496,8 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
         transform.set_direction(np.array(directions))
         #rotate_all(transform, min_los_angle)
         update_los(transform)
-
+        print(transform.impact_parameter["value"])
+        print(transform.impact_rho)
         # Re-run model and calculate inversion
         bckc = model()
         downsampled_inverted = calculate_tomo_inversion(
