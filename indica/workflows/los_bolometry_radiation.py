@@ -33,6 +33,7 @@ from indica.operators import tomo_1D
 from indica.operators.atomic_data import default_atomic_data
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
 
 
 
@@ -206,7 +207,7 @@ class EarlyStopper:
 
     """
 
-    def __init__(self, patience=4, win=4, eps=1e-9):
+    def __init__(self, patience=3, win=3, eps=1e-9):
 
         self.patience = patience
 
@@ -731,7 +732,7 @@ def update_los(transform):
 
     transform.distribute_beamlets(debug=False)
     transform.set_dl(0.01)
-    #transform.convert_to_rho_theta()
+    transform.convert_to_rho_theta()
 
 
 
@@ -1504,6 +1505,7 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
         transform.set_direction(np.array(directions))
         #rotate_all(transform, min_los_angle)
         update_los(transform)
+        assert_valid_impact_params(transform)
         # Re-run model and calculate inversion
         bckc = model()
         downsampled_inverted = calculate_tomo_inversion(
@@ -1521,7 +1523,6 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
 
         mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
 
-        assert_valid_impact_params(transform)
 
         if los_penalty=="sqrt":
             mse_penalized=(np.sqrt(N))*mse
@@ -1539,7 +1540,10 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
 def assert_valid_impact_params(transform):
     
     imp=np.sort(transform.impact_parameter["dist"])
-    assert(np.all(0.02<np.diff(imp)))
+    imp2=np.sort(transform.impact_rho.sel(t=0,method="nearest"))
+    #assert(np.all(0.03<np.diff(imp)))
+    #001 antaa 7
+    assert(np.all(0.01<np.diff(imp2)))
 
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
