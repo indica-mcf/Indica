@@ -43,7 +43,44 @@ from collections import deque
 
 import numpy as np
  
+
+
+def normal_from_hit_edge(angle_deg, transform):
+    """
+    Determine which edge of the rectangle is hit when casting a ray
+    from the center at polar angle, and return the inward normal
+    direction angle (deg).
  
+    Rectangle is defined by transform._machine_dims:
+        x ∈ [x0, x1], z ∈ [z0, z1]
+    """
+ 
+    x0, x1 = transform._machine_dims[0]
+    z0, z1 = transform._machine_dims[1]
+    cx, cz = 0.5*(x0+x1), 0.5*(z0+z1)
+    ax, az = 0.5*(x1-x0), 0.5*(z1-z0)
+ 
+    theta = np.deg2rad(angle_deg)
+    dx, dz = np.cos(theta), np.sin(theta)
+ 
+    # how far we need to travel to hit vertical/horizontal edges
+    tx = ax / abs(dx) if dx != 0 else np.inf
+    tz = az / abs(dz) if dz != 0 else np.inf
+ 
+    if tx < tz:
+        # hits a vertical edge
+        if dx > 0:   # right edge
+            return 180.0   # inward normal = -x
+        else:        # left edge
+            return 0.0     # inward normal = +x
+    else:
+        # hits a horizontal edge
+        if dz > 0:   # top edge
+            return 270.0   # inward normal = -z
+        else:        # bottom edge
+            return 90.0    # inward normal = +z
+        
+
 def _normalize_rects(rects):
 
     out = []
@@ -166,7 +203,7 @@ def generate_valid_pair_pool(transform, rects, *,
 
             # direction from angle+offset
 
-            dx, dz = direction_from_polar_and_dir_offset(ang, off)
+            dx, dz = direction_from_polar_and_dir_offset(ang, off, transform)
 
             # if any rect hit, reject
 
@@ -338,7 +375,7 @@ def obstacle_penalty_factor(individual, transform, rects):
     dirs    = np.empty((n, 2), dtype=float)
     for i, (ang, off) in enumerate(zip(angles, offsets)):
         ox, oz = origin_from_polar_angle(ang, transform)           # (x,z)
-        dx, dz = direction_from_polar_and_dir_offset(ang, off)     # (dx,dz)
+        dx, dz = direction_from_polar_and_dir_offset(ang, off, transform)     # (dx,dz)
         origins[i] = (ox, oz)
         dirs[i]    = (dx, dz)
  
@@ -462,7 +499,7 @@ def evaluateIndividual(individual, model, phantom_emission):
             new_origin_x, new_origin_z = origin_from_polar_angle(los_angles[i], model.transform)
             origins.append((new_origin_x, 0, new_origin_z))
             new_dir_x, new_dir_z = direction_from_polar_and_dir_offset(
-                los_angles[i], offsets[i]
+                los_angles[i], offsets[i], transform
             )
             directions.append((new_dir_x, 0, new_dir_z))
 
@@ -714,12 +751,10 @@ def random_feasible_direction_from_polar_angle(angle):
     th = np.deg2rad(direction_angle)
     return np.cos(th), np.sin(th)  # (dx, dz)
 
-def direction_from_polar_and_dir_offset(angle, dir_offset):
-
-    inward_direction = (angle + 180.0) % 360.0
-    direction_angle = inward_direction + 90.0 * float(dir_offset)
-    th = np.deg2rad(direction_angle)
-    return np.cos(th), np.sin(th)  # (dx, dz)
+def direction_from_polar_and_dir_offset(angle, offset, transform):
+    base = normal_from_hit_edge(angle, transform)  # axis-aligned normal
+    direction_angle = base + 90.0 * offset
+    return np.cos(np.deg2rad(direction_angle)), np.sin(np.deg2rad(direction_angle))
 
 def origin_from_polar_angle(angle, transform):
 
@@ -1267,7 +1302,7 @@ def apply_individual_to_transform(individual, transform):
     # Build directions (dx,0,dz) from (angle, offset)
     directions = np.empty((n, 3), dtype=float)
     for i, (ang, off) in enumerate(zip(angles, dir_offsets)):
-        dx, dz = direction_from_polar_and_dir_offset(ang, off)
+        dx, dz = direction_from_polar_and_dir_offset(ang, off, transform)
         directions[i] = (dx, 0.0, dz)
  
     # Replace all LOS and update
@@ -1497,7 +1532,7 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
             new_origin_x, new_origin_z = origin_from_polar_angle(los_angles[i], transform)
             origins.append((new_origin_x, 0, new_origin_z))
             new_dir_x, new_dir_z = direction_from_polar_and_dir_offset(
-                los_angles[i], offsets[i]
+                los_angles[i], offsets[i], transform
             )
             directions.append((new_dir_x, 0, new_dir_z))
 
@@ -1571,7 +1606,7 @@ def run_example_diagnostic_model(
     machine_z1=transform._machine_dims[1][1]
 
 
-    pair_generation=False
+    pair_generation=True
     if pair_generation:
         rects = [
             (0.15, 0.45,  0.4,  0.8),   # upper-left block
@@ -1592,8 +1627,8 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    for los_count in range(5,10):
-        for runs in range(3):
+    for los_count in range(4,10):
+        for runs in range(1):
 
             savepickle=True
             if savepickle:
