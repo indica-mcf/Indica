@@ -143,6 +143,9 @@ def run_example_diagnostic_model(
         print(len(all_solutions_from_same_los_run))
         keep_idx,_=prune_by_cosine(all_solutions_from_same_los_run,sim_thresh=0.90)
         print(len(keep_idx))
+        to_add=[all_solutions_from_same_los_run[i] for i in keep_idx]
+        if len(to_add)>10:
+            to_add=to_add[:10]
         hofs.extend([all_solutions_from_same_los_run[i] for i in keep_idx])
 
     solutions=[]
@@ -163,7 +166,7 @@ def run_example_diagnostic_model(
 
         solutions = sorted(solutions, key=lambda x: x[-3])
  
-
+    ata
 
     interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
 
