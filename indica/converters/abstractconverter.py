@@ -636,6 +636,7 @@ def plot_geometry(
         plt.plot([x0,x1,x1,x0,x0],[-y0,-y0,-y1,-y1,-y0],color="red")
 
 
+
 def find_wall_intersections(
     origin: Tuple,
     direction: Tuple,
