@@ -519,13 +519,21 @@ def evaluateIndividual(individual, model, phantom_emission):
         mse, corr = reconstruction_metric(phantom_emission, downsampled_inverted)
         # print("Inidividual MSE: ",mse)
 
+        #Impact parameter penalty for LOS overshooting the plasma
+        imp2=transform.impact_rho.sel(t=0,method="nearest")
+        #Find all that are larger than 1.3. Sum the overshoots and 2x that to add
+        impact_penalty=imp2-1.4
+        positive_imp=(2*np.sum(impact_penalty[impact_penalty>0])+1).values
 
+
+
+        #Divertor rectangles
         rects=[(0.15,0.45,0.4,0.8),(0.15,0.45,-0.8,-0.4)]
         divertor_penalty=obstacle_penalty_factor(individual,transform,rects)
         if divertor_penalty==2.5:
             return (BIG,)
         else:
-            return (float(mse),)
+            return (float(mse)*positive_imp,)
     except ValueError:
         return (BIG,)
     except IndexError:
@@ -1541,6 +1549,7 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
         #rotate_all(transform, min_los_angle)
         update_los(transform)
         assert_valid_impact_params(transform)
+        assert_valid_maximum_impact(transform)
         # Re-run model and calculate inversion
         bckc = model()
         downsampled_inverted = calculate_tomo_inversion(
@@ -1572,13 +1581,18 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
         return None
 
 
+def assert_valid_maximum_impact(transform):
+    
+    imp2=transform.impact_rho.sel(t=0,method="nearest")
+    assert(np.max(imp2)<1.4)
+
 def assert_valid_impact_params(transform):
     
-    imp=np.sort(transform.impact_parameter["dist"])
-    imp2=np.sort(transform.impact_rho.sel(t=0,method="nearest"))
+    #imp=np.sort(transform.impact_parameter["dist"])
+    imp2=transform.impact_rho.sel(t=0,method="nearest")
+    imp2_s=np.sort(transform.impact_rho.sel(t=0,method="nearest"))
     #assert(np.all(0.03<np.diff(imp)))
-    #001 antaa 7
-    assert(np.all(0.01<np.diff(imp2)))
+    assert(np.all(0.003<np.diff(imp2_s)))
 
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
@@ -1606,7 +1620,7 @@ def run_example_diagnostic_model(
     machine_z1=transform._machine_dims[1][1]
 
 
-    pair_generation=True
+    pair_generation=False
     if pair_generation:
         rects = [
             (0.15, 0.45,  0.4,  0.8),   # upper-left block
@@ -1627,7 +1641,7 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    for los_count in range(4,10):
+    for los_count in range(4,8):
         for runs in range(1):
 
             savepickle=True
