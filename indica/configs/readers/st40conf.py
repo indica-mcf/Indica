@@ -37,6 +37,7 @@ class ST40Conf(MachineConf):
             "astra": "get_astra",
             "ppts": "get_profile_fits",
             "zeff_brems": "get_zeff",
+            "bda": "get_profile_fits",
         }
         self.QUANTITIES_PATH = {
             "get_equilibrium": {
@@ -151,6 +152,8 @@ class ST40Conf(MachineConf):
                 "ne_rhop": ".profiles.psi_norm:ne",
                 "te_rhop": ".profiles.psi_norm:te",
                 "pe_rhop": ".profiles.psi_norm:pe",
+                "ti_rhop": ".profiles.psi_norm:ti",
+                "vtor_rhop": ".profiles.psi_norm:vtor",
                 "ne_R": ".profiles.r_midplane:ne",
                 "te_R": ".profiles.r_midplane:te",
                 "pe_R": ".profiles.r_midplane:pe",

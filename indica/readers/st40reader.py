@@ -65,12 +65,14 @@ class ST40Reader(DataReader):
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         # TODO: R_data and zpos issues need to be fixed in the database
-        R_data = database_results["R_data"]
-        if len(np.shape(R_data)) > 1:
-            database_results["R_data"] = R_data[0, :]
         if "zpos" not in database_results:
             database_results["z"] = np.full_like(database_results["R"], 0)
-        database_results["channel"] = np.arange(len(database_results["R_data"]))
+        if "R_data" in database_results:
+            R_data = database_results["R_data"]
+            if len(np.shape(R_data)) > 1:
+                database_results["R_data"] = R_data[0, :]
+            database_results["channel"] = np.arange(len(database_results["R_data"]))
+
         transform = assign_trivial_transform()
         return database_results, transform
 
