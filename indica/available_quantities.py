@@ -83,6 +83,8 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "ne_rhop": ("electron_density", ["t", "rhop"]),
         "te_rhop": ("electron_temperature", ["t", "rhop"]),
         "pe_rhop": ("electron_pressure", ["t", "rhop"]),
+        "ti_rhop": ("ion_temperature", ["t", "rhop"]),
+        "vtor_rhop": ("toroidal_rotation", ["t", "rhop"]),
         "ne_R": ("electron_density", ["t", "R"]),
         "te_R": ("electron_temperature", ["t", "R"]),
         "pe_R": ("electron_pressure", ["t", "R"]),
