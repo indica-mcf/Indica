@@ -509,6 +509,7 @@ def evaluateIndividual(individual, model, phantom_emission):
         update_los(transform)
 
         assert_valid_impact_params(transform)
+        assert_valid_maximum_impact(transform)
 
         # Re-run model and calculate inversion
         bckc = model()
@@ -521,9 +522,9 @@ def evaluateIndividual(individual, model, phantom_emission):
 
         #Impact parameter penalty for LOS overshooting the plasma
         imp2=transform.impact_rho.sel(t=0,method="nearest")
-        #Find all that are larger than 1.3. Sum the overshoots and 2x that to add
-        impact_penalty=imp2-1.4
-        positive_imp=(2*np.sum(impact_penalty[impact_penalty>0])+1).values
+        #Find all that are larger than 1.1. Sum the overshoots and 3x that to add
+        impact_penalty=imp2-1.1
+        positive_imp=(3*np.sum(impact_penalty[impact_penalty>0])+1).values
 
 
 
@@ -541,15 +542,17 @@ def evaluateIndividual(individual, model, phantom_emission):
     except AssertionError:
         return(BIG,)
 
-def run_ga(number_of_los, model, phantom_emission):
+def run_ga(number_of_los, model, phantom_emission, plot_gen=False):
     toolbox = define_ga(model, number_of_los, phantom_emission)
     pop = toolbox.population(n=70)
     # evaluate invalid only
     invalid = [ind for ind in pop if not ind.fitness.valid]
     fits = list(map(toolbox.evaluate, invalid))
     for ind, fit in zip(invalid, fits):
-        ind.fitness.values = fit   
-
+        ind.fitness.values = fit
+    if plot_gen:  
+        return pop 
+    
     avg_hist=[]
     best_hist=[]
     best_ind=[]
@@ -558,6 +561,8 @@ def run_ga(number_of_los, model, phantom_emission):
     hof.update(pop)
     
     stopper=EarlyStopper()
+
+
 
 
     CXPB, MUTPB = 0.5, 0.2
@@ -1584,15 +1589,14 @@ def get_solution(individual, transform, model, phantom_emission,los_penalty=None
 def assert_valid_maximum_impact(transform):
     
     imp2=transform.impact_rho.sel(t=0,method="nearest")
-    assert(np.max(imp2)<1.4)
+    assert(np.max(imp2)<1.5)
 
 def assert_valid_impact_params(transform):
     
     #imp=np.sort(transform.impact_parameter["dist"])
     imp2=transform.impact_rho.sel(t=0,method="nearest")
     imp2_s=np.sort(transform.impact_rho.sel(t=0,method="nearest"))
-    #assert(np.all(0.03<np.diff(imp)))
-    assert(np.all(0.003<np.diff(imp2_s)))
+    assert(np.all(0.005<np.diff(imp2_s)))
 
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
@@ -1641,12 +1645,29 @@ def run_example_diagnostic_model(
     # Run model and inversion
     bckc, phantom_emission = model(return_emissivity=True)
 
-    for los_count in range(4,8):
-        for runs in range(1):
+    #Plot the initial pop
+    plot_gen=True
+
+    for los_count in range(6,10):
+        for runs in range(3):
 
             savepickle=True
             if savepickle:
-                hof,bestPerGen=run_ga(los_count,model,phantom_emission)
+
+                if plot_gen:
+                    sols=[]
+                    best =run_ga(los_count,model,phantom_emission,plot_gen)
+                    for item in best:
+                        sol=get_solution(item,transform,model,phantom_emission,"sqrt")
+                        if sol:
+                            sols.append(sol)
+                    interactive_solution_timeslice_plot_from_list(sols)
+                    ata
+                else:
+                    hof,bestPerGen=run_ga(los_count,model,phantom_emission)
+
+                                
+
                 gens=len(bestPerGen)
                 with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_{los_count}los{gens}_gens_run{runs}.pkl', 'wb') as file:
                     # Dump data with highest protocol for best performance

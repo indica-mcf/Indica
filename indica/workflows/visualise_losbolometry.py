@@ -141,7 +141,7 @@ def run_example_diagnostic_model(
             with open(f'{filename}','rb') as file:
                     all_solutions_from_same_los_run.extend(pickle.load(file))
         print(len(all_solutions_from_same_los_run))
-        keep_idx,_=prune_by_cosine(all_solutions_from_same_los_run,sim_thresh=0.9   )
+        keep_idx,_=prune_by_cosine(all_solutions_from_same_los_run,sim_thresh=0.95   )
         print(len(keep_idx))
         to_add=[all_solutions_from_same_los_run[i] for i in keep_idx]
         if len(to_add)>10:
@@ -150,7 +150,7 @@ def run_example_diagnostic_model(
 
     solutions=[]
 
-
+    #hofs=[[ 0.0, 6.0, 15.0, 18.0, 336.0, 356.0, 0.0, 0.0, 0.14285714, 0.14285714, -0.14285714, 0.0, -0.28571429,-0.7]]
     print(f"Cos pruned to a length of {len(hofs)}")
     for sol in hofs:
         solu=get_solution(sol,transform,model,phantom_emission,"sqrt")
@@ -162,10 +162,12 @@ def run_example_diagnostic_model(
     sort_by_penalized=True
     if sort_by_penalized:
         solutions = sorted(solutions, key=lambda x: x[-2])
+        print(solutions[0])
     else:
 
         solutions = sorted(solutions, key=lambda x: x[-3])
- 
+
+
 
     interactive_solution_timeslice_plot_from_list(solutions,init_solution=0)
 
