@@ -447,11 +447,7 @@ class CoordinateTransform(ABC):
         self.rhop = rhop
         self.theta = theta
         if "los_position" in self.rhop.dims:
-            rhop_mean = self.rhop.mean("beamlet")
-            self.impact_rho = rhop_mean.sel(
-                los_position=self.impact_parameter.index.los_position
-            )
-            self.los_length = (xr.where(rhop_mean <= 1, 1, 0) * self.dl).sum(
+            self.los_length = (xr.where(rhop.mean("beamlet") <= 1, 1, 0) * self.dl).sum(
                 "los_position"
             )
 
