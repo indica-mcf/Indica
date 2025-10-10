@@ -146,7 +146,9 @@ class Plasma:
         self.neutral_density = format_dataarray(
             data2d, "neutral_density", coords2d, make_copy=True
         )
-        self.tau = format_dataarray(data2d, "residence_time", coords2d, make_copy=True)
+        self.residence_time = format_dataarray(
+            data2d, "residence_time", coords2d, make_copy=True
+        )
         self.ion_temperature = format_dataarray(
             data2d, "ion_temperature", coords2d, make_copy=True
         )
@@ -233,7 +235,7 @@ class Plasma:
                 self.electron_density,
                 self.electron_temperature,
                 self.neutral_density,
-                self.tau,
+                self.residence_time,
             ],
         )
 
@@ -243,7 +245,7 @@ class Plasma:
                 self.electron_density,
                 self.electron_temperature,
                 self.neutral_density,
-                self.tau,
+                self.residence_time,
             ],
         )
 
@@ -273,7 +275,7 @@ class Plasma:
                 self.impurity_density,
                 self.fast_ion_density,
                 self.neutral_density,
-                self.tau,
+                self.residence_time,
             ],
         )
 
@@ -282,7 +284,7 @@ class Plasma:
             [
                 self.electron_density,
                 self.electron_temperature,
-                self.tau,
+                self.residence_time,
                 self.neutral_density,
             ],
         )
@@ -294,7 +296,7 @@ class Plasma:
                 self.electron_temperature,
                 self.impurity_density,
                 self.fast_ion_density,
-                self.tau,
+                self.residence_time,
                 self.neutral_density,
             ],
         )
@@ -408,9 +410,9 @@ class Plasma:
             for t in np.array(self.time_to_calculate, ndmin=1):
                 electron_temperature = self.electron_temperature.sel(t=t)
                 electron_density = self.electron_density.sel(t=t)
-                tau = None
-                if np.any(self.tau != 0):
-                    tau = self.tau.sel(t=t)
+                residence_time = None
+                if np.any(self.residence_time != 0):
+                    residence_time = self.residence_time.sel(t=t)
                 neutral_density = None
                 if np.any(self.neutral_density != 0):
                     neutral_density = self.neutral_density.sel(t=t)
@@ -422,7 +424,7 @@ class Plasma:
                     electron_temperature,
                     Ne=electron_density,
                     Nh=neutral_density,
-                    tau=tau,
+                    tau=residence_time,
                 )
                 self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose()
         return self._fz
@@ -738,6 +740,7 @@ class PlasmaProfiler:
                 "thermal_pressure",
                 "toroidal_rotation",
                 "total_radiation",
+                "residence_time",
             ]
         self.plasma = plasma
         self.profilers = profilers
