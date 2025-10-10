@@ -938,36 +938,65 @@ class LineOfSightTransform(CoordinateTransform):
         return los_integral
 
     def calc_impact_parameter(self):
-        """Calculate the impact parameter in Cartesian space"""
-        impact = []
-        index = []
-        x = []
-        y = []
-        z = []
-        R = []
-        for ch in self.x1:
-            x_mean = self.x.sel(channel=ch).mean("beamlet")
-            y_mean = self.y.sel(channel=ch).mean("beamlet")
-            z_mean = self.z.sel(channel=ch).mean("beamlet")
-            distance = np.sqrt(x_mean**2 + y_mean**2 + z_mean**2)
-            _index = np.unravel_index(distance.argmin(), distance.shape)
-            _index_temp = distance.argmin()
-            index.append(_index_temp)
-            impact.append(distance[_index])
-            x.append(x_mean[_index])
-            y.append(y_mean[_index])
-            z.append(z_mean[_index])
-            R.append(np.sqrt(x_mean[_index] ** 2 + y_mean[_index] ** 2))
+        """Calculate the impact parameter in Cartesian and flux space"""
+        if not hasattr(self, "equilibrium"):
+            return None
+
+        # if not hasattr(self, "rhop"):
+        rhop, theta = self.convert_to_rho_theta()
+        rhop_mean = self.rhop.mean("beamlet")
+        x_mean = self.x.mean("beamlet").expand_dims({"t": self.rhop.t.data})
+        y_mean = self.y.mean("beamlet").expand_dims({"t": self.rhop.t.data})
+        z_mean = self.z.mean("beamlet").expand_dims({"t": self.rhop.t.data})
+        R_mean = np.sqrt(x_mean**2 + y_mean**2)
+
+        # Downsample rhop for better derivative
+        rhop = rhop_mean.interp(
+            los_position=np.linspace(0, 1, int(len(rhop_mean.los_position) / 3))
+        )
+        diff1 = rhop.differentiate("los_position")
+        diff2 = diff1.differentiate("los_position")
+
+        # Nearest point to the magnetic axis == abs(1st derivative) --> 0
+        # Neglect extreme 2nd derivatives == crossing the magnetic axis multiple times
+        abs_diff1 = xr.where(diff2 < 50, np.abs(diff1), np.nan)
+        impact_indx = abs_diff1.argmin("los_position", skipna=True)
+        impact_los_position = abs_diff1.los_position.isel(los_position=impact_indx)
 
         impact = Dataset(
             {
-                "index": xr.concat(index, "channel"),
-                "value": xr.concat(impact, "channel"),
-                "x": xr.concat(x, "channel"),
-                "y": xr.concat(y, "channel"),
-                "z": xr.concat(z, "channel"),
-                "R": xr.concat(R, "channel"),
+                "index": impact_indx,
+                "x": x_mean.sel(los_position=impact_los_position, method="nearest"),
+                "y": y_mean.sel(los_position=impact_los_position, method="nearest"),
+                "z": z_mean.sel(los_position=impact_los_position, method="nearest"),
+                "R": R_mean.sel(los_position=impact_los_position, method="nearest"),
+                "rhop": rhop_mean.sel(
+                    los_position=impact_los_position, method="nearest"
+                ),
             }
         )
 
+        self.impact_parameter = impact
+
         return impact
+
+
+def test_impact():
+    from indica.readers import ST40Reader
+    from indica import Equilibrium
+
+    st40 = ST40Reader(13133, 0, 10)
+    data = st40(["pi", "efit", "sxrc_rz1"])
+    equil = Equilibrium(data["efit"])
+    # transform = data["pi"]["spectra"].transform
+    transform = data["sxrc_rz1"]["brightness"].transform
+    transform.set_equilibrium(equil)
+
+    impact = transform.calc_impact_parameter()
+
+    transform.plot()
+
+    plt.figure()
+    plt.plot(impact["rhop"])
+
+    return transform
