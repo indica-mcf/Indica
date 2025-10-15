@@ -20,12 +20,15 @@ config = {
     # },
     # "mo": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 3)},
     # "b": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 3)},
-    # "li": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 3)},
+    "li": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 3)},
 
     # "ar": {
     #     str(charge): dict(file_type="llu", year="transport") for charge in range(16, 18)
     # },
 }
+# spectrum (nm)
+window = np.linspace(350, 750, 500)
+
 
 pulse = 11890
 t = 0.105
@@ -70,15 +73,13 @@ transform = transforms["blom_dv1"]
 transform.set_equilibrium(equilibrium=equilibrium)
 
 adf15 = read_adf15s(elements=config.keys(), config=config)
-window = np.linspace(350, 750, 500)
 
 pecs = format_pecs(adf15, wavelength_bounds=slice(window.min(), window.max()),
-                   electron_density_bounds=slice(1e18, 5e20),
+                   electron_density_bounds=slice(1e18, 2e20),
                    electron_temperature_bounds=slice(10, 5000), )
 
 divspec = PassiveSpectrometer(name="test", pecs=pecs, window=window)
 
-# divspec.set_plasma(plasma)
 divspec.set_transform(transform)
 
 
@@ -86,21 +87,22 @@ divspec.set_transform(transform)
 Nh = solps_data["nion"].sel(element="h") * solps_data["fz"]["h"].sel(ion_charge=0)
 Nh = Nh.drop_vars(("element", "ion_charge", ))
 
+
+
+## TODO: add lithium to Ni and Fz
+
+
+
 bckc = divspec(Te=solps_data["te"], Ne=solps_data["ne"], Ni=solps_data["nion"],
-            Fz=solps_data["fz"], Nh=Nh, Ti=500, t=[t], )
+            Fz=solps_data["fz"], Nh=Nh, Ti=1000, t=[t], )
 
 
-emissivity = divspec.intensity["h"].sum("wavelength").sum("t") + divspec.intensity["c"].sum("wavelength").sum("t")
+emissivity = 0
+for element in divspec.intensity.keys():
+    emissivity += divspec.intensity[element].sum("wavelength").sum("t")
+
 # nd0 = (solps_data["nion"].sel(element="h") * solps_data["fz"]["h"].sel(ion_charge=0)).sel(t=t)
 extent = [emissivity.R.min(), emissivity.R.max(), emissivity.z.min(), emissivity.z.max()]
-
-
-# plt.figure()
-# plt.title("neutral deuterium")
-# plt.imshow(nd0.values, extent=extent, norm=LogNorm(vmin=1e13, vmax=1e19))
-# plt.axis("equal")
-# plt.grid()
-# plt.colorbar()
 
 plt.figure()
 plt.title("emissivity (photons/m^3)")
@@ -127,7 +129,7 @@ for idx, chan_num in enumerate(spectra.channel.values):
         color=cols_chan[idx],
         alpha=0.8,
     )
-plt.ylabel("Emissivity (photon/m^2/nm)")
+plt.ylabel("Emissivity (photon/m^2/nm/s)")
 plt.xlabel("Wavelength (nm)")
 plt.legend()
 
