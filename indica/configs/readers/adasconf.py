@@ -7,6 +7,12 @@ ADF15 = {
     },
     "ne": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 8)},
     "c": {str(charge): dict(file_type="bnd", year="96") for charge in range(5, 6)},
+    "b": {
+        "1": dict(
+            file_type="llu",
+            year="93",
+        ),
+    },
     "ar": {
         str(charge): dict(file_type="llu", year="transport") for charge in range(16, 18)
     },
@@ -34,6 +40,16 @@ ADF11: dict = {
         "prs": "15",
     },
     "li": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "89",
+        "plt": "96",
+        "prb": "96",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+    "be": {
         "scd": "89",
         "acd": "89",
         "ccd": "89",
@@ -43,7 +59,7 @@ ADF11: dict = {
         "pls": "15",
         "prs": "15",
     },
-    "be": {
+    "b": {
         "scd": "89",
         "acd": "89",
         "ccd": "89",

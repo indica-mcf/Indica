@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 import matplotlib.cm as cm
 import matplotlib.pylab as plt
 import numpy as np
@@ -51,6 +49,9 @@ class PinholeCamera(AbstractDiagnostic):
             "emissivity": self.emissivity,
             "rhop": self.plasma.rhop
         }
+        if "beamlet" in self.los_integral.coords:
+            bckc["beamlet"] = self.los_integral.beamlet
+
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 
     def __call__(
@@ -101,9 +102,6 @@ class PinholeCamera(AbstractDiagnostic):
             if Te is None or Ne is None or Nion is None or fz is None or t is None:
                 raise ValueError("Give inputs or assign plasma class!")
 
-        if Nh is None:
-            Nh = deepcopy(Ne) * 0.0
-
         self.t = t
         self.Te = Te
         self.Ne = Ne
@@ -116,21 +114,21 @@ class PinholeCamera(AbstractDiagnostic):
         self.Lz = {}
         emissivity_element = []
         elements = self.Nion.element.values
+
         for elem in elements:
-            fz = self.fz[elem].sel(t=t)
-            if hasattr(self, "rhop"):
-                fz = fz.transpose()
+            Lz = []
+            for _t in t:
+                fz = self.fz[elem].sel(t=_t)
 
-            Lz = self.power_loss[elem](
-                Te,
-                fz,
-                Ne=Ne,
-                Nh=Nh,
-            )
+                _Lz = self.power_loss[elem](
+                    Te.sel(t=_t),
+                    fz,
+                    Ne=Ne.sel(t=_t),
+                    Nh=Nh.sel(t=_t),
+                )
+                Lz.append(_Lz)
 
-            if hasattr(self, "rhop"):
-                Lz = Lz.transpose()
-            self.Lz[elem] = Lz
+            self.Lz[elem] = xr.concat(Lz, "t")
 
             _emissivity = (
                 self.Lz[elem].sum("ion_charge") * self.Nion.sel(element=elem) * self.Ne
@@ -190,22 +188,22 @@ class PinholeCamera(AbstractDiagnostic):
         for i, t in enumerate(np.array(self.t)):
             if i % nplot:
                 continue
-            if hasattr(self, "rhop"):
-                _plot = plt.plot(
+            if hasattr(self.emissivity, "rhop"):
+                plt.plot(
                     self.emissivity.rhop,
                     self.emissivity.sel(t=t),
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
             else:
-                _plot = self.emissivity.sel(t=t).plot(
-                    label=f"t={t:1.2f} s", add_labels=True
+                self.emissivity.sel(t=t).plot(
+                    label=f"t={t:1.2f} s",
                 )
                 self.transform.plot(orientation="Rz", figure=False, t=t)
                 break
 
-        set_axis_sci(_plot)
-        if hasattr(self, "rhop"):
+        set_axis_sci()
+        if hasattr(self.emissivity, "rhop"):
             plt.xlabel("Rho-poloidal")
             plt.ylabel("(W/m^3)")
         else:

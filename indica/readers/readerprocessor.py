@@ -8,6 +8,7 @@ from xarray import DataArray
 
 from indica.configs.readers.st40readerprocessorconf import ST40ReaderProcessorConf
 from indica.converters.time import convert_in_time_dt
+from indica.converters.time import get_tlabels_dt
 
 
 class ReaderProcessor:
@@ -38,6 +39,8 @@ class ReaderProcessor:
 
         self.reset_data()
         self.raw_data = raw_data
+
+        self.t = get_tlabels_dt(tstart, tend, dt)
 
         self.processed_data = apply_filter(
             raw_data,
