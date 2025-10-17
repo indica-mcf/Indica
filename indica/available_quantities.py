@@ -188,4 +188,9 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
     },
     # "get_astra": {  # TODO: implement
     # },
+
+    "get_transp": {  # TODO: implement
+        "t": ("t", ["t"]),
+    },
+
 }

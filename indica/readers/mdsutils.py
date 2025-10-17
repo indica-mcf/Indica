@@ -49,7 +49,10 @@ class MDSUtils(BaseIO):
     ) -> Tuple[np.array, str]:
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
+        print(uid,instrument,quantity,revision)
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
+        print(path)
+        ata
         if quantity.lower() == ":best_run":
             data = str(self.conn.get(path))
         else:
