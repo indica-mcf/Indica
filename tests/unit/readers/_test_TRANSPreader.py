@@ -1,9 +1,9 @@
-from indica.readers import TRANSPreader
+from indica.readers import st40reader
 
 PULSE = 40000042
 TSTART = 0.01
 TEND = 0.1
-REVISION=999
+REVISION="J10"
 
 INSTRUMENTS: list = [
     "transp"
@@ -11,7 +11,7 @@ INSTRUMENTS: list = [
 
 
 def run_reader_get_methods(
-    reader: TRANSPreader,
+    reader: st40reader,
     instrument: str,
 ):
     print(instrument)
@@ -20,7 +20,7 @@ def run_reader_get_methods(
 
 
 def test_reader_get_methods(return_dataarrays=True, verbose=True):
-    reader = TRANSPreader(
+    reader = st40reader(
         PULSE, TSTART, TEND, verbose=verbose, return_dataarrays=return_dataarrays
     )
     for instrument in INSTRUMENTS:

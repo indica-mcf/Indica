@@ -108,9 +108,7 @@ class MDSUtils(BaseIO):
 
         if type(revision) == int:
             _revision = int(revision)
-            if _revision==999:
-                rev_str="J10"
-            elif _revision < 0:
+            if _revision < 0:
                 rev_str = ""
             elif _revision == 0:
                 rev_str = "best"
