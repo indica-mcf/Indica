@@ -49,10 +49,12 @@ class MDSUtils(BaseIO):
     ) -> Tuple[np.array, str]:
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
-        print(uid,instrument,quantity,revision)
+        print("uid:"+uid)
+        print("instrument:"+instrument)
+        print("quantity:"+quantity)
+        print("revision:"+revision)
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
-        print(path)
-        ata
+        print("Path in get_signal:"+path)
         if quantity.lower() == ":best_run":
             data = str(self.conn.get(path))
         else:
@@ -106,7 +108,9 @@ class MDSUtils(BaseIO):
 
         if type(revision) == int:
             _revision = int(revision)
-            if _revision < 0:
+            if _revision==999:
+                rev_str="J10"
+            elif _revision < 0:
                 rev_str = ""
             elif _revision == 0:
                 rev_str = "best"
@@ -116,7 +120,7 @@ class MDSUtils(BaseIO):
                 rev_str = f"run{int(_revision)}"
         else:
             rev_str = f"{revision}"
-
+        print(rev_str)
         return rev_str.upper()
 
     def get_best_revision(self, uid: str, instrument: str):
@@ -130,7 +134,9 @@ class MDSUtils(BaseIO):
         """
         Return revision name given
         """
+        print("in get_Revision: "+str(revision))
         revision_name = self.revision_name(revision)
+        print("in get_Revision: "+str(revision_name))
         if revision_name == "BEST":
             revision_name = self.get_best_revision(uid, instrument)
 
@@ -150,7 +156,8 @@ class MDSUtils(BaseIO):
         mds_path = ""
         if len(uid) > 0:
             mds_path += f".{uid}".upper()
-        if len(instrument) > 0 and instrument.upper() != self.tree.upper():
+
+        if len(instrument) > 0 and instrument.upper() != self.tree.upper() and instrument.upper()!="TRANSP":
             mds_path += f".{instrument}".upper()
         mds_path += f".{revision_name}{quantity}".upper()
         return mds_path, self.mdsCheck(mds_path)

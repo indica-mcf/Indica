@@ -11,11 +11,28 @@ class TRANSPConf(MachineConf):
 
         }
         self.QUANTITIES_PATH = {
-            #Todo: remove the astra specific things
-              "get_transp": {
-                "ne": ".profiles.astra:ne",  # 10^19 m^-3
-
-
+            "get_transp": {
+                "t": ":time",  
+                "psin": ".profiles.rhotor:psin", 
+                "R": ".psi2d:rgrid",  # not 
+                "z": ".psi2d:zgrid",  # not 
+                "f": ".profiles.psi_norm:fpol",  
+                "psi_axis": ".global:faxs",  
+                "psi_boundary": ".global:fbnd",  
+                "ftor": ".profiles.psi_norm:ftor",  
+                "rmji": ".profiles.psi_norm:rmji",  # not 
+                "rmjo": ".profiles.psi_norm:rmjo",  # not 
+                "psi": ".psi2d:psi",  
+                "volume": ".profiles.rhotor:volume",  
+                "area": ".profiles.rhotor:area",  
+                "rmag": ".global:rmag",  
+                "rgeo": ".global:rgeo",  
+                "rbnd": ".p_boundary:rbnd",  
+                "zmag": ".global:zmag",  
+                "zbnd": ".p_boundary:zbnd",  
+                "ipla": ".global:ipl",  
+                "wp": ".global:wth",  
+                "df": ".global.df",  
             },
 
             "get_transp2": {

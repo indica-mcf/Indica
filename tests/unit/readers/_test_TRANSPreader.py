@@ -3,6 +3,7 @@ from indica.readers import TRANSPreader
 PULSE = 40000042
 TSTART = 0.01
 TEND = 0.1
+REVISION=999
 
 INSTRUMENTS: list = [
     "transp"
@@ -14,7 +15,7 @@ def run_reader_get_methods(
     instrument: str,
 ):
     print(instrument)
-    data = reader.get("", instrument, 0)
+    data = reader.get("", instrument, revision=REVISION)
     return data
 
 

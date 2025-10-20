@@ -28,6 +28,7 @@ class ST40Conf(MachineConf):
             "astra": "get_astra",
             "ppts": "get_profile_fits",
             "zeff_brems": "get_zeff",
+            "transp": "get_transp",
         }
         self.QUANTITIES_PATH = {
             "get_equilibrium": {
@@ -149,6 +150,26 @@ class ST40Conf(MachineConf):
                 "zeff_low": ".global:zeff_low",
                 "zeff": ".profiles.psi_norm:zeff",
             },
+            "get_transp": {
+                "t": ":time",  
+                "psin": ".profiles.rhotor:psin", 
+                "f": ".profiles.psi_norm:fpol",  
+                "psi_axis": ".global:faxs",  
+                "psi_boundary": ".global:fbnd",  
+                "ftor": ".profiles.psi_norm:ftor",  
+                "psi": ".psi2d:psi",  
+                "volume": ".profiles.rhotor:volume",  
+                "area": ".profiles.rhotor:area",  
+                "rmag": ".global:rmag",  
+                "rgeo": ".global:rgeo",  
+                "rbnd": ".p_boundary:rbnd",  
+                "zmag": ".global:zmag",  
+                "zbnd": ".p_boundary:zbnd",  
+                "ipla": ".global:ipl",  
+                "wp": ".global:wth",  
+                "df": ".global.df",  
+            },
+
             "get_astra": {
                 "psi_axis": ".global:faxs",
                 "psi_boundary": ".global:fbnd",

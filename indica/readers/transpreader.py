@@ -68,9 +68,8 @@ class TRANSPreader(DataReader):
 
 
 
-
-
-    def _get_equilibrium(
+    #Right now this is essentially just get equlibrium
+    def _get_transp(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -87,18 +86,7 @@ class TRANSPreader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
-
-
-    def _get_helike_spectroscopy(
-        self,
-        database_results: dict,
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        database_results["channel"] = np.arange(database_results["location"][:, 0].size)
-        transform = assign_lineofsight_transform(database_results)
-        return database_results, transform
-
-
-
+    #Right now this is essentially j
 
 
     def __call__(
@@ -118,8 +106,6 @@ class TRANSPreader(DataReader):
 
         self.data = {}
         for instrument in instruments:
-            print(f"Reading {instrument}")
-            ata
             try:
                 self.data[instrument] = self.get(
                     "",
