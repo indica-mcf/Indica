@@ -6,6 +6,7 @@ from scipy.constants import electron_mass
 from scipy.constants import elementary_charge
 from scipy.constants import epsilon_0
 from scipy.constants import speed_of_light
+import xarray as xr
 from xarray import DataArray
 
 from indica import Equilibrium
@@ -84,25 +85,52 @@ class Polarimeter(AbstractDiagnostic):
             calc_rho=calc_rho,
         )
         ne_remapped = ne_remapped.assign_coords(
-            {
-                "R": (("channel", "beamlet", "los_position"), self.transform.R.data),
-                "z": (("channel", "beamlet", "los_position"), self.transform.z.data),
-            }
+            {"R": self.transform.R, "z": self.transform.z}
         )
         self.ne_remapped = ne_remapped
 
-        Br, Bz, _, _ = equilibrium.Bfield(self.transform.R, self.transform.z, t=t)
-        unit_factor = np.linalg.norm(self.transform.direction, axis=1)
-        Bl = (Br * self.transform.direction_x / unit_factor) + (
-            Bz * self.transform.direction_z / unit_factor
+        Br, Bz, Bt, _ = equilibrium.Bfield(self.transform.R, self.transform.z, t=t)
+        Bx = Br * np.cos(self.transform.phi) - Bt * np.sin(self.transform.phi)
+        By = Br * np.sin(self.transform.phi) + Bt * np.cos(self.transform.phi)
+        Bx_l = xr.zeros_like(Bx).transpose(
+            self.transform.x1_name, "beamlet", self.transform.x2_name
         )
-        Bl = Bl.assign_coords(
-            {
-                "R": (("channel", "beamlet", "los_position"), self.transform.R.data),
-                "z": (("channel", "beamlet", "los_position"), self.transform.z.data),
-            }
+        By_l = xr.zeros_like(By).transpose(
+            self.transform.x1_name, "beamlet", self.transform.x2_name
         )
+        Bz_l = xr.zeros_like(Bz).transpose(
+            self.transform.x1_name, "beamlet", self.transform.x2_name
+        )
+        Bl = xr.zeros_like(self.ne_remapped).transpose(
+            self.transform.x1_name, "beamlet", self.transform.x2_name
+        )
+        for i, x1 in enumerate(self.transform.x1):
+            for j, beamlet in enumerate(self.transform.beamlets):
+                _bx = Bx.sel({self.transform.x1_name: x1, "beamlet": beamlet})
+                _by = By.sel({self.transform.x1_name: x1, "beamlet": beamlet})
+                _bz = Bz.sel({self.transform.x1_name: x1, "beamlet": beamlet})
+                dx = self.transform.beamlet_direction_x[i, j]
+                dy = self.transform.beamlet_direction_y[i, j]
+                dz = self.transform.beamlet_direction_z[i, j]
+                uf = np.linalg.norm((dx, dy, dz))
+                dx /= uf
+                dy /= uf
+                dz /= uf
+                Bx_l.loc[i, j, :] = dx.data * _bx.data
+                By_l.loc[i, j, :] = dy.data * _by.data
+                Bz_l.loc[i, j, :] = dz.data * _bz.data
+                Bl.loc[i, j, :] = np.dot((dx, dy, dz), (_bx, _by, _bz))
+        # Bl = (Bx * dx) + (By * dy) + (Bz * dz)
+        Bl = Bl.assign_coords({"R": self.transform.R, "z": self.transform.z})
         Bl.name = "Longitudinal Magnetic Field (T)"
+        self.Br = Br
+        self.Bz = Bz
+        self.Bt = Bt
+        self.Bx = Bx
+        self.By = By
+        self.Bx_l = Bx_l
+        self.By_l = By_l
+        self.Bz_l = Bz_l
         self.Bl = Bl
 
         Dphi = (
@@ -122,11 +150,13 @@ class Polarimeter(AbstractDiagnostic):
         )
         Dphi.name = "Faraday Rotation (rad)"
         self.Dphi = Dphi
-        self.los_integral_dphi = (
+        los_integral_dphi = (
             self.Dphi.sum(("los_position", "beamlet"))
             * self.transform.dl
             * self.transform.passes
         )
+        los_integral_dphi.name = "Faraday Rotation Integrated (rad)"
+        self.los_integral_dphi = los_integral_dphi
 
         self._build_bckc_dictionary()
         return self.bckc
