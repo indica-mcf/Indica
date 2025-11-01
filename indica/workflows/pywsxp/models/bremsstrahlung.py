@@ -2,13 +2,14 @@ from copy import deepcopy
 
 import numpy as np
 import scipy.constants as constants
+from xarray import DataArray
+
 from indica import physics
 from indica.available_quantities import READER_QUANTITIES
 from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
 from indica.utilities import build_dataarrays
-from xarray import DataArray
 
 
 class BremsstrahlungSpectrometer(AbstractDiagnostic):
