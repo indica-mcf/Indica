@@ -2,24 +2,33 @@
 Functions to quickly generate plots for SXR analysis
 """
 
+from copy import deepcopy
 import json
 import math
-from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Iterable
+from typing import List
+from typing import Optional
+from typing import Union
 
 import matplotlib as mpl
+from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
-import xarray as xr
-from indica.profilers.profiler_spline import ProfilerCubicSpline
-from indica.utilities import assign_datatype, get_element_info
-from matplotlib.figure import Figure
 from numpy.typing import NDArray
 from pyswarms.utils.plotters import plot_cost_history
-from xarray import DataArray, Dataset
+import xarray as xr
+from xarray import DataArray
+from xarray import Dataset
 
-from indica.workflows.pywsxp.optimise import _profile_parameters, parse_residual
+from indica.profilers.profiler_spline import ProfilerCubicSpline
+from indica.utilities import assign_datatype
+from indica.utilities import get_element_info
+from indica.workflows.pywsxp.optimise import _profile_parameters
+from indica.workflows.pywsxp.optimise import parse_residual
 
 
 def _chisqr(data: Dataset) -> tuple[float, float]:

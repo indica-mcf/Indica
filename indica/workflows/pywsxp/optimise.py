@@ -3,19 +3,20 @@
 Instantiates a Plasma class with JET-relevant conditions
 """
 
-from typing import Optional, Union
+from typing import Optional
+from typing import Union
 
 import numpy as np
+from numpy.typing import NDArray
+from scipy.interpolate import CubicSpline
 import xarray as xr
+from xarray import DataArray
+
 from indica.models.pinhole_camera import PinholeCamera
+from indica.numpy_typing import LabeledArray
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
 from indica.plasma import PlasmaProfiler
 from indica.utilities import assign_datatype
-from indica.numpy_typing import LabeledArray
-from numpy.typing import NDArray
-from scipy.interpolate import CubicSpline
-from xarray import DataArray
-
 from indica.workflows.pywsxp.diagnostic import Diagnostic
 from indica.workflows.pywsxp.plasma import make_plasma_2d
 

@@ -1,18 +1,24 @@
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import List
+from typing import Optional
+from typing import Union
 
+from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
 import numpy as np
+from xarray import concat
+from xarray import DataArray
+from xarray import Dataset
+
 from indica.converters import LineOfSightTransform
 from indica.converters.abstractconverter import CoordinateTransform
 from indica.converters.transect import TransectCoordinates
-from indica.datatypes import DATATYPES, UNITS
+from indica.datatypes import DATATYPES
+from indica.datatypes import UNITS
 from indica.models import PinholeCamera
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.plasma import Plasma
-from matplotlib.axes import Axes
-from xarray import DataArray, Dataset, concat
 
 
 @dataclass
@@ -179,7 +185,11 @@ def plot_los(
                 "long_name": DATATYPES["concentration"][0],
                 "units": UNITS[DATATYPES["concentration"][1]],
             }
-        ).interp(t=time, rhop=rhop_bnd).plot(x="R", cmap=cmap, ax=ax)
+        ).interp(
+            t=time, rhop=rhop_bnd
+        ).plot(
+            x="R", cmap=cmap, ax=ax
+        )
     elif diagnostic.quantity == "zeff_avrg":
         plasma.zeff.sum("element").interp(t=time, rhop=rhop_bnd).plot(
             x="R", cmap=cmap, ax=ax

@@ -2,8 +2,9 @@ from copy import deepcopy
 from functools import partial
 
 import numpy as np
-from indica.plasma import Plasma
 from xarray import DataArray
+
+from indica.plasma import Plasma
 
 
 def _ion_density_2d(
