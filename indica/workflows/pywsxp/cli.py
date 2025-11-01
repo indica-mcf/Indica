@@ -6,7 +6,10 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-from indica.workflows.pywsxp import batch, jet, plots, results
+from indica.workflows.pywsxp import batch
+from indica.workflows.pywsxp import jet
+from indica.workflows.pywsxp import plots
+from indica.workflows.pywsxp import results
 
 
 def _plots(args: Namespace) -> None:

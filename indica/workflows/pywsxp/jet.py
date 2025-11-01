@@ -5,10 +5,6 @@ from os import cpu_count
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
-import numpy as np
-import pyswarms as ps
-import xarray as xr
-import yaml
 from indica.equilibrium import Equilibrium
 from indica.models.charge_exchange_spectrometer import ChargeExchangeSpectrometer
 from indica.models.pinhole_camera import PinholeCamera
@@ -24,13 +20,6 @@ from indica.readers import adas
 from indica.readers.adas import ADASReader
 from indica.readers.jetreader import JETReader
 from indica.utilities import get_element_info
-from numpy.typing import NDArray
-from sal.core.exception import NodeNotFound
-from scipy.interpolate import CubicSpline
-from scipy.optimize import least_squares
-from scipy.signal import savgol_filter
-from xarray import DataArray, Dataset
-
 from indica.workflows.pywsxp.diagnostic import Diagnostic
 from indica.workflows.pywsxp.models.bremsstrahlung import BremsstrahlungSpectrometer
 from indica.workflows.pywsxp.models.effective_charge import EffectiveCharge
@@ -42,6 +31,17 @@ from indica.workflows.pywsxp.optimise import (
 )
 from indica.workflows.pywsxp.results import convert_to_dataset
 from indica.workflows.pywsxp.types import Config, Diagnostics, History, Inputs, Results
+
+import numpy as np
+import pyswarms as ps
+import xarray as xr
+import yaml
+from numpy.typing import NDArray
+from sal.core.exception import NodeNotFound
+from scipy.interpolate import CubicSpline
+from scipy.optimize import least_squares
+from scipy.signal import savgol_filter
+from xarray import DataArray, Dataset
 
 DEFAULTS: Dict[str, Any] = dict(
     n_iters=250,
@@ -163,12 +163,7 @@ ADF11.update(
 def load(
     configfile: Union[str, Path] = "config.yaml",
     resultsfile: Optional[Union[str, Path]] = None,
-) -> Tuple[
-    Dict[str, Any],
-    Plasma,
-    Diagnostics,
-    Inputs,
-]:
+) -> Tuple[Dict[str, Any], Plasma, Diagnostics, Inputs,]:
     """
     Load config and :py:`pickle` of input data, building inputs if they don't exist
     """
@@ -757,11 +752,7 @@ def make_plasma_profiler(
     t: Union[int, float],
     n_particles: int = 24,
     no_asym: bool = False,
-) -> Tuple[
-    PlasmaProfiler,
-    tuple[NDArray, NDArray],
-    NDArray,
-]:
+) -> Tuple[PlasmaProfiler, tuple[NDArray, NDArray], NDArray,]:
     density_lower_bounds: list[float] = []
     density_upper_bounds: list[float] = []
     density_init_pos: list[float] = []
@@ -859,15 +850,7 @@ def optimise_imurities(
     pso_options: Optional[Dict[str, float]] = None,
     diag_to_scale: Optional[list[str]] = None,
     verbose: bool = False,
-) -> Tuple[
-    Config,
-    Plasma,
-    Diagnostics,
-    Inputs,
-    Results,
-    History,
-    Path,
-]:
+) -> Tuple[Config, Plasma, Diagnostics, Inputs, Results, History, Path,]:
     if t is None:
         t = np.array(plasma.time_to_calculate, ndmin=1)[0]
     try:
@@ -901,11 +884,7 @@ def optimise_imurities(
     for element in impurities:
         plasma.set_impurity_concentration(element, 0.0, t=t)
     n_particles = 64
-    (
-        profiler,
-        bounds,
-        init_pos,
-    ) = make_plasma_profiler(
+    (profiler, bounds, init_pos,) = make_plasma_profiler(
         deepcopy(plasma),
         impurities=impurities,
         xknots=xknots,

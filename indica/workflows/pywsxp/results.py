@@ -2,24 +2,32 @@
 Process output data into netCDF files
 """
 
-import json
 from copy import deepcopy
+import json
 from pathlib import Path
 
 import numpy as np
 import xarray as xr
+from xarray import DataArray
+from xarray import Dataset
+
 from indica.converters import LineOfSightTransform
 from indica.converters.transect import TransectCoordinates
 from indica.models.pinhole_camera import PinholeCamera
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
-from indica.plasma import LabeledArray, PlasmaProfiler
+from indica.plasma import LabeledArray
+from indica.plasma import PlasmaProfiler
 from indica.utilities import assign_datatype
-from xarray import DataArray, Dataset
-
 from indica.workflows.pywsxp import optimise
-from indica.workflows.pywsxp.diagnostic import calc_closest_approach, calc_weighted_rho
-from indica.workflows.pywsxp.plasma import _ion_density_2d, make_plasma_2d
-from indica.workflows.pywsxp.types import Config, Diagnostics, History, Inputs, Results
+from indica.workflows.pywsxp.diagnostic import calc_closest_approach
+from indica.workflows.pywsxp.diagnostic import calc_weighted_rho
+from indica.workflows.pywsxp.plasma import _ion_density_2d
+from indica.workflows.pywsxp.plasma import make_plasma_2d
+from indica.workflows.pywsxp.types import Config
+from indica.workflows.pywsxp.types import Diagnostics
+from indica.workflows.pywsxp.types import History
+from indica.workflows.pywsxp.types import Inputs
+from indica.workflows.pywsxp.types import Results
 
 
 def convert_to_dataset(

@@ -1,6 +1,6 @@
-import sys
 from getpass import getuser
 from pathlib import Path
+import sys
 from typing import Union
 
 import numpy as np
