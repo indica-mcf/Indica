@@ -45,6 +45,8 @@ dependencies = [
 [project.urls]
 repository = "https://github.com/indica-mcf/Indica"
 
+[project.optional-dependencies]
+pso = ["pyswarms (>=1.3.0,<2.0.0)"]
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
