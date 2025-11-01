@@ -62,6 +62,7 @@ class PinholeCamera(AbstractDiagnostic):
         t: LabeledArray = None,
         calc_rho=False,
         sum_beamlets: bool = True,
+        full_run: bool = False,
         **kwargs,
     ):
         """
@@ -129,7 +130,9 @@ class PinholeCamera(AbstractDiagnostic):
             self.Lz[elem] = xr.concat(Lz, "t")
 
             _emissivity = (
-                self.Lz[elem].sum("ion_charge") * self.Nion.sel(element=elem) * self.Ne
+                self.Lz[elem].sum("ion_charge").interp(rhop=self.Nion.rhop)
+                * self.Nion.sel(element=elem)
+                * self.Ne.interp(rhop=self.Nion.rhop)
             )
             emissivity_element.append(xr.where(_isfinite, _emissivity, np.nan))
 
