@@ -510,13 +510,17 @@ def _plot_diagnostics(data: Dataset, fig: Optional[Figure] = None) -> Figure:
             x=_measurement.impact_parameter,
             y=_measurement.values,
             yerr=_measurement.error,
-            marker="+"
-            if np.all((_measurement.error == 0.0) | _measurement.error.isnull())
-            else "_",
+            marker=(
+                "+"
+                if np.all((_measurement.error == 0.0) | _measurement.error.isnull())
+                else "_"
+            ),
             linestyle=" ",
-            capsize=0.0
-            if np.all((_measurement.error == 0.0) | _measurement.error.isnull())
-            else 5.0,
+            capsize=(
+                0.0
+                if np.all((_measurement.error == 0.0) | _measurement.error.isnull())
+                else 5.0
+            ),
             label="Measurement",
         )
         model: DataArray = getattr(data, f"{diagnostic}_model")
@@ -646,13 +650,17 @@ def _plot_diagnostic_contribution(
             x=_measurement.impact_parameter,
             y=_measurement.values,
             yerr=_measurement.error,
-            marker="+"
-            if np.all((_measurement.error == 0.0) | _measurement.error.isnull())
-            else "_",
+            marker=(
+                "+"
+                if np.all((_measurement.error == 0.0) | _measurement.error.isnull())
+                else "_"
+            ),
             linestyle=" ",
-            capsize=0.0
-            if np.all((_measurement.error == 0.0) | _measurement.error.isnull())
-            else 5.0,
+            capsize=(
+                0.0
+                if np.all((_measurement.error == 0.0) | _measurement.error.isnull())
+                else 5.0
+            ),
             label="Measurement",
         )
         model: DataArray = getattr(data, f"{diagnostic}_model")

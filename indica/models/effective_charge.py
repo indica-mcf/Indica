@@ -1,11 +1,14 @@
 import matplotlib.pylab as plt
 import numpy as np
+from xarray import DataArray
+
 from indica.available_quantities import READER_QUANTITIES
 from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
 from indica.numpy_typing import LabeledArray
-from indica.utilities import build_dataarrays, set_axis_sci, set_plot_rcparams
-from xarray import DataArray
+from indica.utilities import build_dataarrays
+from indica.utilities import set_axis_sci
+from indica.utilities import set_plot_rcparams
 
 
 class EffectiveCharge(AbstractDiagnostic):

@@ -19,15 +19,15 @@ from indica.plasma import LabeledArray
 from indica.plasma import PlasmaProfiler
 from indica.utilities import assign_datatype
 from indica.workflows.pywsxp import optimise
-from indica.workflows.pywsxp.diagnostic import calc_closest_approach
-from indica.workflows.pywsxp.diagnostic import calc_weighted_rho
-from indica.workflows.pywsxp.plasma import _ion_density_2d
-from indica.workflows.pywsxp.plasma import make_plasma_2d
-from indica.workflows.pywsxp.types import Config
-from indica.workflows.pywsxp.types import Diagnostics
-from indica.workflows.pywsxp.types import History
-from indica.workflows.pywsxp.types import Inputs
-from indica.workflows.pywsxp.types import Results
+from indica.workflows.pywsxp.utilities import _ion_density_2d
+from indica.workflows.pywsxp.utilities import calc_closest_approach
+from indica.workflows.pywsxp.utilities import calc_weighted_rho
+from indica.workflows.pywsxp.utilities import Config
+from indica.workflows.pywsxp.utilities import Diagnostics
+from indica.workflows.pywsxp.utilities import History
+from indica.workflows.pywsxp.utilities import Inputs
+from indica.workflows.pywsxp.utilities import make_plasma_2d
+from indica.workflows.pywsxp.utilities import Results
 
 
 def convert_to_dataset(
