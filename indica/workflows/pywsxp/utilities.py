@@ -1,12 +1,15 @@
 from copy import deepcopy
 from dataclasses import dataclass
+from functools import partial
+from typing import Any
 from typing import List
 from typing import Optional
 from typing import Union
 
+from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
-import matplotlib.pyplot as plt
 import numpy as np
+from numpy.typing import NDArray
 from xarray import concat
 from xarray import DataArray
 from xarray import Dataset
@@ -31,6 +34,13 @@ class Diagnostic:
     weight: Optional[float] = 1.0
     rescale_factor: float = 1.0
     ignored_channels: Optional[List[int]] = None
+
+
+Config = dict[str, Any]
+Diagnostics = dict[str, Diagnostic]
+Inputs = dict[str, DataArray]
+Results = NDArray
+History = dict[str, list[Any]]
 
 
 def calc_closest_approach(transform: CoordinateTransform, t: float):
@@ -252,3 +262,32 @@ def plot_measurement_model_comparison(
     ax.legend()
     ax.set_title("{}: {}".format(diagnostic.instrument, diagnostic.quantity))
     return ax
+
+
+def _ion_density_2d(
+    ion_density: DataArray,
+    asymmetry_parameter: DataArray,
+    R_0: DataArray,
+) -> DataArray:
+    rho_2d = asymmetry_parameter.rhop
+    assert rho_2d is not None
+    return ion_density.interp(rhop=rho_2d).drop_vars("rhop") * np.exp(
+        asymmetry_parameter * (rho_2d.R**2 - R_0**2)
+    )
+
+
+def make_plasma_2d(
+    plasma: Plasma,
+    asymmetry_parameter: DataArray,
+    R_0: DataArray,
+) -> Plasma:
+    plasma = deepcopy(plasma)
+    ion_density = plasma.ion_density
+    plasma.Ion_density.operator = partial(
+        _ion_density_2d,
+        ion_density,
+        asymmetry_parameter,
+        R_0,
+    )
+    plasma.Ion_density.__call__.cache_clear()
+    return plasma
