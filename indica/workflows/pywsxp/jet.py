@@ -1,47 +1,57 @@
-import pickle as pkl
 from copy import deepcopy
 from getpass import getuser
 from os import cpu_count
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+import pickle as pkl
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Iterable
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
+
+import numpy as np
+from numpy.typing import NDArray
+import pyswarms as ps
+from sal.core.exception import NodeNotFound
+from scipy.interpolate import CubicSpline
+from scipy.optimize import least_squares
+from scipy.signal import savgol_filter
+import xarray as xr
+from xarray import DataArray
+from xarray import Dataset
+import yaml
 
 from indica.equilibrium import Equilibrium
+from indica.models.bremsstrahlung import BremsstrahlungSpectrometer
 from indica.models.charge_exchange_spectrometer import ChargeExchangeSpectrometer
+from indica.models.effective_charge import EffectiveCharge
 from indica.models.pinhole_camera import PinholeCamera
 from indica.numpy_typing import RevisionLike
-from indica.operators.atomic_data import (
-    FractionalAbundance,
-    PowerLoss,
-    default_profiles,
-)
-from indica.plasma import Plasma, PlasmaProfiler, ProfilerBase
+from indica.operators.atomic_data import default_profiles
+from indica.operators.atomic_data import FractionalAbundance
+from indica.operators.atomic_data import PowerLoss
+from indica.plasma import Plasma
+from indica.plasma import PlasmaProfiler
+from indica.plasma import ProfilerBase
 from indica.profilers.profiler_spline import ProfilerCubicSpline
 from indica.readers import adas
 from indica.readers.adas import ADASReader
 from indica.readers.jetreader import JETReader
 from indica.utilities import get_element_info
-from indica.workflows.pywsxp.diagnostic import Diagnostic
-from indica.workflows.pywsxp.models.bremsstrahlung import BremsstrahlungSpectrometer
-from indica.workflows.pywsxp.models.effective_charge import EffectiveCharge
-from indica.workflows.pywsxp.optimise import (
-    DEFAULT_OPTIONS,
-    _profile_parameters,
-    costfn,
-    recover_profiles,
-)
+from indica.workflows.pywsxp.optimise import _profile_parameters
+from indica.workflows.pywsxp.optimise import costfn
+from indica.workflows.pywsxp.optimise import DEFAULT_OPTIONS
+from indica.workflows.pywsxp.optimise import recover_profiles
 from indica.workflows.pywsxp.results import convert_to_dataset
-from indica.workflows.pywsxp.types import Config, Diagnostics, History, Inputs, Results
-
-import numpy as np
-import pyswarms as ps
-import xarray as xr
-import yaml
-from numpy.typing import NDArray
-from sal.core.exception import NodeNotFound
-from scipy.interpolate import CubicSpline
-from scipy.optimize import least_squares
-from scipy.signal import savgol_filter
-from xarray import DataArray, Dataset
+from indica.workflows.pywsxp.utilities import Config
+from indica.workflows.pywsxp.utilities import Diagnostic
+from indica.workflows.pywsxp.utilities import Diagnostics
+from indica.workflows.pywsxp.utilities import History
+from indica.workflows.pywsxp.utilities import Inputs
+from indica.workflows.pywsxp.utilities import Results
 
 DEFAULTS: Dict[str, Any] = dict(
     n_iters=250,

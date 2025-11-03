@@ -17,8 +17,8 @@ from indica.numpy_typing import LabeledArray
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
 from indica.plasma import PlasmaProfiler
 from indica.utilities import assign_datatype
-from indica.workflows.pywsxp.diagnostic import Diagnostic
-from indica.workflows.pywsxp.plasma import make_plasma_2d
+from indica.workflows.pywsxp.utilities import Diagnostic
+from indica.workflows.pywsxp.utilities import make_plasma_2d
 
 DEFAULT_OPTIONS: dict[str, float] = {"c1": 0.65, "c2": 0.35, "w": 0.9}
 
