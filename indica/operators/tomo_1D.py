@@ -175,6 +175,8 @@ class SXR_tomography:
         if "emissivity" in input_dict.keys():
             self.expected_emissivity = input_dict["emissivity"]
 
+        self.log = ""
+
     def geom_matrix(self):
         # create geometry matrix witn contribution of all
         # grid intervals to the measured signals
@@ -382,8 +384,8 @@ class SXR_tomography:
         for it, teq in enumerate(self.eq["t"]):
             t_ind = teq_ind == it
             if not np.any(t_ind):
+                self.log += f"Skipping time-point {teq} - missing time \n"
                 continue
-
             valid = (
                 np.all(
                     (np.isfinite(self.data[t_ind, :])) & (self.data[t_ind, :] > 0),
@@ -394,7 +396,12 @@ class SXR_tomography:
 
             # weight the contribution matrix and data by the uncertainty
             # print(it,teq,t_ind)#,(self.err[t_ind,:]/self.data[t_ind,:]).shape,valid)
-            err = np.atleast_2d(self.err[t_ind, valid]).mean(0)
+            try:
+                err = np.atleast_2d(self.err[t_ind, valid]).mean(0)
+            except Exception as e:
+                self.log += f"Skipping time-point {teq} - some data not valid - {e} \n"
+                continue
+
             T = self.dLmat[it, valid] / err[:, None]
             mean_d = (
                 np.atleast_2d(self.data[t_ind, valid]).mean(0) / err
