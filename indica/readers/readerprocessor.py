@@ -140,3 +140,61 @@ def coordinate_condition(data: DataArray, coord_info: tuple):
     filtered_data = data.where(condition, np.nan)
     filtered_data.attrs = data.attrs
     return filtered_data
+
+
+
+#Not useable yet!
+def transp_transform(psin, rhotor, profiles):
+
+
+
+        #Required coordinate transform
+        #Note that we still need to get all the inputs! This is just the transform
+
+        from scipy.interpolate import interp1d
+        #rhopol from PSIN. Can we assume we always have this? Or do I need to use FTOR or something else to get this?
+        rhopol = np.sqrt(psin)
+
+        #Order the grid so monotonic
+        order = np.argsort(rhotor)
+        rt = rhotor[order]
+        rp = rhopol[order]
+
+        #Strictly monotonic
+        mask = np.concatenate(([True], np.diff(rt) > 1e-10))
+        rt = rt[mask]
+        rp = rp[mask]
+
+
+        #Instad: use this 2d, and then just duplicate timepoints and mapping. D
+
+
+        #Interpolators both ways
+        f_rhotor_to_rhopol = interp1d(rt, rp, kind="linear", bounds_error=False, fill_value=np.nan)
+        g_rhopol_to_rhotor = interp1d(rp, rt, kind="linear", bounds_error=False, fill_value=np.nan)
+
+        #A target grid (uniform in rhopol). 100 arbitrary for now
+        rhopol_target = np.linspace(0.0, 1.0, 100)
+
+        #Map each target rhopol back to rhotor for evaluation of TRANSP profiles:
+        #For each of these desired ρ_pol surfaces, what ρ_tor value corresponds to the same magnetic surface?
+        rhotor_for_target = g_rhopol_to_rhotor(rhopol_target)
+
+        #Then for every profile we want to convert:
+        def convert_profile_to_rhopol(rhotor_grid, X_rhotor, rhotor_for_target, rhopol_target):
+            # Interpolate X from its native rhotor grid to rhotor_for_target
+            Xi = np.interp(
+                rhotor_for_target,
+                rhotor_grid,
+                X_rhotor,
+                left=np.nan, right=np.nan  
+            )
+            return rhopol_target, Xi
+
+
+        converted = {}
+        for name, arr in profiles.items():
+            rp_tgt, X_on_rhopol = convert_profile_to_rhopol(rt, arr[order][mask], rhotor_for_target, rhopol_target)
+            converted[name] = X_on_rhopol
+
+

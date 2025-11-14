@@ -49,10 +49,7 @@ class MDSUtils(BaseIO):
     ) -> Tuple[np.array, str]:
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
-        print("uid:"+uid)
-        print("instrument:"+instrument)
-        print("quantity:"+quantity)
-        print("revision:"+revision)
+
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
         print("Path in get_signal:"+path)
         if quantity.lower() == ":best_run":
@@ -118,7 +115,6 @@ class MDSUtils(BaseIO):
                 rev_str = f"run{int(_revision)}"
         else:
             rev_str = f"{revision}"
-        print(rev_str)
         return rev_str.upper()
 
     def get_best_revision(self, uid: str, instrument: str):
@@ -132,9 +128,7 @@ class MDSUtils(BaseIO):
         """
         Return revision name given
         """
-        print("in get_Revision: "+str(revision))
         revision_name = self.revision_name(revision)
-        print("in get_Revision: "+str(revision_name))
         if revision_name == "BEST":
             revision_name = self.get_best_revision(uid, instrument)
 

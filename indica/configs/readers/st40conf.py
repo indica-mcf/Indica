@@ -150,24 +150,29 @@ class ST40Conf(MachineConf):
                 "zeff_low": ".global:zeff_low",
                 "zeff": ".profiles.psi_norm:zeff",
             },
+
+
             "get_transp": {
+                #Equilibrium
                 "t": ":time",  
-                "psin": ".profiles.rhotor:psin", 
-                "f": ".profiles.psi_norm:fpol",  
-                "psi_axis": ".global:faxs",  
-                "psi_boundary": ".global:fbnd",  
-                "ftor": ".profiles.psi_norm:ftor",  
+                "psin": ".profiles.rhotor:psin",  
+                "f": ".profiles.rhotor:f",  
                 "psi": ".psi2d:psi",  
-                "volume": ".profiles.rhotor:volume",  
-                "area": ".profiles.rhotor:area",  
-                "rmag": ".global:rmag",  
-                "rgeo": ".global:rgeo",  
+                "psi_boundary": ".global:fbnd",  
+                "psi_axis": ".global:faxs",  
+                "ftor": ".profiles.rhotor:ftor",  
                 "rbnd": ".p_boundary:rbnd",  
-                "zmag": ".global:zmag",  
                 "zbnd": ".p_boundary:zbnd",  
-                "ipla": ".global:ipl",  
-                "wp": ".global:wth",  
-                "df": ".global.df",  
+                "rmag": ".global:rmag",  
+                "zmag": ".global:zmag",  
+                "area": ".RHOTOR:AREA",  
+                "volume": ".RHOTOR:VOLUME",  
+
+
+
+                #Profiles 
+                "te":".PROFILES.RHOTOR:TE",
+                "ne":".PROFILES.RHOTOR:NE"
             },
 
             "get_astra": {

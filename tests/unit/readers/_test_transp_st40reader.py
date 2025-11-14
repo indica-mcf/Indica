@@ -1,9 +1,10 @@
-from indica.readers import st40reader
+from indica.readers import ST40Reader
 
 PULSE = 40000042
 TSTART = 0.01
 TEND = 0.1
 REVISION="J10"
+TREE="TRANSP_TEST"
 
 INSTRUMENTS: list = [
     "transp"
@@ -11,7 +12,7 @@ INSTRUMENTS: list = [
 
 
 def run_reader_get_methods(
-    reader: st40reader,
+    reader: ST40Reader,
     instrument: str,
 ):
     print(instrument)
@@ -20,8 +21,8 @@ def run_reader_get_methods(
 
 
 def test_reader_get_methods(return_dataarrays=True, verbose=True):
-    reader = st40reader(
-        PULSE, TSTART, TEND, verbose=verbose, return_dataarrays=return_dataarrays
+    reader = ST40Reader(
+        PULSE, TSTART, TEND, verbose=verbose, return_dataarrays=return_dataarrays, tree=TREE
     )
     for instrument in INSTRUMENTS:
         data = run_reader_get_methods(reader, instrument)
