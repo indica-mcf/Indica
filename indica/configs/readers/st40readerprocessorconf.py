@@ -25,6 +25,7 @@ class ST40ReaderProcessorConf:
             "sxrc_xy1": {"brightness": (0, np.inf)},
             "sxrc_xy2": {"brightness": (0, np.inf)},
             "blom_xy1": {"brightness": (0, np.inf)},
+            "smmh": {"ne": (0, np.inf)},
             "ts": {"te": (0, np.inf), "ne": (0, np.inf)},
             "ppts": {
                 "te_rho": (1, np.inf),

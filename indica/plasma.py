@@ -146,7 +146,9 @@ class Plasma:
         self.neutral_density = format_dataarray(
             data2d, "neutral_density", coords2d, make_copy=True
         )
-        self.tau = format_dataarray(data2d, "residence_time", coords2d, make_copy=True)
+        self.residence_time = format_dataarray(
+            data2d, "residence_time", coords2d, make_copy=True
+        )
         self.ion_temperature = format_dataarray(
             data2d, "ion_temperature", coords2d, make_copy=True
         )
@@ -192,6 +194,9 @@ class Plasma:
         self._ion_density = format_dataarray(
             data3d, "ion_density", coords3d, make_copy=True
         )
+        self._ion_concentration = format_dataarray(
+            data3d, "concentration", coords3d, make_copy=True
+        )
         self._meanz = format_dataarray(data3d, "mean_charge", coords3d, make_copy=True)
         self._total_radiation = format_dataarray(
             data3d, "total_radiation", coords3d, make_copy=True
@@ -230,7 +235,7 @@ class Plasma:
                 self.electron_density,
                 self.electron_temperature,
                 self.neutral_density,
-                self.tau,
+                self.residence_time,
             ],
         )
 
@@ -240,7 +245,7 @@ class Plasma:
                 self.electron_density,
                 self.electron_temperature,
                 self.neutral_density,
-                self.tau,
+                self.residence_time,
             ],
         )
 
@@ -254,6 +259,14 @@ class Plasma:
             ],
         )
 
+        self.Ion_concentration = CachedCalculation(
+            self.calc_ion_concentration,
+            [
+                self.electron_density,
+                self.ion_density,
+            ],
+        )
+
         self.Zeff = CachedCalculation(
             self.calc_zeff,
             [
@@ -262,7 +275,7 @@ class Plasma:
                 self.impurity_density,
                 self.fast_ion_density,
                 self.neutral_density,
-                self.tau,
+                self.residence_time,
             ],
         )
 
@@ -271,7 +284,7 @@ class Plasma:
             [
                 self.electron_density,
                 self.electron_temperature,
-                self.tau,
+                self.residence_time,
                 self.neutral_density,
             ],
         )
@@ -283,7 +296,7 @@ class Plasma:
                 self.electron_temperature,
                 self.impurity_density,
                 self.fast_ion_density,
-                self.tau,
+                self.residence_time,
                 self.neutral_density,
             ],
         )
@@ -397,9 +410,9 @@ class Plasma:
             for t in np.array(self.time_to_calculate, ndmin=1):
                 electron_temperature = self.electron_temperature.sel(t=t)
                 electron_density = self.electron_density.sel(t=t)
-                tau = None
-                if np.any(self.tau != 0):
-                    tau = self.tau.sel(t=t)
+                residence_time = None
+                if np.any(self.residence_time != 0):
+                    residence_time = self.residence_time.sel(t=t)
                 neutral_density = None
                 if np.any(self.neutral_density != 0):
                     neutral_density = self.neutral_density.sel(t=t)
@@ -411,8 +424,7 @@ class Plasma:
                     electron_temperature,
                     Ne=electron_density,
                     Nh=neutral_density,
-                    tau=tau,
-                    full_run=self.full_run,
+                    tau=residence_time,
                 )
                 self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose()
         return self._fz
@@ -444,6 +456,17 @@ class Plasma:
         return self._ion_density
 
     @property
+    def ion_concentration(self):
+        return self.Ion_concentration()
+
+    def calc_ion_concentration(self):
+        for elem in self.impurities:
+            self._ion_concentration.loc[dict(element=elem)] = (
+                self.ion_density.sel(element=elem) / self.electron_density
+            )
+        return self._ion_concentration
+
+    @property
     def lz_tot(self):
         return self.Lz_tot()
 
@@ -466,7 +489,6 @@ class Plasma:
                     Fz,
                     Ne=electron_density,
                     Nh=neutral_density,
-                    full_run=self.full_run,
                 ).transpose()
         return self._lz_tot
 
@@ -588,7 +610,9 @@ class Plasma:
         """
         Assigns default atomic fractional abundance and radiated power operators
         """
-        fract_abu, power_loss_tot = default_atomic_data(self.elements)
+        fract_abu, power_loss_tot = default_atomic_data(
+            self.elements, full_run=self.full_run
+        )
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
 
@@ -716,6 +740,7 @@ class PlasmaProfiler:
                 "thermal_pressure",
                 "toroidal_rotation",
                 "total_radiation",
+                "residence_time",
             ]
         self.plasma = plasma
         self.profilers = profilers

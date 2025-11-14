@@ -1,8 +1,4 @@
-"""Provides implementation of :py:class:`readers.DataReader` for
-reading MDS+ data produced by ST40.
-
-"""
-
+"""Refactoring of data read from the database to build DataArrays"""
 
 from typing import Any
 from typing import Dict
@@ -15,7 +11,6 @@ from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
 from indica.converters import TrivialTransform
-from indica.numpy_typing import RevisionLike
 from indica.readers.datareader import DataReader
 from indica.readers.mdsutils import MDSUtils
 
@@ -69,10 +64,15 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        R_data = database_results["R_data"]
-        if len(np.shape(R_data)) > 1:
-            database_results["R_data"] = R_data[0, :]
-        database_results["channel"] = np.arange(len(database_results["R_data"]))
+        # TODO: R_data and zpos issues need to be fixed in the database
+        if "zpos" not in database_results:
+            database_results["z"] = np.full_like(database_results["R"], 0)
+        if "R_data" in database_results:
+            R_data = database_results["R_data"]
+            if len(np.shape(R_data)) > 1:
+                database_results["R_data"] = R_data[0, :]
+            database_results["channel"] = np.arange(len(database_results["R_data"]))
+
         transform = assign_trivial_transform()
         return database_results, transform
 
@@ -143,6 +143,13 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
+    def _get_radiation_inversion(
+        self,
+        database_results: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        transform = assign_trivial_transform()
+        return database_results, transform
+
     def _get_helike_spectroscopy(
         self,
         database_results: dict,
@@ -174,6 +181,7 @@ class ST40Reader(DataReader):
         # if database_results["instrument"] == "smmh":
         #     location = (location + location_r) / 2.0
         #     direction = (direction + direction_r) / 2.0
+        database_results["passes"] = 2
         database_results["channel"] = np.arange(database_results["location"][:, 0].size)
         rearrange_geometry(database_results["location"], database_results["direction"])
         transform = assign_lineofsight_transform(database_results)
@@ -202,7 +210,6 @@ class ST40Reader(DataReader):
                 len(database_results["R"]),
             )
         )
-
         #Like thopson scattering profile read
         R = database_results["R"]
         database_results["channel"] = np.arange(len(R))
@@ -218,35 +225,6 @@ class ST40Reader(DataReader):
         return database_results, transform
 
 
-    def __call__(
-        self,
-        instruments: list = None,
-        revisions: Dict[str, RevisionLike] = None,
-        debug: bool = False,
-    ):
-
-        if instruments is None:
-            instruments = self.machine_conf.INSTRUMENT_METHODS.keys()
-        if revisions is None:
-            revisions = {instrument: 0 for instrument in instruments}
-        for instr in instruments:
-            if instr not in revisions.keys():
-                revisions[instr] = 0
-
-        self.data = {}
-        for instrument in instruments:
-            print(f"Reading {instrument}")
-            try:
-                self.data[instrument] = self.get(
-                    "",
-                    instrument,
-                    revisions[instrument],
-                )
-            except Exception as e:
-                print(f"error reading: {instrument} \nException: {e}")
-                if debug:
-                    raise e
-        return self.data
 
 
 def rearrange_geometry(location, direction):
