@@ -50,3 +50,12 @@ try:
 except ImportError as e:
     print(e)
     pass
+
+
+try:
+    from .transpreader import TRANSPreader
+
+    __all__ += ["TRANSPreader"]
+except ImportError as e:
+    print(e)
+    pass

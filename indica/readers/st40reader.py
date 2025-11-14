@@ -195,6 +195,38 @@ class ST40Reader(DataReader):
         return database_results, transform
 
 
+    #get eq and get TS combined
+    def _get_transp(
+        self,
+        database_results: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # Add boundary index
+        database_results["index"] = np.arange(np.size(database_results["rbnd"][0, :]))
+        # Re-shape psi matrix
+        database_results["psi"] = database_results["psi"].reshape(
+            (
+                len(database_results["t"]),
+                len(database_results["z"]),
+                len(database_results["R"]),
+            )
+        )
+        #Like thopson scattering profile read
+        R = database_results["R"]
+        database_results["channel"] = np.arange(len(R))
+        database_results["z"] = R * 0.0
+        database_results["x"] = R
+        database_results["y"] = R * 0.0
+
+        
+        transform = assign_transect_transform(database_results)
+
+
+
+        return database_results, transform
+
+
+
+
 def rearrange_geometry(location, direction):
     if len(np.shape(location)) == 1:
         location = np.array([location])
