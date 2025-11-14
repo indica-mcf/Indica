@@ -195,8 +195,8 @@ class ST40Conf(MachineConf):
                 "zbnd": ".p_boundary:zbnd",  
                 "rmag": ".global:rmag",  
                 "zmag": ".global:zmag",  
-                "area": ".RHOTOR:AREA",  
-                "volume": ".RHOTOR:VOLUME",  
+                "area": ".profiles.RHOTOR:AREA",  
+                "volume": ".profiles.RHOTOR:VOLUME",  
 
 
 
