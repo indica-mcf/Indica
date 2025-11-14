@@ -112,11 +112,15 @@ class Polarimeter(AbstractDiagnostic):
                 t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
             (Br, Bz, Bt, _,) = self.plasma.equilibrium.Bfield(
-                self.plasma.R,
-                self.plasma.z,
+                self.transform.R,
+                self.transform.z,
                 t=t,
                 full_Rz=full_Rz,
             )
+        elif all((Br is not None, Bz is not None, Bt is not None)):
+            Br = Br.interp(R=self.transform.R, z=self.transform.z)
+            Bz = Bz.interp(R=self.transform.R, z=self.transform.z)
+            Bt = Bt.interp(R=self.transform.R, z=self.transform.z)
         try:
             assert Ne is not None
             assert Br is not None
@@ -143,9 +147,6 @@ class Polarimeter(AbstractDiagnostic):
         )
         self.ne_remapped = ne_remapped
 
-        Br = Br.interp(R=self.transform.R, z=self.transform.z)
-        Bz = Bz.interp(R=self.transform.R, z=self.transform.z)
-        Bt = Bt.interp(R=self.transform.R, z=self.transform.z)
         Bx = Br * np.cos(self.transform.phi) - Bt * np.sin(self.transform.phi)
         By = Br * np.sin(self.transform.phi) + Bt * np.cos(self.transform.phi)
         Bx_l = xr.zeros_like(Bx).transpose(
