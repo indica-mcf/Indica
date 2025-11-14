@@ -51,7 +51,6 @@ class MDSUtils(BaseIO):
         given revision."""
 
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
-        print("Path in get_signal:"+path)
         if quantity.lower() == ":best_run":
             data = str(self.conn.get(path))
         else:
