@@ -193,7 +193,7 @@ def convert_to_dataset(
             assign_datatype(rho_los, "rhop")
             delta_weighted_rho.attrs["long_name"] = r"$\delta\rho_{pol}$"
         else:
-            (weighted_rho, delta_weighted_rho, rho_los, emissivity,) = (
+            (weighted_rho, delta_weighted_rho, rho_los, emissivity) = (
                 None,
                 None,
                 None,
