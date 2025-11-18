@@ -124,7 +124,9 @@ def residual(
         data_slice = data_slice.where(
             (data_slice.t >= (t - avrg)) & (data_slice.t <= (t + avrg)), drop=True
         ).mean("t")
-        model_result: DataArray = diagnostics[key].model(t=t)[diagnostics[key].quantity]
+        model_result: DataArray = (
+            diagnostics[key].model(t=[t])[diagnostics[key].quantity].sel(t=t)
+        )
         model_slice: DataArray = model_result.sel(
             {
                 dim: data_slice.coords[dim]
