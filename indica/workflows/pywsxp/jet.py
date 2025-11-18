@@ -174,7 +174,7 @@ ADF11.update(
 def load(
     configfile: Union[str, Path] = "config.yaml",
     resultsfile: Optional[Union[str, Path]] = None,
-) -> Tuple[Dict[str, Any], Plasma, Diagnostics, Inputs,]:
+) -> Tuple[Dict[str, Any], Plasma, Diagnostics, Inputs]:
     """
     Load config and :py:`pickle` of input data, building inputs if they don't exist
     """
@@ -764,7 +764,7 @@ def make_plasma_profiler(
     t: Union[int, float],
     n_particles: int = 24,
     no_asym: bool = False,
-) -> Tuple[PlasmaProfiler, tuple[NDArray, NDArray], NDArray,]:
+) -> Tuple[PlasmaProfiler, tuple[NDArray, NDArray], NDArray]:
     density_lower_bounds: list[float] = []
     density_upper_bounds: list[float] = []
     density_init_pos: list[float] = []
@@ -862,7 +862,7 @@ def optimise_imurities(
     pso_options: Optional[Dict[str, float]] = None,
     diag_to_scale: Optional[list[str]] = None,
     verbose: bool = False,
-) -> Tuple[Config, Plasma, Diagnostics, Inputs, Results, History, Path,]:
+) -> Tuple[Config, Plasma, Diagnostics, Inputs, Results, History, Path]:
     if t is None:
         t = np.array(plasma.time_to_calculate, ndmin=1)[0]
     try:
@@ -896,7 +896,7 @@ def optimise_imurities(
     for element in impurities:
         plasma.set_impurity_concentration(element, 0.0, t=t)
     n_particles = 64
-    (profiler, bounds, init_pos,) = make_plasma_profiler(
+    (profiler, bounds, init_pos) = make_plasma_profiler(
         deepcopy(plasma),
         impurities=impurities,
         xknots=xknots,
