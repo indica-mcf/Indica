@@ -30,21 +30,26 @@ class EQDSKReader:
             coords={"R": R, "z": z},
             dims=("R", "z"),
         )
-        psin = (psirz.interp(z=gf.zmaxis) - gf.psi_axis) / (
+        psin_in = (psirz.interp(z=gf.zmaxis) - gf.psi_axis) / (
             gf.psi_boundary - gf.psi_axis
         )
-        rmjo = DataArray(
-            R[np.where(R >= gf.rmaxis)[0]],
-            coords={"psin": psin.where(psin.R >= gf.rmaxis, drop=True).data},
-            dims=("psin",),
+        psin_out = np.linspace(0, 1, gf.nr // 2)
+        rmj = DataArray(R, coords={"psin": psin_in.data}, dims=("psin",))
+        rmj = rmj.where(rmj.psin >= 0.0, drop=True)
+        rmjo = rmj.assign_coords(
+            {"psin": rmj.psin.where(rmj >= gf.rmaxis, other=-1.0 * rmj.psin)}
         )
-        rmji = DataArray(
-            R[np.where(R <= gf.rmaxis)[0]],
-            coords={"psin": psin.where(psin.R <= gf.rmaxis, drop=True).data},
-            dims=("psin",),
-        ).interp(psin=rmjo.psin)
+        rmjo = rmjo.where((rmjo.psin > -1.0) & (rmjo.psin < 1.0), drop=True).interp(
+            psin=psin_out
+        )
+        rmji = rmj.assign_coords(
+            {"psin": rmj.psin.where(rmj <= gf.rmaxis, other=-1.0 * rmj.psin)}
+        )
+        rmji = rmji.where((rmji.psin > -1.0) & (rmji.psin < 1.0), drop=True).interp(
+            psin=psin_out
+        )
         fpol = (
-            DataArray(gf.fpol, coords={"R": R, "psin": psin}, dims=("R",))
+            DataArray(gf.fpol, coords={"R": R}, dims=("R",))
             .interp(R=rmjo)
             .drop_vars("R")
         )
@@ -55,13 +60,13 @@ class EQDSKReader:
             "rmjo": rmjo.expand_dims({"t": [0.0]}),
             "rmji": rmji.expand_dims({"t": [0.0]}),
             "f": fpol.expand_dims({"t": [0.0]}),
-            "psi": psirz.expand_dims({"t": [0.0]}),
-            "psin": psin.interp(R=rmjo).drop_vars("R"),
+            "psi": psirz.T.expand_dims({"t": [0.0]}),
+            "psin": DataArray(psin_out),
             "psi_boundary": DataArray(gf.psi_boundary),
             "psi_axis": DataArray(gf.psi_axis),
             "ftor": xr.zeros_like(fpol).expand_dims({"t": [0.0]}),
-            "rbnd": DataArray(gf.rbdry, dims=("index",)),
-            "zbnd": DataArray(gf.zbdry, dims=("index",)),
+            "rbnd": DataArray(gf.rbdry, dims=("index",)).expand_dims({"t": [0.0]}),
+            "zbnd": DataArray(gf.zbdry, dims=("index",)).expand_dims({"t": [0.0]}),
             "rmag": DataArray(gf.rmagx).expand_dims({"t": [0.0]}),
             "zmag": DataArray(gf.zmagx).expand_dims({"t": [0.0]}),
         }
