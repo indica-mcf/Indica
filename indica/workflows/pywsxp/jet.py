@@ -3,6 +3,7 @@ from getpass import getuser
 from os import cpu_count
 from pathlib import Path
 import pickle as pkl
+from socket import getfqdn
 from typing import Any
 from typing import Callable
 from typing import Dict
@@ -538,11 +539,12 @@ def make_inputs(
     channels = channels if channels is not None else deepcopy(DEFAULTS["channels"])
 
     tbuf = max([((tend - tstart) / nt), (2 * avrg)])
+    server = f"https://{sal if (sal := getfqdn('sal')) != 'sal' else 'sal.jet.uk'}"
     reader = JETReader(  # type: ignore
         pulse,
         tstart - tbuf - 0.1,
         tend + tbuf + 0.1,
-        server="https://sal.jetdata.eu",
+        server=server,
     )
 
     _te, _ne, *_ = default_profiles()
