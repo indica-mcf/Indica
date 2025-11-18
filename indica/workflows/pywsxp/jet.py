@@ -25,6 +25,7 @@ from xarray import DataArray
 from xarray import Dataset
 import yaml
 
+from indica.configs.readers.adasconf import ADF11
 from indica.equilibrium import Equilibrium
 from indica.models.bremsstrahlung import BremsstrahlungSpectrometer
 from indica.models.charge_exchange_spectrometer import ChargeExchangeSpectrometer
@@ -38,7 +39,6 @@ from indica.plasma import Plasma
 from indica.plasma import PlasmaProfiler
 from indica.plasma import ProfilerBase
 from indica.profilers.profiler_spline import ProfilerCubicSpline
-from indica.readers import adas
 from indica.readers.adas import ADASReader
 from indica.readers.jetreader import JETReader
 from indica.utilities import get_element_info
@@ -143,7 +143,7 @@ DIAGNOSTICS: dict[str, Callable] = dict(
     ),
 )
 
-ADF11 = deepcopy(adas.ADF11)
+ADF11 = deepcopy(ADF11)
 ADF11.update(
     {
         "n": deepcopy(ADF11["ne"]),
