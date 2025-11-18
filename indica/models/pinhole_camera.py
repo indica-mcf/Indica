@@ -108,7 +108,9 @@ class PinholeCamera(AbstractDiagnostic):
         self.Nh = Nh
         self.fz = fz
 
-        _isfinite = np.isfinite(self.Ne) * np.isfinite(self.Te)
+        _isfinite = np.isfinite(self.Ne.interp(rhop=self.Nion.rhop)) * np.isfinite(
+            self.Te.interp(rhop=self.Nion.rhop)
+        )
 
         self.Lz = {}
         emissivity_element = []
@@ -138,7 +140,9 @@ class PinholeCamera(AbstractDiagnostic):
 
         self.emissivity_element = xr.concat(emissivity_element, "element")
         emissivity = self.emissivity_element.sum("element")
-        self.emissivity = xr.where(np.isfinite(Ne), emissivity, np.nan)
+        self.emissivity = xr.where(
+            np.isfinite(Ne.interp(rhop=self.Nion.rhop)), emissivity, np.nan
+        )
         assign_datatype(self.emissivity, "total_radiation")
 
         self.los_integral = self.transform.integrate_on_los(
