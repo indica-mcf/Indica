@@ -162,7 +162,7 @@ def convert_to_dataset(
         diag.model.set_plasma(
             (plasma_2d if isinstance(diag.model, PinholeCamera) else plasma)
         )
-        diag.model(t=t)
+        diag.model(t=[t])
         if isinstance(diag.measurement.transform, TransectCoordinates):
             rhop = diag.measurement.transform.rhop
             theta = diag.measurement.transform.theta
@@ -178,18 +178,27 @@ def convert_to_dataset(
         else:
             pos = (theta <= np.pi / 2) & (theta >= -np.pi / 2)
         impact_parameter = rhop.where(pos, other=-1.0 * rhop)
-        if (emissivity := getattr(diag.model, "emissivity_element", None)) is not None:
+        if isinstance(diag.model, PinholeCamera):
             (
                 weighted_rho,
                 delta_weighted_rho,
                 rho_los,
-            ) = calc_weighted_rho(diag.model, t=t)
+            ) = calc_weighted_rho(diag.model, t=[t])
+            weighted_rho = weighted_rho.sel(t=t)
+            delta_weighted_rho = delta_weighted_rho.sel(t=t)
+            rho_los = rho_los.sel(t=t)
+            emissivity = diag.model.emissivity_element.sel(t=t)
             assign_datatype(weighted_rho, "rhop")
             assign_datatype(delta_weighted_rho, "rhop")
             assign_datatype(rho_los, "rhop")
             delta_weighted_rho.attrs["long_name"] = r"$\delta\rho_{pol}$"
         else:
-            weighted_rho, delta_weighted_rho, rho_los = None, None, None
+            (weighted_rho, delta_weighted_rho, rho_los, emissivity,) = (
+                None,
+                None,
+                None,
+                None,
+            )
         error = diag.measurement.error.where(
             (diag.measurement.t >= (t - avrg)) & (diag.measurement.t <= (t + avrg)),
             drop=True,
@@ -205,7 +214,7 @@ def convert_to_dataset(
             measurement = measurement.expand_dims({"channel": [0]}, axis=0)
         if "channel" not in error.dims:
             error = error.expand_dims({"channel": [0]}, axis=0)
-        model = diag.model.bckc[diag.quantity]
+        model = diag.model.bckc[diag.quantity].sel(t=t)
         if "channel" not in model.dims:
             model = model.expand_dims({"channel": [0]}, axis=0)
         del model.attrs["transform"]
