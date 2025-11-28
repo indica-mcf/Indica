@@ -236,9 +236,6 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "psi": ("poloidal_flux", ["t", "z", "R"]),
 
         #Profiles part
-        "x": ("x", []),
-        "y": ("y", []),
-        "channel": ("channel", []),
         "ne": ("electron_density", ["t", "channel"]),
         "te": ("electron_temperature", ["t", "channel"]),
     },
