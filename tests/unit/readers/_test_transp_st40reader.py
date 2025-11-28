@@ -15,6 +15,7 @@ def run_reader_get_methods(
 ):
     print(instrument)
     data = reader.get("", instrument, revision=REVISION)
+    return data
 
 
 def test_reader_get_methods(return_dataarrays=True, verbose=True):
