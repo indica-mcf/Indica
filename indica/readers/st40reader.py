@@ -209,18 +209,14 @@ class ST40Reader(DataReader):
                 len(database_results["R"]),
             )
         )
-        # Standard kinetic profile read 
+        # Standard kinetic profile read
         R = database_results["R"]
         database_results["channel"] = np.arange(len(R))
         database_results["z"] = R * 0.0
 
         transform = assign_transect_transform(database_results)
 
-
-
         return database_results, transform
-
-
 
 
 def rearrange_geometry(location, direction):
