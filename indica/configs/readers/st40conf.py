@@ -196,8 +196,8 @@ class ST40Conf(MachineConf):
                 "rhotor": ".profiles.RHOTOR:RHOTOR",
                 "rhopol": ".profiles.RHOTOR:RHOPOL",
                 "volume": ".profiles.RHOTOR:VOLUME",
-                "rgrid": ".PSI2D:RGRID",
-                "zgrid": ".PSI2D:ZGRID",
+                "R": ".psi2d:rgrid",
+                "z": ".psi2d:zgrid",
                 "psi": ".psi2d:psi",
                 # Profiles
                 "te": ".PROFILES.RHOTOR:TE",

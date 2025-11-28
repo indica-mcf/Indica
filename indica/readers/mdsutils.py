@@ -147,7 +147,6 @@ class MDSUtils(BaseIO):
         mds_path = ""
         if len(uid) > 0:
             mds_path += f".{uid}".upper()
-
         if len(instrument) > 0 and instrument.upper() != self.tree.upper():
             mds_path += f".{instrument}".upper()
         mds_path += f".{revision_name}{quantity}".upper()

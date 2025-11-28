@@ -199,6 +199,7 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+
         # Add boundary index
         database_results["index"] = np.arange(np.size(database_results["rbnd"][0, :]))
         # Re-shape psi matrix
@@ -209,10 +210,6 @@ class ST40Reader(DataReader):
                 len(database_results["R"]),
             )
         )
-        # Standard kinetic profile read
-        R = database_results["R"]
-        database_results["channel"] = np.arange(len(R))
-        database_results["z"] = R * 0.0
 
         transform = assign_transect_transform(database_results)
 
