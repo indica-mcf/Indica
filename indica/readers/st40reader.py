@@ -194,8 +194,7 @@ class ST40Reader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
-
-    #get eq and get TS combined
+    # get eq and get TS combined
     def _get_transp(
         self,
         database_results: dict,
@@ -210,12 +209,11 @@ class ST40Reader(DataReader):
                 len(database_results["R"]),
             )
         )
-        #Like thopson scattering profile read
+        # Like thopson scattering profile read
         R = database_results["R"]
         database_results["channel"] = np.arange(len(R))
         database_results["z"] = R * 0.0
 
-        
         transform = assign_transect_transform(database_results)
 
 

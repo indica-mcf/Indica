@@ -143,6 +143,3 @@ def coordinate_condition(data: DataArray, coord_info: tuple):
     filtered_data = data.where(condition, np.nan)
     filtered_data.attrs = data.attrs
     return filtered_data
-
-
-

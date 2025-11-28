@@ -208,16 +208,15 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
     },
     # "get_astra": {  # TODO: implement
     # },
-
-    "get_transp": {  
-        #Equilibrium part
+    "get_transp": {
+        # Equilibrium part
         "t": ("t", ["t"]),
         "psin": ("psin", ["rhotor"]),
         "index": ("index", []),
         "R": ("R", []),
         "z": ("z", []),
-        "rhotor":("rhotor",[]),
-        "rhopol":("rhopol",[]),
+        "rhotor": ("rhotor", []),
+        "rhopol": ("rhopol", []),
         "rgeo": ("R_geo", ["t"]),
         "rmag": ("R_mag", ["t"]),
         "zmag": ("z_mag", ["t"]),
@@ -234,10 +233,8 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "volume": ("volume_jacobian", ["t", "rhotor"]),
         "area": ("area_jacobian", ["t", "rhotor"]),
         "psi": ("poloidal_flux", ["t", "z", "R"]),
-
-        #Profiles part
+        # Profiles part
         "ne": ("electron_density", ["t", "channel"]),
         "te": ("electron_temperature", ["t", "channel"]),
     },
-
 }

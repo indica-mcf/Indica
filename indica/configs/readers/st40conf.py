@@ -180,35 +180,29 @@ class ST40Conf(MachineConf):
                 "te": ".profiles.psi_norm:te",
                 "ne": ".profiles.psi_norm:ne",
             },
-
-
             "get_transp": {
-                #Equilibrium
-                "t": ":time",  
-                "psin": ".profiles.rhotor:psin",  
-                "f": ".profiles.rhotor:f",  
-                "psi": ".psi2d:psi",  
-                "psi_boundary": ".global:fbnd",  
-                "psi_axis": ".global:faxs",  
-                "ftor": ".profiles.rhotor:ftor",  
-                "rbnd": ".p_boundary:rbnd",  
-                "zbnd": ".p_boundary:zbnd",  
-                "rmag": ".global:rmag",  
-                "zmag": ".global:zmag",  
-                "area": ".profiles.RHOTOR:AREA",  
-                "rhotor": ".profiles.RHOTOR:RHOTOR",  
-                "rhopol": ".profiles.RHOTOR:RHOPOL",  
+                # Equilibrium
+                "t": ":time",
+                "psin": ".profiles.rhotor:psin",
+                "f": ".profiles.rhotor:f",
+                "psi": ".psi2d:psi",
+                "psi_boundary": ".global:fbnd",
+                "psi_axis": ".global:faxs",
+                "ftor": ".profiles.rhotor:ftor",
+                "rbnd": ".p_boundary:rbnd",
+                "zbnd": ".p_boundary:zbnd",
+                "rmag": ".global:rmag",
+                "zmag": ".global:zmag",
+                "area": ".profiles.RHOTOR:AREA",
+                "rhotor": ".profiles.RHOTOR:RHOTOR",
+                "rhopol": ".profiles.RHOTOR:RHOPOL",
                 "volume": ".profiles.RHOTOR:VOLUME",
                 "rgrid": ".PSI2D:RGRID",
                 "zgrid": ".PSI2D:ZGRID",
-
-
-
-                #Profiles 
-                "te":".PROFILES.RHOTOR:TE",
-                "ne":".PROFILES.RHOTOR:NE"
+                # Profiles
+                "te": ".PROFILES.RHOTOR:TE",
+                "ne": ".PROFILES.RHOTOR:NE",
             },
-
             "get_astra": {
                 "psi_axis": ".global:faxs",
                 "psi_boundary": ".global:fbnd",
