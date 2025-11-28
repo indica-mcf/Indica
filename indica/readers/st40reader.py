@@ -214,8 +214,6 @@ class ST40Reader(DataReader):
         R = database_results["R"]
         database_results["channel"] = np.arange(len(R))
         database_results["z"] = R * 0.0
-        database_results["x"] = R
-        database_results["y"] = R * 0.0
 
         
         transform = assign_transect_transform(database_results)
