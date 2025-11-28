@@ -185,7 +185,6 @@ class ST40Conf(MachineConf):
                 "t": ":time",
                 "psin": ".profiles.rhotor:psin",
                 "f": ".profiles.rhotor:f",
-                "psi": ".psi2d:psi",
                 "psi_boundary": ".global:fbnd",
                 "psi_axis": ".global:faxs",
                 "ftor": ".profiles.rhotor:ftor",
@@ -199,6 +198,7 @@ class ST40Conf(MachineConf):
                 "volume": ".profiles.RHOTOR:VOLUME",
                 "rgrid": ".PSI2D:RGRID",
                 "zgrid": ".PSI2D:ZGRID",
+                "psi": ".psi2d:psi",
                 # Profiles
                 "te": ".PROFILES.RHOTOR:TE",
                 "ne": ".PROFILES.RHOTOR:NE",
