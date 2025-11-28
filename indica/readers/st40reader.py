@@ -209,7 +209,7 @@ class ST40Reader(DataReader):
                 len(database_results["R"]),
             )
         )
-        # Like thopson scattering profile read
+        # Standard kinetic profile read 
         R = database_results["R"]
         database_results["channel"] = np.arange(len(R))
         database_results["z"] = R * 0.0
