@@ -196,7 +196,11 @@ class ST40Conf(MachineConf):
                 "rmag": ".global:rmag",  
                 "zmag": ".global:zmag",  
                 "area": ".profiles.RHOTOR:AREA",  
-                "volume": ".profiles.RHOTOR:VOLUME",  
+                "rhotor": ".profiles.RHOTOR:RHOTOR",  
+                "rhopol": ".profiles.RHOTOR:RHOPOL",  
+                "volume": ".profiles.RHOTOR:VOLUME",
+                "rgrid": ".PSI2D:RGRID",
+                "zgrid": ".PSI2D:ZGRID",
 
 
 

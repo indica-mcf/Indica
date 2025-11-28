@@ -212,10 +212,12 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
     "get_transp": {  
         #Equilibrium part
         "t": ("t", ["t"]),
-        "psin": ("psin", []),
+        "psin": ("psin", ["rhotor"]),
         "index": ("index", []),
         "R": ("R", []),
         "z": ("z", []),
+        "rhotor":("rhotor",[]),
+        "rhopol":("rhopol",[]),
         "rgeo": ("R_geo", ["t"]),
         "rmag": ("R_mag", ["t"]),
         "zmag": ("z_mag", ["t"]),
@@ -225,12 +227,12 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "wp": ("equilibrium_stored_energy", ["t"]),
         "rbnd": ("R_boundary", ["t", "index"]),
         "zbnd": ("z_boundary", ["t", "index"]),
-        "f": ("equilibrium_f", ["t", "psin"]),
-        "ftor": ("toroidal_flux", ["t", "psin"]),
-        "rmji": ("R_hfs", ["t", "psin"]),
-        "rmjo": ("R_lfs", ["t", "psin"]),
-        "volume": ("volume_jacobian", ["t", "psin"]),
-        "area": ("area_jacobian", ["t", "psin"]),
+        "f": ("equilibrium_f", ["t", "rhotor"]),
+        "ftor": ("toroidal_flux", ["t", "rhotor"]),
+        "rmji": ("R_hfs", ["t", "rhotor"]),
+        "rmjo": ("R_lfs", ["t", "rhotor"]),
+        "volume": ("volume_jacobian", ["t", "rhotor"]),
+        "area": ("area_jacobian", ["t", "rhotor"]),
         "psi": ("poloidal_flux", ["t", "z", "R"]),
 
         #Profiles part
