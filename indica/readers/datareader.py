@@ -115,7 +115,6 @@ class DataReader(ABC):
         """
         method = self.instrument_methods[instrument]
         quantities_paths = self.quantities_path[method]
-
         revision = self.reader_utils.get_revision(uid, instrument, revision)
         results: Dict[str, Any] = {
             "uid": uid,
