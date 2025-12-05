@@ -49,7 +49,6 @@ class MDSUtils(BaseIO):
     ) -> Tuple[np.array, str]:
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
-
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
         if quantity.lower() == ":best_run":
             data = str(self.conn.get(path))
@@ -114,6 +113,7 @@ class MDSUtils(BaseIO):
                 rev_str = f"run{int(_revision)}"
         else:
             rev_str = f"{revision}"
+
         return rev_str.upper()
 
     def get_best_revision(self, uid: str, instrument: str):

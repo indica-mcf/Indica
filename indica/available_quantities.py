@@ -216,7 +216,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "R": ("R", []),
         "z": ("z", []),
         "rhotor": ("rhotor", []),
-        "rhopol": ("rhopol", []),
+        "rhopol": ("rhopol", ["t","rhotor"]),
         "rgeo": ("R_geo", ["t"]),
         "rmag": ("R_mag", ["t"]),
         "zmag": ("z_mag", ["t"]),
@@ -234,7 +234,10 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "area": ("area_jacobian", ["t", "rhotor"]),
         "psi": ("poloidal_flux", ["t", "z", "R"]),
         # Profiles part
-        "ne": ("electron_density", ["t", "channel"]),
-        "te": ("electron_temperature", ["t", "channel"]),
+        "ne": ("electron_density", ["t", "rhotor"]),
+        "te": ("electron_temperature", ["t", "rhotor"]),
+        #cEx
+        "vtor": ("toroidal_rotation", ["t", "rhotor"]),
+        "ti": ("ion_temperature", ["t", "rhotor"]),
     },
 }

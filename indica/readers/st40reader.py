@@ -211,9 +211,13 @@ class ST40Reader(DataReader):
             )
         )
 
-        transform = assign_transect_transform(database_results)
+        #Unit conversions
+        database_results["ne"]=database_results["ne"]*10e19
+        database_results["te"]=database_results["te"]*1000
+        database_results["ti"]=database_results["ti"]*1000
 
-        return database_results, transform
+
+        return database_results
 
 
 def rearrange_geometry(location, direction):

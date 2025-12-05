@@ -83,8 +83,9 @@ class DataReader(ABC):
         if not return_dataarrays:
             return database_results
 
-        if hasattr(transform, "set_equilibrium") and equilibrium is not None:
-            transform.set_equilibrium(equilibrium)
+        if transform:
+            if hasattr(transform, "set_equilibrium") and equilibrium is not None:
+                transform.set_equilibrium(equilibrium)
 
         quantities = READER_QUANTITIES[method]
         data_arrays = build_dataarrays(
