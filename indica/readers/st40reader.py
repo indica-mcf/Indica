@@ -201,22 +201,33 @@ class ST40Reader(DataReader):
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
 
         # Add boundary index
-        database_results["index"] = np.arange(np.size(database_results["rbnd"][0, :]))
-        # Re-shape psi matrix
-        database_results["psi"] = database_results["psi"].reshape(
-            (
-                len(database_results["t"]),
-                len(database_results["z"]),
-                len(database_results["R"]),
+        try:
+            database_results["index"] = np.arange(np.size(database_results["rbnd"][0, :]))
+        except KeyError as e:
+            print("Rboundary not found in data")
+
+        try:
+            # Re-shape psi matrix
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
             )
-        )
+        except KeyError as e:
+            print("Psi matrix not found in data")
 
-        # Unit conversions
-        database_results["ne"] = database_results["ne"] * 10e19
-        database_results["te"] = database_results["te"] * 1000
-        database_results["ti"] = database_results["ti"] * 1000
+        try:
+            
+            # Unit conversions
+            database_results["ne"] = database_results["ne"] * 10e19
+            database_results["te"] = database_results["te"] * 1000
+            database_results["ti"] = database_results["ti"] * 1000
+        except KeyError as e:
+            print("Profile information not found in data")
 
-        return database_results
+        return database_results, None
 
 
 def rearrange_geometry(location, direction):

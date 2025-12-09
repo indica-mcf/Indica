@@ -18,7 +18,7 @@ def run_reader_get_methods(
     return data
 
 
-def test_reader_get_methods(return_dataarrays=True, verbose=True):
+def test_reader_get_methods(return_dataarrays=True, verbose=False):
     reader = ST40Reader(
         PULSE,
         TSTART,
