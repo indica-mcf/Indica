@@ -202,8 +202,8 @@ class ST40Conf(MachineConf):
                 # Profiles
                 "te": ".PROFILES.RHOTOR:TE",
                 "ne": ".PROFILES.RHOTOR:NE",
-                "ti":".PROFILES.RHOTOR:TI",
-                "vtor":".PROFILES.RHOTOR:OMEGA_TOR"
+                "ti": ".PROFILES.RHOTOR:TI",
+                "vtor": ".PROFILES.RHOTOR:OMEGA_TOR",
             },
             "get_astra": {
                 "psi_axis": ".global:faxs",

@@ -211,11 +211,10 @@ class ST40Reader(DataReader):
             )
         )
 
-        #Unit conversions
-        database_results["ne"]=database_results["ne"]*10e19
-        database_results["te"]=database_results["te"]*1000
-        database_results["ti"]=database_results["ti"]*1000
-
+        # Unit conversions
+        database_results["ne"] = database_results["ne"] * 10e19
+        database_results["te"] = database_results["te"] * 1000
+        database_results["ti"] = database_results["ti"] * 1000
 
         return database_results
 
