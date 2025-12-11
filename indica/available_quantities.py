@@ -208,4 +208,36 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
     },
     # "get_astra": {  # TODO: implement
     # },
+    "get_transp": {
+        # Equilibrium part
+        "t": ("t", ["t"]),
+        "index": ("index", []),
+        "R": ("R", []),
+        "z": ("z", []),
+        "rhot": ("rhot", []),
+        "rhop": ("rhop", ["t", "rhot"]),
+        "psin": ("psin", ["t","rhot"]),
+        "rgeo": ("R_geo", ["t"]),
+        "rmag": ("R_mag", ["t"]),
+        "zmag": ("z_mag", ["t"]),
+        "psi_axis": ("poloidal_flux_axis", ["t"]),
+        "psi_boundary": ("poloidal_flux_boundary", ["t"]),
+        "ipla": ("plasma_current", ["t"]),
+        "wp": ("equilibrium_stored_energy", ["t"]),
+        "rbnd": ("R_boundary", ["t", "index"]),
+        "zbnd": ("z_boundary", ["t", "index"]),
+        "f": ("equilibrium_f", ["t", "rhot"]),
+        "ftor": ("toroidal_flux", ["t", "rhot"]),
+        "rmji": ("R_hfs", ["t", "rhot"]),
+        "rmjo": ("R_lfs", ["t", "rhot"]),
+        "volume": ("volume_jacobian", ["t", "rhot"]),
+        "area": ("area_jacobian", ["t", "rhot"]),
+        "psi": ("poloidal_flux", ["t", "z", "R"]),
+        # Profiles part
+        "ne": ("electron_density", ["t", "rhot"]),
+        "te": ("electron_temperature", ["t","rhot"]),
+        # cEx
+        "vtor": ("toroidal_rotation", ["t", "rhot"]),
+        "ti": ("ion_temperature", ["t", "rhot"]),
+    },
 }

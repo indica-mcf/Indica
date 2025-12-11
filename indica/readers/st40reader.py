@@ -194,6 +194,47 @@ class ST40Reader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
+    # get eq and get TS combined
+    def _get_transp(
+        self,
+        database_results: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+
+        # Add boundary index
+        try:
+            database_results["index"] = np.arange(np.size(database_results["rbnd"][0, :]))
+        except KeyError as e:
+            print("Rboundary not found in data")
+
+        try:
+            # Re-shape psi matrix
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+        except KeyError as e:
+            print("Psi matrix not found in data")
+
+        try:
+            # Unit conversions
+            #database_results["ne"] = database_results["ne"] * 1000 #I think Transp tree description has the wrong unit here, They are already 10e19.
+            database_results["te"] = database_results["te"] * 1000
+            database_results["ti"] = database_results["ti"] * 1000
+        except KeyError as e:
+            print("Profile information not found in data")
+
+        #Rho toroidal to correct coordinate orientation. Ie. removing the time dimension and flattening.
+        database_results["rhot"]= database_results["rhot"][0, :]   # shape (nr,)
+        database_results["rhot_dimensions"] = [np.arange(database_results["rhot"].shape[0])]
+
+
+
+
+        return database_results, None
+
 
 def rearrange_geometry(location, direction):
     if len(np.shape(location)) == 1:

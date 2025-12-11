@@ -37,6 +37,7 @@ class ST40Conf(MachineConf):
             "astra": "get_astra",
             "ppts": "get_profile_fits",
             "zeff_brems": "get_zeff",
+            "transp_test": "get_transp",
             "bda": "get_profile_fits",
         }
         self.QUANTITIES_PATH = {
@@ -178,6 +179,31 @@ class ST40Conf(MachineConf):
                 "bremss_emission": ".profiles.psi_norm:emis_loc",
                 "te": ".profiles.psi_norm:te",
                 "ne": ".profiles.psi_norm:ne",
+            },
+            "get_transp": {
+                # Equilibrium
+                "t": ":time",
+                "psin": ".profiles.rhotor:psin",
+                "f": ".profiles.rhotor:f",
+                "psi_boundary": ".global:fbnd",
+                "psi_axis": ".global:faxs",
+                "ftor": ".profiles.rhotor:ftor",
+                #"rbnd": ".p_boundary:rbnd",
+                #"zbnd": ".p_boundary:zbnd",
+                "rmag": ".global:rmag",
+                "zmag": ".global:zmag",
+                "area": ".profiles.RHOTOR:AREA",
+                "rhot": ".profiles.RHOTOR:RHOTOR",
+                "rhop": ".profiles.RHOTOR:RHOPOL",
+                "volume": ".profiles.RHOTOR:VOLUME",
+                #"R": ".psi2d:rgrid",
+                #"z": ".psi2d:zgrid",
+                #"psi": ".psi2d:psi",
+                # Profiles
+                "te": ".PROFILES.RHOTOR:TE",
+                "ne": ".PROFILES.RHOTOR:NE",
+                "ti": ".PROFILES.RHOTOR:TI",
+                "vtor": ".PROFILES.RHOTOR:OMEGA_TOR",
             },
             "get_astra": {
                 "psi_axis": ".global:faxs",
