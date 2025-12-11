@@ -88,6 +88,11 @@ class DataReader(ABC):
                 transform.set_equilibrium(equilibrium)
 
         quantities = READER_QUANTITIES[method]
+
+
+
+        
+        print("Before build dataarrays in datareader te len:",len(database_results["te"]))
         data_arrays = build_dataarrays(
             database_results,
             quantities,

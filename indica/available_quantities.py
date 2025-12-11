@@ -211,12 +211,12 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
     "get_transp": {
         # Equilibrium part
         "t": ("t", ["t"]),
-        "psin": ("psin", ["rhot"]),
         "index": ("index", []),
         "R": ("R", []),
         "z": ("z", []),
         "rhot": ("rhot", []),
         "rhop": ("rhop", ["t", "rhot"]),
+        "psin": ("psin", ["t","rhot"]),
         "rgeo": ("R_geo", ["t"]),
         "rmag": ("R_mag", ["t"]),
         "zmag": ("z_mag", ["t"]),
@@ -235,7 +235,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "psi": ("poloidal_flux", ["t", "z", "R"]),
         # Profiles part
         "ne": ("electron_density", ["t", "rhot"]),
-        "te": ("electron_temperature", ["t", "rhot"]),
+        "te": ("electron_temperature", ["t","rhot"]),
         # cEx
         "vtor": ("toroidal_rotation", ["t", "rhot"]),
         "ti": ("ion_temperature", ["t", "rhot"]),
