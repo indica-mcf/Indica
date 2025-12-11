@@ -92,7 +92,6 @@ class DataReader(ABC):
 
 
         
-        print("Before build dataarrays in datareader te len:",len(database_results["te"]))
         data_arrays = build_dataarrays(
             database_results,
             quantities,

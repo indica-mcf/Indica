@@ -219,7 +219,6 @@ class ST40Reader(DataReader):
             print("Psi matrix not found in data")
 
         try:
-            print("In st40 reader te len: ",len(database_results["te"]))
             # Unit conversions
             #database_results["ne"] = database_results["ne"] * 1000 #I think Transp tree description has the wrong unit here, They are already 10e19.
             database_results["te"] = database_results["te"] * 1000
@@ -227,7 +226,7 @@ class ST40Reader(DataReader):
         except KeyError as e:
             print("Profile information not found in data")
 
-
+        #Rho toroidal to correct coordinate orientation. Ie. removing the time dimension and flattening.
         database_results["rhot"]= database_results["rhot"][0, :]   # shape (nr,)
         database_results["rhot_dimensions"] = [np.arange(database_results["rhot"].shape[0])]
 
