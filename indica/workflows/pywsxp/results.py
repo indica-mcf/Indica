@@ -119,6 +119,8 @@ def convert_to_dataset(
         "results": DataArray(results, dims=("parameter",)),
         "rhop": plasma.rhop,
         "psin": psin,
+        "rmjo": plasma.equilibrium.rmjo.interp(t=t, rhop=plasma.rhop),
+        "rmji": plasma.equilibrium.rmji.interp(t=t, rhop=plasma.rhop),
         "rmag": plasma.equilibrium.rmag.interp(t=t),
         "zmag": plasma.equilibrium.zmag.interp(t=t),
         "xknots": np.asarray(xknots),
