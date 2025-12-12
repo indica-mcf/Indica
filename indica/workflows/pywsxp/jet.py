@@ -767,49 +767,26 @@ def make_plasma_profiler(
 ) -> Tuple[PlasmaProfiler, tuple[NDArray, NDArray], NDArray]:
     density_lower_bounds: list[float] = []
     density_upper_bounds: list[float] = []
-    density_init_pos: list[float] = []
-    density_profilers: dict[str, ProfilerCubicSpline] = {}
+    density_init_pos: list[list[float]] = []
     ne = plasma.electron_density.sel(t=t, method="nearest")
     for element in impurities:
         ne_max: float = float(ne.max().data)
         z = int(plasma.element_z.sel(element=element).data)
         y_lower = np.log10(1e-6 * ne_max)
         y_upper = np.log10((1 / z) * ne_max)
+        density_lower_bounds.append(y_lower)
+        density_upper_bounds.append(y_upper)
         density_init_pos.append(
             np.random.uniform(y_lower, y_upper, size=n_particles).tolist()
         )
-        if z <= 20:
-            density_lower_bounds.extend([y_lower])
-            density_upper_bounds.extend([y_upper])
-            continue
-        for _ in range(len(xknots[1:-1])):
-            density_init_pos.append([1.0] * n_particles)
-        density_lower_bounds.extend(
-            [y_lower, *np.linspace(0.8, 0.5, len(xknots[1:-1]))]
-        )
-        density_upper_bounds.extend(
-            [y_upper, *np.linspace(1.2, 2.0, len(xknots[1:-1]))]
-        )
-        density_profilers[f"impurity_density:{element}"] = ProfilerCubicSpline(
-            datatype="impurity_density",
-            xspl=plasma.rhop.to_numpy(),
-            parameters={"xknots": xknots, **_profile_parameters(np.ones_like(xknots))},
-        )
+    shape_lower_bounds = np.linspace(0.8, 0.5, len(xknots[1:-1]))
+    shape_upper_bounds = np.linspace(1.2, 2.0, len(xknots[1:-1]))
+    shape_init_pos = [[1.0] * n_particles for _ in xknots[1:-1]]
     vtor_xknots = [0.0, 0.3, 0.6, 0.9, 1.05]
     if no_asym is True:
-        rotation_parameters = [
-            1.0,
-            *([1.0] * len(vtor_xknots[1:-1])),
-            0.0,
-        ]
-        rotation_lower_bounds = [
-            (rotation_parameters[0] - 0.01),
-            *([0.99] * (len(rotation_parameters) - 2)),
-        ]
-        rotation_upper_bounds = [
-            (rotation_parameters[0] + 0.01),
-            *([1.01] * (len(rotation_parameters) - 2)),
-        ]
+        rotation_parameters = []
+        rotation_lower_bounds = []
+        rotation_upper_bounds = []
     else:
         vtor = plasma.toroidal_rotation
         rotation_parameters = [
@@ -834,19 +811,34 @@ def make_plasma_profiler(
             *([2.0] * (len(rotation_parameters) - 2)),
         ]
     rotation_init_pos = [([val] * n_particles) for val in rotation_parameters[:-1]]
-    rotation_profiler = ProfilerCubicSpline(
-        datatype="toroidal_rotation",
-        xspl=plasma.rhop.to_numpy(),
-        parameters={
-            "xknots": vtor_xknots,
-            **_profile_parameters(np.asarray(rotation_parameters)),
-        },
-    )
-    lower_bounds = np.asarray([*density_lower_bounds, *rotation_lower_bounds]).flatten()
-    upper_bounds = np.asarray([*density_upper_bounds, *rotation_upper_bounds]).flatten()
-    init_pos = np.asarray([*density_init_pos, *rotation_init_pos])
+    lower_bounds = np.asarray(
+        [*density_lower_bounds, *shape_lower_bounds, *rotation_lower_bounds]
+    ).flatten()
+    upper_bounds = np.asarray(
+        [*density_upper_bounds, *shape_upper_bounds, *rotation_upper_bounds]
+    ).flatten()
+    init_pos = np.asarray([*density_init_pos, *shape_init_pos, *rotation_init_pos])
+    hz = plasma.element_z.element[plasma.element_z.argmax()].data
     profiler = PlasmaProfiler(
-        plasma, {**density_profilers, "toroidal_rotation": rotation_profiler}
+        plasma,
+        {
+            f"impurity_density:{hz}": ProfilerCubicSpline(
+                datatype="impurity_density",
+                xspl=plasma.rhop.to_numpy(),
+                parameters={
+                    "xknots": xknots,
+                    **_profile_parameters(np.ones_like(xknots)),
+                },
+            ),
+            "toroidal_rotation": ProfilerCubicSpline(
+                datatype="toroidal_rotation",
+                xspl=plasma.rhop.to_numpy(),
+                parameters={
+                    "xknots": vtor_xknots,
+                    **_profile_parameters(np.asarray(rotation_parameters)),
+                },
+            ),
+        },
     )
     return profiler, (lower_bounds, upper_bounds), init_pos.T
 

@@ -28,6 +28,8 @@ from indica.profilers.profiler_spline import ProfilerCubicSpline
 from indica.utilities import assign_datatype
 from indica.utilities import get_element_info
 from indica.workflows.pywsxp.optimise import _profile_parameters
+from indica.workflows.pywsxp.optimise import _recover_shape
+from indica.workflows.pywsxp.optimise import _split_parameters
 from indica.workflows.pywsxp.optimise import parse_residual
 
 
@@ -297,50 +299,94 @@ def _plot_history(data: Dataset, fig: Optional[Figure] = None) -> Figure:
         for val in (str(data.highz), str(data.midz), str(data.lowz))
         if val != "None"
     )
-    n_elem = len(impurities)
-    n_knots = len(data.xknots) - 1
-    pos = data.pos
-    asym_fitted = True
+    magnitude, shape, vtor = _split_parameters(data.results, impurities, data.xknots)
     ax_cost = fig.add_subplot(
-        1 + math.ceil(n_elem / 2), (2 if asym_fitted is True else 1), 1
+        1 + math.ceil(len(magnitude) / 2), (2 if (len(vtor) > 0) else 1), 1
+    )
+    ax_vtor = (
+        fig.add_subplot(1 + math.ceil(len(magnitude) / 2), 2, 2)
+        if (len(vtor) > 0)
+        else None
+    )
+    _ax, ax_imp = None, {}
+    for i, imp in enumerate(impurities):
+        ax_imp[imp] = fig.add_subplot(
+            1 + math.ceil(len(magnitude) / 2),
+            2,
+            i + 3,
+            sharex=ax_vtor if ax_vtor is not None else _ax,
+            sharey=_ax,
+        )
+    dens_profiler = ProfilerCubicSpline(
+        datatype="ion_density",
+        xspl=data.rhop,
+        parameters={
+            "xknots": data.xknots,
+            **_profile_parameters(np.array([0.0] * len(data.xknots), ndmin=1)),
+        },
+    )
+    vtor_profiler = ProfilerCubicSpline(
+        datatype="toroidal_rotation",
+        xspl=data.rhop,
+        parameters={
+            "xknots": [0.0, 0.3, 0.6, 0.9, 1.05],
+            **_profile_parameters(np.array([0.0] * 5, ndmin=1)),
+        },
     )
     plot_cost_history(data.cost, ax=ax_cost)
     ax_cost.axvline(data.cost.argmin(), color="green", linestyle="--", alpha=0.5)
     if (data.cost.max() / data.cost.min()) >= 100:
         ax_cost.set_yscale("log")
-    ax_vtor = None  # type: ignore
-    if asym_fitted is True:
-        ax_vtor = fig.add_subplot(1 + math.ceil(n_elem / 2), 2, 2)
-        vtor_profiler = ProfilerCubicSpline(
-            datatype="toroidal_rotation",
-            xspl=data.rhop,
-            parameters={
-                "xknots": [0.0, 0.3, 0.6, 0.9, 1.05],
-                **_profile_parameters(np.array([0.0] * 5, ndmin=1)),
-            },
+    p_vtor = []
+    p_imp = {imp: [] for imp in impurities}
+    for part in (
+        data.pos.isel(
+            iteration=range(
+                0, len(data.pos.iteration), max(20, len(data.pos.iteration) // 20)
+            )
         )
-        p = []
-        for part in (
-            pos.isel(
-                parameter=range(len(pos.parameter) - 4, len(pos.parameter)),
-                # iteration=range(
-                #     0, len(pos.iteration), max(20, len(pos.iteration) // 20)
-                # ),
-            )
-            .stack(point=["iteration", "particle"], create_index=False)
-            .transpose(..., "parameter")
-        ):
+        .stack(point=["iteration", "particle"], create_index=False)
+        .transpose(..., "parameter")
+    ):
+        magnitude, shape, vtor = _split_parameters(part, impurities, data.xknots)
+        hz0 = float(
+            magnitude[int(np.where(np.asarray(impurities) == str(data.highz))[0])]
+        )
+        if len(vtor) > 0:
             vtor_profiler.set_parameters(
-                **_profile_parameters(np.asarray([*part.data.tolist(), 0.0]))
+                **_profile_parameters(np.asarray([*vtor, 0.0]))
             )
-            p.append(xr.ones_like(data.toroidal_rotation) * vtor_profiler())
-        xr.concat(p, dim="point").plot(
+            p_vtor.append(xr.ones_like(data.toroidal_rotation) * vtor_profiler())
+        dens_profiler.set_parameters(
+            **_profile_parameters(np.asarray([hz0, *shape, 0.0]))
+        )
+        hzmp = dens_profiler()
+        p_imp[data.highz].append(hzmp / data.electron_density)
+        for imp, y0 in zip(impurities, magnitude):
+            if imp == data.highz:
+                continue
+            if get_element_info(imp)[0] >= 20:
+                p_imp[imp].append(
+                    10**y0
+                    * _recover_shape(
+                        hzmp,
+                        data.rmjo,
+                        get_element_info(data.highz)[0],
+                        get_element_info(imp)[0],
+                    )
+                    / data.electron_density
+                )
+            else:
+                p_imp[imp].append(10**y0 / data.electron_density)
+    if len(p_vtor) > 0:
+        xr.concat(p_vtor, dim="point").plot(
             x="rhop",
             hue="point",
             yscale="log",
             c="grey",
             alpha=0.1,
             add_legend=False,
+            ax=ax_vtor,
         )
         data.toroidal_rotation.plot(
             x="rhop",
@@ -352,68 +398,23 @@ def _plot_history(data: Dataset, fig: Optional[Figure] = None) -> Figure:
         ax_vtor.set_title("")
         ax_vtor.set_ylabel("Toroidal Rotation")
         ax_vtor.set_yscale("log")
-    ax = None  # type: ignore
-    dens_profiler = ProfilerCubicSpline(
-        "ion_density",
-        xspl=data.rhop,
-        parameters={
-            "xknots": data.xknots,
-            **_profile_parameters(np.array([0.0] * (n_knots + 1), ndmin=1)),
-        },
-    )
-    idx = 0
-    for i, imp in enumerate(impurities):
-        ax = fig.add_subplot(
-            1 + math.ceil(n_elem / 2),
-            2,
-            i + 3,
-            sharex=ax_vtor if ax_vtor is not None else ax,
-            sharey=ax,
-        )
-        if get_element_info(imp)[0] <= 20:
-            p = (
-                10
-                ** pos.isel(
-                    parameter=idx,
-                    iteration=range(
-                        0, len(pos.iteration), max(20, len(pos.iteration) // 20)
-                    ),
-                ).stack(
-                    point=["iteration", "particle"],
-                    create_index=False,
-                )
-            ) / data.electron_density
-            idx += 1
-        else:
-            p = []
-            for part in (
-                pos.isel(
-                    parameter=range(idx, idx + n_knots),
-                    iteration=range(0, len(pos.iteration), 10),
-                )
-                .stack(point=["iteration", "particle"], create_index=False)
-                .transpose(..., "parameter")
-            ):
-                dens_profiler.set_parameters(**_profile_parameters([*part, 0.0]))
-                conc = dens_profiler() / data.electron_density
-                if np.all(conc > 0):
-                    p.append(conc)
-            p = xr.concat(p, dim="point")
-            idx += n_knots
-        assign_datatype(p, "concentration")
-        p.plot(
+    for imp in impurities:
+        d_imp = xr.concat(p_imp[imp], dim="point")
+        assign_datatype(d_imp, "concentration")
+        d_imp.plot(
             x="rhop",
             hue="point",
             yscale="log",
             c="grey",
             alpha=0.1,
             add_legend=False,
+            ax=ax_imp[imp],
         )
         (data.ion_density / data.electron_density).sel(element=imp).plot(
             x="rhop",
             color="green",
             label="Final Concentration",
-            ax=ax,
+            ax=ax_imp[imp],
         )
         if np.all(data.initial_density.sel(element=imp) > 0):
             (data.initial_density / data.electron_density).sel(element=imp).plot(
@@ -421,12 +422,12 @@ def _plot_history(data: Dataset, fig: Optional[Figure] = None) -> Figure:
                 color="red",
                 linestyle="--",
                 label="Initial Concentration",
-                ax=ax,
+                ax=ax_imp[imp],
             )
-        ax.legend()
-        ax.set_title("")
-        ax.set_ylabel(f"{str(imp).capitalize()} concentration")
-        ax.set_yscale("log")
+        ax_imp[imp].legend()
+        ax_imp[imp].set_title("")
+        ax_imp[imp].set_ylabel(f"{str(imp).capitalize()} concentration")
+        ax_imp[imp].set_yscale("log")
 
     fig.suptitle(_standard_title(data))
     return fig
