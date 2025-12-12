@@ -23,7 +23,18 @@ from indica.workflows.pywsxp.utilities import make_plasma_2d
 DEFAULT_OPTIONS: dict[str, float] = {"c1": 0.65, "c2": 0.35, "w": 0.9}
 
 
-def _profile_parameters(parameters: list[float]) -> dict[str, float]:
+def _split_parameters(
+    parameters: list[float] | np.ndarray,
+    impurities: tuple[str, ...],
+    xknots: tuple[float, ...],
+) -> tuple[list[float], list[float], list[float]]:
+    n_knots = len(xknots) - 2
+    n_imp = len(impurities)
+    params = np.asarray(parameters).tolist()
+    return (params[:n_imp], params[n_imp : n_imp + n_knots], params[n_imp + n_knots :])
+
+
+def _profile_parameters(parameters: list[float] | np.ndarray) -> dict[str, float]:
     y0 = float(10 ** parameters[0])
     shape = [float(val) for val in parameters[1:-1]]
     y1 = float(parameters[-1])
@@ -34,6 +45,26 @@ def _profile_parameters(parameters: list[float]) -> dict[str, float]:
     }
 
 
+def _recover_shape(
+    profile: DataArray,
+    rmjo: DataArray,
+    q1: float,
+    q2: float,
+) -> DataArray:
+    grad = np.gradient(profile, profile.rhop)
+    L = profile / grad
+    _shape: list[float] = []
+    for rhop in rmjo.rhop:
+        _shape.append(
+            np.trapz(
+                (1 / L.where(L.rhop <= rhop, drop=True)) * (q2 / q1),
+                rmjo.where(rmjo.rhop <= rhop, drop=True),
+            )
+        )
+    shape = np.asarray(_shape)
+    return np.exp(shape)
+
+
 def recover_profiles(
     profiler: PlasmaProfiler,
     parameters: NDArray[np.float32],
@@ -41,35 +72,42 @@ def recover_profiles(
     xknots: tuple[float, ...],
     time: Union[int, float],
 ) -> PlasmaProfiler:
-    ne_core = float(profiler.plasma.electron_density.interp(t=time, rhop=0.0).data)
-    n_knots = len(xknots) - 1
-    params: dict[str, float] = {}
-    idx = 0
-    for imp in impurities:
-        if profiler.plasma.element_z.sel(element=imp).data <= 20:
+    magnitude, shape, vtor = _split_parameters(parameters, impurities, xknots)
+    ne = profiler.plasma.electron_density.sel(t=time, method="nearest")
+    z = profiler.plasma.element_z
+    hz = z.element[z.argmax()].data
+    hz0 = float(magnitude[int(np.where(np.asarray(impurities) == str(hz))[0])])
+    params: dict[str, float] = {
+        f"impurity_density:{hz}.{key}": p
+        for key, p in _profile_parameters([hz0, *shape, 0.0]).items()
+    }
+    if len(vtor) > 0:
+        params.update(
+            {
+                f"toroidal_rotation.{key}": p
+                for key, p in _profile_parameters([*vtor, 0.0]).items()
+            }
+        )
+    profiler(params, t=time)
+    for imp, y0 in zip(impurities, magnitude):
+        if imp == hz:
+            continue
+        if z.sel(element=imp).data >= 20:
+            profiler.plasma.impurity_density.loc[imp, time, :] = (
+                10**y0
+            ) * _recover_shape(
+                profiler.plasma.impurity_density.sel(element=hz, t=time),
+                profiler.plasma.rmjo.sel(t=time),
+                float(z.sel(element=hz)),
+                float(z.sel(element=imp)),
+            )
+        else:
             profiler.plasma.set_impurity_concentration(
                 imp,
-                ((10 ** parameters[idx]) / ne_core),
-                time,
+                (10**y0) / ne.sel(rhop=0, method="nearest"),
+                t=time,
+                flat_zeff=False,
             )
-            idx += 1
-        else:
-            params.update(
-                **{
-                    f"impurity_density:{imp}.{key}": p
-                    for key, p in _profile_parameters(
-                        [*(parameters[idx : idx + n_knots]), 0.0]
-                    ).items()
-                }
-            )
-            idx += n_knots
-    params.update(
-        {
-            f"toroidal_rotation.{key}": p
-            for key, p in _profile_parameters([*(parameters[-4:]), 0.0]).items()
-        }
-    )
-    profiler(params, t=time)
     return profiler
 
 
