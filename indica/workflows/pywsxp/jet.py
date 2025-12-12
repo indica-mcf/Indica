@@ -747,7 +747,7 @@ def make_inputs(
                 quantity=quantity.replace("angf", "vtor"),
                 measurement=measurement,
                 model=model,
-                channels=list(ic),
+                channels=list(ic) if ic is not None else ic,
                 weight=weight,
                 rescale_factor=2.35 if "sxr" in instrument else 1.0,
             )
