@@ -957,7 +957,7 @@ def optimise_imurities(
         t=t,
         avrg=avrg,
     )
-    output.to_netcdf(savedir / f"results_{t:.3f}.nc")
+    output.to_netcdf(savedir / f"results_{t:.3f}.nc", engine="netcdf4")
     return (
         config,
         profiler.plasma,
