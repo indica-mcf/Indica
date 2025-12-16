@@ -8,8 +8,7 @@ on:
     types: [review_requested, ready_for_review]
   push:
     branches:
-      - master
-      - develop
+      - main
 
 jobs:
 

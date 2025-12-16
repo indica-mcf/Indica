@@ -13,8 +13,7 @@ on:
       - tests/**
       - poetry.lock
     branches:
-      - master
-      - develop
+      - main
 
 jobs:
   tests:
