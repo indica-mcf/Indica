@@ -149,6 +149,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "poloidal_flux": ("Poloidal flux", "magnetic_flux"),
     "poloidal_flux_axis": ("Poloidal flux (axis)", "magnetic_flux"),
     "poloidal_flux_boundary": ("Poloidal flux (separatrix)", "magnetic_flux"),
+    "xpsin": ("Normalised poloidal flux", "magnetic_flux"),
     "psin": ("Normalised poloidal flux", "magnetic_flux"),
     "toroidal_flux": ("Toroidal flux", "magnetic_flux"),
     "volume_jacobian": ("$V_{jac}$", "volume_jacobian"),

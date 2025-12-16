@@ -39,7 +39,7 @@ class Equilibrium:
     ):
         self.f: DataArray
         self.psi: DataArray
-        self.psin: DataArray
+        self.xpsin: DataArray
         self.psi_boundary: DataArray
         self.psi_axis: DataArray
         self.ftor: DataArray
@@ -54,20 +54,20 @@ class Equilibrium:
             setattr(self, k, v)
 
         # Substitute coordinates "psin" with "rhop"
-        self.rhop = np.sqrt(self.psin)
+        self.rhop = np.sqrt(self.xpsin)
         for k, v in equilibrium_data.items():
-            if "psin" in v.dims:
+            if "xpsin" in v.dims:
                 setattr(
                     self,
                     k,
-                    v.assign_coords(rhop=("psin", self.rhop.data))
-                    .swap_dims({"psin": "rhop"})
-                    .drop_vars("psin"),
+                    v.assign_coords(rhop=("xpsin", self.rhop.data))
+                    .swap_dims({"xpsin": "rhop"})
+                    .drop_vars("xpsin"),
                 )
 
         # Calculate volume and area if ajac and vjac are given
         if hasattr(self, "vjac") and hasattr(self, "ajac"):
-            dpsin = self.psin[1] - self.psin[0]
+            dpsin = self.xpsin[1] - self.xpsin[0]
             self.volume = (self.vjac * dpsin).cumsum("rhop")
             self.area = (self.ajac * dpsin).cumsum("rhop")
 

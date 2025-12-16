@@ -30,21 +30,21 @@ class EQDSKReader:
             coords={"R": R, "z": z},
             dims=("R", "z"),
         )
-        psin = (psirz.interp(z=gf.zmaxis) - gf.psi_axis) / (
+        xpsin = (psirz.interp(z=gf.zmaxis) - gf.psi_axis) / (
             gf.psi_boundary - gf.psi_axis
         )
         rmjo = DataArray(
             R[np.where(R >= gf.rmaxis)[0]],
-            coords={"psin": psin.where(psin.R >= gf.rmaxis, drop=True).data},
-            dims=("psin",),
+            coords={"xpsin": xpsin.where(xpsin.R >= gf.rmaxis, drop=True).data},
+            dims=("xpsin",),
         )
         rmji = DataArray(
             R[np.where(R <= gf.rmaxis)[0]],
-            coords={"psin": psin.where(psin.R <= gf.rmaxis, drop=True).data},
-            dims=("psin",),
+            coords={"xpsin": xpsin.where(xpsin.R <= gf.rmaxis, drop=True).data},
+            dims=("xpsin",),
         ).interp(psin=rmjo.psin)
         fpol = (
-            DataArray(gf.fpol, coords={"R": R, "psin": psin}, dims=("R",))
+            DataArray(gf.fpol, coords={"R": R, "xpsin": xpsin}, dims=("R",))
             .interp(R=rmjo)
             .drop_vars("R")
         )
@@ -56,7 +56,7 @@ class EQDSKReader:
             "rmji": rmji.expand_dims({"t": [0.0]}),
             "f": fpol.expand_dims({"t": [0.0]}),
             "psi": psirz.expand_dims({"t": [0.0]}),
-            "psin": psin.interp(R=rmjo).drop_vars("R"),
+            "xpsin": xpsin.interp(R=rmjo).drop_vars("R"),
             "psi_boundary": DataArray(gf.psi_boundary),
             "psi_axis": DataArray(gf.psi_axis),
             "ftor": xr.zeros_like(fpol).expand_dims({"t": [0.0]}),
