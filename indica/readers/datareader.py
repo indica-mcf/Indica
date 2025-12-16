@@ -89,9 +89,6 @@ class DataReader(ABC):
 
         quantities = READER_QUANTITIES[method]
 
-
-
-        
         data_arrays = build_dataarrays(
             database_results,
             quantities,
@@ -237,6 +234,24 @@ class DataReader(ABC):
         raise NotImplementedError
 
     def _get_zeff(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
+    def _get_transp(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
+    def _get_astra(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
+    def _get_metis(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:

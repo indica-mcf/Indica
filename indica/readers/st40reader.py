@@ -194,20 +194,20 @@ class ST40Reader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
-    # get eq and get TS combined
-    def _get_transp(
+    def _get_astra(
         self,
         database_results: dict,
+        **kwargs: Any,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
 
-        # Add boundary index
-        try:
-            database_results["index"] = np.arange(np.size(database_results["rbnd"][0, :]))
-        except KeyError as e:
-            print("Rboundary not found in data")
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
 
-        try:
-            # Re-shape psi matrix
+        if "psi" in database_results:
             database_results["psi"] = database_results["psi"].reshape(
                 (
                     len(database_results["t"]),
@@ -215,25 +215,70 @@ class ST40Reader(DataReader):
                     len(database_results["R"]),
                 )
             )
-        except KeyError as e:
-            print("Psi matrix not found in data")
 
-        try:
-            # Unit conversions
-            #database_results["ne"] = database_results["ne"] * 1000 #I think Transp tree description has the wrong unit here, They are already 10e19.
-            database_results["te"] = database_results["te"] * 1000
-            database_results["ti"] = database_results["ti"] * 1000
-        except KeyError as e:
-            print("Profile information not found in data")
+        rescale = {"ne": 1.0e19, "te": 1.0e3, "ti": 1.0e3}
+        for k, mult in rescale.items():
+            if k in database_results:
+                database_results[k] *= mult
 
-        #Rho toroidal to correct coordinate orientation. Ie. removing the time dimension and flattening.
-        database_results["rhot"]= database_results["rhot"][0, :]   # shape (nr,)
-        database_results["rhot_dimensions"] = [np.arange(database_results["rhot"].shape[0])]
+        return database_results, transform
 
+    def _get_transp(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
 
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
 
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
 
-        return database_results, None
+        database_results["rhot"] = database_results["rhot"][0, :]
+
+        rescale = {"te": 1.0e3, "ti": 1.0e3}
+        for k, mult in rescale.items():
+            if k in database_results:
+                database_results[k] *= mult
+
+        return database_results, transform
+
+    def _get_metis(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
+
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+
+        database_results["rhot"] = database_results["rhot"][0, :]
+
+        return database_results, transform
 
 
 def rearrange_geometry(location, direction):
