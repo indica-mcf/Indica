@@ -159,6 +159,8 @@ class JETReader(DataReader):
         data["z"] = data["z"].mean(0)
         data["t"] = data["R_dimensions"][0]
         data["channel"] = np.arange(len(data["R"]))
+        if data.get("conc") is not None:
+            data["conc"] /= 100
         transform = assign_transect_transform(data)
         return data, transform
 
