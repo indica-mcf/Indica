@@ -26,7 +26,7 @@ class EQDSKReader:
             gf.nz,
         )
         psirz = DataArray(
-            data=gf.psirz,
+            data=np.where(gf.psirz != gf.psirz[0, 0], gf.psirz, np.nan),
             coords={"R": R, "z": z},
             dims=("R", "z"),
         )
