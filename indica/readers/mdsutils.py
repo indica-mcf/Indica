@@ -62,17 +62,24 @@ class MDSUtils(BaseIO):
         mds_path: str,
         ndims: int,
     ) -> Tuple[List[np.array], List[str]]:
-        """Gets the dimensions of a signal given the path to the signal
-        and the number of dimensions"""
+        """
+        Gets the dimensions of a signal given the path to the signal
+        and the number of dimensions
+        TODO: try/except is required if data not written to MDS+ with dimensions
+        """
 
         dimensions = []
         paths = []
         for dim in range(ndims):
             path = f"dim_of({mds_path},{dim})"
-            dim_tmp = self.conn.get(path).data()
+            try:
+                _dimension = np.array(self.conn.get(path).data())
+            except Exception as e:
+                _dimension = None
+                print(f"No dimensions for {mds_path}: {e}")
 
             paths.append(path)
-            dimensions.append(np.array(dim_tmp))
+            dimensions.append(_dimension)
         return dimensions, paths
 
     def get_signal_units(
