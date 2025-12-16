@@ -34,15 +34,17 @@ class ST40Conf(MachineConf):
             "t1d_blom_xy1": "get_radiation_inversion",
             "t2d_blom_xy1": "get_radiation_inversion",
             "t1d_blom_rz1": "get_radiation_inversion",
-            "astra": "get_astra",
             "ppts": "get_profile_fits",
-            "zeff_brems": "get_zeff",
             "bda": "get_profile_fits",
+            "zeff_brems": "get_zeff",
+            "transp_test": "get_transp",
+            "astra": "get_astra",
+            "metis": "get_metis",
         }
         self.QUANTITIES_PATH = {
             "get_equilibrium": {
                 "t": ":time",
-                "psin": ".profiles.psi_norm:xpsn",
+                "xpsin": ".profiles.psi_norm:xpsn",
                 "R": ".psi2d:rgrid",
                 "z": ".psi2d:zgrid",
                 "f": ".profiles.psi_norm:f",
@@ -180,70 +182,90 @@ class ST40Conf(MachineConf):
                 "ne": ".profiles.psi_norm:ne",
             },
             "get_astra": {
+                "t": ":time",
                 "psi_axis": ".global:faxs",
                 "psi_boundary": ".global:fbnd",
                 "rmag": ".global:rmag",
                 "rgeo": ".global:rgeo",
                 "zmag": ".global:zmag",
                 "zgeo": ".global:zgeo",
-                "wp": ".global:wth",
                 "ipla": ".global:ipl",
-                "upl": ".global:upl",
-                "wth": ".global:wth",
-                "wtherm": ".global:wtherm",
-                "wfast": ".global:wfast",
-                "df": ".global.df",
-                "pnb": ".global:pnb",  # W
-                "pabs": ".global:pabs",  # W
-                "p_oh": ".global:p_oh",  # W
-                "q": ".profiles.psi_norm:q",
+                "wp": ".global:wth",
+                "xpsin": ".profiles.psi_norm:xpsn",
                 "f": ".profiles.psi_norm:fpol",
                 "ftor": ".profiles.psi_norm:ftor",
-                "psi_1d": ".profiles.psi_norm:psi",
-                "p": ".profiles.psi_norm:p",
-                "volume": ".profiles.psi_norm:volume",
-                "area": ".profiles.psi_norm:areat",
-                "sigmapar": ".profiles.psi_norm:sigmapar",  # 1/(Ohm*m)
-                "psi": ".psi2d:psi",
+                "rmji": ".profiles.psi_norm:rmji",
+                "rmjo": ".profiles.psi_norm:rmjo",
                 "rbnd": ".p_boundary:rbnd",
                 "zbnd": ".p_boundary:zbnd",
-                "elon": ".profiles.astra:elon",  #
-                "j_bs": ".profiles.astra:j_bs",  # MA/m2
-                "j_nbi": ".profiles.astra:j_nbi",  # MA/m2
-                "j_oh": ".profiles.astra:j_oh",  # MA/m2
-                "j_rf": ".profiles.astra:j_rf",  # MA/m2
-                "j_tot": ".profiles.astra:j_tot",  # MA/m2
-                "ne": ".profiles.astra:ne",  # 10^19 m^-3
-                "ni": ".profiles.astra:ni",  # 10^19 m^-3
-                "nf": ".profiles.astra:nf",  # 10^19 m^-3
-                "n_d": ".profiles.astra:n_d",  # 10E19/m3
-                "n_t": ".profiles.astra:n_t",  # 10E19/m3
-                "omega_tor": ".profiles.astra:omega_tor",  # 1/s
-                "qe": ".profiles.astra:qe",  # MW
-                "qi": ".profiles.astra:qi",  # MW
-                "qn": ".profiles.astra:qn",  # 10^19/s
-                "qnbe": ".profiles.astra:qnbe",  # MW/m3
-                "qnbi": ".profiles.astra:qnbi",  # MW/m3
-                "q_oh": ".profiles.astra:q_oh",  # MW/m3
-                "q_rf": ".profiles.astra:q_rf",  # MW/m3
-                "rhot": ".profiles.astra:rho",  # ASTRA rho-toroidal
-                "rmid": ".profiles.astra:rmid",  # Centre of flux surfaces, m
-                "rminor": ".profiles.astra:rminor",  # minor radius, m
-                "sbm": ".profiles.astra:sbm",  # 10^19/m^3/s
-                "spel": ".profiles.astra:spel",  # 10^19/m^3/s
-                "stot": ".profiles.astra:stot",  # 10^19/s/m3
-                "swall": ".profiles.astra:swall",  # 10^19/m^3/s
-                "te": ".profiles.astra:te",  # keV
-                "ti": ".profiles.astra:ti",  # keV
-                "tri": ".profiles.astra:tri",  # Triangularity (up/down symmetrized)
-                "t_d": ".profiles.astra:t_d",  # keV
-                "t_t": ".profiles.astra:t_t",  # keV
-                "zeff": ".profiles.astra:zeff",
-                "pblon": ".profiles.astra:pblon",
-                "pbper": ".profiles.astra:pbper",
-                "nn": ".profiles.astra:nn",  # 10^19/m^3
-                "niz1": ".profiles.astra:niz1",  # 10^19/m^3
-                "niz2": ".profiles.astra:niz2",  # 10^19/m^3
-                "niz3": ".profiles.astra:niz3",  # 10^19/m^3
+                "df": ".constraints.df:cvalue",
+                "vloop": ".global:upl",
+                "psin": ".profiles.astra:psin",
+                "rhot": ".profiles.astra:rho",
+                "area": ".profiles.psi_norm:areat",
+                "volume": ".profiles.psi_norm:volume",
+                "te": ".profiles.astra:te",
+                "ne": ".profiles.astra:ne",
+                "ti": ".profiles.astra:ti",
+                "omegator": ".profiles.astra:omega_tor",
+                "R": ".psi2d:rgrid",
+                "z": ".psi2d:zgrid",
+                "psi": ".psi2d:psi",
+            },
+            "get_transp": {
+                "t": ":time",
+                "psi_boundary": ".global:fbnd",
+                "psi_axis": ".global:faxs",
+                "rmag": ".global:rmag",
+                "zmag": ".global:zmag",
+                "rgeo": ".global:rgeo",
+                "zgeo": ".global:zgeo",
+                "ipla": ".global:ip",
+                "vloop": ".global:vloop",
+                "rbnd": ".p_boundary:rbnd",
+                "zbnd": ".p_boundary:zbnd",
+                # "rmji": ".profiles.psi_norm:rmji",
+                # "rmjo": ".profiles.psi_norm:rmjo",
+                "psin": ".profiles.rhotor:psin",
+                "f": ".profiles.rhotor:f",
+                "ftor": ".profiles.rhotor:ftor",
+                "area": ".profiles.rhotor:area",
+                "rhot": ".profiles.rhotor:rhotor",
+                "rhop": ".profiles.rhotor:rhopol",
+                "volume": ".profiles.rhotor:volume",
+                "te": ".profiles.rhotor:te",
+                "ne": ".profiles.rhotor:ne",
+                "ti": ".profiles.rhotor:ti",
+                "omegator": ".profiles.rhotor:omega_tor",
+                "R": ".psi2d:rgrid",
+                "z": ".psi2d:zgrid",
+                "psi": ".psi2d:psi",
+            },
+            "get_metis": {
+                "t": ":time",
+                "psi_boundary": ".global:fbnd",
+                "psi_axis": ".global:faxs",
+                "rmag": ".global:rmag",
+                "zmag": ".global:zmag",
+                "rgeo": ".global:rgeo",
+                "zgeo": ".global:zgeo",
+                "ipla": ".global:ip",
+                "vloop": ".global:vloop",
+                "rbnd": ".p_boundary:rbnd",
+                "zbnd": ".p_boundary:zbnd",
+                "psin": ".profiles.rho:psin",
+                "f": ".profiles.rho:f",
+                "ftor": ".profiles.rho:ftor",
+                # "area": ".profiles.rho:area",
+                "rhot": ".profiles.rho:rhotor",
+                "rhop": ".profiles.rho:rhopol",
+                # "volume": ".profiles.rho:vol",
+                "te": ".profiles.rho:te",
+                "ne": ".profiles.rho:ne",
+                "ti": ".profiles.rho:ti",
+                "omegator": ".profiles.rho:omega_tor",
+                "R": ".psi2d:rgrid",
+                "z": ".psi2d:zgrid",
+                "psi": ".psi2d:psi",
             },
         }

@@ -83,10 +83,12 @@ class DataReader(ABC):
         if not return_dataarrays:
             return database_results
 
-        if hasattr(transform, "set_equilibrium") and equilibrium is not None:
-            transform.set_equilibrium(equilibrium)
+        if transform:
+            if hasattr(transform, "set_equilibrium") and equilibrium is not None:
+                transform.set_equilibrium(equilibrium)
 
         quantities = READER_QUANTITIES[method]
+
         data_arrays = build_dataarrays(
             database_results,
             quantities,
@@ -115,7 +117,6 @@ class DataReader(ABC):
         """
         method = self.instrument_methods[instrument]
         quantities_paths = self.quantities_path[method]
-
         revision = self.reader_utils.get_revision(uid, instrument, revision)
         results: Dict[str, Any] = {
             "uid": uid,
@@ -233,6 +234,24 @@ class DataReader(ABC):
         raise NotImplementedError
 
     def _get_zeff(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
+    def _get_transp(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
+    def _get_astra(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
+    def _get_metis(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:

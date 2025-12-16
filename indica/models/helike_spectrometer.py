@@ -408,7 +408,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 "moment_analysis cannot be used when window_masks is not set to None"
             )
 
-        if self.plasma:
+        if hasattr(self, "plasma"):
             if t is None:
                 t = self.plasma.time_to_calculate
             Te = self.plasma.electron_temperature.sel(

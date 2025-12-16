@@ -194,6 +194,92 @@ class ST40Reader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
+    def _get_astra(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
+
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+
+        rescale = {"ne": 1.0e19, "te": 1.0e3, "ti": 1.0e3}
+        for k, mult in rescale.items():
+            if k in database_results:
+                database_results[k] *= mult
+
+        return database_results, transform
+
+    def _get_transp(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
+
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+
+        database_results["rhot"] = database_results["rhot"][0, :]
+
+        rescale = {"te": 1.0e3, "ti": 1.0e3}
+        for k, mult in rescale.items():
+            if k in database_results:
+                database_results[k] *= mult
+
+        return database_results, transform
+
+    def _get_metis(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
+
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+
+        database_results["rhot"] = database_results["rhot"][0, :]
+
+        return database_results, transform
+
 
 def rearrange_geometry(location, direction):
     if len(np.shape(location)) == 1:

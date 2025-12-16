@@ -244,6 +244,7 @@ def build_dataarrays(
 ) -> Dict[str, DataArray]:
     """Organizes data in DataArray format with coordinates, long_name & units"""
     data_arrays: dict = {}
+
     for quantity in available_quantities.keys():
         if quantity not in data.keys():
             continue
@@ -262,7 +263,12 @@ def build_dataarrays(
             coords[dim] = data[dim]
 
         # Build DataArray
-        _data = format_dataarray(data[quantity], datatype, coords)
+        try:
+            _data = format_dataarray(data[quantity], datatype, coords)
+        except Exception as e:
+            print(f"\n Error formatting {quantity} \n")
+            raise (e)
+
         if "t" in _data.dims and tstart is not None and tend is not None:
             _data = _data.sel(t=slice(tstart, tend))
             _data = _data.sortby([dim for dim in dims if dim != "t"])
