@@ -3,16 +3,18 @@ from indica.readers import ST40Reader
 TSTART = 0
 TEND = 20
 
-INSTRUMENTS = {"astra":{"pulse":13013666, "revision":"RUN602"},
-               "transp_test": {"pulse": 40000042, "revision": "J10"},
-               "metis": {"pulse": 40011890, "revision": "RUN01"},
-               }
+INSTRUMENTS = {
+    "astra": {"pulse": 13013666, "revision": "RUN602"},
+    "transp_test": {"pulse": 40000042, "revision": "J10"},
+    "metis": {"pulse": 40011890, "revision": "RUN01"},
+}
+
 
 def _test_reader_get_methods(
-    instrument:str,
-    return_dataarrays: bool=True,
-    verbose:bool=False,
-    plot: bool = False
+    instrument: str,
+    return_dataarrays: bool = True,
+    verbose: bool = False,
+    plot: bool = False,
 ):
     pulse = INSTRUMENTS[instrument]["pulse"]
     revision = INSTRUMENTS[instrument]["revision"]
@@ -24,8 +26,9 @@ def _test_reader_get_methods(
         tree=instrument,
     )
 
-    data = reader.get("", instrument, revision=revision,
-                      return_dataarrays=return_dataarrays)
+    data = reader.get(
+        "", instrument, revision=revision, return_dataarrays=return_dataarrays
+    )
 
     if verbose:
         for key in data.keys():
@@ -61,11 +64,14 @@ def _test_reader_get_methods(
 
     return data
 
-def _test_astra_reader(verbose:bool=False, plot:bool=False):
+
+def _test_astra_reader(verbose: bool = False, plot: bool = False):
     return _test_reader_get_methods("astra")
 
-def _test_transp_reader(verbose:bool=False, plot:bool=False):
+
+def _test_transp_reader(verbose: bool = False, plot: bool = False):
     return _test_reader_get_methods("transp")
 
-def _test_metis_reader(verbose:bool=False, plot:bool=False):
+
+def _test_metis_reader(verbose: bool = False, plot: bool = False):
     return _test_reader_get_methods("metis")
