@@ -34,7 +34,7 @@ class EQDSKReader:
             gf.psi_boundary - gf.psi_axis
         )
         psin_out = np.linspace(0, 1, gf.nr // 2)
-        rmj = DataArray(R, coords={"psin": psin_in.data}, dims=("psin",))
+        rmj = DataArray(R, coords={"psin": xpsin.data}, dims=("psin",))
         rmj = rmj.where(rmj.psin >= 0.0, drop=True)
         rmjo = rmj.assign_coords(
             {"psin": rmj.psin.where(rmj >= gf.rmaxis, other=-1.0 * rmj.psin)}
