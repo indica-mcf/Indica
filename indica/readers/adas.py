@@ -419,9 +419,9 @@ class ADASReader(BaseIO):
                     beam_energy=eref, target_density=dref, target_temperature=tref
                 )
 
+        assign_datatype(sv.target_temperature, "target_temperature")
         assign_datatype(sv.target_density, "target_density")
         assign_datatype(sv.beam_energy, "beam_energy")
-        assign_datatype(sv.target_temperature, "target_temperature")
         assign_datatype(sv, quantity)
         return sv
 
@@ -535,7 +535,6 @@ class ADASReader(BaseIO):
         url = f"https://open.adas.ac.uk/download/{dataclass}/{filename}"
         filepath, stat = urlretrieve(url, filepath)
         filepath = Path(filepath)
-        breakpoint()
         if stat["Content-Type"] != f"data/{dataclass}":
             with filepath.open("r") as f:
                 if "File not found in database" in f.read():
