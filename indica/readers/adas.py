@@ -380,7 +380,7 @@ class ADASReader(BaseIO):
             np.asarray(sv, dtype=float),
             dims=("density", "energy"),
             coords={
-                "density": ("density", dt),
+                "density": ("density", dt * 10**6),  # m**-3
                 "energy": ("energy", eb),
                 "temperature": tref,
             },
