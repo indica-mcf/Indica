@@ -448,11 +448,25 @@ class ADASReader(BaseIO):
 
         """
         filepath = self.path / dataclass / filename
-        if self.openadas and not filepath.exists():
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-            urlretrieve(
-                f"https://open.adas.ac.uk/download/{dataclass}/{filename}", filepath
+        if filepath.exists():
+            return filepath.open("r")
+        if not self.openadas:
+            raise FileNotFoundError(
+                f"File {filepath} does not exist and not configured for OpenADAS"
             )
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        url = f"https://open.adas.ac.uk/download/{dataclass}/{filename}"
+        filepath, stat = urlretrieve(url, filepath)
+        filepath = Path(filepath)
+        breakpoint()
+        if stat["Content-Type"] != f"data/{dataclass}":
+            with filepath.open("r") as f:
+                if "File not found in database" in f.read():
+                    warn = UserWarning(f"Filename {filename} not found ({url})")
+                else:
+                    warn = UserWarning(f"Error retrieving URL {url}")
+            filepath.unlink()
+            raise warn
         return filepath.open("r")
 
     @property
