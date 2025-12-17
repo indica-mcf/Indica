@@ -115,7 +115,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "electron_density_integrated": (r"$\int N_e$ dl", "density_integrated"),
     "electron_temperature": ("$T_e$", "temperature"),
     "ion_temperature": ("$T_i$", "temperature"),
-    "target_temperature": ("$T_{t}", "temperature"),
+    "target_temperature": ("$T_{t}$", "temperature"),
     "toroidal_rotation": ("$V_{tor}$", "velocity"),
     "toroidal_angular_frequency": (
         r"$\omega_{tor}$",
