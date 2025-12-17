@@ -336,6 +336,34 @@ class ADASReader(BaseIO):
         quantity: str,
         year: str,
     ) -> DataArray:
+        """Fetch ADF21 or ADF22 data
+
+        ADF21 and ADF22 data files are in the same format, fetch either based on
+        :py:`dataclass` provided and return coefficient as a function of target
+        temperature, target density and beam energy
+
+        Parameters
+        ----------
+        dataclass : str
+            adf21 or adf22
+        beam : str
+            Neutral beam species
+        element : str
+            Target element
+        charge : str
+            Target charge
+        quantity : str
+            "bms" for beam stopping, "bme" for beam emission coefficients
+        year : str
+            ADAS year (e.g. "97")
+
+        Returns
+        -------
+        DataArray
+            Coefficient as a function of target temperature, target density and beam
+            energy
+
+        """
         filename = pathname2url(
             f"{quantity}{year}][{beam}/{quantity}{year}][{beam}_{element}{charge}.dat"
         )
@@ -405,6 +433,30 @@ class ADASReader(BaseIO):
         beam: str = "h",
         quantity: str = "bms",
     ) -> DataArray:
+        """Get ADAS ADF21 data
+
+        Get ADAS beam stopping coefficients (ADF21) as a function of target temperature,
+        target density and beam energy
+
+        Parameters
+        ----------
+        element : str
+            Target element
+        charge : str
+            Target charge
+        year : str
+            ADAS year (e.g. "97")
+        beam : str
+            Neutral beam species, defaults to "h"
+        quantity : str
+            Defaults to "bms"
+
+        Returns
+        -------
+        DataArray
+
+
+        """
         return self._get_adf21_adf22(
             dataclass="adf21",
             beam=beam,
@@ -422,6 +474,30 @@ class ADASReader(BaseIO):
         beam: str = "h",
         quantity: str = "bme",
     ) -> DataArray:
+        """Get ADAS ADF22 data
+
+        Get ADAS beam emission coefficients (ADF22) as a function of target temperature,
+        target density and beam energy
+
+        Parameters
+        ----------
+        element : str
+            Target element
+        charge : str
+            Target charge
+        year : str
+            ADAS year (e.g. "97")
+        beam : str
+            Neutral beam species, defaults to "h"
+        quantity : str
+            Defaults to "bme"
+
+        Returns
+        -------
+        DataArray
+
+
+        """
         return self._get_adf21_adf22(
             dataclass="adf22",
             beam=beam,
