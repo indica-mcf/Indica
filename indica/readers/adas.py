@@ -1,6 +1,7 @@
 """Base class for reading in ADAS atomic data."""
 
 import datetime
+import math
 from pathlib import Path
 import re
 from typing import List
@@ -325,6 +326,109 @@ class ADASReader(BaseIO):
 
         assign_datatype(pecs, "pec")
         return pecs
+
+    def _get_adf21_adf22(
+        self,
+        dataclass: str,
+        beam: str,
+        element: str,
+        charge: str,
+        quantity: str,
+        year: str,
+    ) -> DataArray:
+        filename = pathname2url(
+            f"{quantity}{year}][{beam}/{quantity}{year}][{beam}_{element}{charge}.dat"
+        )
+        with self._get_file(dataclass, filename) as f:
+            f.readline()  # Header
+            f.readline()  # Separator
+            line = f.readline().split()
+            neb, ndt = int(line[0]), int(line[1])
+            tref = float(re.match(r"/TREF=(.*)", line[2]).group(1))
+            f.readline()  # Separator
+            eb = []
+            for _ in range(math.ceil(neb / 8)):
+                eb.extend(f.readline().split())
+            eb = np.asarray(eb, dtype=float)
+            dt = []
+            for _ in range(math.ceil(ndt / 8)):
+                dt.extend(f.readline().split())
+            dt = np.asarray(dt, dtype=float)
+            f.readline()  # Separator
+            sv = []
+            for _ in range(ndt):
+                _sv = []
+                for _ in range(math.ceil(neb / 8)):
+                    _sv.extend(f.readline().split())
+                sv.append(_sv)
+            f.readline()  # Separator
+            line = f.readline().split()
+            ntt = int(line[0])
+            eref = float(re.match(r"/EREF=(.*)", line[1]).group(1))
+            dref = float(re.match(r"/NREF=(.*)", line[2]).group(1))
+            f.readline()  # Separator
+            tt = []
+            for _ in range(math.ceil(ntt / 8)):
+                tt.extend(f.readline().split())
+            tt = np.asarray(tt, dtype=float)
+            f.readline()  # Separator
+            svt = []
+            for _ in range(math.ceil(ntt / 8)):
+                svt.extend(f.readline().split())
+
+        sv = DataArray(
+            np.asarray(sv, dtype=float),
+            dims=("density", "energy"),
+            coords={
+                "density": ("density", dt),
+                "energy": ("energy", eb),
+                "temperature": tref,
+            },
+        )
+        svt = DataArray(
+            np.asarray(svt, dtype=float),
+            dims=("temperature",),
+            coords={
+                "temperature": ("temperature", tt),
+                "energy": eref,
+                "density": dref,
+            },
+        )
+        return sv, svt
+
+    def get_adf21(
+        self,
+        element: str,
+        charge: str,
+        year: str,
+        beam: str = "h",
+        quantity: str = "bms",
+    ) -> DataArray:
+        return self._get_adf21_adf22(
+            dataclass="adf21",
+            beam=beam,
+            element=element,
+            charge=charge,
+            quantity=quantity,
+            year=year,
+        )
+
+    def get_adf22(
+        self,
+        element: str,
+        charge: str,
+        year: str,
+        beam: str = "h",
+        quantity: str = "bme",
+    ) -> DataArray:
+        return self._get_adf21_adf22(
+            dataclass="adf22",
+            beam=beam,
+            element=element,
+            charge=charge,
+            quantity=quantity,
+            year=year,
+        )
 
     def _get_file(self, dataclass: str, filename: Union[str, Path]) -> TextIO:
         """Retrieves an ADAS file, downloading it from OpenADAS if
