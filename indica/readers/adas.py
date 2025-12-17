@@ -361,48 +361,41 @@ class ADASReader(BaseIO):
                 for _ in range(math.ceil(neb / 8)):
                     _sv.extend(f.readline().split())
                 sv.append(_sv)
+            sv = DataArray(
+                np.asarray(sv, dtype=float) * 10**-6,
+                dims=("target_density", "beam_energy"),
+                coords={
+                    "target_density": ("target_density", dt * 10**6),  # m**-3
+                    "beam_energy": ("beam_energy", eb),
+                    "target_temperature": tref,
+                },
+            )
             f.readline()  # Separator
             line = f.readline().split()
             ntt = int(line[0])
             eref = float(re.match(r"/EREF=(.*)", line[1]).group(1))
-            dref = float(re.match(r"/NREF=(.*)", line[2]).group(1))
+            dref = float(re.match(r"/NREF=(.*)", line[2]).group(1)) * 10**6
             f.readline()  # Separator
             tt = []
             for _ in range(math.ceil(ntt / 8)):
                 tt.extend(f.readline().split())
             tt = np.asarray(tt, dtype=float)
+            sv = sv.expand_dims({"target_temperature": tt}).copy()
             f.readline()  # Separator
             svt = []
             for _ in range(math.ceil(ntt / 8)):
                 svt.extend(f.readline().split())
+            svt = np.asarray(svt, dtype=float) * 10**-6
+            for i, t in enumerate(tt):
+                sv.loc[t, :, :] *= svt[i] / sv.sel(
+                    beam_energy=eref, target_density=dref, target_temperature=tref
+                )
 
-        sv = DataArray(
-            np.asarray(sv, dtype=float) * 10**-6,
-            dims=("target_density", "beam_energy"),
-            coords={
-                "target_density": ("target_density", dt * 10**6),  # m**-3
-                "beam_energy": ("beam_energy", eb),
-                "target_temperature": tref,
-            },
-        )
         assign_datatype(sv.target_density, "target_density")
         assign_datatype(sv.beam_energy, "beam_energy")
         assign_datatype(sv.target_temperature, "target_temperature")
         assign_datatype(sv, quantity)
-        svt = DataArray(
-            np.asarray(svt, dtype=float) * 10**-6,
-            dims=("target_temperature",),
-            coords={
-                "target_temperature": ("target_temperature", tt),
-                "beam_energy": eref,
-                "target_density": dref,
-            },
-        )
-        assign_datatype(svt.target_density, "target_density")
-        assign_datatype(svt.beam_energy, "beam_energy")
-        assign_datatype(svt.target_temperature, "target_temperature")
-        assign_datatype(svt, quantity)
-        return sv, svt
+        return sv
 
     def get_adf21(
         self,
