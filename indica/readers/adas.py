@@ -377,7 +377,7 @@ class ADASReader(BaseIO):
                 svt.extend(f.readline().split())
 
         sv = DataArray(
-            np.asarray(sv, dtype=float),
+            np.asarray(sv, dtype=float) * 10**-6,
             dims=("target_density", "beam_energy"),
             coords={
                 "target_density": ("target_density", dt * 10**6),  # m**-3
@@ -388,8 +388,9 @@ class ADASReader(BaseIO):
         assign_datatype(sv.target_density, "target_density")
         assign_datatype(sv.beam_energy, "beam_energy")
         assign_datatype(sv.target_temperature, "target_temperature")
+        assign_datatype(sv, quantity)
         svt = DataArray(
-            np.asarray(svt, dtype=float),
+            np.asarray(svt, dtype=float) * 10**-6,
             dims=("target_temperature",),
             coords={
                 "target_temperature": ("target_temperature", tt),
@@ -400,6 +401,7 @@ class ADASReader(BaseIO):
         assign_datatype(svt.target_density, "target_density")
         assign_datatype(svt.beam_energy, "beam_energy")
         assign_datatype(svt.target_temperature, "target_temperature")
+        assign_datatype(svt, quantity)
         return sv, svt
 
     def get_adf21(
