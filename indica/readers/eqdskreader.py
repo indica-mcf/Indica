@@ -24,19 +24,14 @@ class EQDSKReader:
             gf = geqdsk.read(f, cocos=cocos, *args, **kwargs)
         R = np.linspace(gf.rleft, gf.rleft + gf.rdim, gf.nr)
         z = np.linspace(gf.zmid - (gf.zdim / 2), gf.zmid + (gf.zdim / 2), gf.nz)
-        psin = np.linspace(gf.psi_axis, gf.psi_boundary, gf.nx)
-        psirz = DataArray(
-            data=np.where(gf.psirz != gf.psirz[0, 0], gf.psirz, np.nan),
-            coords={"R": R, "z": z},
-            dims=("R", "z"),
-        )
+        psin = np.linspace(0, 1, gf.nx)
+        psirz = DataArray(data=gf.psirz, coords={"R": R, "z": z}, dims=("R", "z"))
+        xpsin = (psirz - gf.psi_axis) / (gf.psi_boundary - gf.psi_axis)
         _rmj = DataArray(
-            R[np.where(~np.isnan(psirz.interp(z=gf.zmagx).data))],
-            coords={"xpsin": psirz.interp(z=gf.zmagx).dropna("R").data},
-            dims=("xpsin",),
-        )
-        rmjo = _rmj.where(_rmj >= gf.rmaxis, drop=True).interp(xpsin=psin)
-        rmji = _rmj.where(_rmj < gf.rmaxis, drop=True).interp(xpsin=psin)
+            R, coords={"xpsin": xpsin.interp(z=gf.zmagx).data}, dims=("xpsin",)
+        ).drop_duplicates("xpsin", keep=False)
+        rmjo = _rmj.where((_rmj >= gf.rmaxis), drop=True).interp(xpsin=psin)
+        rmji = _rmj.where((_rmj < gf.rmaxis), drop=True).interp(xpsin=psin)
         fpol = DataArray(gf.fpol, coords={"xpsin": psin}, dims=("xpsin",))
         qpsi = gf.qpsi
         ftor = xr.zeros_like(fpol)
