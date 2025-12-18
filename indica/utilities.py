@@ -524,35 +524,38 @@ def set_plot_colors(
     return cmap, colors
 
 
-def set_plot_rcparams(option: str = "profiles"):
-    plot_params: dict = {
-        "profiles": {
-            "font.size": 12,
-            "legend.fontsize": 11,
-            "lines.markersize": 6,
-            "lines.linewidth": 2,
-        },
-        "multi": {
-            "font.size": 12,
-            "legend.fontsize": 13,
-            "lines.markersize": 6,
-            "lines.linewidth": 2,
-            "figure.figsize": [6.4, 3.8],
-            "figure.subplot.bottom": 0.15,
-        },
-        "time_evolution": {
-            "font.size": 12,
-            "legend.fontsize": 8,
-            "lines.markersize": 6,
-            "lines.linewidth": 2,
-            "font.weight": 600,
-        },
-    }
+def set_plot_rcparams(option: str = "profiles", rc_params: dict = None):
+    if rc_params is None:
+        plot_params: dict = {
+            "profiles": {
+                "font.size": 12,
+                "legend.fontsize": 11,
+                "lines.markersize": 6,
+                "lines.linewidth": 2,
+            },
+            "multi": {
+                "font.size": 12,
+                "legend.fontsize": 13,
+                "lines.markersize": 6,
+                "lines.linewidth": 2,
+                "figure.figsize": [6.4, 3.8],
+                "figure.subplot.bottom": 0.15,
+            },
+            "time_evolution": {
+                "font.size": 12,
+                "legend.fontsize": 8,
+                "lines.markersize": 6,
+                "lines.linewidth": 2,
+                "font.weight": 600,
+            },
+        }
 
-    if option not in plot_params.keys():
-        return
+        if option not in plot_params.keys():
+            return
 
-    for key, value in plot_params[option].items():
+        rc_params = plot_params[option]
+
+    for key, value in rc_params.items():
         rcParams.update({key: value})
 
 
