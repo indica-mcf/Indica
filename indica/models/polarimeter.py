@@ -121,14 +121,11 @@ class Polarimeter(AbstractDiagnostic):
             Br = Br.interp(R=self.transform.R, z=self.transform.z)
             Bz = Bz.interp(R=self.transform.R, z=self.transform.z)
             Bt = Bt.interp(R=self.transform.R, z=self.transform.z)
-        try:
-            assert Ne is not None
-            assert Br is not None
-            assert Bz is not None
-            assert Bt is not None
-            assert t is not None
-        except AssertionError:
-            raise ValueError("Give inputs or assign plasma class!")
+        assert Ne is not None
+        assert Br is not None
+        assert Bz is not None
+        assert Bt is not None
+        assert t is not None
         if getattr(self, "transform", None) is None:
             raise ValueError("Assign transform to continue")
         self.Ne: DataArray = Ne
