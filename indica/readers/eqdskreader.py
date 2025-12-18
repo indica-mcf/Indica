@@ -45,9 +45,7 @@ class EQDSKReader:
             "rmji": rmji.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
             "f": fpol.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
             "psi": psirz.T.expand_dims({"t": [t]}),
-            "xpsin": DataArray(
-                np.linspace(0, 1, gf.nx), coords={"xpsin": np.linspace(0, 1, gf.nx)}
-            ),
+            "xpsin": DataArray(psin, coords={"xpsin": psin}),
             "psi_boundary": DataArray(gf.psi_boundary),
             "psi_axis": DataArray(gf.psi_axis),
             "ftor": ftor.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
