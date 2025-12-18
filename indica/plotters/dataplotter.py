@@ -16,7 +16,7 @@ from indica.utilities import set_plot_colors
 from indica.utilities import set_plot_rcparams
 
 xr.set_options(keep_attrs=True)
-RHOP_VALS = ["0.1", "0.7"]
+RHOP_VALS = ("0.1", "0.7")
 
 CM, COLORS = set_plot_colors()
 FIG_PATH = f"/home/{getuser()}/figures/"
@@ -31,7 +31,7 @@ class DataPlotter:
         tend: float = None,
         ttol: float = 0.005,
         nplot: int = 3,
-        rc_params:dict=None,
+        rc_params: dict = None,
     ):
         """
         pulse = Pulse number from which the data originated
@@ -63,140 +63,78 @@ class DataPlotter:
 
     def _plot_profile(
         self,
-        y: DataArray,
+        data: DataArray,
         xdim: str = None,
-        use_label:bool=True,
+        label: str = None,
+        use_label: bool = True,
         **kwargs,
     ):
-        """
-        y = Data to plot on the ordinate
-        xdim = Dimension of the abscissa
-        label = Plot label
-        """
         for i, t in enumerate(self.times):
-            _t = self.within_tolerance(y, t)
+            _t = self.within_tolerance(data, t)
 
             if _t is None or i % self.nplot:
                 continue
 
-            _y = y.sel(t=_t)
-            if not np.any(np.isfinite(_y)):
-                continue
+            x, y, err = select_x_y_err(data, t=_t, xdim=xdim)
 
-            if xdim is None:
-                xdim = _y.dims[0]
+            if use_label and label is None:
+                label = f"{_t:.3f} s"
+            self.populate_kwargs(kwargs, label=label, color=self.colors[i])
 
-            _x = getattr(_y, xdim)
-            _err = xr.full_like(_y, 0.0)
-            if hasattr(_y, "error"):
-                _err = _y.error
+            # Plot data
+            y.plot(**kwargs)
 
-            if "label" not in kwargs:
-                kwargs["label"] = f"{_t:.3f} s"
-            if not use_label:
-                kwargs["label"] = None
-
-            if "color" in kwargs:
-                color = kwargs["color"]
-                kwargs.pop("color")
-            else:
-                color = self.colors[i]
-
-            if "alpha" not in kwargs:
-                kwargs["alpha"] = 0.8
-
-            _y.plot(color = color, **kwargs)
-            kwargs.pop("label")
-            kwargs["alpha"] = 0.5
-            plt.fill_between(
-                _x,
-                _y - _err,
-                _y + _err,
-                color = color,
-                **kwargs
-            )
+            # Plot uncertainty band
+            plt.fill_between(x, y - err, y + err, color=kwargs["color"], alpha=0.5)
 
     def _plot_profile_data(
         self,
-        y: DataArray,
-        t: LabeledArray = None,
+        data: DataArray,
         xdim: str = None,
         label: str = None,
+        use_label: bool = True,
         **kwargs,
     ):
-        """
-        y = Data to plot on the ordinate
-        xdim = Dimension of the abscissa
-        label = Plot label
-        """
         marker = "o"
         linestyle = ""
-        use_label = True
-        if t is None:
-            t = deepcopy(self.times)
-        t = np.array(t, ndmin=1)
         for i, t in enumerate(self.times):
-            _t = self.within_tolerance(y, t)
+            _t = self.within_tolerance(data, t)
 
-            if _t is None or i % self.nplot:
+            if _t is None or i % self.nplot or not np.any(np.isfinite(data.sel(t=_t))):
                 continue
 
-            _y = y.sel(t=_t)
-            if not np.any(np.isfinite(_y)):
-                continue
-            if xdim is None:
-                xdim = _y.dims[0]
-            if xdim not in _y.dims:
-                _y = _y.swap_dims({_y.dims[0]: xdim})
-            _x = getattr(_y, xdim)
+            x, y, err = select_x_y_err(data, _t, xdim=xdim)
 
-            _err = xr.full_like(_y, 0.0)
-            if hasattr(_y, "error"):
-                _err = _y.error
-
-            if use_label:
-                _label = f"{_t:.3f} s"
-                if label is not None:
-                    _label = label
-                    use_label = False
-            else:
-                _label = None
-
-            if "marker" not in kwargs:
-                kwargs["marker"] = marker
-            if "linestyle" not in kwargs:
-                kwargs["linestyle"] = linestyle
-
-            _y.plot(
+            if use_label and label is not None:
+                label = f"{_t:.3f} s"
+            self.populate_kwargs(
+                kwargs,
+                label=label,
                 color=self.colors[i],
-                label=_label,
-                **kwargs,
+                marker=marker,
+                linestyle=linestyle,
             )
-            plt.errorbar(
-                _x,
-                _y,
-                _err,
-                linestyle="",
-                color=self.colors[i],
-            )
+
+            y.plot(**kwargs)
+            kwargs["linestyle"] = ""
+            kwargs["color"] = self.colors[i]
+            kwargs.pop("label")
+            plt.errorbar(x, y, err, **kwargs)
 
     def _plot_time_evolution(
         self,
-        y,
+        data,
         label: str = None,
+        xdim: str = "t",
         **kwargs,
     ):
-        """
-        y = Data to plot on the ordinate
-        label = Plot label
-        """
         marker = "o"
-        err = xr.full_like(y, 0.0)
-        if hasattr(y, "error"):
-            err = y.error
-        if "marker" not in kwargs:
-            kwargs["marker"] = marker
-        y.plot(label=label, **kwargs)
+
+        x, y, err = select_x_y_err(data, xdim=xdim)
+
+        self.populate_kwargs(kwargs, label=label, marker=marker)
+
+        y.plot(**kwargs)
         plt.fill_between(y.t, y - err, y + err, alpha=0.5)
         plt.xlim(self.tstart, self.tend)
         plt.legend()
@@ -210,15 +148,8 @@ class DataPlotter:
         plot_transform: bool = False,
         new_fig: bool = True,
         save_fig: bool = False,
-        to_plot:tuple=("profiles", "time"),
         **kwargs,
     ):
-        """
-        instrument = Instrument name
-        data = Data dictionary (see READER_QUANTITIES in available_quantities.py)
-        save_fig = Save figure to file
-        """
-        # Profiles on R
         title = f"{instrument.upper()} for {self.title}"
         xdim = "R"
         for quantity in quantities:
@@ -230,8 +161,7 @@ class DataPlotter:
             )
             assign_datatype(y.coords[xdim], xdim)
 
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             self._plot_profile_data(
                 y,
                 xdim,
@@ -247,12 +177,11 @@ class DataPlotter:
         self,
         instrument: str,
         data: dict,
-        plot_transform: bool = False,
         new_fig: bool = True,
         save_fig: bool = False,
         quantities: tuple = ("ne_rhop", "te_rhop"),
         to_plot: tuple = ("profiles", "time"),
-        xplot:tuple=RHOP_VALS,
+        xplot: tuple = RHOP_VALS,
         **kwargs,
     ):
         title = f"{instrument.upper()} for {self.title}"
@@ -286,8 +215,7 @@ class DataPlotter:
                 except KeyError:
                     y_exp = None
 
-                if new_fig:
-                    plt.figure()
+                new_figure(new_fig)
                 if y_exp is not None:
                     self._plot_profile_data(y_exp, xdim=xdim, label="")
                 self._plot_profile(y_fit, xdim=xdim, **kwargs)
@@ -297,8 +225,7 @@ class DataPlotter:
 
             # Time evolution of central values
             if "time" in to_plot:
-                if new_fig:
-                    plt.figure()
+                new_figure(new_fig)
                 for _xplot in xplot:
                     _y = data[quantity].sel(rhop=float(_xplot), method="nearest")
                     y = xr.where(_y > 0, _y, np.nan)
@@ -313,7 +240,6 @@ class DataPlotter:
                 if save_fig:
                     save_figure(FIG_PATH, f"{fig_name}_tevol", save_fig=save_fig)
 
-
     def plot_bayesian(
         self,
         instrument: str,
@@ -323,7 +249,7 @@ class DataPlotter:
         save_fig: bool = False,
         quantities: tuple = ("ne_rhop", "te_rhop", "ti_rhop"),
         to_plot: tuple = ("profiles", "time"),
-        xplot:tuple=RHOP_VALS,
+        xplot: tuple = RHOP_VALS,
         **kwargs,
     ):
         title = f"{instrument.upper()} for {self.title}"
@@ -335,8 +261,7 @@ class DataPlotter:
             if "profiles" in to_plot:
                 y_fit = xr.where(data[quantity] > 0, data[quantity], np.nan)
 
-                if new_fig:
-                    plt.figure()
+                new_figure(new_fig)
                 self._plot_profile(y_fit, xdim=xdim, **kwargs)
                 common_plot_calls(title, True, False, 0, None, 0, 1.2)
                 if save_fig:
@@ -344,8 +269,7 @@ class DataPlotter:
 
             # Time evolution of central values
             if "time" in to_plot:
-                if new_fig:
-                    plt.figure()
+                new_figure(new_fig)
                 for _xplot in xplot:
                     _y = data[quantity].sel(rhop=float(_xplot), method="nearest")
                     y = xr.where(_y > 0, _y, np.nan)
@@ -379,8 +303,7 @@ class DataPlotter:
             channel = data[quantity].channel.median()
         y = data[quantity].sel(channel=channel)
 
-        if new_fig:
-            plt.figure()
+        new_figure(new_fig)
         self._plot_profile(y, xdim)
         xmin = None
         xmax = None
@@ -414,8 +337,7 @@ class DataPlotter:
             ylim = kwargs["ylim"]
 
         if "profiles" in to_plot:
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             y = data[quantity]
             self._plot_profile(y, xdim)
             common_plot_calls(title, False, False, ylim[0], ylim[1])
@@ -425,8 +347,7 @@ class DataPlotter:
 
         # Time evolution
         if "time" in to_plot:
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             for xplot in RHOP_VALS:
                 _y = data[quantity].sel(rhop=float(xplot), method="nearest")
                 y = xr.where(_y > 0, _y, np.nan)
@@ -437,7 +358,9 @@ class DataPlotter:
                     label = kwargs["label"]
                 self._plot_time_evolution(y, label=label)
             y = data["zeff_avrg"]
-            self._plot_time_evolution(y, label=f"{instrument.upper()} {y.long_name} LOS-avrg")
+            self._plot_time_evolution(
+                y, label=f"{instrument.upper()} {y.long_name} LOS-avrg"
+            )
             common_plot_calls(title, False, False, ylim[0], ylim[1])
             if save_fig:
                 save_figure(FIG_PATH, f"{fig_name}_tevol", save_fig=save_fig)
@@ -466,8 +389,7 @@ class DataPlotter:
             kwargs.pop("sci")
         if "profiles" in to_plot:
             y_fit = xr.where(data[quantity] > 0, data[quantity], np.nan)
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             self._plot_profile(y_fit, xdim=xdim)
             common_plot_calls(title, sci, False, 0, None, 0, 1)
             if save_fig:
@@ -475,8 +397,7 @@ class DataPlotter:
 
         if "time" in to_plot:
             # Time evolution of central values
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             for xplot in RHOP_VALS:
                 _y = data[quantity].sel(rhop=float(xplot), method="nearest")
                 y = xr.where(_y > 0, _y, np.nan)
@@ -492,8 +413,7 @@ class DataPlotter:
         if "integral" in to_plot:
             # Time evolution of total radiated power
             quantity = "prad"
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             label = f"{instrument.upper()}"
             if "label" in kwargs:
                 label = kwargs["label"]
@@ -510,14 +430,18 @@ class DataPlotter:
         plot_transform: bool = False,
         new_fig: bool = True,
         save_fig: bool = False,
-        xplot:float=0.48,
-        to_plot:tuple=("profiles", "time"),
+        xplot: float = 0.48,
+        to_plot: tuple = ("profiles", "time"),
         **kwargs,
     ):
         # Keep only channels where fits have been performed
         xdim = "R"
-        chans = np.where([np.any((data[quantities[0]].sel(channel=ch) > 0).data) for
-                          ch in data[quantities[0]].channel])[0]
+        chans = np.where(
+            [
+                np.any((data[quantities[0]].sel(channel=ch) > 0).data)
+                for ch in data[quantities[0]].channel
+            ]
+        )[0]
         trans = data[quantities[0]].sel(channel=chans[0]).transform
         R = trans.R.sel(channel=chans)
 
@@ -528,7 +452,8 @@ class DataPlotter:
         _data = {}
         for quantity in quantities:
             _data[quantity] = (
-                data[quantity].sel(channel=chans)
+                data[quantity]
+                .sel(channel=chans)
                 .assign_coords(R=("channel", R.data))
                 .swap_dims({"channel": xdim})
             )
@@ -545,8 +470,7 @@ class DataPlotter:
                 fig_name = f"{self.fig_name}_{instrument.upper()}_{quantity}"
                 y = xr.where(_data[quantity] > 0, _data[quantity], np.nan)
 
-                if new_fig:
-                    plt.figure()
+                new_figure(new_fig)
                 self._plot_profile_data(
                     y,
                     xdim,
@@ -558,15 +482,14 @@ class DataPlotter:
         if "time" in to_plot:
             # Time evolution of central values
             for quantity in quantities:
-                if new_fig:
-                    plt.figure()
+                new_figure(new_fig)
                 fig_name = f"{self.fig_name}_{instrument.upper()}_{quantity}"
                 _xplot = _data[quantity].R.sel(R=xplot, method="nearest").data
                 _y = _data[quantity].sel(R=_xplot, method="nearest")
                 y = xr.where(_y > 0, _y, np.nan)
                 xname = y.coords[xdim].long_name
 
-                label = (f"{instrument.upper()} {y.long_name}({xname}={_xplot:.2f})")
+                label = f"{instrument.upper()} {y.long_name}({xname}={_xplot:.2f})"
                 if "label" in kwargs is None:
                     label = kwargs["label"]
 
@@ -574,11 +497,12 @@ class DataPlotter:
 
                 common_plot_calls(title, True, False, 0)
                 if save_fig:
-                    save_figure(FIG_PATH, f"{fig_name}_tevol_emission", save_fig=save_fig)
+                    save_figure(
+                        FIG_PATH, f"{fig_name}_tevol_emission", save_fig=save_fig
+                    )
 
         if plot_transform:
             data[quantity].transform.plot(save_fig=save_fig, fig_name=fig_name)
-
 
     def plot_equilibrium(
         self,
@@ -602,8 +526,7 @@ class DataPlotter:
         quantity = "ipla"
         fig_name = f"{self.fig_name}_{instrument.upper()}_{quantity}"
         y = data[quantity]
-        if new_fig:
-            plt.figure()
+        new_figure(new_fig)
         self._plot_time_evolution(y, **kwargs)
         common_plot_calls(title, sci, False, 0)
         if save_fig:
@@ -624,8 +547,7 @@ class DataPlotter:
         fig_name = f"{self.fig_name}_{instrument.upper()}_{quantity}"
         y = data[quantity]
 
-        if new_fig:
-            plt.figure()
+        new_figure(new_fig)
         self._plot_profile_data(
             y,
             **kwargs,
@@ -644,7 +566,7 @@ class DataPlotter:
         plot_transform: bool = False,
         new_fig: bool = True,
         save_fig: bool = False,
-        quantities:tuple=("ti_w", "te_kw", "int_w", "spectra"),
+        quantities: tuple = ("ti_w", "te_kw", "int_w", "spectra"),
         **kwargs,
     ):
         title = f"{instrument.upper()} for {self.title}"
@@ -653,8 +575,7 @@ class DataPlotter:
         ind_temp = np.where([("ti" in q) or ("te" in q) for q in quantities])[0]
         if len(ind_temp) > 0:
             fig_name = f"{self.fig_name}_{instrument.upper()}_Ti_Te"
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             quant_temp = [quantities[i] for i in ind_temp]
             for quantity in quant_temp:
                 y = data[quantity]
@@ -668,7 +589,6 @@ class DataPlotter:
 
         if plot_transform:
             data[quantity].transform.plot(save_fig=save_fig)
-
 
     def plot_diode_filters(
         self,
@@ -689,8 +609,7 @@ class DataPlotter:
         title = f"{instrument.upper()} for {self.title}"
         fig_name = f"{self.fig_name}_{instrument.upper()}_{quantity}"
         y = data[quantity]
-        if new_fig:
-            plt.figure()
+        new_figure(new_fig)
         self._plot_time_evolution(y, **kwargs)
         common_plot_calls(title, True, False, 0)
         if save_fig:
@@ -709,7 +628,6 @@ class DataPlotter:
         sci: bool = True,
         to_plot: tuple = ("profiles", "time"),
         element: str = "",
-        non_nil:bool=True,
         **kwargs,
     ):
         title = ""
@@ -724,28 +642,18 @@ class DataPlotter:
         _y = deepcopy(getattr(plasma, attr[0]))
 
         if type(_y) is dict:
-            if len(element) == 0:
-                print(f"{attribute} is a dictionary - input element to be selected")
-                return
             _y = _y[element]
-        else:
-            if "element" in _y.dims:
-                if len(element) > 0:
-                    elem = element
-                    fig_name += f"{elem}"
-                    _y = _y.sel(element=elem)
-                else:
-                    _y = _y.sum("element")
 
-        if non_nil:
-            try:
-                _y = xr.where(_y > 0, _y, np.nan)
-            except Exception as e:
-                print(f"No filtering for {attribute} > 0")
+        if "element" in _y.dims:
+            if len(element) > 0:
+                elem = element
+                fig_name += f"{elem}"
+                _y = _y.sel(element=elem)
+            else:
+                _y = _y.sum("element")
 
         if "profiles" in to_plot:
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             if "ion_charge" in _y.dims:
                 for q in _y.ion_charge:
                     y = _y.sel(ion_charge=q)
@@ -759,8 +667,7 @@ class DataPlotter:
 
         # Time evolution of central values
         if "time" in to_plot:
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             for xplot in RHOP_VALS:
                 xname = y.coords[xdim].long_name
                 y_rhop = y.sel(rhop=float(xplot), method="nearest")
@@ -775,8 +682,7 @@ class DataPlotter:
         # Time evolution of 1D values
         if "integral" in to_plot:
             y = _y
-            if new_fig:
-                plt.figure()
+            new_figure(new_fig)
             self._plot_time_evolution(y, **kwargs)
             common_plot_calls(title, sci, False, 0)
             if save_fig:
@@ -789,6 +695,46 @@ class DataPlotter:
         except Exception as e:
             print(f"Skipping t={t:.3f} - beyond tolerance. \n --> error: {e}")
             return None
+
+    def populate_kwargs(
+        self,
+        kwargs,
+        label: str = None,
+        t: float = None,
+        color=None,
+        alpha: float = 0.8,
+        marker: str = None,
+        linestyle: str = "solid",
+    ):
+        if "label" not in kwargs:
+            kwargs["label"] = label
+        if "color" not in kwargs:
+            kwargs["color"] = color
+        if "alpha" not in kwargs:
+            kwargs["alpha"] = alpha
+        if "marker" not in kwargs:
+            kwargs["marker"] = marker
+        if "linestyle" not in kwargs:
+            kwargs["linestyle"] = linestyle
+
+
+def select_x_y_err(data, t: float = None, xdim: str = None):
+    if t is not None:
+        y = data.sel(t=t)
+    else:
+        y = deepcopy(data)
+    if xdim is None:
+        xdim = y.dims[0]
+
+    if xdim not in y.dims:
+        y = y.swap_dims({y.dims[0]: xdim})
+    x = getattr(y, xdim)
+
+    err = xr.full_like(y, 0.0)
+    if hasattr(y, "error"):
+        err = y.error
+
+    return x, y, err
 
 
 def common_plot_calls(
@@ -810,3 +756,8 @@ def common_plot_calls(
 
     plt.ylim(ymin, ymax)
     plt.xlim(xmin, xmax)
+
+
+def new_figure(new_fig):
+    if new_fig:
+        plt.figure()
