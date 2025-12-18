@@ -77,8 +77,9 @@ class DataPlotter:
 
             x, y, err = select_x_y_err(data, t=_t, xdim=xdim)
 
-            if use_label and label is None:
+            if use_label:
                 label = f"{_t:.3f} s"
+
             self.populate_kwargs(kwargs, label=label, color=self.colors[i])
 
             # Plot data
@@ -116,10 +117,7 @@ class DataPlotter:
             )
 
             y.plot(**kwargs)
-            kwargs["linestyle"] = ""
-            kwargs["color"] = self.colors[i]
-            kwargs.pop("label")
-            plt.errorbar(x, y, err, **kwargs)
+            plt.errorbar(x, y, err, linestyle="", color=self.colors[i])
 
     def _plot_time_evolution(
         self,
@@ -700,21 +698,20 @@ class DataPlotter:
         self,
         kwargs,
         label: str = None,
-        t: float = None,
         color=None,
         alpha: float = 0.8,
         marker: str = None,
         linestyle: str = "solid",
     ):
-        if "label" not in kwargs:
+        if label is not None:
             kwargs["label"] = label
-        if "color" not in kwargs:
+        if color is not None:
             kwargs["color"] = color
-        if "alpha" not in kwargs:
+        if alpha is not None:
             kwargs["alpha"] = alpha
-        if "marker" not in kwargs:
+        if marker is not None:
             kwargs["marker"] = marker
-        if "linestyle" not in kwargs:
+        if linestyle is not None:
             kwargs["linestyle"] = linestyle
 
 
