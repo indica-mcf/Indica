@@ -32,12 +32,12 @@ class EQDSKReader:
         )
         _rmj = DataArray(
             R[np.where(~np.isnan(psirz.interp(z=gf.zmagx).data))],
-            coords={"psin": psirz.interp(z=gf.zmagx).dropna("R").data},
-            dims=("psin",),
+            coords={"xpsin": psirz.interp(z=gf.zmagx).dropna("R").data},
+            dims=("xpsin",),
         )
-        rmjo = _rmj.where(_rmj >= gf.rmaxis, drop=True).interp(psin=psin)
-        rmji = _rmj.where(_rmj < gf.rmaxis, drop=True).interp(psin=psin)
-        fpol = DataArray(gf.fpol, coords={"psin": psin}, dims=("psin",))
+        rmjo = _rmj.where(_rmj >= gf.rmaxis, drop=True).interp(xpsin=psin)
+        rmji = _rmj.where(_rmj < gf.rmaxis, drop=True).interp(xpsin=psin)
+        fpol = DataArray(gf.fpol, coords={"xpsin": psin}, dims=("xpsin",))
         qpsi = gf.qpsi
         ftor = xr.zeros_like(fpol)
         for i, df in enumerate(np.diff(fpol)):
@@ -46,16 +46,16 @@ class EQDSKReader:
             "R": psirz.R,
             "z": psirz.z,
             "t": DataArray([t]),
-            "rmjo": rmjo.interp(psin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
-            "rmji": rmji.interp(psin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
-            "f": fpol.interp(psin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "rmjo": rmjo.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "rmji": rmji.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "f": fpol.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
             "psi": psirz.T.expand_dims({"t": [t]}),
             "xpsin": DataArray(
-                np.linspace(0, 1, gf.nx), coords={"psin": np.linspace(0, 1, gf.nx)}
+                np.linspace(0, 1, gf.nx), coords={"xpsin": np.linspace(0, 1, gf.nx)}
             ),
             "psi_boundary": DataArray(gf.psi_boundary),
             "psi_axis": DataArray(gf.psi_axis),
-            "ftor": ftor.interp(psin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "ftor": ftor.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
             "rbnd": DataArray(gf.rbdry, dims=("index",)).expand_dims({"t": [t]}),
             "zbnd": DataArray(gf.zbdry, dims=("index",)).expand_dims({"t": [t]}),
             "rmag": DataArray(gf.rmagx).expand_dims({"t": [t]}),
