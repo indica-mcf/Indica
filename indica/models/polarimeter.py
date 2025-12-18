@@ -7,7 +7,6 @@ from scipy.constants import electron_mass
 from scipy.constants import elementary_charge
 from scipy.constants import epsilon_0
 from scipy.constants import speed_of_light
-import xarray as xr
 from xarray import DataArray
 
 from indica.available_quantities import READER_QUANTITIES
@@ -146,35 +145,7 @@ class Polarimeter(AbstractDiagnostic):
 
         Bx = Br * np.cos(self.transform.phi) - Bt * np.sin(self.transform.phi)
         By = Br * np.sin(self.transform.phi) + Bt * np.cos(self.transform.phi)
-        Bx_l = xr.zeros_like(Bx).transpose(
-            self.transform.x1_name, "beamlet", self.transform.x2_name
-        )
-        By_l = xr.zeros_like(By).transpose(
-            self.transform.x1_name, "beamlet", self.transform.x2_name
-        )
-        Bz_l = xr.zeros_like(Bz).transpose(
-            self.transform.x1_name, "beamlet", self.transform.x2_name
-        )
-        Bl = xr.zeros_like(self.ne_remapped).transpose(
-            self.transform.x1_name, "beamlet", self.transform.x2_name
-        )
-        for i, x1 in enumerate(self.transform.x1):
-            for j, beamlet in enumerate(self.transform.beamlets):
-                _bx = Bx.sel({self.transform.x1_name: x1, "beamlet": beamlet})
-                _by = By.sel({self.transform.x1_name: x1, "beamlet": beamlet})
-                _bz = Bz.sel({self.transform.x1_name: x1, "beamlet": beamlet})
-                dx = self.transform.beamlet_direction_x[i, j]
-                dy = self.transform.beamlet_direction_y[i, j]
-                dz = self.transform.beamlet_direction_z[i, j]
-                uf = np.linalg.norm((dx, dy, dz))
-                dx /= uf
-                dy /= uf
-                dz /= uf
-                Bx_l.loc[i, j, :] = dx.data * _bx.data
-                By_l.loc[i, j, :] = dy.data * _by.data
-                Bz_l.loc[i, j, :] = dz.data * _bz.data
-                Bl.loc[i, j, :] = np.dot((dx, dy, dz), (_bx, _by, _bz))
-        # Bl = (Bx * dx) + (By * dy) + (Bz * dz)
+        Bl, Bx_l, By_l, Bz_l = self.transform.component_along_los(Bx, By, Bz)
         Bl = Bl.assign_coords({"R": self.transform.R, "z": self.transform.z})
         Bl.name = "Longitudinal Magnetic Field (T)"
         self.Br = Br
