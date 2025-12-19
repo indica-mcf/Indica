@@ -1,6 +1,7 @@
 """Base class for reading in ADAS atomic data."""
 
 import datetime
+import math
 from pathlib import Path
 import re
 from typing import List
@@ -326,6 +327,186 @@ class ADASReader(BaseIO):
         assign_datatype(pecs, "pec")
         return pecs
 
+    def _get_adf21_adf22(
+        self,
+        dataclass: str,
+        beam: str,
+        element: str,
+        charge: str,
+        quantity: str,
+        year: str,
+    ) -> DataArray:
+        """Fetch ADF21 or ADF22 data
+
+        ADF21 and ADF22 data files are in the same format, fetch either based on
+        :py:`dataclass` provided and return coefficient as a function of target
+        temperature, target density and beam energy
+
+        Parameters
+        ----------
+        dataclass : str
+            adf21 or adf22
+        beam : str
+            Neutral beam species
+        element : str
+            Target element
+        charge : str
+            Target charge
+        quantity : str
+            "bms" for beam stopping, "bme" for beam emission coefficients
+        year : str
+            ADAS year (e.g. "97")
+
+        Returns
+        -------
+        DataArray
+            Coefficient as a function of target temperature, target density and beam
+            energy
+
+        """
+        filename = pathname2url(
+            f"{quantity}{year}][{beam}/{quantity}{year}][{beam}_{element}{charge}.dat"
+        )
+        with self._get_file(dataclass, filename) as f:
+            f.readline()  # Header
+            f.readline()  # Separator
+            line = f.readline().split()
+            neb, ndt = int(line[0]), int(line[1])
+            tref = float(re.match(r"/TREF=(.*)", line[2]).group(1))
+            f.readline()  # Separator
+            eb = []
+            for _ in range(math.ceil(neb / 8)):
+                eb.extend(f.readline().split())
+            eb = np.asarray(eb, dtype=float)
+            dt = []
+            for _ in range(math.ceil(ndt / 8)):
+                dt.extend(f.readline().split())
+            dt = np.asarray(dt, dtype=float)
+            f.readline()  # Separator
+            sv = []
+            for _ in range(ndt):
+                _sv = []
+                for _ in range(math.ceil(neb / 8)):
+                    _sv.extend(f.readline().split())
+                sv.append(_sv)
+            sv = DataArray(
+                np.asarray(sv, dtype=float) * 10**-6,
+                dims=("target_density", "beam_energy"),
+                coords={
+                    "target_density": ("target_density", dt * 10**6),  # m**-3
+                    "beam_energy": ("beam_energy", eb),
+                    "target_temperature": tref,
+                },
+            )
+            f.readline()  # Separator
+            line = f.readline().split()
+            ntt = int(line[0])
+            eref = float(re.match(r"/EREF=(.*)", line[1]).group(1))
+            dref = float(re.match(r"/NREF=(.*)", line[2]).group(1)) * 10**6
+            f.readline()  # Separator
+            tt = []
+            for _ in range(math.ceil(ntt / 8)):
+                tt.extend(f.readline().split())
+            tt = np.asarray(tt, dtype=float)
+            sv = sv.expand_dims({"target_temperature": tt}).copy()
+            f.readline()  # Separator
+            svt = []
+            for _ in range(math.ceil(ntt / 8)):
+                svt.extend(f.readline().split())
+            svt = np.asarray(svt, dtype=float) * 10**-6
+            for i, t in enumerate(tt):
+                sv.loc[t, :, :] *= svt[i] / sv.sel(
+                    beam_energy=eref, target_density=dref, target_temperature=tref
+                )
+
+        assign_datatype(sv.target_temperature, "target_temperature")
+        assign_datatype(sv.target_density, "target_density")
+        assign_datatype(sv.beam_energy, "beam_energy")
+        assign_datatype(sv, quantity)
+        return sv
+
+    def get_adf21(
+        self,
+        element: str,
+        charge: str,
+        year: str,
+        beam: str = "h",
+        quantity: str = "bms",
+    ) -> DataArray:
+        """Get ADAS ADF21 data
+
+        Get ADAS beam stopping coefficients (ADF21) as a function of target temperature,
+        target density and beam energy
+
+        Parameters
+        ----------
+        element : str
+            Target element
+        charge : str
+            Target charge
+        year : str
+            ADAS year (e.g. "97")
+        beam : str
+            Neutral beam species, defaults to "h"
+        quantity : str
+            Defaults to "bms"
+
+        Returns
+        -------
+        DataArray
+
+
+        """
+        return self._get_adf21_adf22(
+            dataclass="adf21",
+            beam=beam,
+            element=element,
+            charge=charge,
+            quantity=quantity,
+            year=year,
+        )
+
+    def get_adf22(
+        self,
+        element: str,
+        charge: str,
+        year: str,
+        beam: str = "h",
+        quantity: str = "bme",
+    ) -> DataArray:
+        """Get ADAS ADF22 data
+
+        Get ADAS beam emission coefficients (ADF22) as a function of target temperature,
+        target density and beam energy
+
+        Parameters
+        ----------
+        element : str
+            Target element
+        charge : str
+            Target charge
+        year : str
+            ADAS year (e.g. "97")
+        beam : str
+            Neutral beam species, defaults to "h"
+        quantity : str
+            Defaults to "bme"
+
+        Returns
+        -------
+        DataArray
+
+
+        """
+        return self._get_adf21_adf22(
+            dataclass="adf22",
+            beam=beam,
+            element=element,
+            charge=charge,
+            quantity=quantity,
+            year=year,
+        )
+
     def _get_file(self, dataclass: str, filename: Union[str, Path]) -> TextIO:
         """Retrieves an ADAS file, downloading it from OpenADAS if
         necessary. It will cache any downloads for later use.
@@ -344,11 +525,24 @@ class ADASReader(BaseIO):
 
         """
         filepath = self.path / dataclass / filename
-        if self.openadas and not filepath.exists():
-            filepath.parent.mkdir(parents=True, exist_ok=True)
-            urlretrieve(
-                f"https://open.adas.ac.uk/download/{dataclass}/{filename}", filepath
+        if filepath.exists():
+            return filepath.open("r")
+        if not self.openadas:
+            raise FileNotFoundError(
+                f"File {filepath} does not exist and not configured for OpenADAS"
             )
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        url = f"https://open.adas.ac.uk/download/{dataclass}/{filename}"
+        filepath, stat = urlretrieve(url, filepath)
+        filepath = Path(filepath)
+        if stat["Content-Type"] != f"data/{dataclass}":
+            with filepath.open("r") as f:
+                if "File not found in database" in f.read():
+                    warn = UserWarning(f"Filename {filename} not found ({url})")
+                else:
+                    warn = UserWarning(f"Error retrieving URL {url}")
+            filepath.unlink()
+            raise warn
         return filepath.open("r")
 
     @property
