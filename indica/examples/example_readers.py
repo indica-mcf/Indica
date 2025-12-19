@@ -1,6 +1,8 @@
 import matplotlib.pylab as plt
 import numpy as np
 
+from indica import Equilibrium
+from indica import Plasma
 from indica.configs.readers.adasconf import ADF11
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
@@ -9,6 +11,7 @@ from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import ADASReader
+from indica.readers import ST40Reader
 from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
@@ -114,3 +117,75 @@ def example_adf11(
         output[file_type] = tmp
 
     return output
+
+
+def example_assign_modelling_to_plasma():
+    # Read METIS modelled data
+    reader = ST40Reader(
+        40011890,
+        0,
+        10,
+        tree="metis",
+    )
+    metis = reader.get("", "metis", "RUN01")
+
+    # Read EFIT equilibrium data (no METIS equilibrium data...)
+    # and assign to equilibrium class
+    reader = ST40Reader(
+        11890,
+        0,
+        10,
+    )
+    efit = reader.get("", "efit")
+    equilibrium = Equilibrium(efit)
+
+    # Interpolate METIS profiles on EFIT rhot
+    _rhot = equilibrium.rhot.interp(t=metis["te"].t)
+    Te = metis["te"].interp(rhot=_rhot).drop_vars("rhot").sel(t=slice(0.03, 0.12))
+    Ti = metis["ti"].interp(rhot=_rhot).drop_vars("rhot").sel(t=slice(0.03, 0.12))
+    Ne = metis["ne"].interp(rhot=_rhot).drop_vars("rhot").sel(t=slice(0.03, 0.12))
+    Vtor = metis["vtor"].interp(rhot=_rhot).drop_vars("rhot").sel(t=slice(0.03, 0.12))
+
+    plasma = Plasma(
+        tstart=Te.t.data[0],
+        tend=Te.t.data[-1],
+        dt=Te.t.diff("t").data[0],
+        main_ion="h",
+        impurities=("b", "ar"),
+    )
+    plasma.electron_density.data = Ne.interp(rhop=plasma.rhop).data
+    plasma.electron_temperature.data = Te.interp(rhop=plasma.rhop).data
+    plasma.ion_temperature.data = Ti.interp(rhop=plasma.rhop).data
+    plasma.toroidal_rotation.data = Vtor.interp(rhop=plasma.rhop).data
+    plasma.set_equilibrium(equilibrium)
+
+    colors = CMAP(np.linspace(0.1, 0.75, np.size(Te.t), dtype=float))
+
+    plt.figure()
+    for i, t in enumerate(Ne.t):
+        label = f"{t:.3f} s"
+        if (i % 4) != 0:
+            continue
+        Ne.sel(t=t).plot(color=colors[i], label=label)
+    plt.legend()
+    plt.title("Electron density")
+
+    plt.figure()
+    for i, t in enumerate(Te.t):
+        label = f"{t:.3f} s"
+        if (i % 4) != 0:
+            continue
+        Te.sel(t=t).plot(color=colors[i], label=label)
+        Ti.sel(t=t).plot(color=colors[i], linestyle="dashed")
+    plt.title("Electron/Ion temperature")
+
+    plt.figure()
+    for i, t in enumerate(Vtor.t):
+        label = f"{t:.3f} s"
+        if (i % 4) != 0:
+            continue
+        Vtor.sel(t=t).plot(color=colors[i], label=label)
+    plt.legend()
+    plt.title("Toroidal rotation")
+
+    return plasma

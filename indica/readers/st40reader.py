@@ -1,5 +1,4 @@
 """Refactoring of data read from the database to build DataArrays"""
-
 from typing import Any
 from typing import Dict
 from typing import Tuple
@@ -192,6 +191,119 @@ class ST40Reader(DataReader):
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         transform = assign_trivial_transform()
+        return database_results, transform
+
+    def _get_astra(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
+
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+
+        if "psin" in database_results:
+            database_results["rhop"] = np.sqrt(database_results["psin"])
+
+        if "omegator" in database_results and "vtor" not in database_results:
+            database_results["vtor"] = (
+                database_results["omegator"] * database_results["rmag"]
+            )
+
+        rescale = {"ne": 1.0e19, "te": 1.0e3, "ti": 1.0e3}
+        for k, mult in rescale.items():
+            if k in database_results:
+                database_results[k] *= mult
+
+        return database_results, transform
+
+    def _get_transp(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
+
+        database_results["rhot"] = database_results["rhot"][0, :]
+
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+
+        if "omegator" in database_results and "vtor" not in database_results:
+            database_results["vtor"] = (
+                database_results["omegator"] * database_results["rmag"]
+            )
+
+        rescale = {"te": 1.0e3, "ti": 1.0e3}
+        for k, mult in rescale.items():
+            if k in database_results:
+                database_results[k] *= mult
+
+        return database_results, transform
+
+    def _get_metis(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
+
+        database_results["rhot"] = database_results["rhot"][0, :]
+
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+
+        if "psin" in database_results:
+            # TODO: what's to be done here?
+            #  THis is not correct, but will make the equilibrium work...
+            _psin = np.where(
+                database_results["psin"] >= 0, database_results["psin"], 0.0
+            )
+            database_results["rhop"] = np.sqrt(_psin)
+
+        if "omegator" in database_results and "vtor" not in database_results:
+            _rmag = np.stack(
+                (database_results["rmag"],) * np.size(database_results["rhot"]), axis=1
+            )
+            database_results["vtor"] = database_results["omegator"] * _rmag
+
         return database_results, transform
 
 

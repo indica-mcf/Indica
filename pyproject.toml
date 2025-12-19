@@ -1,6 +1,6 @@
 [project]
 name = "indica"
-version = "0.1.19"
+version = "0.1.20"
 description = "INtegrated DIagnostiC Analysis"
 license = "GPL-3.0-or-later"
 authors = [
