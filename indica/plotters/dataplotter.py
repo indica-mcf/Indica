@@ -653,9 +653,11 @@ class DataPlotter:
         if "profiles" in to_plot:
             new_figure(new_fig)
             if "ion_charge" in _y.dims:
+                use_label = True
                 for q in _y.ion_charge:
                     y = _y.sel(ion_charge=q)
-                    self._plot_profile(y, xdim=xdim, **kwargs)
+                    self._plot_profile(y, xdim=xdim, use_label=use_label, **kwargs)
+                    use_label = False
             else:
                 y = xr.where(_y > 0, _y, np.nan)
                 self._plot_profile(y, xdim=xdim, **kwargs)
