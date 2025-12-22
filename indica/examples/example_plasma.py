@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import numpy as np
 
 from indica import Plasma
@@ -11,6 +9,7 @@ def example_plasma(
     tstart=0.02,
     tend=0.1,
     dt=0.01,
+    machine="st40",
     main_ion="h",
     impurities: Tuple[str, ...] = ("c", "ar", "he"),
     **kwargs,
@@ -19,31 +18,29 @@ def example_plasma(
         tstart=tstart,
         tend=tend,
         dt=dt,
+        machine=machine,
         main_ion=main_ion,
         impurities=impurities,
-        **kwargs,
+        full_run=True,
     )
     plasma.build_atomic_data()
 
-    profilers = initialise_gauss_profilers(
-        plasma.rhop,
-        profile_names=[
-            "electron_density",
-            "ion_temperature",
-            "toroidal_rotation",
-            "electron_temperature",
-            "impurity_density:ar",
-            "impurity_density:c",
-            "impurity_density:he",
-        ],
-    )
+    profile_names = [
+        "electron_density",
+        "ion_temperature",
+        "toroidal_rotation",
+        "electron_temperature",
+    ]
+    for imp in impurities:
+        profile_names.append(f"impurity_density:{imp}")
+    profilers = initialise_gauss_profilers(plasma.rhop, profile_names=profile_names)
     plasma_profiler = PlasmaProfiler(
         plasma=plasma,
         profilers=profilers,
     )
     plasma_profiler()
 
-    # Assign profiles to time-points
+    # Make profiles evolve in time
     nt = len(plasma.t)
     ne_peaking = np.linspace(1, 2, nt)
     te_peaking = np.linspace(1, 2, nt)
