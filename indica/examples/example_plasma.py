@@ -2,6 +2,7 @@ import numpy as np
 
 from indica import Plasma
 from indica import PlasmaProfiler
+from indica.numpy_typing import Tuple
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
 
 
