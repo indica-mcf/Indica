@@ -528,10 +528,12 @@ def set_plot_rcparams(option: str = "profiles", rc_params: dict = None):
     if rc_params is None:
         plot_params: dict = {
             "profiles": {
-                "font.size": 12,
+                "axes.titlesize": 13,
+                "font.size": 13,
                 "legend.fontsize": 11,
                 "lines.markersize": 6,
                 "lines.linewidth": 2,
+                "figure.figsize": (7, 5),
             },
             "multi": {
                 "font.size": 12,
@@ -590,3 +592,23 @@ def hash_vals(**kwargs: Any) -> str:
         hash_result.update(bytes(str(val), encoding="utf-8"))
         hash_result.update(b",")
     return hash_result.hexdigest()
+
+
+def scale_dataarray(
+    dataarray: DataArray, scaling: float, new_unit: str, new_name: str = None
+):
+    dataarray.attrs["units"] = new_unit
+
+    dataarray *= scaling
+    if "error" in dataarray.coords:
+        _error = dataarray.error * scaling
+        dataarray = dataarray.drop_vars("error")
+        dataarray = dataarray.assign_coords(error=(dataarray.dims, _error.data))
+
+    if "stdev" in dataarray.coords:
+        _stdev = dataarray.stdev * scaling
+        dataarray = dataarray.drop_vars("stdev")
+        dataarray = dataarray.assign_coords(stdev=(dataarray.dims, _stdev.data))
+
+    if new_name is not None:
+        dataarray.attrs["long_name"] = new_name
