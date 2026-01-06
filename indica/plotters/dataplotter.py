@@ -1,6 +1,8 @@
 """Plotting routines for Indica read/modelled data"""
 from copy import deepcopy
 from getpass import getuser
+from typing import Dict
+from typing import List
 from typing import Union
 
 import matplotlib.pylab as plt
@@ -8,6 +10,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica import Equilibrium
 from indica import Plasma
 from indica.configs import MACHINE_CONFS
 from indica.numpy_typing import LabeledArray
@@ -74,6 +77,7 @@ class DataPlotter:
         use_label: bool = True,
         **kwargs,
     ):
+        _kwargs = pop_kwargs(kwargs, ["label", "color"])
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
 
@@ -87,7 +91,7 @@ class DataPlotter:
                 label = f"{_t:.3f} s"
 
             # Plot data
-            y.plot(label=label, color=self.colors[i], **kwargs)
+            y.plot(label=label, color=self.colors[i], **_kwargs)
 
             # Plot uncertainty band
             plt.fill_between(x, y - err, y + err, color=self.colors[i], alpha=0.5)
@@ -100,6 +104,10 @@ class DataPlotter:
         use_label: bool = True,
         **kwargs,
     ):
+        _kwargs = pop_kwargs(kwargs, ["label", "color"])
+        if "linestyle" not in _kwargs:
+            _kwargs["linestyle"] = ""
+
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
 
@@ -112,8 +120,8 @@ class DataPlotter:
             if use_label:
                 label = f"{_t:.3f} s"
 
-            y.plot(label=label, color=self.colors[i], **kwargs)
-            plt.errorbar(x, y, err, linestyle="", color=self.colors[i])
+            y.plot(label=label, color=self.colors[i], **_kwargs)
+            plt.errorbar(x, y, err, color=self.colors[i])
 
     # Time evolution
     def _plot_time_evolution(
@@ -123,13 +131,15 @@ class DataPlotter:
         xdim: str = "t",
         **kwargs,
     ):
-        marker = "o"
+        _kwargs = pop_kwargs(kwargs, ["label"])
+        if "marker" not in _kwargs:
+            _kwargs["marker"] = "o"
+        if "linestyle" not in _kwargs:
+            _kwargs["linestyle"] = ""
 
         x, y, err = select_x_y_err(data, xdim=xdim)
 
-        populate_kwargs(kwargs, label=label, marker=marker)
-
-        y.plot(**kwargs)
+        y.plot(label=label, **_kwargs)
         plt.fill_between(y.t, y - err, y + err, alpha=0.5)
         plt.xlim(self.tstart, self.tend)
         plt.legend()
@@ -139,34 +149,72 @@ class DataPlotter:
         fig_name = f"{self.fig_name}_{instrument.upper()}_transform"
         data[quantity].transform.plot(fig_name=fig_name, save_fig=save_fig)
 
-    def plot_quantity(
+    def plot(
         self,
-        data: Union[dict, Plasma],
+        data: Union[Dict[str, Dict[str, DataArray]], Plasma],
         instrument: str,
         quantity: str,
         sci: bool = False,
         ylog: bool = False,
         xlim: tuple = (None, None),
         ylim: tuple = (None, None),
+        title: str = None,
+        fig_name: str = None,
         new_fig: bool = True,
         save_fig: bool = False,
         **kwargs,
     ):
-        title = f"{instrument.upper()} for {self.title}"
-        fig_name = f"{self.fig_name}_{instrument.upper()}_{quantity}"
+        """
+        General plotting method for all Indica native data, whether experimental,
+        back-calculated modelled, or Plasma
 
-        plot_method = self.conf.INSTRUMENT_METHODS[instrument].replace("get_", "plot_")
+        Parameters
+        ----------
+        data
+        - experimental/modelled data as read by .indica.readers.datareader.__call__()
+        quantity
+        - instrument quantity to be plotted
+        instrument
+        - instrument identifier as defined in the machine-specific reader conf
+        sci
+        - True if y-axis labels in scientific format
+        ylog
+        - True if y-axis in log scale
+        xlim
+        ylim
+        new_fig
+        save_fig
+        kwargs
+
+        Returns
+        -------
+
+        """
+        if instrument == "plasma":
+            plot_method = "plot_plasma"
+            _data = data
+        else:
+            plot_method = self.conf.INSTRUMENT_METHODS[instrument].replace(
+                "get_", "plot_"
+            )
+            _data = data[instrument]
+
+        if title is None:
+            title = f"{instrument.upper()} for {self.title}"
+        if fig_name is None:
+            fig_name = f"{self.fig_name}_{instrument.upper()}_{quantity}"
 
         new_figure(new_fig)
-        getattr(self, plot_method)(data[instrument], quantity, **kwargs)
+        getattr(self, plot_method)(_data, quantity, fig_name=fig_name, **kwargs)
         common_plot_calls(title, sci, ylog, xlim=xlim, ylim=ylim)
-        save_figure(FIG_PATH, f"{fig_name}_profile_data", save_fig=save_fig)
+        save_figure(FIG_PATH, fig_name, save_fig=save_fig)
 
     # Instrument specific methods
     def plot_thomson_scattering(
         self,
         data: dict,
         quantity: str = "ne",
+        fig_name: str = "",
         marker="o",
         linestyle="",
         **kwargs,
@@ -184,6 +232,7 @@ class DataPlotter:
         self,
         data: dict,
         quantity: str = "ne_rhop",
+        fig_name: str = "",
         marker="o",
         linestyle="",
         **kwargs,
@@ -215,6 +264,7 @@ class DataPlotter:
         self,
         data: dict,
         quantity: str = "spectra",
+        fig_name: str = "",
         channel: int = None,
         **kwargs,
     ):
@@ -229,6 +279,7 @@ class DataPlotter:
         self,
         data: dict,
         quantity: str = "zeff",
+        fig_name: str = "",
         **kwargs,
     ):
         xdim = "rhop"
@@ -240,6 +291,7 @@ class DataPlotter:
         self,
         data: dict,
         quantity: str = "emission_rhop",
+        fig_name: str = "",
         **kwargs,
     ):
         xdim = "rhop"
@@ -255,6 +307,7 @@ class DataPlotter:
         self,
         data: dict,
         quantity: str = "ti",
+        fig_name: str = "",
         **kwargs,
     ):
         # Keep only channels where fits have been performed
@@ -283,6 +336,7 @@ class DataPlotter:
         self,
         data: dict,
         quantity: str = "ipla",
+        fig_name: str = "",
         **kwargs,
     ):
         self._plot_time_evolution(data[quantity], **kwargs)
@@ -291,6 +345,7 @@ class DataPlotter:
         self,
         data: dict,
         quantity: str = "brightness",
+        fig_name: str = "",
         **kwargs,
     ):
         self._plot_profile_data(
@@ -302,6 +357,7 @@ class DataPlotter:
         self,
         data: dict,
         quantity: str = "ti_w",
+        fig_name: str = "",
         **kwargs,
     ):
         y = data[quantity]
@@ -313,6 +369,8 @@ class DataPlotter:
     def plot_diode_filters(
         self,
         data: dict,
+        quantity: str = "",
+        fig_name: str = "",
     ):
         raise NotImplementedError
 
@@ -320,65 +378,48 @@ class DataPlotter:
         self,
         data: dict,
         quantity: str = "ne",
+        fig_name: str = "",
         **kwargs,
     ):
         self._plot_time_evolution(data[quantity], **kwargs)
 
-    #
-    # def plot_plasma_quantity(
-    #         self,
-    #         plasma:Plasma,
-    #         quantity: str,
-    #         element:str = None,
-    #         sci:bool=False,
-    #         ylog:bool=False,
-    #         xlim:tuple = (None, None),
-    #         ylim:tuple = (None, None),
-    #         new_fig: bool = True,
-    #         save_fig: bool = False,
-    #         **kwargs,
-    # ):
-    #     _y = deepcopy(getattr(plasma, quantity))
-    #
-    #     if type(_y) is dict:
-    #         _y = _y[element]
-    #
-    #     if "element" in _y.dims:
-    #         if len(element) > 0:
-    #             elem = element
-    #             fig_name += f"{elem}"
-    #             _y = _y.sel(element=elem)
-    #         else:
-    #             _y = _y.sum("element")
-    #
-    #     if "profiles" in to_plot:
-    #         new_figure(new_fig)
-    #         if "ion_charge" in _y.dims:
-    #             use_label = True
-    #             for q in _y.ion_charge:
-    #                 y = _y.sel(ion_charge=q)
-    #                 self._plot_profile(y, xdim=xdim, use_label=use_label, **kwargs)
-    #                 use_label = False
-    #         else:
-    #             y = xr.where(_y > 0, _y, np.nan)
-    #             self._plot_profile(y, xdim=xdim, **kwargs)
-    #         common_plot_calls(title, sci, ylog, 0, None, 0, 1)
-    #         save_figure(FIG_PATH, f"{fig_name}_profile", save_fig=save_fig)
-    #
-    #     # Time evolution of 1D values
-    #     if "integral" in to_plot:
-    #         y = _y
-    #         new_figure(new_fig)
-    #         self._plot_time_evolution(y, **kwargs)
-    #         common_plot_calls(title, sci, False, 0)
-    #         save_figure(FIG_PATH, f"{fig_name}_tevol_integral", save_fig=save_fig)
-    #
-    #     plot_method =
-    #
-    #     new_figure(new_fig)
-    #     getattr(self, plot_method)(data[instrument], quantity, **kwargs)
-    #     common_plot_calls(title, sci, ylog, xlim=xlim, ylim=ylim)
-    #     save_figure(FIG_PATH, f"{fig_name}_profile_data", save_fig=save_fig)
+    def plot_plasma(
+        self,
+        plasma: Plasma,
+        quantity: str,
+        fig_name: str = "",
+        element: str = None,
+        **kwargs,
+    ):
+        xdim = "rhop"
+        _y = deepcopy(getattr(plasma, quantity))
+
+        if type(_y) is dict:
+            _y = _y[element]
+
+        if "element" in _y.dims:
+            if element is not None:
+                elem = element
+                fig_name += f"{elem}"
+                _y = _y.sel(element=elem)
+            else:
+                _y = _y.sum("element")
+
+        if "rhop" in _y.dims:
+            # Profiles (e.g. Ti)
+            if "ion_charge" in _y.dims:
+                use_label = True
+                for q in _y.ion_charge:
+                    y = _y.sel(ion_charge=q)
+                    self._plot_profile(y, xdim=xdim, use_label=use_label, **kwargs)
+                    use_label = False
+            else:
+                y = xr.where(_y > 0, _y, np.nan)
+                self._plot_profile(y, xdim=xdim, **kwargs)
+        else:
+            # 1D integral values (e.g. Prad)
+            y = _y
+            self._plot_time_evolution(y, **kwargs)
 
     def within_tolerance(self, y, t):
         try:
@@ -389,24 +430,19 @@ class DataPlotter:
             return None
 
 
-def populate_kwargs(
+def pop_kwargs(
     kwargs,
-    label: str = None,
-    color=None,
-    alpha: float = 0.8,
-    marker: str = None,
-    linestyle: str = "solid",
+    to_pop: List[str],
 ):
-    if label is not None:
-        kwargs["label"] = label
-    if color is not None:
-        kwargs["color"] = color
-    if alpha is not None:
-        kwargs["alpha"] = alpha
-    if marker is not None:
-        kwargs["marker"] = marker
-    if linestyle is not None:
-        kwargs["linestyle"] = linestyle
+    """
+    Pop list of keys from kwargs dictionary
+    """
+    _kwargs = deepcopy(kwargs)
+    for key in to_pop:
+        if key in _kwargs:
+            _kwargs.pop(key)
+
+    return _kwargs
 
 
 def select_x_y_err(data, t: float = None, xdim: str = None):
@@ -456,6 +492,7 @@ def new_figure(new_fig):
 if __name__ == "__main__":
     from indica.readers import ReaderProcessor
     from indica.readers import ST40Reader
+    from indica.examples import example_plasma
 
     processor = ReaderProcessor()
 
@@ -473,25 +510,27 @@ if __name__ == "__main__":
         revisions={"bda": 1},
     )
     processed = processor(raw, tstart=tstart, tend=tend, dt=dt)
-    plotter = DataPlotter(pulse, t, tstart, tend, nplot=1)
 
     plt.ioff()
-    plotter.plot_quantity(raw, "ts", "ne")
-    plotter.plot_quantity(post_processed, "ppts", "ne_rhop")
-    plotter.plot_quantity(post_processed, "bda", "ti_rhop")
-    plotter.plot_quantity(raw, "pi", "spectra")
-    plotter.plot_quantity(post_processed, "zeff_brems", "zeff", ylim=(0, 6))
-    plotter.plot_quantity(post_processed, "t1d_sxrc_xy1", "emission_rhop", sci=True)
-    plotter.plot_quantity(post_processed, "t1d_sxrc_xy1", "prad", sci=True)
-    plotter.plot_quantity(post_processed, "cxff_pi", "ti", sci=True)
-    plotter.plot_quantity(raw, "efit", "ipla", sci=True, ylim=(0, None))
-    plotter.plot_quantity(raw, "sxrc_xy1", "brightness", sci=True, ylim=(0, None))
-    plotter.plot_quantity(raw, "xrcs", "ti_w", sci=True, ylim=(0, None))
-    plotter.plot_quantity(
-        raw, "xrcs", "te_n3w", sci=True, ylim=(0, None), new_fig=False
-    )
-    plotter.plot_quantity(
-        raw, "xrcs", "spectra_raw", ylim=(0, None), xlim=(0.394, 0.401)
-    )
+    data_plotter = DataPlotter(pulse, t, tstart, tend, nplot=1)
+    data_plotter.plot(raw, "ts", "ne")
+    data_plotter.plot(post_processed, "ppts", "ne_rhop")
+    data_plotter.plot(post_processed, "bda", "ti_rhop")
+    data_plotter.plot(raw, "pi", "spectra")
+    data_plotter.plot(post_processed, "zeff_brems", "zeff", ylim=(0, 6))
+    data_plotter.plot(post_processed, "t1d_sxrc_xy1", "emission_rhop", sci=True)
+    data_plotter.plot(post_processed, "t1d_sxrc_xy1", "prad", sci=True)
+    data_plotter.plot(post_processed, "cxff_pi", "ti", sci=True)
+    data_plotter.plot(raw, "efit", "ipla", sci=True, ylim=(0, None))
+    data_plotter.plot(raw, "sxrc_xy1", "brightness", sci=True, ylim=(0, None))
+    data_plotter.plot(raw, "xrcs", "ti_w", sci=True, ylim=(0, None))
+    data_plotter.plot(raw, "xrcs", "te_n3w", sci=True, ylim=(0, None), new_fig=False)
+    data_plotter.plot(raw, "xrcs", "spectra_raw", ylim=(0, None), xlim=(0.394, 0.401))
 
+    plasma = example_plasma()
+    plasma.set_equilibrium(Equilibrium(raw["efit"]))
+    plasma_plotter = DataPlotter(pulse, plasma.t, nplot=1)
+    plasma_plotter.plot(plasma, "plasma", "electron_density")
+    plasma_plotter.plot(plasma, "plasma", "zeff")
+    plasma_plotter.plot(plasma, "plasma", "prad_tot", linestyle="solid")
     plt.show()
