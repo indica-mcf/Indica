@@ -9,6 +9,7 @@ def test_dataplotter(plot=False):
     plotter = DataPlotter(0, plasma.t)
 
     plotter.plot(BCKC, "ts", "ne")
+    plotter.plot(BCKC, "cxff_pi", "ti")
     plotter.plot(BCKC, "sxrc_xy1", "brightness")
 
     plotter.plot(plasma, "plasma", "electron_density", ylog=False)
