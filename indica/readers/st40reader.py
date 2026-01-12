@@ -93,22 +93,25 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        # Sort channel indexing either hardcore or
-        # selecting channels with finite data only
-        spectra = database_results["spectra"]
-        if database_results["instrument"] == "pi":
-            has_data = np.arange(21, 28)
-        else:
-            has_data = np.where(np.isfinite(spectra[0, :, 0]) * (spectra[0, :, 0] > 0))[
-                0
-            ]
+        # Selecting used channels only
+
+        _spectra = np.nansum(database_results["spectra"], axis=2)
+        _spectra = np.nansum(_spectra, axis=0)
+        has_data = np.where(np.isfinite(_spectra) * (_spectra > 0))[0]
+
+        database_results["channel"] = has_data
         database_results["spectra"] = database_results["spectra"][:, has_data, :]
         database_results["spectra_error"] = database_results["spectra_error"][
             :, has_data, :
         ]
+        database_results["spectra_raw"] = database_results["spectra_raw"][
+            :, has_data, :
+        ]
+        database_results["spectra_raw_error"] = database_results["spectra_raw_error"][
+            :, has_data, :
+        ]
         database_results["location"] = database_results["location"][has_data, :]
         database_results["direction"] = database_results["direction"][has_data, :]
-        database_results["channel"] = np.arange(database_results["location"][:, 0].size)
         if len(np.shape(database_results["wavelength"])) > 1:
             database_results["wavelength"] = database_results["wavelength"][0, :]
 
