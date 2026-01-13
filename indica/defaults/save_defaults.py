@@ -58,13 +58,6 @@ def save_default_objects(
         tstart=tstart,
         tend=tend,
         dt=dt,
-        main_ion="h",
-        impurities=("c", "ar", "he"),
-        impurity_concentration=(0.02, 0.001),  # should be deleted!
-        full_run=False,
-        n_rad=41,
-        n_R=100,
-        n_z=100,
     )
     fract_abu, power_loss_tot = default_atomic_data(plasma.elements)
     plasma.fract_abu = fract_abu
