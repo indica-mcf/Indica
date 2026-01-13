@@ -472,6 +472,11 @@ def check_time_present(t_desired: LabeledArray, t_array: LabeledArray):
         raise ValueError(f"Desired time {t_desired} not available in array {t_array}")
 
 
+def new_figure(new_fig: bool):
+    if new_fig:
+        plt.figure()
+
+
 def save_figure(
     path_name: str = "",
     fig_name: str = "",

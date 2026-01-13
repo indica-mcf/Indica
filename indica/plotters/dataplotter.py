@@ -10,11 +10,11 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica import Equilibrium
 from indica import Plasma
 from indica.configs import MACHINE_CONFS
 from indica.numpy_typing import LabeledArray
 from indica.utilities import assign_datatype
+from indica.utilities import new_figure
 from indica.utilities import save_figure
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
@@ -145,9 +145,19 @@ class DataPlotter:
         plt.legend()
 
     # Instrument geometry
-    def plot_transform(self, instrument: str, data: dict, quantity: str):
+    def plot_transform(
+        self,
+        data: Union[Dict[str, Dict[str, DataArray]], Plasma],
+        instrument: str,
+        quantity: str,
+        fig_name: str = None,
+        new_fig: bool = True,
+        save_fig: bool = False,
+    ):
         fig_name = f"{self.fig_name}_{instrument.upper()}_transform"
-        data[quantity].transform.plot(fig_name=fig_name, save_fig=save_fig)
+        data[instrument][quantity].transform.plot(
+            fig_name=fig_name, new_fig=new_fig, save_fig=save_fig
+        )
 
     def plot(
         self,
@@ -482,55 +492,3 @@ def common_plot_calls(
 
     plt.ylim(ylim[0], ylim[1])
     plt.xlim(xlim[0], xlim[1])
-
-
-def new_figure(new_fig):
-    if new_fig:
-        plt.figure()
-
-
-if __name__ == "__main__":
-    from indica.readers import ReaderProcessor
-    from indica.readers import ST40Reader
-    from indica.examples import example_plasma
-
-    processor = ReaderProcessor()
-
-    pulse = 11419
-    tstart = 0.015
-    tend = 0.195
-    dt = 0.01
-    t = 0.07, 0.11, 0.13, 0.16
-    save_fig = True
-
-    st40 = ST40Reader(pulse, 0, 0.2)
-    raw = st40(["pi", "xrcs", "cxff_pi", "ts", "psu", "mag", "efit", "sxrc_xy1"])
-    post_processed = st40(
-        ["ppts", "t1d_blom_xy1", "t1d_sxrc_xy1", "cxff_pi", "bda", "zeff_brems"],
-        revisions={"bda": 1},
-    )
-    processed = processor(raw, tstart=tstart, tend=tend, dt=dt)
-
-    plt.ioff()
-    data_plotter = DataPlotter(pulse, t, tstart, tend, nplot=1)
-    data_plotter.plot(raw, "ts", "ne")
-    data_plotter.plot(post_processed, "ppts", "ne_rhop")
-    data_plotter.plot(post_processed, "bda", "ti_rhop")
-    data_plotter.plot(raw, "pi", "spectra")
-    data_plotter.plot(post_processed, "zeff_brems", "zeff", ylim=(0, 6))
-    data_plotter.plot(post_processed, "t1d_sxrc_xy1", "emission_rhop", sci=True)
-    data_plotter.plot(post_processed, "t1d_sxrc_xy1", "prad", sci=True)
-    data_plotter.plot(post_processed, "cxff_pi", "ti", sci=True)
-    data_plotter.plot(raw, "efit", "ipla", sci=True, ylim=(0, None))
-    data_plotter.plot(raw, "sxrc_xy1", "brightness", sci=True, ylim=(0, None))
-    data_plotter.plot(raw, "xrcs", "ti_w", sci=True, ylim=(0, None))
-    data_plotter.plot(raw, "xrcs", "te_n3w", sci=True, ylim=(0, None), new_fig=False)
-    data_plotter.plot(raw, "xrcs", "spectra_raw", ylim=(0, None), xlim=(0.394, 0.401))
-
-    plasma = example_plasma()
-    plasma.set_equilibrium(Equilibrium(raw["efit"]))
-    plasma_plotter = DataPlotter(pulse, plasma.t, nplot=1)
-    plasma_plotter.plot(plasma, "plasma", "electron_density")
-    plasma_plotter.plot(plasma, "plasma", "zeff")
-    plasma_plotter.plot(plasma, "plasma", "prad_tot", linestyle="solid")
-    plt.show()
