@@ -131,6 +131,7 @@ class ST40Conf(MachineConf):
                 "direction": ".geometry:direction",
                 "wavelength": ":wavelen",
                 "spectra": ":emission",
+                "spectra_raw": ":intens",
             },
             "get_thomson_scattering": {
                 "t": ":time",
