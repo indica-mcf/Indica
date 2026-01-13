@@ -4,6 +4,7 @@ from indica.plotters import DataPlotter
 BCKC, MODEL_READER = example_model_reader(plot=False)
 
 
+# TODO: add tests for each method
 def test_dataplotter(plot=False):
     plasma = MODEL_READER.plasma
     plotter = DataPlotter(0, plasma.t)
