@@ -1,6 +1,79 @@
+[project]
+name = "indica"
+version = "0.1.21"
+description = "INtegrated DIagnostiC Analysis"
+license = "GPL-3.0-or-later"
+authors = [
+    { name = "Marco Sertoli", email = "marco.sertoli@tokamakenergy.com" },
+    { name = "Chris MacMackin", email = "chris.macmackin@ukaea.uk" },
+    { name = "Michael Gemmell", email = "michael.gemmell@tokamakenergy.com" },
+    { name = "Evie Litherland-Smith", email = "evie.litherland-smith@ukaea.uk" }
+]
+maintainers = [
+    { name = "Evie Litherland-Smith", email = "evie.litherland-smith@ukaea.uk" },
+    { name = "Michael Gemmell", email = "michael.gemmell@tokamakenergy.com" },
+    { name = "Jussi Hakosalo", email = "jussi.hakosalo@tokamakenergy.com" }
+]
+readme = 'README.md'
+requires-python = ">=3.9"
+dependencies = [
+    "corner>=1.0",
+    "pandas==2.2.1",
+    "hydra-core>=1.3.1",
+    "prov>=1.5.3",
+    "netCDF4>=1.5.4",
+    "numpy==1.26.4",
+    "mpmath>=1.3.0",
+    "scipy>=1.9.2",
+    "xarray==2024.6.0",
+    "matplotlib>=3.8.0",
+    "sal>=1.2.2",
+    "emcee>=3.1.4",
+    "dime_sampler==1.0.0",
+    "flatdict>=4.0.1",
+    "bottleneck==1.4.0",
+    "tqdm>=4.65.0",
+    "scikit-learn>=1.3.0",
+    "scikit-optimize>=0.10.2",
+    "pyyaml>=6.0.1",
+    "Pint>=0.23",
+    "GitPython>=3.1.41",
+    "periodictable>=1.6.1",
+    "freeqdsk>=0.5.0"
+]
+
+[project.urls]
+repository = "https://github.com/indica-mcf/Indica"
+
 [build-system]
-requires = ["poetry-core>=1.7"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+include = [".git", "indica/git_version"]
+
+[tool.poetry.build]
+generate-setup-file = false
+script = ".get_git_commit.py"
+
+[tool.poetry.dependencies]
+python = "^3.9,<3.13"
+
+[tool.poetry.group.dev.dependencies]
+click = "^8.0.0"
+corner = "^1.0"
+coverage = {extras = ["toml"], version = "^7.5.1"}
+hypothesis = {extras = ["numpy"], version = "^5.24.2"}
+mypy = "^0.942"
+pre-commit = "^2.9.2"
+pytest = "^8.3.2"
+pytest-cov = "^2.10.0"
+pytest-xdist = "^2.0.0"
+types-setuptools = "^57.4.14"
+ipython = {version = "^8.24.0", python = "^3.10"}
+
+[tool.pypi-publisher]
+repository="pypi"
 
 [tool.black]
 line-length = 88
@@ -16,76 +89,6 @@ exclude = '''
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-
-[tool.pypi-publisher]
-repository="pypi"
-
-[tool.poetry]
-name = "indica"
-version = "0.1.21"
-description = "INtegrated DIagnostiC Analysis"
-
-license = "GPL-3.0-or-later"
-
-authors = [
-    "Marco Sertoli <marco.sertoli@tokamakenergy.com>",
-    "Chris MacMackin <chris.macmackin@ukaea.uk>",
-    "Michael Gemmell <michael.gemmell@tokamakenergy.com>",
-    "Evie Litherland-Smith <evie.litherland-smith@ukaea.uk>"
-]
-maintainers = [
-    "Evie Litherland-Smith <evie.litherland-smith@ukaea.uk>",
-    "Michael Gemmell <michael.gemmell@tokamakenergy.com>",
-    "Jussi Hakosalo <jussi.hakosalo@tokamakenergy.com>"
-]
-repository = "https://github.com/indica-mcf/Indica"
-#documentation = "https://indica-ukaea.readthedocs.io/"
-
-readme = 'README.md'  # Markdown files are supported
-include = [".git", "indica/git_version"]
-
-[tool.poetry.dependencies]
-corner = "^1.0"
-pandas = "2.2.1"
-hydra-core = "^1.3.1"
-python = "^3.9,<3.13"
-prov = "^1.5.3"
-netCDF4 = "^1.5.4"
-numpy = "1.26.4"
-mpmath = "^1.3.0"
-scipy = "^1.9.2"
-xarray = "2024.6.0"
-matplotlib = "^3.8.0"
-sal = "^1.2.2"
-emcee = "^3.1.4"
-dime_sampler = "1.0.0"
-flatdict = "^4.0.1"
-bottleneck = "1.4.0"
-tqdm = "^4.65.0"
-scikit-learn = "^1.3.0"
-scikit-optimize = "^0.10.2"
-pyyaml = "^6.0.1"
-Pint = "^0.23"
-GitPython = "^3.1.41"
-periodictable = "^1.6.1"
-freeqdsk = "^0.5.0"
-
-[tool.poetry.dev-dependencies]
-click = "^8.0.0"
-corner = "^1.0"
-coverage = {extras = ["toml"], version = "^7.5.1"}
-hypothesis = {extras = ["numpy"], version = "^5.24.2"}
-mypy = "^0.942"
-pre-commit = "^2.9.2"
-pytest = "^8.3.2"
-pytest-cov = "^2.10.0"
-pytest-xdist = "^2.0.0"
-types-setuptools = "^57.4.14"
-ipython = {version = "^8.24.0", python = "^3.10"}
-
-[tool.poetry.build]
-generate-setup-file = false
-script = ".get_git_commit.py"
 
 [tool.mypy]
 install_types = true
