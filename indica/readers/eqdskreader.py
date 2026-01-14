@@ -12,56 +12,45 @@ class EQDSKReader:
     def __init__(self):
         pass
 
-    def read_geqdsk(self, filename: Path) -> Dict[str, Any]:
+    @staticmethod
+    def read_geqdsk(
+        filename: Path,
+        cocos: int = 1,
+        t: float = 0.0,
+        *args,
+        **kwargs,
+    ) -> Dict[str, Any]:
         with open(filename, "r") as f:
-            gf = geqdsk.read(f)
-        R = np.linspace(
-            gf.rleft,
-            gf.rleft + gf.rdim,
-            gf.nr,
-        )
-        z = np.linspace(
-            gf.zmid - (gf.zdim / 2),
-            gf.zmid + (gf.zdim / 2),
-            gf.nz,
-        )
-        psirz = DataArray(
-            data=gf.psirz,
-            coords={"R": R, "z": z},
-            dims=("R", "z"),
-        )
-        xpsin = (psirz.interp(z=gf.zmaxis) - gf.psi_axis) / (
-            gf.psi_boundary - gf.psi_axis
-        )
-        rmjo = DataArray(
-            R[np.where(R >= gf.rmaxis)[0]],
-            coords={"xpsin": xpsin.where(xpsin.R >= gf.rmaxis, drop=True).data},
-            dims=("xpsin",),
-        )
-        rmji = DataArray(
-            R[np.where(R <= gf.rmaxis)[0]],
-            coords={"xpsin": xpsin.where(xpsin.R <= gf.rmaxis, drop=True).data},
-            dims=("xpsin",),
-        ).interp(psin=rmjo.psin)
-        fpol = (
-            DataArray(gf.fpol, coords={"R": R, "xpsin": xpsin}, dims=("R",))
-            .interp(R=rmjo)
-            .drop_vars("R")
-        )
+            gf = geqdsk.read(f, cocos=cocos, *args, **kwargs)
+        R = np.linspace(gf.rleft, gf.rleft + gf.rdim, gf.nr)
+        z = np.linspace(gf.zmid - (gf.zdim / 2), gf.zmid + (gf.zdim / 2), gf.nz)
+        psin = np.linspace(0, 1, gf.nx)
+        psirz = DataArray(data=gf.psirz, coords={"R": R, "z": z}, dims=("R", "z"))
+        xpsin = (psirz - gf.psi_axis) / (gf.psi_boundary - gf.psi_axis)
+        _rmj = DataArray(
+            R, coords={"xpsin": xpsin.interp(z=gf.zmagx).data}, dims=("xpsin",)
+        ).drop_duplicates("xpsin", keep=False)
+        rmjo = _rmj.where((_rmj >= gf.rmaxis), drop=True).interp(xpsin=psin)
+        rmji = _rmj.where((_rmj < gf.rmaxis), drop=True).interp(xpsin=psin)
+        fpol = DataArray(gf.fpol, coords={"xpsin": psin}, dims=("xpsin",))
+        qpsi = gf.qpsi
+        ftor = xr.zeros_like(fpol)
+        for i, df in enumerate(np.diff(fpol)):
+            ftor[i + 1] = ftor[i] + (0.5 * (qpsi[i] + qpsi[i + 1]) * df)
         return {
             "R": psirz.R,
             "z": psirz.z,
-            "t": DataArray([0.0]),
-            "rmjo": rmjo.expand_dims({"t": [0.0]}),
-            "rmji": rmji.expand_dims({"t": [0.0]}),
-            "f": fpol.expand_dims({"t": [0.0]}),
-            "psi": psirz.expand_dims({"t": [0.0]}),
-            "xpsin": xpsin.interp(R=rmjo).drop_vars("R"),
-            "psi_boundary": DataArray(gf.psi_boundary).expand_dims({"t": [0.0]}),
-            "psi_axis": DataArray(gf.psi_axis).expand_dims({"t": [0.0]}),
-            "ftor": xr.zeros_like(fpol).expand_dims({"t": [0.0]}),
-            "rbnd": DataArray(gf.rbdry, dims=("index",)).expand_dims({"t": [0.0]}),
-            "zbnd": DataArray(gf.zbdry, dims=("index",)).expand_dims({"t": [0.0]}),
-            "rmag": DataArray(gf.rmagx).expand_dims({"t": [0.0]}),
-            "zmag": DataArray(gf.zmagx).expand_dims({"t": [0.0]}),
+            "t": DataArray([t]),
+            "rmjo": rmjo.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "rmji": rmji.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "f": fpol.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "psi": psirz.T.expand_dims({"t": [t]}),
+            "xpsin": DataArray(psin, coords={"xpsin": psin}),
+            "psi_boundary": DataArray(gf.psi_boundary),
+            "psi_axis": DataArray(gf.psi_axis),
+            "ftor": ftor.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "rbnd": DataArray(gf.rbdry, dims=("index",)).expand_dims({"t": [t]}),
+            "zbnd": DataArray(gf.zbdry, dims=("index",)).expand_dims({"t": [t]}),
+            "rmag": DataArray(gf.rmagx).expand_dims({"t": [t]}),
+            "zmag": DataArray(gf.zmagx).expand_dims({"t": [t]}),
         }
