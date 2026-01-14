@@ -1,4 +1,5 @@
 import math
+from typing import Union
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -8,7 +9,6 @@ from scipy.constants import epsilon_0
 from scipy.constants import speed_of_light
 from xarray import DataArray
 
-from indica import Equilibrium
 from indica.available_quantities import READER_QUANTITIES
 from indica.converters import LineOfSightTransform
 from indica.models.abstract_diagnostic import AbstractDiagnostic
@@ -24,14 +24,34 @@ class Polarimeter(AbstractDiagnostic):
     """
 
     Bl: DataArray
-    Ne: DataArray
     Dphi: DataArray
     ne_remapped: DataArray
     los_integral_dphi: DataArray
 
-    def __init__(self, name: str, instrument_method="get_polarimetry"):
+    def __init__(
+        self,
+        name: str,
+        wavelength: Union[int, float],
+        instrument_method="get_polarimetry",
+    ):
+        """Instantiate polarimeter diagnostic model
+
+        Parameters
+        ----------
+        name : str
+        wavelength : Union[int, float]
+            Laser wavelength (m)
+        instrument_method : str
+
+        Returns
+        -------
+        None
+
+
+        """
         self.transform: LineOfSightTransform
         self.name = name
+        self.wavelength = float(wavelength)
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
 
@@ -47,36 +67,71 @@ class Polarimeter(AbstractDiagnostic):
 
     def __call__(
         self,
-        laser_wavelength: float,
-        Ne: DataArray = None,
-        t: LabeledArray = None,
-        equilibrium: Equilibrium = None,
-        calc_rho=False,
+        Ne: DataArray | None = None,
+        Br: DataArray | None = None,
+        Bz: DataArray | None = None,
+        Bt: DataArray | None = None,
+        t: LabeledArray | None = None,
+        calc_rho: bool = False,
+        full_Rz: bool = False,
         **kwargs,
     ):
-        """
-        Calculate diagnostic measured values
+        """Calculate diagnostic measured values
 
         Parameters
         ----------
-        Ne
+        Ne : DataArray
             Electron density profile
-        t
+        Br : DataArray
+            Radial component of magnetic field
+        Bz : DataArray
+            Vertical component of magnetic field
+        Bt : DataArray
+            Toroidal component of magnetic field
+        t : LabeledArray
+            Time
+        calc_rho : bool
+            See documentation for :py:`LineOfSightTransform.map_profile_to_los`
+        full_Rz : bool
+            See documentation for :py:`Equilibrium.Bfield`
 
         Returns
         -------
+        Dict[Any, Any]
+
+        Raises
+        ------
+        ValueError
+            Requires input profiles or an assigned :py:`Plasma` class
+
 
         """
         if self.plasma is not None:
             if t is None:
                 t = self.plasma.time_to_calculate
-            equilibrium = self.plasma.equilibrium
             Ne = self.plasma.electron_density.interp(t=t)
-        if Ne is None or equilibrium is None:
-            raise ValueError("Give inputs or assign plasma class!")
-        self.t: DataArray = t
+            (Br, Bz, Bt, _,) = self.plasma.equilibrium.Bfield(
+                self.transform.R,
+                self.transform.z,
+                t=t,
+                full_Rz=full_Rz,
+            )
+        elif all((Br is not None, Bz is not None, Bt is not None)):
+            Br = Br.interp(R=self.transform.R, z=self.transform.z)
+            Bz = Bz.interp(R=self.transform.R, z=self.transform.z)
+            Bt = Bt.interp(R=self.transform.R, z=self.transform.z)
+        assert Ne is not None
+        assert Br is not None
+        assert Bz is not None
+        assert Bt is not None
+        assert t is not None
+        if getattr(self, "transform", None) is None:
+            raise ValueError("Assign transform to continue")
         self.Ne: DataArray = Ne
-        self.equilibrium: Equilibrium = equilibrium
+        self.Br: DataArray = Br
+        self.Bz: DataArray = Bz
+        self.Bt: DataArray = Bt
+        self.t: LabeledArray = t
 
         ne_remapped = self.transform.map_profile_to_los(
             self.Ne,
@@ -84,25 +139,23 @@ class Polarimeter(AbstractDiagnostic):
             calc_rho=calc_rho,
         )
         ne_remapped = ne_remapped.assign_coords(
-            {
-                "R": (("channel", "beamlet", "los_position"), self.transform.R.data),
-                "z": (("channel", "beamlet", "los_position"), self.transform.z.data),
-            }
+            {"R": self.transform.R, "z": self.transform.z}
         )
         self.ne_remapped = ne_remapped
 
-        Br, Bz, _, _ = equilibrium.Bfield(self.transform.R, self.transform.z, t=t)
-        unit_factor = np.linalg.norm(self.transform.direction, axis=1)
-        Bl = (Br * self.transform.direction_x / unit_factor) + (
-            Bz * self.transform.direction_z / unit_factor
-        )
-        Bl = Bl.assign_coords(
-            {
-                "R": (("channel", "beamlet", "los_position"), self.transform.R.data),
-                "z": (("channel", "beamlet", "los_position"), self.transform.z.data),
-            }
-        )
+        Bx = Br * np.cos(self.transform.phi) - Bt * np.sin(self.transform.phi)
+        By = Br * np.sin(self.transform.phi) + Bt * np.cos(self.transform.phi)
+        Bl, Bx_l, By_l, Bz_l = self.transform.component_along_los(Bx, By, Bz)
+        Bl = Bl.assign_coords({"R": self.transform.R, "z": self.transform.z})
         Bl.name = "Longitudinal Magnetic Field (T)"
+        self.Br = Br
+        self.Bz = Bz
+        self.Bt = Bt
+        self.Bx = Bx
+        self.By = By
+        self.Bx_l = Bx_l
+        self.By_l = By_l
+        self.Bz_l = Bz_l
         self.Bl = Bl
 
         Dphi = (
@@ -116,17 +169,19 @@ class Polarimeter(AbstractDiagnostic):
                     * speed_of_light**3
                 )
             )
-            * (laser_wavelength**2)
+            * (self.wavelength**2)
             * self.ne_remapped
             * self.Bl
         )
         Dphi.name = "Faraday Rotation (rad)"
         self.Dphi = Dphi
-        self.los_integral_dphi = (
+        los_integral_dphi = (
             self.Dphi.sum(("los_position", "beamlet"))
             * self.transform.dl
             * self.transform.passes
         )
+        los_integral_dphi.name = "Faraday Rotation Integrated (rad)"
+        self.los_integral_dphi = los_integral_dphi
 
         self._build_bckc_dictionary()
         return self.bckc

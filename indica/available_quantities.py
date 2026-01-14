@@ -35,7 +35,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "location": ("location", []),
         "direction": ("direction", []),
         "wavelength": ("wavelength", []),
-        "spectra_raw": ("spectra_raw", ["t", "wavelength"]),
+        "spectra_raw": ("spectra_raw", ["t", "channel", "wavelength"]),
         "spectra": ("spectra", ["t", "channel", "wavelength"]),
     },
     "get_charge_exchange": {
