@@ -458,9 +458,7 @@ class Plasma:
 
     @property
     def impurity_concentration(self):
-        ion_concentration = self.Ion_concentration()
-        isel_impurities = np.where(ion_concentration.element != self.main_ion)[0]
-        return ion_concentration.isel(element=isel_impurities)
+        return self.impurity_density / self.electron_density
 
     def calc_ion_concentration(self):
         for elem in self.impurities:
