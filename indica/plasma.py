@@ -456,6 +456,10 @@ class Plasma:
     def ion_concentration(self):
         return self.Ion_concentration()
 
+    @property
+    def impurity_concentration(self):
+        return self.impurity_density / self.electron_density
+
     def calc_ion_concentration(self):
         for elem in self.impurities:
             self._ion_concentration.loc[dict(element=elem)] = (
