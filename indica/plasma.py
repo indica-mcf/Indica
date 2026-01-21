@@ -1,8 +1,9 @@
 from copy import deepcopy
-from functools import lru_cache
 import hashlib
 import pickle
+from typing import Any
 from typing import Callable
+from typing import Hashable
 from typing import Optional
 from typing import Tuple
 
@@ -694,13 +695,18 @@ class TrackDependecies:
 class CachedCalculation(TrackDependecies):
     def __init__(self, operator: Callable, dependencies: list, verbose: bool = False):
         self.verbose = verbose
+        self.results: dict[Hashable, Any] = {}
         super(CachedCalculation, self).__init__(operator, dependencies)
 
-    @lru_cache()
     def __call__(self):
+        res = self.results.get(hash(self))
+        if res is not None:
+            return deepcopy(res)
         if self.verbose:
             print("Calculating")
-        return deepcopy(self.operator())
+        res = deepcopy(self.operator())
+        self.results[hash(self)] = res
+        return res
 
 
 class PlasmaProfiler:
