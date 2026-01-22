@@ -72,9 +72,8 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
                 t = self.plasma.time_to_calculate
             Ti = self.plasma.ion_temperature.interp(t=t)
             Vtor = self.plasma.toroidal_rotation.interp(t=t)
-            Conc = self.plasma.ion_density.sel(element=self.element).interp(
-                t=t
-            ) / self.plasma.electron_density.interp(t=t)
+            Ni = self.plasma.ion_density.sel(element=self.element)
+            Conc = (Ni / self.plasma.electron_density.interp(rhop=Ni.rhop)).interp(t=t)
         else:
             if Ti is None or Vtor is None:
                 raise ValueError("Give inputs or assign plasma class!")
