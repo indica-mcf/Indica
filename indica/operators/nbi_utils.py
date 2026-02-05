@@ -8,6 +8,19 @@ import mpl_toolkits.mplot3d.art3d as art3d
 import shutil
 
 import h5py as h5
+from .nbi_configs import FIDASIM_BASE_DIR
+from .nbi_configs import FIDASIM_OUTPUT_DIR
+from .nbi_configs import TE_FIDASIM_FI_DIST_FILE
+from .nbi_configs import TE_FIDASIM_INPUT_REWRITE_FROM
+from .nbi_configs import FIDASIM_INPUT_REWRITE_TO
+from .nbi_configs import build_general_settings
+from .nbi_configs import build_nbi_settings
+from .nbi_configs import build_plasma_settings
+from .nbi_configs import MC_SETTINGS_COARSE
+from .nbi_configs import MC_SETTINGS_FINE
+from .nbi_configs import SIMULATION_SWITCHES
+from .nbi_configs import WAVELENGTH_GRID_SETTINGS
+from .nbi_configs import WEIGHT_FUNCTION_SETTINGS
 
 # TODO: address HDF5 version issue, but disable version check for now
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = '1'
@@ -49,16 +62,14 @@ def parse_input_file(input_dict_file):
     os.remove('temp.json')
 
     # Check input dict
-    # input_dict['save_dir'] = '/home/jonathan.wood/git_home/te-fidasim/output'
     input_dict['input_files']['geqdsk_file'] = input_dict['input_files']['geqdsk_file'].replace(
-        '/home/bart.lomanowski/TE-fidasim/',
-        '/home/jussi.hakosalo/fidasim/FIDASIM-2.0.0/'
+        TE_FIDASIM_INPUT_REWRITE_FROM,
+        FIDASIM_INPUT_REWRITE_TO
     )
     input_dict['input_files']['fi_dist_file'] = input_dict['input_files']['fi_dist_file'].replace(
-        '/home/bart.lomanowski/TE-fidasim/',
-        '/home/jussi.hakosalo/fidasim/FIDASIM-2.0.0/'
+        TE_FIDASIM_INPUT_REWRITE_FROM,
+        FIDASIM_INPUT_REWRITE_TO
     )
-    # input_dict['save_dir'] = '/home/jonathan.wood/git_home/te-fidasim/output'
     print(input_dict['save_dir'])
     print(input_dict['input_files']['geqdsk_file'])
     print(input_dict['input_files']['fi_dist_file'])
@@ -89,9 +100,9 @@ def prepare_fidasim(
         nbiconfig: dict,
         specconfig: dict,
         plasmaconfig: dict,
-        fi_dist_file: str = "/home/jussi.hakosalo/te-fidasim/9188_150_rfx/a5fidasim_distribution.h5",
-        save_dir: str = "/home/jussi_hakosalo/fidasim_output",
-        fida_dir: str = "/home/jussi.hakosalo/fidasim/FIDASIM-2.0.0",
+        fi_dist_file: str = TE_FIDASIM_FI_DIST_FILE,
+        save_dir: str = FIDASIM_OUTPUT_DIR,
+        fida_dir: str = FIDASIM_BASE_DIR,
         fine_MC_res: bool = False,
         imp_charge: int = 6,
         plot_geo: bool = True,
@@ -449,101 +460,19 @@ def prepare_fidasim(
     if not os.path.exists(beam_save_dir):
         os.makedirs(beam_save_dir)
 
-    general_settings = {
-        'device': 'ST-40',
-        'shot': shot,
-        'time': time,
-        'runid': runid,
-        'comment': 'test',
-        'result_dir': beam_save_dir,
-        'tables_file': fida_dir + '/tables/atomic_tables.h5'
-    }
-
-    simulation_switches = {
-        'calc_npa': 0,
-        'calc_pnpa': 0,
-        'calc_brems': 1,
-        'calc_bes': 1,
-        'calc_fida': 0,
-        'calc_pfida': 0,
-        'calc_birth': 1,
-        'calc_dcx': 1,
-        'calc_halo': 1,
-        'calc_cold': 0,
-        'calc_neutron': 0,
-        'calc_fida_wght': 1,
-        'calc_npa_wght': 1,
-        'dump_dcx': 1,
-
-    }
-
-
-    #if "mc_settings" in input_dict:
-    #    mc_settings = {
-    #        'n_fida': input_dict['mc_settings']['n_fida'],
-    #        'n_pfida': input_dict['mc_settings']['n_pfida'],
-    #        'n_npa': input_dict['mc_settings']['n_npa'],
-    #        'n_pnpa': input_dict['mc_settings']['n_pnpa'],
-    #        'n_nbi': input_dict['mc_settings']['n_nbi'],
-    #        'n_halo': input_dict['mc_settings']['n_halo'],
-    #        'n_dcx': input_dict['mc_settings']['n_dcx'],
-    #        'n_birth': input_dict['mc_settings']['n_birth']
-    #    }
-    #else:
+    general_settings = build_general_settings(shot, time, runid, beam_save_dir, fida_dir)
+    simulation_switches = SIMULATION_SWITCHES
 
     # TODO: expose these settings to user
     if fine_MC_res:
-        mc_settings = {
-            'n_fida': 5000000,
-            'n_pfida': 5000000,
-            'n_npa': 5000000,
-            'n_pnpa': 5000000,
-            'n_nbi': 500000, # nominal 500000
-            'n_halo': 500000, # nominal 500000
-            'n_dcx': 500000, # nominal 500000
-            'n_birth': 10000
-        }
+        mc_settings = MC_SETTINGS_FINE
     else:
-        mc_settings = {
-            'n_fida': 5000000,
-            'n_pfida': 5000000,
-            'n_npa': 5000000,
-            'n_pnpa': 5000000,
-            'n_nbi': 50000,
-            'n_halo': 5000,
-            'n_dcx': 5000,
-            'n_birth': 10000
-        }
+        mc_settings = MC_SETTINGS_COARSE
 
-
-    nbi_settings = {
-        'einj': st40_beams['einj'],
-        'pinj': st40_beams['pinj'],
-        'current_fractions': np.array((st40_beams['current_fractions'])),
-        'ab': st40_beams['ab']
-    }
-
-    plasma_settings = {
-        'ai': plasma_ion_amu,
-        'impurity_charge': imp_charge
-    }
-
-    wavelength_grid_settings = {
-        'lambdamin': 647.0,
-        'lambdamax': 667.0,
-        'nlambda': 2000
-    }
-
-    # Weight function settings only relevant for FIDA and NPA. TODO: figure out these settings.
-    weight_function_settings = {
-        'ne_wght': 50,
-        'np_wght': 50,
-        'nphi_wght': 100,
-        'emax_wght': 100.0,
-        'nlambda_wght': 1000,
-        'lambdamin_wght': 647.,
-        'lambdamax_wght': 667.,
-    }
+    nbi_settings = build_nbi_settings(st40_beams)
+    plasma_settings = build_plasma_settings(plasma_ion_amu, imp_charge)
+    wavelength_grid_settings = WAVELENGTH_GRID_SETTINGS
+    weight_function_settings = WEIGHT_FUNCTION_SETTINGS
 
     inputs = dict(general_settings)
     inputs.update(simulation_switches)
@@ -570,7 +499,7 @@ def postproc_fidasim(
         nbiconfig: dict,
         specconfig: dict,
         plasmaconfig: dict,
-        save_dir: str = "/home/jussi.hakosalo/fidasim_output",
+        save_dir: str = FIDASIM_OUTPUT_DIR,
         process_spec=True,
         block=False,
         debug=False,
