@@ -28,6 +28,15 @@ SIMULATION_SWITCHES = {
     'dump_dcx': 1,
 }
 
+PLASMA_INTERP_GRID_SETTINGS = {
+    'rmin': 11,
+    'rmax': 99,
+    'zmin': -50,
+    'zmax': 50,
+    'nr': 200,
+    'nz': 100,
+}
+
 MC_SETTINGS_FINE = {
     'n_fida': 5000000,
     'n_pfida': 5000000,

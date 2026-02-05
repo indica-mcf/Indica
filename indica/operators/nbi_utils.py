@@ -18,6 +18,7 @@ from .nbi_configs import build_nbi_settings
 from .nbi_configs import build_plasma_settings
 from .nbi_configs import MC_SETTINGS_COARSE
 from .nbi_configs import MC_SETTINGS_FINE
+from .nbi_configs import PLASMA_INTERP_GRID_SETTINGS
 from .nbi_configs import SIMULATION_SWITCHES
 from .nbi_configs import WAVELENGTH_GRID_SETTINGS
 from .nbi_configs import WEIGHT_FUNCTION_SETTINGS
@@ -196,20 +197,13 @@ def prepare_fidasim(
             'sigma_pi': np.asarray(sigma_pi),
             }
 
-    #TODO : into confgs, under fidasim switches
     # Define plasma interpolation grid bounds
-    rmin = np.min(plasmaconfig["R"])
-    rmax = np.max(plasmaconfig["R"])
-    zmin = np.min(plasmaconfig["z"])
-    zmax = np.max(plasmaconfig["z"])
-    nr = np.shape(plasmaconfig["R"])[0]
-    nz = np.shape(plasmaconfig["z"])[0]
-    rmin = 11   # 5
-    rmax = 99   # 100
-    zmin = -50
-    zmax = 50
-    nr = 200
-    nz = 100
+    rmin = PLASMA_INTERP_GRID_SETTINGS["rmin"]
+    rmax = PLASMA_INTERP_GRID_SETTINGS["rmax"]
+    zmin = PLASMA_INTERP_GRID_SETTINGS["zmin"]
+    zmax = PLASMA_INTERP_GRID_SETTINGS["zmax"]
+    nr = PLASMA_INTERP_GRID_SETTINGS["nr"]
+    nz = PLASMA_INTERP_GRID_SETTINGS["nz"]
     grid = rz_grid(rmin, rmax, nr, zmin, zmax, nz)
 
     # Create the beam grid oriented on the RFX axis
