@@ -22,17 +22,15 @@ from .nbi_configs import SIMULATION_SWITCHES
 from .nbi_configs import WAVELENGTH_GRID_SETTINGS
 from .nbi_configs import WEIGHT_FUNCTION_SETTINGS
 
-# TODO: address HDF5 version issue, but disable version check for now
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = '1'
 
 from fidasim.utils import rz_grid, read_geqdsk, beam_grid
 import fidasim
-from st40_utils import extract_hda_plasma, create_st40_beam_grid, convert_to_list, get_v_tor_v_pol
-from cxspec import CxsSpec
-import plot
+#from st40_utils import extract_hda_plasma, create_st40_beam_grid, convert_to_list, get_v_tor_v_pol
+#from cxspec import CxsSpec
+#import plot
 # from batch import submit_fidasim_batch_job
 
-# TODO: address HDF5 version issue, but disable version check for now
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = '1'
 
 def parse_input_file(input_dict_file):
@@ -152,7 +150,6 @@ def prepare_fidasim(
 
 
     # Configure spec dictionary compatible with fidasim format.
-    # TODO: add switch for reading Catia/cxsfit geometry. Default for now is cxsfit.
     spec = None
     if spec_name in st40_spec['name']:
         #pi_spec = CxsSpec(shot, chord_IDs=input_dict['cxs_spec']['chord_IDs'],
@@ -199,6 +196,7 @@ def prepare_fidasim(
             'sigma_pi': np.asarray(sigma_pi),
             }
 
+    #TODO : into confgs, under fidasim switches
     # Define plasma interpolation grid bounds
     rmin = np.min(plasmaconfig["R"])
     rmax = np.max(plasmaconfig["R"])
@@ -317,6 +315,8 @@ def prepare_fidasim(
     omega = np.where(omega > 0.0, omega, 0.0).astype('float64')
     vt = grid['r2d'] * omega # cm/s
 
+
+    #TODO: double check units
     plasma = dict()
     plasma['time'] = time
     plasma['zeff'] = zeff
@@ -463,7 +463,6 @@ def prepare_fidasim(
     general_settings = build_general_settings(shot, time, runid, beam_save_dir, fida_dir)
     simulation_switches = SIMULATION_SWITCHES
 
-    # TODO: expose these settings to user
     if fine_MC_res:
         mc_settings = MC_SETTINGS_FINE
     else:
@@ -505,6 +504,7 @@ def postproc_fidasim(
         debug=False,
         los_type='center'
 ):
+    
     """Collects the fidasim hdf5 results from each pini. Optionally fits cxs spectra, and saves processed output
         to a JSON dictionary.
 
@@ -531,7 +531,6 @@ def postproc_fidasim(
     out_dict['amu'] = plasma_ion_amu
 
     # Configure spec dictionary compatible with fidasim format.
-    # TODO: geometry should be read back from fidasim output.
     spec = None
     if spec_name in st40_spec['name']:
         pi_spec = CxsSpec(shot, chord_IDs=st40_spec['chord_IDs'],
