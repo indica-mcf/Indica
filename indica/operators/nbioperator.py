@@ -20,6 +20,8 @@ import numpy as np
 import os
 import shutil
 import sys
+import pwd
+import h5py as h5
 
 
 
@@ -41,6 +43,23 @@ from .nbi_configs import NBI_USER
 from .nbi_configs import TE_FIDASIM_CODE_PATH
 
 
+def _h5_to_xarray_dataset(h5_path: str) -> xr.Dataset:
+    data_vars = {}
+    with h5.File(h5_path, "r") as h5f:
+        root_attrs = dict(h5f.attrs)
+
+        def _visit(name, obj):
+            if isinstance(obj, h5.Dataset):
+                data = obj[()]
+                dims = tuple(f"dim_{i}" for i in range(getattr(data, "ndim", 0)))
+                var_name = name.replace("/", "__")
+                data_vars[var_name] = xr.DataArray(
+                    data, dims=dims, attrs=dict(obj.attrs)
+                )
+
+        h5f.visititems(_visit)
+
+    return xr.Dataset(data_vars=data_vars, attrs=root_attrs)
 
 
 class NBIOperator(Operator):
@@ -67,7 +86,7 @@ class NBIOperator(Operator):
         # Plasma ion mass
         self.plasma_ion_amu = 2.014
 
-    def __call__(self, pulse) -> DataArray:
+    def __call__(self, pulse) -> dict:
         plasma=self.plasma
  
         tws_geom = pickle.load(open(GEOMETRY_PKL_PATH, 'rb'))
@@ -100,6 +119,7 @@ class NBIOperator(Operator):
         """
 
         # Loop over time
+        neutrals_by_time = {}
         for i_time, time in enumerate(plasma.t.data):
             rho_1d = plasma.ion_temperature.rhop.values
             ion_temperature = plasma.ion_temperature.sel(t=time).values
@@ -249,19 +269,18 @@ class NBIOperator(Operator):
                 )
 
 
-            #TODO: return the neutrals h5 fidasim result in some nice python format
-            """
-            # Run post-processing code
-            results = nbi_utils.postproc_fidasim(
-                pulse,
-                time,
-                nbiconfig,
-                specconfig,
-                plasmaconfig,
-                save_dir=save_dir,
-                debug=False,
-            )
-            """
+            runid = pwd.getpwuid(os.getuid())[0]
+            time_str = "t_{:8.6f}".format(time)
+            run_dir = save_dir + "/" + str(pulse) + "/" + time_str
+            beam_save_dir = run_dir + "/" + beam
+            neut_file = beam_save_dir + "/" + runid + "_neutrals.h5"
 
+            if not os.path.exists(neut_file):
+                raise FileNotFoundError(f"Neutrals file not found: {neut_file}")
 
+            neutrals_by_time[float(time)] = {
+                "path": neut_file,
+                "data": _h5_to_xarray_dataset(neut_file),
+            }
 
+        return neutrals_by_time
