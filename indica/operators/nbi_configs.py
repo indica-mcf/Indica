@@ -1,0 +1,5 @@
+GEOMETRY_PKL_PATH = "geometry_pkl_files/TriWaSp_geometry_7los_50-77_sector1.pkl"
+TE_FIDASIM_CODE_PATH = "/home/jussi.hakosalo/te-fidasim"
+FIDASIM_OUTPUT_DIR = "/home/jussi.hakosalo/fidasim_output"
+FIDASIM_BIN_PATH = "/home/jussi.hakosalo/fidasim/FIDASIM-2.0.0/fidasim"
+NBI_USER = "jussi.hakosalo"

@@ -89,8 +89,6 @@ def prepare_fidasim(
         nbiconfig: dict,
         specconfig: dict,
         plasmaconfig: dict,
-        #fi_dist_file: str = "/home/jari.varje/git/FIDASIM/dummy_distribution/a5fidasim_distribution.h5",
-        #fi_dist_file: str = "/home/jari.varje/work/fidasim/dummy_distribution/a5fidasim_distribution.h5",
         fi_dist_file: str = "/home/jussi.hakosalo/te-fidasim/9188_150_rfx/a5fidasim_distribution.h5",
         save_dir: str = "/home/jussi_hakosalo/fidasim_output",
         fida_dir: str = "/home/jussi.hakosalo/fidasim/FIDASIM-2.0.0",
@@ -265,26 +263,7 @@ def prepare_fidasim(
     z_fi = _fi_dist['z'][()]
     r_fi, z_fi = np.meshgrid(r_fi, z_fi)
 
-    #"time":0.0,"data_source":os.path.abspath(filename), "mask":mask,
-    #         "br":br,"bt":bt,"bz":bz,"er":er,"et":et,"ez":ez}
-
-    #print(fields.keys())
-
-    ## Extract plasma parameters
-    #if len(str(shot)) == 4:
-    #    _shot = int(str(2500) + str(shot))
-    #elif len(str(shot)) == 5:
-    #    _shot = int(str(250) + str(shot))
-    #else:
-    #    raise ValueError
-    #plasma = extract_hda_plasma(
-    #    _shot,run,time,grid,rhogrid, vtor_peak_kms,
-    #    ti0=ti0, wcenter=wcenter, peaking=peaking,
-    #    vt0=vt0, vt_wcenter=vt_wcenter, vt_peaking=vt_peaking
-    #)
-    #plasma={"data_source":"HDA " + str(shot) + " RUN" + str(run),"time":time,
-    #        "mask":mask,"dene":dene,"denn":denn,"te":te,"ti":ti,
-    #        "vr":vr,"vt":vt,"vz":vz,"zeff":zeff}
+ 
 
     # Interpolate rho grid
     rhogrid = plasmaconfig['rho']
