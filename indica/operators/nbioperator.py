@@ -76,29 +76,34 @@ class NBIOperator(Operator):
 
     def __init__(
         self,
-        plasma,
         transform,
-    
+        nbispecs,
     ):
-        self.plasma=plasma
-        self.transform=transform
+        self.plasma = None
+        self.transform = transform
+        self.nbispecs = nbispecs
+
+        self.name = nbispecs.get("name")
+        self.einj = nbispecs.get("einj")
+        self.pinj = nbispecs.get("pinj")
+        self.current_fractions = nbispecs.get("current_fractions")
+        self.ab = nbispecs.get("ab")
+        origin = self.transform.origin
+        direction = self.transform.direction
+        x_pos = self.transform.origin_x
+        y_pos = self.transform.origin_y
+
+
+
 
         # Plasma ion mass
-        self.plasma_ion_amu = 2.014
+        self.plasma_ion_amu = self.ab if self.ab is not None else 2.014
 
     def __call__(self, pulse) -> dict:
-        plasma=self.plasma
  
-        tws_geom = pickle.load(open(GEOMETRY_PKL_PATH, 'rb'))
+        #tws_geom = pickle.load(open(GEOMETRY_PKL_PATH, 'rb'))
 
-        #TODO: all this needs to be in the init, through transform
-        focal_length = -0.03995269  # meter
-        spot_width = 1.1 * 1e-3  # meter
-        spot_height = 1.1 * 1e-3  # meter
-        origin = tws_geom['origin']
-        direction = tws_geom['direction']
-        x_pos = tws_geom['x_pos']
-        y_pos = tws_geom['y_pos']
+
         # Set-up FIDASIM run
         # Build beam configuration
 
