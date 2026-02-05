@@ -8,7 +8,7 @@ import numpy as np
 from numpy.core.numeric import zeros_like
 from pandas import DataFrame
 import scipy
-from operators import nbi_utils
+from indica.operators import nbi_utils
 import xarray as xr
 from xarray import DataArray
 
@@ -53,17 +53,26 @@ class NBIOperator(Operator):
         But how do we want to use this?
     """
 
+    #Todo: clarify init vs call arguments and processing
 
     def __init__(
         self,
-        plasma
+        plasma,
+        transform,
+    
     ):
-        self.Plasma=plasma
+        self.plasma=plasma
+        self.transform=transform
+
+        # Plasma ion mass
+        self.plasma_ion_amu = 2.014
 
     def __call__(self, pulse) -> DataArray:
-        plasma=self.Plasma
+        plasma=self.plasma
  
         tws_geom = pickle.load(open(GEOMETRY_PKL_PATH, 'rb'))
+
+        #TODO: all this needs to be in the init, through transform
         focal_length = -0.03995269  # meter
         spot_width = 1.1 * 1e-3  # meter
         spot_height = 1.1 * 1e-3  # meter
@@ -73,18 +82,8 @@ class NBIOperator(Operator):
         y_pos = tws_geom['y_pos']
         # Set-up FIDASIM run
         # Build beam configuration
-        nbiconfig = {
-            "name": "hnbi",
-            "einj": 52.0,  # keV
-            "pinj": 0.5,   # MW
-            "current_fractions": [
-                0.5,
-                0.35,
-                0.15
-            ],
-            "ab": 2.014
-        }
 
+        """
         # specconfig
         chord_ids = [f"M{i + 1}" for i in range(np.shape(direction)[0])]
         geom_dict = dict()
@@ -98,6 +97,7 @@ class NBIOperator(Operator):
             "name": "TriWaSp_P2p4",
             "cross_section_corr": False,
         }
+        """
 
         # Loop over time
         for i_time, time in enumerate(plasma.t.data):
@@ -248,6 +248,9 @@ class NBIOperator(Operator):
                     ]
                 )
 
+
+            #TODO: return the neutrals h5 fidasim result in some nice python format
+            """
             # Run post-processing code
             results = nbi_utils.postproc_fidasim(
                 pulse,
@@ -258,6 +261,7 @@ class NBIOperator(Operator):
                 save_dir=save_dir,
                 debug=False,
             )
+            """
 
 
 
