@@ -98,12 +98,10 @@ class NBIOperator(Operator):
         # Plasma ion mass
         self.plasma_ion_amu = self.ab if self.ab is not None else 2.014
 
-    def __call__(self, pulse) -> dict:
-        #TODO: call arguments
+    def __call__(self, profiles, eqdata) -> dict:
+        pulse = profiles.get("pulse")
  
-        #tws_geom = pickle.load(open(GEOMETRY_PKL_PATH, 'rb'))
-
-
+        #todo: understand settings
         # Set-up FIDASIM run
         # Build beam configuration
 
@@ -126,15 +124,17 @@ class NBIOperator(Operator):
         #Todo: loop over plasma without the time definition
         # Loop over time
         neutrals_by_time = {}
-        for i_time, time in enumerate(plasma.t.data):
-            rho_1d = plasma.ion_temperature.rhop.values
-            ion_temperature = plasma.ion_temperature.sel(t=time).values
-            electron_temperature = plasma.electron_temperature.sel(t=time).values
-            electron_density = plasma.electron_density.sel(t=time).values
-            neutral_density = plasma.neutral_density.sel(t=time).values
-            toroidal_rotation = plasma.toroidal_rotation.sel(t=time).values
-            zeffective = plasma.zeff.sum("element").sel(t=time).values
+        for i_time, time in enumerate(profiles["t"].data):
+            rho_1d = profiles["ion_temperature"].rhop.values
+            ion_temperature = profiles["ion_temperature"].sel(t=time).values
+            electron_temperature = profiles["electron_temperature"].sel(t=time).values
+            electron_density = profiles["electron_density"].sel(t=time).values
+            neutral_density = profiles["neutral_density"].sel(t=time).values
+            toroidal_rotation = profiles["toroidal_rotation"].sel(t=time).values
+            zeffective = profiles["zeff"].sum("element").sel(t=time).values
 
+
+            """
             print(f"rho_1d = {rho_1d}")
             print(f"ion_temperature = {ion_temperature}")
             print(f"electron_temperature = {electron_temperature}")
@@ -142,34 +142,35 @@ class NBIOperator(Operator):
             print(f"neutral_density = {neutral_density}")
             print(f"toroidal_rotation = {toroidal_rotation}")
             print(f"zeffective = {zeffective}")
+            """
 
             # rho poloidal
-            rho_2d = plasma.equilibrium.rhop.interp(
+            rho_2d = eqdata["rhop"].interp(
                 t=time,
                 method="nearest"
             )
 
             # rho toroidal
-            rho_tor = plasma.equilibrium.convert_flux_coords(rho_2d, t=time)
+            rho_tor = eqdata["convert_flux_coords"](rho_2d, t=time)
             rho_tor = rho_tor[0].values
 
             # radius
-            R = plasma.equilibrium.rhop.R.values
-            z = plasma.equilibrium.rhop.z.values
+            R = eqdata["rhop"].R.values
+            z = eqdata["rhop"].z.values
             R_2d, z_2d = np.meshgrid(R, z)
 
             # Br
-            br, _ = plasma.equilibrium.Br(
-                plasma.equilibrium.rhop.R,
-                plasma.equilibrium.rhop.z,
+            br, _ = eqdata["Br"](
+                eqdata["rhop"].R,
+                eqdata["rhop"].z,
                 t=time
             )
             br = br.values
 
             # Bz
-            bz, _ = plasma.equilibrium.Bz(
-                plasma.equilibrium.rhop.R,
-                plasma.equilibrium.rhop.z,
+            bz, _ = eqdata["Bz"](
+                eqdata["rhop"].R,
+                eqdata["rhop"].z,
                 t=time
             )
             bz = bz.values
@@ -203,7 +204,7 @@ class NBIOperator(Operator):
                 "ne": electron_density,
                 "omegator": toroidal_rotation,
                 "zeff": zeffective,
-                "plasma_ion_amu": plasma_ion_amu,
+                "plasma_ion_amu": self.plasma_ion_amu,
             }
 
             print(f"plasmaconfig = {plasmaconfig}")
@@ -212,6 +213,8 @@ class NBIOperator(Operator):
             run_fidasim = True
             sys.path.append(TE_FIDASIM_CODE_PATH)
 
+
+            #todo: miä nbiconfig
             # Print inputs
             print(f'shot_number = {pulse}')
             print(f'time = {time}')
