@@ -103,6 +103,7 @@ class NBIOperator(Operator):
             "geom_dict": geom_dict,
             "name": nbispecs.get("spec_name"),
             "cross_section_corr": False,
+            "spec_json_path": nbispecs.get("spec_json_path"),
         }
 
 
@@ -216,12 +217,12 @@ class NBIOperator(Operator):
             print(f'time = {time}')
             print('num_cores = 3')
             print(f'spec = {self.specconfig["name"]}')
-            print(f'beam = {nbiconfig["name"]}')
+            print(f'beam = {self.nbispecs["name"]}')
             print(f'user = {NBI_USER}')
             print(f'force_run_fidasim = {run_fidasim}')
 
             # Variables
-            beam = nbiconfig["name"]
+            beam = self.nbispecs["name"]
 
             # File paths
             save_dir = FIDASIM_OUTPUT_DIR
@@ -251,7 +252,7 @@ class NBIOperator(Operator):
             nbi_utils.prepare_fidasim(
                 pulse,
                 time,
-                nbiconfig,
+                self.nbispecs,
                 self.specconfig,
                 plasmaconfig,
                 save_dir=save_dir,

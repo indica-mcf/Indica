@@ -93,7 +93,7 @@ def parse_input_file(input_dict_file):
             
     return input_dict
 
-def prepare_fidasim(
+def prepare_fidasim(  # requires spec to be defined first (specconfig["spec_json_path"])
         shot: int,
         time: float,
         nbiconfig: dict,
@@ -152,35 +152,65 @@ def prepare_fidasim(
 
     # Configure spec dictionary compatible with fidasim format.
     spec = None
-    if spec_name in st40_spec['name']:
-        #pi_spec = CxsSpec(shot, chord_IDs=input_dict['cxs_spec']['chord_IDs'],
-        #          amu=plasma_ion_amu, plot_chords=plot_geo, ax=ax,
-        #          spec_name=spec_name, cross_section_corr=cross_section_corr)
-        pi_spec = CxsSpec(shot, chord_IDs=st40_spec['chord_IDs'],
-                  amu=plasma_ion_amu, plot_chords=plot_geo, ax=ax,
-                  spec_name=spec_name, beam_amu=beam_amu, beam_name=beam_name, cross_section_corr=cross_section_corr,
-                  custom_geo_dict=st40_spec["geom_dict"])
-        nchan = len(st40_spec['chord_IDs'])
 
-        ids = []
-        for id in st40_spec['chord_IDs']:
-            ids.append(id.encode(encoding='utf_8'))
 
-        ids = []
-        radius = []
-        lens = []
-        axis = []
-        _spot_radius = 1.25  # TODO: estimate spot radius on Princeton foreoptic
-        spot_size = []
-        _sigma_pi_ratio = 1.  # default sigma/pi ratio
-        sigma_pi = []
-        for chord in pi_spec.chords:
-            ids.append(chord.id.encode(encoding='utf_8'))
-            radius.append(chord.tang_rad)
-            lens.append(chord.origin)
-            axis.append(chord.diruvec)
-            spot_size.append(_spot_radius)
-            sigma_pi.append(_sigma_pi_ratio)
+
+    #Todo: use the actual class. Now I am just using a presaved thing.
+    spec_json_path = st40_spec.get("spec_json_path")
+    if not spec_json_path:
+        raise ValueError("specconfig['spec_json_path'] is required to build spec from JSON.")
+    with open(spec_json_path, "r", encoding="utf-8") as f:
+        spec_json = json.load(f)
+    chords = spec_json.get("chords", [])
+    if not chords:
+        raise ValueError(f"No chords found in spec JSON: {spec_json_path}")
+
+    nchan = len(chords)
+    ids = []
+    radius = []
+    lens = []
+    axis = []
+    _spot_radius = 1.25  # TODO: estimate spot radius on Princeton foreoptic
+    spot_size = []
+    _sigma_pi_ratio = 1.0  # default sigma/pi ratio
+    sigma_pi = []
+    for chord in chords:
+        ids.append(chord["id"].encode(encoding="utf_8"))
+        radius.append(chord["tang_rad"])
+        lens.append(chord["origin"])
+        axis.append(chord["diruvec"])
+        spot_size.append(_spot_radius)
+        sigma_pi.append(_sigma_pi_ratio)
+
+    # if spec_name in st40_spec['name']:
+    #     #pi_spec = CxsSpec(shot, chord_IDs=input_dict['cxs_spec']['chord_IDs'],
+    #     #          amu=plasma_ion_amu, plot_chords=plot_geo, ax=ax,
+    #     #          spec_name=spec_name, cross_section_corr=cross_section_corr)
+    #     pi_spec = CxsSpec(shot, chord_IDs=st40_spec['chord_IDs'],
+    #               amu=plasma_ion_amu, plot_chords=plot_geo, ax=ax,
+    #               spec_name=spec_name, beam_amu=beam_amu, beam_name=beam_name, cross_section_corr=cross_section_corr,
+    #               custom_geo_dict=st40_spec["geom_dict"])
+    #     nchan = len(st40_spec['chord_IDs'])
+    #
+    #     ids = []
+    #     for id in st40_spec['chord_IDs']:
+    #         ids.append(id.encode(encoding='utf_8'))
+    #
+    #     ids = []
+    #     radius = []
+    #     lens = []
+    #     axis = []
+    #     _spot_radius = 1.25  # TODO: estimate spot radius on Princeton foreoptic
+    #     spot_size = []
+    #     _sigma_pi_ratio = 1.  # default sigma/pi ratio
+    #     sigma_pi = []
+    #     for chord in pi_spec.chords:
+    #         ids.append(chord.id.encode(encoding='utf_8'))
+    #         radius.append(chord.tang_rad)
+    #         lens.append(chord.origin)
+    #         axis.append(chord.diruvec)
+    #         spot_size.append(_spot_radius)
+    #         sigma_pi.append(_sigma_pi_ratio)
 
     # Preprocessing for each participating pini
     # Note, since input dictionaries are modified in preprocessing.py, recreate the same inputs for every pini.
@@ -478,7 +508,9 @@ def prepare_fidasim(
 
     for beam in nbis:
         if beam_id == beam['name']:
+            #with spec
             fidasim.prefida(inputs, grid, beam, plasma, equil, fi_dist, spec=spec)
+
 
     # If here then preprocessing was successful for this beam. Launch batch job.
     print('Pre-processing complete. Save dir: ', beam_save_dir)
