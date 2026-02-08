@@ -92,6 +92,19 @@ class NBIOperator(Operator):
         x_pos = self.transform.origin_x
         y_pos = self.transform.origin_y
 
+        chord_ids = [f"M{i + 1}" for i in range(np.shape(direction)[0])]
+        geom_dict = {}
+        for i_chord, id in enumerate(chord_ids):
+            geom_dict[id] = {}
+            geom_dict[id]["origin"] = list(origin[i_chord, :] * 1e2)
+            geom_dict[id]["diruvec"] = list(direction[i_chord, :])
+        self.specconfig = {
+            "chord_IDs": chord_ids,
+            "geom_dict": geom_dict,
+            "name": nbispecs.get("spec_name"),
+            "cross_section_corr": False,
+        }
+
 
 
 
@@ -103,23 +116,6 @@ class NBIOperator(Operator):
  
         #todo: understand settings
         # Set-up FIDASIM run
-        # Build beam configuration
-
-        """
-        # specconfig
-        chord_ids = [f"M{i + 1}" for i in range(np.shape(direction)[0])]
-        geom_dict = dict()
-        for i_chord, id in enumerate(chord_ids):
-            geom_dict[id] = {}
-            geom_dict[id]["origin"] = list(origin[i_chord, :] * 1e2)
-            geom_dict[id]["diruvec"] = list(direction[i_chord, :])
-        specconfig = {
-            "chord_IDs": chord_ids,
-            "geom_dict": geom_dict,
-            "name": "TriWaSp_P2p4",
-            "cross_section_corr": False,
-        }
-        """
 
         #Todo: loop over plasma without the time definition
         # Loop over time
@@ -219,7 +215,7 @@ class NBIOperator(Operator):
             print(f'shot_number = {pulse}')
             print(f'time = {time}')
             print('num_cores = 3')
-            print(f'spec = {specconfig["name"]}')
+            print(f'spec = {self.specconfig["name"]}')
             print(f'beam = {nbiconfig["name"]}')
             print(f'user = {NBI_USER}')
             print(f'force_run_fidasim = {run_fidasim}')
@@ -256,7 +252,7 @@ class NBIOperator(Operator):
                 pulse,
                 time,
                 nbiconfig,
-                specconfig,
+                self.specconfig,
                 plasmaconfig,
                 save_dir=save_dir,
                 plot_geo=False,
