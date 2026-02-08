@@ -72,7 +72,6 @@ class NBIOperator(Operator):
         But how do we want to use this?
     """
 
-    #Todo: clarify init vs call arguments and processing
 
     def __init__(
         self,
@@ -100,6 +99,7 @@ class NBIOperator(Operator):
         self.plasma_ion_amu = self.ab if self.ab is not None else 2.014
 
     def __call__(self, pulse) -> dict:
+        #TODO: call arguments
  
         #tws_geom = pickle.load(open(GEOMETRY_PKL_PATH, 'rb'))
 
@@ -123,6 +123,7 @@ class NBIOperator(Operator):
         }
         """
 
+        #Todo: loop over plasma without the time definition
         # Loop over time
         neutrals_by_time = {}
         for i_time, time in enumerate(plasma.t.data):
