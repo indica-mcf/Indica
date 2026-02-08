@@ -42,6 +42,19 @@ from .nbi_configs import GEOMETRY_PKL_PATH
 from .nbi_configs import NBI_USER
 from .nbi_configs import TE_FIDASIM_CODE_PATH
 
+# Flow/Config map:
+# 1) NBIOperator takes a transform + nbispecs (beam + spectrometer spec).
+# 2) nbispecs (from nbi_configs.DEFAULT_NBI_SPECS or test overrides) supplies
+#    beam operating params (einj/pinj/current_fractions/ab) and spec JSON path.
+# 3) nbi_utils.prepare_fidasim builds FIDASIM inputs by combining:
+#    - nbispecs (beam params; also picks beam name for geometry),
+#    - specconfig JSON (diagnostic chords, so spectroscopy config. This should actually come with the CXS spec class.),
+#    - plasmaconfig (equilibrium + profiles),
+#    - global settings in nbi_configs.py (paths, MC settings, grids, switches),
+#    - beam geometry from get_hnbi_geo/get_rfx_geo via create_st40_beam_grid.
+# 4) Resulting inputs are written to FIDASIM_OUTPUT_DIR and run.
+
+
 
 def _h5_to_xarray_dataset(h5_path: str) -> xr.Dataset:
     data_vars = {}
@@ -51,8 +64,10 @@ def _h5_to_xarray_dataset(h5_path: str) -> xr.Dataset:
         def _visit(name, obj):
             if isinstance(obj, h5.Dataset):
                 data = obj[()]
-                dims = tuple(f"dim_{i}" for i in range(getattr(data, "ndim", 0)))
                 var_name = name.replace("/", "__")
+                dims = tuple(
+                    f"{var_name}_dim_{i}" for i in range(getattr(data, "ndim", 0))
+                )
                 data_vars[var_name] = xr.DataArray(
                     data, dims=dims, attrs=dict(obj.attrs)
                 )
@@ -80,18 +95,27 @@ class NBIOperator(Operator):
     ):
         self.plasma = None
         self.transform = transform
-        self.nbispecs = nbispecs
 
+
+        #Spectroscopy config
+        self.nbispecs = nbispecs
         self.name = nbispecs.get("name")
         self.einj = nbispecs.get("einj")
         self.pinj = nbispecs.get("pinj")
         self.current_fractions = nbispecs.get("current_fractions")
         self.ab = nbispecs.get("ab")
+
+
+
         origin = self.transform.origin
         direction = self.transform.direction
         x_pos = self.transform.origin_x
         y_pos = self.transform.origin_y
 
+
+
+
+        #Spectroscopy config formatting
         chord_ids = [f"M{i + 1}" for i in range(np.shape(direction)[0])]
         geom_dict = {}
         for i_chord, id in enumerate(chord_ids):
@@ -112,13 +136,12 @@ class NBIOperator(Operator):
         # Plasma ion mass
         self.plasma_ion_amu = self.ab if self.ab is not None else 2.014
 
-    def __call__(self, profiles, eqdata) -> dict:
-        pulse = profiles.get("pulse")
+    def __call__(self, profiles, eqdata,pulse) -> dict:
  
-        #todo: understand settings
+
         # Set-up FIDASIM run
 
-        #Todo: loop over plasma without the time definition
+
         # Loop over time
         neutrals_by_time = {}
         for i_time, time in enumerate(profiles["t"].data):
@@ -131,15 +154,7 @@ class NBIOperator(Operator):
             zeffective = profiles["zeff"].sum("element").sel(t=time).values
 
 
-            """
-            print(f"rho_1d = {rho_1d}")
-            print(f"ion_temperature = {ion_temperature}")
-            print(f"electron_temperature = {electron_temperature}")
-            print(f"electron_density = {electron_density}")
-            print(f"neutral_density = {neutral_density}")
-            print(f"toroidal_rotation = {toroidal_rotation}")
-            print(f"zeffective = {zeffective}")
-            """
+
 
             # rho poloidal
             rho_2d = eqdata["rhop"].interp(
@@ -211,7 +226,6 @@ class NBIOperator(Operator):
             sys.path.append(TE_FIDASIM_CODE_PATH)
 
 
-            #todo: miä nbiconfig
             # Print inputs
             print(f'shot_number = {pulse}')
             print(f'time = {time}')
@@ -249,6 +263,7 @@ class NBIOperator(Operator):
                     )
 
             # Run pre-processing code
+            #This takes in pulse nuber, time, the nbi configuration, the spectroscopy configuration, and plasma.
             nbi_utils.prepare_fidasim(
                 pulse,
                 time,
@@ -259,6 +274,9 @@ class NBIOperator(Operator):
                 plot_geo=False,
                 fine_MC_res=True,
             )
+
+            print("ready to go after preprocessing")
+
 
             print("=== Subprocess user check ===")
             subprocess.run(["whoami"])

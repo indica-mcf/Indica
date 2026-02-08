@@ -7,10 +7,9 @@ import fidasim
 import pandas as pd
 from scipy.interpolate import interp1d, LinearNDInterpolator
 from itertools import product
-from input.beam_geo import get_rfx_geo, get_hnbi_geo
+from .nbi_configs import get_rfx_geo, get_hnbi_geo
 
 import sys
-sys.path.append('/home/jonathan.wood/git_home/Indica')
 #import indica.profiles_gauss as profiles
 from indica.profilers.profiler_gauss import ProfilerGauss as profiles
 

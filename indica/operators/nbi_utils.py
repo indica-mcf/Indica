@@ -27,7 +27,7 @@ os.environ["HDF5_DISABLE_VERSION_CHECK"] = '1'
 
 from fidasim.utils import rz_grid, read_geqdsk, beam_grid
 import fidasim
-#from st40_utils import extract_hda_plasma, create_st40_beam_grid, convert_to_list, get_v_tor_v_pol
+from .st40_utils import extract_hda_plasma, create_st40_beam_grid, convert_to_list, get_v_tor_v_pol
 #from cxspec import CxsSpec
 #import plot
 # from batch import submit_fidasim_batch_job
