@@ -1,5 +1,6 @@
 import numpy as np
 
+# Paths & environment: file locations for geometry, FIDASIM install, and default inputs/outputs.
 GEOMETRY_PKL_PATH = "geometry_pkl_files/TriWaSp_geometry_7los_50-77_sector1.pkl"
 TE_FIDASIM_CODE_PATH = "/home/jussi.hakosalo/te-fidasim"
 TE_FIDASIM_INPUT_REWRITE_FROM = "/home/bart.lomanowski/TE-fidasim/"
@@ -10,7 +11,7 @@ FIDASIM_BIN_PATH = FIDASIM_BASE_DIR + "/fidasim"
 TE_FIDASIM_FI_DIST_FILE = "/home/jussi.hakosalo/te-fidasim/9188_150_rfx/a5fidasim_distribution.h5"
 NBI_USER = "jussi.hakosalo"
 
-# FIDASIM simulation settings
+# Simulation switches: enable/disable individual fidasim capabilities
 SIMULATION_SWITCHES = {
     'calc_npa': 0,
     'calc_pnpa': 0,
@@ -20,7 +21,7 @@ SIMULATION_SWITCHES = {
     'calc_pfida': 0,
     'calc_birth': 1,
     'calc_dcx': 1,
-    'calc_halo': 1,
+    'calc_halo': 0,
     'calc_cold': 0,
     'calc_neutron': 0,
     'calc_fida_wght': 1,
@@ -28,6 +29,7 @@ SIMULATION_SWITCHES = {
     'dump_dcx': 1,
 }
 
+# Plasma grid: interpolation bounds and resolution for building the FIDASIM plasma grid.
 PLASMA_INTERP_GRID_SETTINGS = {
     'rmin': 11,
     'rmax': 99,
@@ -37,6 +39,7 @@ PLASMA_INTERP_GRID_SETTINGS = {
     'nz': 100,
 }
 
+# Monte Carlo settings: high-resolution (fine) particle counts.
 MC_SETTINGS_FINE = {
     'n_fida': 5000000,
     'n_pfida': 5000000,
@@ -48,6 +51,7 @@ MC_SETTINGS_FINE = {
     'n_birth': 10000,
 }
 
+# Monte Carlo settings: low-resolution (coarse) particle counts.
 MC_SETTINGS_COARSE = {
     'n_fida': 5000000,
     'n_pfida': 5000000,
@@ -59,12 +63,14 @@ MC_SETTINGS_COARSE = {
     'n_birth': 10000,
 }
 
+# Spectral grid: wavelength range and resolution for synthetic spectra.
 WAVELENGTH_GRID_SETTINGS = {
     'lambdamin': 647.0,
     'lambdamax': 667.0,
     'nlambda': 2000,
 }
 
+# Weight-function grid: resolution for precomputed weights (if enabled).
 WEIGHT_FUNCTION_SETTINGS = {
     'ne_wght': 50,
     'np_wght': 50,
@@ -76,6 +82,7 @@ WEIGHT_FUNCTION_SETTINGS = {
 }
 
 
+# Build general settings: run metadata and result locations.
 def build_general_settings(shot, time, runid, beam_save_dir, fida_dir):
     return {
         'device': 'ST-40',
@@ -88,6 +95,7 @@ def build_general_settings(shot, time, runid, beam_save_dir, fida_dir):
     }
 
 
+# Build NBI settings: beam energy/power/species mix used by FIDASIM.
 def build_nbi_settings(st40_beams):
     return {
         'einj': st40_beams['einj'],
@@ -97,6 +105,7 @@ def build_nbi_settings(st40_beams):
     }
 
 
+# Build plasma settings: ion mass and impurity charge state.
 def build_plasma_settings(plasma_ion_amu, imp_charge):
     return {
         'ai': plasma_ion_amu,
@@ -104,6 +113,7 @@ def build_plasma_settings(plasma_ion_amu, imp_charge):
     }
 
 
+# Beam geometry: RFX beamline configuration used to build the FIDASIM beam grid.
 def get_rfx_geo():
     """
 
@@ -139,6 +149,7 @@ def get_rfx_geo():
     return rfx
 
 
+# Beam geometry: HNBI beamline configuration used to build the FIDASIM beam grid.
 def get_hnbi_geo():
     """
 
@@ -173,3 +184,19 @@ def get_hnbi_geo():
     #hnbi["divz"] = np.array([0.001,0.001,0.001])
 
     return hnbi
+
+
+# Default NBI + spectroscopy config used in tests and examples.
+DEFAULT_NBI_SPECS = {
+    "name": "hnbi",
+    "spec_name": "TriWaSp_P2p4",
+    "spec_json_path": "indica/operators/pi_spec_13475_t_0.090000.json",
+    "einj": 52.0,  # keV
+    "pinj": 0.5,   # MW
+    "current_fractions": [
+        0.5,
+        0.35,
+        0.15,
+    ],
+    "ab": 2.014,
+}
