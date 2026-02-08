@@ -111,7 +111,8 @@ def prepare_fidasim(
 
         force_no_plasma_rot: Turns off rotation, even if OMEGA is available in TRANSP output
     """
-
+    #TODO: spec. what do we do with spec?
+ 
     # Output dictionary for storing jet-fidasim relevant outputs.
     out_dict = {}
 
@@ -148,7 +149,6 @@ def prepare_fidasim(
         cross_section_corr = st40_spec['cross_section_corr']
     plasma_ion_amu = plasmaconfig['plasma_ion_amu']
     #vtor_peak_kms = input_dict['vtor_peak_kms']
-
 
     # Configure spec dictionary compatible with fidasim format.
     spec = None
