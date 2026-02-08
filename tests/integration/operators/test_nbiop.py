@@ -28,11 +28,10 @@ class testNBI:
 
 
 
-        #How do we wanna call?
-        #Specifically beam related stuff in init
         nbispecs = {
             "name": "hnbi",
             "spec_name": "TriWaSp_P2p4",
+            "spec_json_path": "indica/operators/pi_spec_13475_t_0.090000.json",
             "einj": 52.0,  # keV
             "pinj": 0.5,   # MW
             "current_fractions": [
