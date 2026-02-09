@@ -43,7 +43,7 @@ from .nbi_configs import NBI_USER
 from .nbi_configs import TE_FIDASIM_CODE_PATH
 
 # Flow/Config map:
-# 1) NBIOperator takes a transform + nbispecs (beam + spectrometer spec).
+# 1) NBIOperator takes a transform + nbispecs (=beam + spectrometer spec).
 # 2) nbispecs (from nbi_configs.DEFAULT_NBI_SPECS or test overrides) supplies
 #    beam operating params (einj/pinj/current_fractions/ab) and spec JSON path.
 # 3) nbi_utils.prepare_fidasim builds FIDASIM inputs by combining:
@@ -56,35 +56,37 @@ from .nbi_configs import TE_FIDASIM_CODE_PATH
 
 
 
+#From h5 to xarray. Still WIP.It doesn’t preserve original dimension names (only creates generic ones).
 def _h5_to_xarray_dataset(h5_path: str) -> xr.Dataset:
     data_vars = {}
     with h5.File(h5_path, "r") as h5f:
         root_attrs = dict(h5f.attrs)
 
+        #Visitor function. Check if object is a dataset, get the data,
+        #Build a safe variable name
         def _visit(name, obj):
             if isinstance(obj, h5.Dataset):
                 data = obj[()]
                 var_name = name.replace("/", "__")
+                #Synthetic dumension names
                 dims = tuple(
                     f"{var_name}_dim_{i}" for i in range(getattr(data, "ndim", 0))
                 )
+                #Store the data to the xarray with the correct attrivbutes
                 data_vars[var_name] = xr.DataArray(
                     data, dims=dims, attrs=dict(obj.attrs)
                 )
 
+        #Recursive visitor function
         h5f.visititems(_visit)
-
+    #Build the actual dataset
     return xr.Dataset(data_vars=data_vars, attrs=root_attrs)
 
 
 class NBIOperator(Operator):
 
     """This operator should be operating on a standard plasma+profiles, and spit out
-        fast neutral density and fast particle pressure.
-
-        Now apart from the plasma, we need something to store the configs with.
-
-        But how do we want to use this?
+        fast neutral density and fast particle pressure. I believe it does.
     """
 
 
@@ -93,17 +95,25 @@ class NBIOperator(Operator):
         transform,
         nbispecs,
     ):
-        self.plasma = None
+        #Initialized with beam related info, so transform and geam parameters. Beam geometry comes later and 
+        #through the configs instead.
         self.transform = transform
 
 
-        #Spectroscopy config
+        #NBI and spectroscopy config
         self.nbispecs = nbispecs
         self.name = nbispecs.get("name")
         self.einj = nbispecs.get("einj")
         self.pinj = nbispecs.get("pinj")
         self.current_fractions = nbispecs.get("current_fractions")
         self.ab = nbispecs.get("ab")
+
+
+
+        self.plasma_ion_amu=2.014
+
+
+
 
 
 
@@ -114,8 +124,7 @@ class NBIOperator(Operator):
 
 
 
-
-        #Spectroscopy config formatting
+        #Spectroscopy config formatting using the trasnform
         chord_ids = [f"M{i + 1}" for i in range(np.shape(direction)[0])]
         geom_dict = {}
         for i_chord, id in enumerate(chord_ids):
@@ -133,8 +142,6 @@ class NBIOperator(Operator):
 
 
 
-        # Plasma ion mass
-        self.plasma_ion_amu = self.ab if self.ab is not None else 2.014
 
     def __call__(self, profiles, eqdata,pulse) -> dict:
  
@@ -306,5 +313,7 @@ class NBIOperator(Operator):
                 "path": neut_file,
                 "data": _h5_to_xarray_dataset(neut_file),
             }
+
+
 
         return neutrals_by_time
