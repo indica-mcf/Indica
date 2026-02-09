@@ -51,6 +51,7 @@ UNITS: Dict[str, str] = {
     "ionisation_rate": "",
     "recombination_rate": "",
     "emission_rate": "W $m^3$",
+    "stopping_rate": "$m^{3}/s$",
     "volume_jacobian": "$m^3$",
     "area_jacobian": "$m^2$",
     "volume": "1/$m^3$",
@@ -60,6 +61,7 @@ UNITS: Dict[str, str] = {
     "pressure": "$Pa$",
     "conductivity": r"1/($\Ohm$ m)",
     "wavelength": "nm",
+    "beam_energy": r"$eV/amu$",
 }
 
 # Dictionary of Indica datatypes
@@ -73,6 +75,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "t": ("Time", "time"),
     "time_to_calculate": ("Time", "time"),
     "channel": ("Channel", "number"),
+    "beamlet": ("Beamlet", "number"),
     "bad_channel": ("Bad channel", "bool"),
     "wavelength": ("Wavelength", "wavelength"),
     "x": ("x", "length"),
@@ -101,7 +104,6 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "direction": ("Direction", "length"),  # this is an array (dx, dy, dz)
     "element": ("Element", "none"),
     "impurity": ("Impurity", "none"),
-    "beamlet": ("Beamlet", "none"),
     "residence_time": (r"Impurity residence time $\tau$", "time"),
     "electron_density": ("$N_e$", "density"),
     "ion_density": ("$N_i$", "density"),
@@ -109,9 +111,11 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "impurity_density": ("$N_{imp}$", "density"),
     "thermal_neutral_density": ("$N_{neutrals, th}$", "density"),
     "neutral_density": ("$N_{neutrals}$", "density"),
+    "target_density": ("$N_{t}$", "density"),
     "electron_density_integrated": (r"$\int N_e$ dl", "density_integrated"),
     "electron_temperature": ("$T_e$", "temperature"),
     "ion_temperature": ("$T_i$", "temperature"),
+    "target_temperature": ("$T_{t}$", "temperature"),
     "toroidal_rotation": ("$V_{tor}$", "velocity"),
     "toroidal_angular_frequency": (
         r"$\omega_{tor}$",
@@ -149,6 +153,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "poloidal_flux": ("Poloidal flux", "magnetic_flux"),
     "poloidal_flux_axis": ("Poloidal flux (axis)", "magnetic_flux"),
     "poloidal_flux_boundary": ("Poloidal flux (separatrix)", "magnetic_flux"),
+    "xpsin": ("Normalised poloidal flux", "magnetic_flux"),
     "psin": ("Normalised poloidal flux", "magnetic_flux"),
     "toroidal_flux": ("Toroidal flux", "magnetic_flux"),
     "volume_jacobian": ("$V_{jac}$", "volume_jacobian"),
@@ -171,6 +176,8 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "prc": ("PRC coefficient", "emission_rate"),
     "pls": ("PLS coefficient", "emission_rate"),
     "prs": ("PRS coefficient", "emission_rate"),
+    "bms": ("Beam stopping coefficient", "stopping_rate"),
+    "bme": ("Beam emission coefficient", "stopping_rate"),
     "total_radiation_loss_parameter": ("$L_{tot}$", "emission_rate"),
     "sxr_radiation_loss_parameter": ("$L_{sxr}$", "emission_rate"),
     "loop_voltage": ("$V_{loop}$", "voltage"),
@@ -203,4 +210,5 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "parallel_conductivity": (r"$\sigma$", "conductivity"),
     "rf_frequency": (r"$\omega_{RF}$", "frequency"),
     "harmonic_number": ("Harmonic Number", "none"),
+    "beam_energy": (r"$E_{b}$", "beam_energy"),
 }

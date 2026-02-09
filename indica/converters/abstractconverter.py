@@ -19,6 +19,7 @@ from xarray import zeros_like
 
 from indica.utilities import FIG_PATH
 from indica.utilities import intersection
+from indica.utilities import new_figure
 from indica.utilities import save_figure
 from indica.utilities import set_plot_rcparams
 from ..equilibrium import Equilibrium
@@ -447,11 +448,7 @@ class CoordinateTransform(ABC):
         self.rhop = rhop
         self.theta = theta
         if "los_position" in self.rhop.dims:
-            rhop_mean = self.rhop.mean("beamlet")
-            self.impact_rho = rhop_mean.min(
-                "los_position"
-            )
-            self.los_length = (xr.where(rhop_mean <= 1, 1, 0) * self.dl).sum(
+            self.los_length = (xr.where(rhop.mean("beamlet") <= 1, 1, 0) * self.dl).sum(
                 "los_position"
             )
 
@@ -461,7 +458,7 @@ class CoordinateTransform(ABC):
         self,
         t: float = None,
         orientation: str = "all",
-        figure: bool = True,
+        new_fig: bool = True,
         save_fig: bool = False,
         fig_path: str = "",
         fig_name: str = "",
@@ -504,8 +501,7 @@ class CoordinateTransform(ABC):
         trans_name = str(self)
 
         if orientation == "xy" or orientation == "all":
-            if figure:
-                plt.figure()
+            new_figure(new_fig)
             plt.plot(wall_bounds["x_in"], wall_bounds["y_in"], color="k")
             plt.plot(wall_bounds["x_out"], wall_bounds["y_out"], color="k")
             if hasattr(self, "equilibrium"):
@@ -528,8 +524,7 @@ class CoordinateTransform(ABC):
             save_figure(fig_path, f"{fig_name}{self.name}_xy", save_fig=save_fig)
 
         if orientation == "Rz" or orientation == "all":
-            if figure:
-                plt.figure()
+            new_figure(new_fig)
             plt.plot(
                 [wall_bounds["x_out"].max()] * 2,
                 [wall_bounds["z_low"], wall_bounds["z_up"]],
@@ -575,8 +570,7 @@ class CoordinateTransform(ABC):
         if hasattr(self, "equilibrium") and orientation == "all":
             if not hasattr(self, "rhop"):
                 self.convert_to_rho_theta(t=[t])
-            if figure:
-                plt.figure()
+            new_figure(new_fig)
             _rhop = self.rhop
             if "t" in self.rhop.dims:
                 _rhop = _rhop.sel(t=t, method="nearest")

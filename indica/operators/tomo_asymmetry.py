@@ -20,6 +20,7 @@ class InvertPoloidalAsymmetry:
         self,
         knots: LabeledArray = [0, 0.2, 0.5, 0.9, 1.0],
         xspl: ArrayLike = np.linspace(0, 1.05, 51),
+        fit_asymmetry: bool = True,
         bounds_profile: tuple = (0, np.inf),
         bounds_asymmetry: tuple = (-np.inf, np.inf),
         bc_profile: str = "clamped",
@@ -38,26 +39,27 @@ class InvertPoloidalAsymmetry:
         indx_profile = np.where(mask_profile)[0]
         nknots_profile = len(indx_profile)
 
-        # Asymmetry knots to scan >0 and <1.
-        mask_asymmetry = (xknots > 0) * (xknots < 1.0)
-        indx_asymmetry = np.where(mask_asymmetry)[0] + indx_profile[-1]
-        nknots_asymmetry = len(indx_asymmetry)
-
         # Define optimisation bounds
-        lbounds = np.append(
-            [bounds_profile[0]] * nknots_profile,
-            [bounds_asymmetry[0]] * nknots_asymmetry,
-        )
-        ubounds = np.append(
-            [bounds_profile[1]] * nknots_profile,
-            [bounds_asymmetry[1]] * nknots_asymmetry,
-        )
-        bounds = (lbounds, ubounds)
+        lbounds = np.array([bounds_profile[0]] * nknots_profile)
+        ubounds = np.array([bounds_profile[1]] * nknots_profile)
 
+        if fit_asymmetry:
+            # Asymmetry knots to scan >0 and <1.
+            mask_asymmetry = (xknots > 0) * (xknots < 1.0)
+            indx_asymmetry = np.where(mask_asymmetry)[0] + indx_profile[-1]
+            nknots_asymmetry = len(indx_asymmetry)
+
+            lbounds = np.append(lbounds, [bounds_asymmetry[0]] * nknots_asymmetry)
+            ubounds = np.append(ubounds, [bounds_asymmetry[1]] * nknots_asymmetry)
+        else:
+            mask_asymmetry = None
+            indx_asymmetry = None
+
+        self.fit_asymmetry = fit_asymmetry
         self.xspl = xspl
         self.xknots = xknots
         self.nknots = np.size(xknots)
-        self.bounds = bounds
+        self.bounds = (lbounds, ubounds)
         self.mask_profile = mask_profile
         self.mask_asymmetry = mask_asymmetry
         self.indx_profile = indx_profile
@@ -105,9 +107,6 @@ class InvertPoloidalAsymmetry:
             """
             yprofile = yconcat[indx_profile]
             yprofile = np.append(yprofile, 0.0)
-            yasymmetry = yconcat[indx_asymmetry]
-            yasymmetry = np.append(yasymmetry[0], yasymmetry)
-            yasymmetry = np.append(yasymmetry, [yasymmetry[-1], yasymmetry[-1]])
             profile_spline = CubicSpline(
                 xknots,
                 yprofile,
@@ -116,19 +115,28 @@ class InvertPoloidalAsymmetry:
             )
             profile_to_map = DataArray(profile_spline(xspl), coords=coords)
             profile_to_map = xr.where(profile_to_map >= 0, profile_to_map, 0.0)
-            asymmetry_spline = CubicSpline(
-                xknots,
-                yasymmetry,
-                0,
-                bc_asymmetry,
-            )
-            asymmetry_parameter = DataArray(asymmetry_spline(xspl), coords=coords)
+
+            if self.fit_asymmetry:
+                yasymmetry = yconcat[indx_asymmetry]
+                yasymmetry = np.append(yasymmetry[0], yasymmetry)
+                yasymmetry = np.append(yasymmetry, [yasymmetry[-1], yasymmetry[-1]])
+                asymmetry_spline = CubicSpline(
+                    xknots,
+                    yasymmetry,
+                    0,
+                    bc_asymmetry,
+                )
+                asymmetry_parameter = DataArray(asymmetry_spline(xspl), coords=coords)
+            else:
+                asymmetry_parameter = xr.full_like(profile_to_map, 0.0)
+
             profile_2d = centrifugal_asymmetry_2d_map(
                 profile_to_map,
                 asymmetry_parameter,
                 equilibrium=equilibrium,
                 t=t,
             )
+
             return profile_2d, profile_to_map, asymmetry_parameter
 
         def residuals(yknots_concat):
@@ -163,16 +171,6 @@ class InvertPoloidalAsymmetry:
         data = los_integral / norm_factor
         error = error / norm_factor
 
-        # Initial guesses
-        _guess_profile = data.sel(t=self.t[0]).mean().values
-        _guess_asymmetry = 0.0
-        guess_profile = np.full_like(xknots, _guess_profile)
-        guess_asymmetry = np.full_like(xknots, _guess_asymmetry)
-        yconcat = np.append(
-            guess_profile[mask_profile],
-            guess_asymmetry[mask_asymmetry],
-        )
-
         profile = []
         asymmetry = []
         profile_2d = []
@@ -186,6 +184,16 @@ class InvertPoloidalAsymmetry:
                 plt.ioff()
                 plt.figure()
                 plt.errorbar(_x, _data, _error, marker="o")
+
+            # Initial guesses
+            _guess_profile = data.sel(t=self.t[0]).mean().values
+            guess_profile = np.full_like(xknots, _guess_profile)
+            yconcat = guess_profile[mask_profile]
+
+            if self.fit_asymmetry:
+                _guess_asymmetry = 0.0
+                guess_asymmetry = np.full_like(xknots, _guess_asymmetry)
+                yconcat = np.append(yconcat, guess_asymmetry[mask_asymmetry])
 
             fit = least_squares(
                 residuals,
@@ -209,8 +217,11 @@ class InvertPoloidalAsymmetry:
             bckc.append(_bckc)
 
         profile = xr.concat(profile, "t") * norm_factor
-        asymmetry = xr.concat(asymmetry, "t")
         profile_2d = xr.concat(profile_2d, "t") * norm_factor
         bckc = xr.concat(bckc, "t") * norm_factor
+        if self.fit_asymmetry:
+            asymmetry = xr.concat(asymmetry, "t")
+        else:
+            asymmetry = xr.full_like(profile, 0.0)
 
         return profile_2d, bckc, profile, asymmetry

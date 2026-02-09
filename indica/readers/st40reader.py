@@ -1,9 +1,4 @@
-"""Provides implementation of :py:class:`readers.DataReader` for
-reading MDS+ data produced by ST40.
-
-"""
-
-
+"""Refactoring of data read from the database to build DataArrays"""
 from typing import Any
 from typing import Dict
 from typing import Tuple
@@ -15,7 +10,6 @@ from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
 from indica.converters import TrivialTransform
-from indica.numpy_typing import RevisionLike
 from indica.readers.datareader import DataReader
 from indica.readers.mdsutils import MDSUtils
 
@@ -69,10 +63,15 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        R_data = database_results["R_data"]
-        if len(np.shape(R_data)) > 1:
-            database_results["R_data"] = R_data[0, :]
-        database_results["channel"] = np.arange(len(database_results["R_data"]))
+        # TODO: R_data and zpos issues need to be fixed in the database
+        if "zpos" not in database_results:
+            database_results["z"] = np.full_like(database_results["R"], 0)
+        if "R_data" in database_results:
+            R_data = database_results["R_data"]
+            if len(np.shape(R_data)) > 1:
+                database_results["R_data"] = R_data[0, :]
+            database_results["channel"] = np.arange(len(database_results["R_data"]))
+
         transform = assign_trivial_transform()
         return database_results, transform
 
@@ -94,26 +93,27 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
-        # Sort channel indexing either hardcore or
-        # selecting channels with finite data only
-        spectra = database_results["spectra"]
-        if database_results["instrument"] == "pi":
-            has_data = np.arange(21, 28)
-        else:
-            has_data = np.where(np.isfinite(spectra[0, :, 0]) * (spectra[0, :, 0] > 0))[
-                0
-            ]
+        # Selecting used channels only
+
+        _spectra = np.nansum(database_results["spectra"], axis=2)
+        _spectra = np.nansum(_spectra, axis=0)
+        has_data = np.where(np.isfinite(_spectra) * (_spectra > 0))[0]
+
+        database_results["channel"] = has_data
         database_results["spectra"] = database_results["spectra"][:, has_data, :]
         database_results["spectra_error"] = database_results["spectra_error"][
             :, has_data, :
         ]
+        database_results["spectra_raw"] = database_results["spectra_raw"][
+            :, has_data, :
+        ]
+        database_results["spectra_raw_error"] = database_results["spectra_raw_error"][
+            :, has_data, :
+        ]
         database_results["location"] = database_results["location"][has_data, :]
         database_results["direction"] = database_results["direction"][has_data, :]
-        database_results["channel"] = np.arange(database_results["location"][:, 0].size)
         if len(np.shape(database_results["wavelength"])) > 1:
             database_results["wavelength"] = database_results["wavelength"][0, :]
-
-        rearrange_geometry(database_results["location"], database_results["direction"])
 
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
@@ -143,6 +143,13 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
+    def _get_radiation_inversion(
+        self,
+        database_results: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        transform = assign_trivial_transform()
+        return database_results, transform
+
     def _get_helike_spectroscopy(
         self,
         database_results: dict,
@@ -163,7 +170,6 @@ class ST40Reader(DataReader):
             )
         else:
             database_results["label"] = _labels
-        rearrange_geometry(database_results["location"], database_results["direction"])
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
@@ -171,11 +177,12 @@ class ST40Reader(DataReader):
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: info on number of passes must be saved to database
         # if database_results["instrument"] == "smmh":
         #     location = (location + location_r) / 2.0
         #     direction = (direction + direction_r) / 2.0
+        database_results["passes"] = 2
         database_results["channel"] = np.arange(database_results["location"][:, 0].size)
-        rearrange_geometry(database_results["location"], database_results["direction"])
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
@@ -186,44 +193,125 @@ class ST40Reader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
-    def __call__(
+    def _get_astra(
         self,
-        instruments: list = None,
-        revisions: Dict[str, RevisionLike] = None,
-        debug: bool = False,
-    ):
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
 
-        if instruments is None:
-            instruments = self.machine_conf.INSTRUMENT_METHODS.keys()
-        if revisions is None:
-            revisions = {instrument: 0 for instrument in instruments}
-        for instr in instruments:
-            if instr not in revisions.keys():
-                revisions[instr] = 0
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
 
-        self.data = {}
-        for instrument in instruments:
-            print(f"Reading {instrument}")
-            try:
-                self.data[instrument] = self.get(
-                    "",
-                    instrument,
-                    revisions[instrument],
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
                 )
-            except Exception as e:
-                print(f"error reading: {instrument} \nException: {e}")
-                if debug:
-                    raise e
-        return self.data
+            )
 
+        if "psin" in database_results:
+            database_results["rhop"] = np.sqrt(database_results["psin"])
 
-def rearrange_geometry(location, direction):
-    if len(np.shape(location)) == 1:
-        location = np.array([location])
-        direction = np.array([direction])
+        if "omegator" in database_results and "vtor" not in database_results:
+            database_results["vtor"] = (
+                database_results["omegator"] * database_results["rmag"]
+            )
+
+        rescale = {"ne": 1.0e19, "te": 1.0e3, "ti": 1.0e3}
+        for k, mult in rescale.items():
+            if k in database_results:
+                database_results[k] *= mult
+
+        return database_results, transform
+
+    def _get_transp(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
+
+        database_results["rhot"] = database_results["rhot"][0, :]
+
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+
+        if "omegator" in database_results and "vtor" not in database_results:
+            database_results["vtor"] = (
+                database_results["omegator"] * database_results["rmag"]
+            )
+
+        rescale = {"te": 1.0e3, "ti": 1.0e3}
+        for k, mult in rescale.items():
+            if k in database_results:
+                database_results[k] *= mult
+
+        return database_results, transform
+
+    def _get_metis(
+        self,
+        database_results: dict,
+        **kwargs: Any,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        # TODO: Merge TRANSP/ASTRA/METIS readers once database structure sorted
+        transform: CoordinateTransform = None
+
+        database_results["rhot"] = database_results["rhot"][0, :]
+
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
+            )
+
+        if "psin" in database_results:
+            # TODO: what's to be done here?
+            #  THis is not correct, but will make the equilibrium work...
+            _psin = np.where(
+                database_results["psin"] >= 0, database_results["psin"], 0.0
+            )
+            database_results["rhop"] = np.sqrt(_psin)
+
+        if "omegator" in database_results and "vtor" not in database_results:
+            _rmag = np.stack(
+                (database_results["rmag"],) * np.size(database_results["rhot"]), axis=1
+            )
+            database_results["vtor"] = database_results["omegator"] * _rmag
+
+        return database_results, transform
 
 
 def assign_lineofsight_transform(database_results: Dict):
+    if len(np.shape(database_results["location"])) == 1:
+        database_results["location"] = np.array([database_results["location"]])
+        database_results["direction"] = np.array([database_results["direction"]])
+
     transform = LineOfSightTransform(
         database_results["location"][:, 0],
         database_results["location"][:, 1],

@@ -9,6 +9,7 @@ import numpy as np
 from xarray import DataArray
 
 from indica import BaseIO
+from indica import Equilibrium
 from indica.available_quantities import READER_QUANTITIES
 from indica.configs.readers.machineconf import MachineConf
 from indica.converters import CoordinateTransform
@@ -61,6 +62,7 @@ class DataReader(ABC):
         include_error: bool = True,
         return_dataarrays: bool = True,
         verbose: bool = False,
+        equilibrium: Equilibrium = None,
     ) -> Dict[str, DataArray]:
         """General method that reads data for a requested instrument."""
         if instrument not in self.instrument_methods.keys():
@@ -81,7 +83,12 @@ class DataReader(ABC):
         if not return_dataarrays:
             return database_results
 
+        if transform:
+            if hasattr(transform, "set_equilibrium") and equilibrium is not None:
+                transform.set_equilibrium(equilibrium)
+
         quantities = READER_QUANTITIES[method]
+
         data_arrays = build_dataarrays(
             database_results,
             quantities,
@@ -110,7 +117,6 @@ class DataReader(ABC):
         """
         method = self.instrument_methods[instrument]
         quantities_paths = self.quantities_path[method]
-
         revision = self.reader_utils.get_revision(uid, instrument, revision)
         results: Dict[str, Any] = {
             "uid": uid,
@@ -203,6 +209,12 @@ class DataReader(ABC):
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
+    def _get_radiation_inversion(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
     def _get_helike_spectroscopy(
         self,
         data: dict,
@@ -226,3 +238,53 @@ class DataReader(ABC):
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
+
+    def _get_transp(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
+    def _get_astra(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
+    def _get_metis(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
+    def __call__(
+        self,
+        instruments: list = None,
+        revisions: Dict[str, RevisionLike] = None,
+        debug: bool = False,
+        equilibrium: Equilibrium = None,
+    ):
+
+        if instruments is None:
+            instruments = self.machine_conf.INSTRUMENT_METHODS.keys()
+        if revisions is None:
+            revisions = {instrument: 0 for instrument in instruments}
+        for instr in instruments:
+            if instr not in revisions.keys():
+                revisions[instr] = 0
+
+        self.data = {}
+        for instrument in instruments:
+            print(f"Reading {instrument}")
+            try:
+                self.data[instrument] = self.get(
+                    "",
+                    instrument,
+                    revisions[instrument],
+                    equilibrium=equilibrium,
+                )
+            except Exception as e:
+                print(f"error reading: {instrument} \nException: {e}")
+                if debug:
+                    raise e
+        return self.data

@@ -60,7 +60,7 @@ class JETReader(DataReader):
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         data["t"] = data["rbnd_dimensions"][0]
         data["index"] = data["rbnd_dimensions"][1]
-        data["psin"] = data["f_dimensions"][1]
+        data["xpsin"] = data["f_dimensions"][1]
         uid = data["uid"]
         instrument = data["instrument"]
         revision = data["revision"]
@@ -159,6 +159,8 @@ class JETReader(DataReader):
         data["z"] = data["z"].mean(0)
         data["t"] = data["R_dimensions"][0]
         data["channel"] = np.arange(len(data["R"]))
+        if data.get("conc") is not None:
+            data["conc"] /= 100
         transform = assign_transect_transform(data)
         return data, transform
 

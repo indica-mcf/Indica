@@ -1,10 +1,18 @@
 from indica.readers import ST40Reader
 
-PULSE = 11419
-TSTART = 0.01
-TEND = 0.1
+PULSE = 11418
+TSTART = 0
+TEND = 20
 
-INSTRUMENTS: list = [
+# ENTRIES NOT SAVED TO 5-DIGIT PULSE & NOT HAVING RUN/BEST STRUCTURE
+INSTRUMENTS = {
+    "astra": {"pulse": 13013666, "revision": "RUN602"},
+    "transp_test": {"pulse": 40013565, "revision": "X01"},
+    "metis": {"pulse": 40011890, "revision": "RUN01"},
+}
+
+# ALL OTHER DATABASE ENTRIES
+for instr in [
     "xrcs",
     "lines",
     "smmh",
@@ -14,23 +22,30 @@ INSTRUMENTS: list = [
     "ts",
     "ppts",
     "zeff_brems",
-]
+]:
+    INSTRUMENTS[instr] = {"pulse": PULSE, "revision": 0}
 
 
-def run_reader_get_methods(
-    reader: ST40Reader,
-    instrument: str,
-):
-    print(instrument)
-    data = reader.get("", instrument, 0)
+def test_reader_get_methods(return_dataarrays=True, verbose=False):
+    for instrument in INSTRUMENTS.keys():
+        print(f"\n Reading: {instrument.upper()}")
+        _pulse = INSTRUMENTS[instrument]["pulse"]
+        _revision = INSTRUMENTS[instrument]["revision"]
+        _tree = instrument
+        reader = ST40Reader(
+            _pulse,
+            TSTART,
+            TEND,
+            tree=_tree,
+            verbose=verbose,
+            return_dataarrays=return_dataarrays,
+        )
+        data = reader.get("", instrument, _revision)
+        assert type(data) == dict
+        assert len(data) > 0
+
     return data
 
 
-def test_reader_get_methods(return_dataarrays=True, verbose=True):
-    reader = ST40Reader(
-        PULSE, TSTART, TEND, verbose=verbose, return_dataarrays=return_dataarrays
-    )
-    for instrument in INSTRUMENTS:
-        data = run_reader_get_methods(reader, instrument)
-        assert type(data) == dict
-        assert len(data) > 0
+if __name__ == "__main__":
+    test_reader_get_methods()

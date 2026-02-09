@@ -244,6 +244,7 @@ def build_dataarrays(
 ) -> Dict[str, DataArray]:
     """Organizes data in DataArray format with coordinates, long_name & units"""
     data_arrays: dict = {}
+
     for quantity in available_quantities.keys():
         if quantity not in data.keys():
             continue
@@ -262,18 +263,24 @@ def build_dataarrays(
             coords[dim] = data[dim]
 
         # Build DataArray
-        _data = format_dataarray(data[quantity], datatype, coords)
+        try:
+            _data = format_dataarray(data[quantity], datatype, coords)
+        except Exception as e:
+            print(f"\n Error formatting {quantity} \n")
+            raise (e)
+
         if "t" in _data.dims and tstart is not None and tend is not None:
             _data = _data.sel(t=slice(tstart, tend))
             _data = _data.sortby([dim for dim in dims if dim != "t"])
 
-        # Build error DataArray and assign as coordinate
+        # Build error DataArray, filter negative values, assign as coordinate
         if include_error and len(dims) != 0:
             _error = xr.zeros_like(_data)
             if quantity + "_error" in data:
                 _error = format_dataarray(data[quantity + "_error"], datatype, coords)
                 if "t" in _error.dims and tstart is not None and tend is not None:
                     _error = _error.sel(t=slice(tstart, tend))
+                _error = xr.where((_error >= 0) * (_error / _data < 1), _error, np.nan)
             _data = _data.assign_coords(error=(_data.dims, _error.data))
 
         # Check that times are unique
@@ -465,6 +472,11 @@ def check_time_present(t_desired: LabeledArray, t_array: LabeledArray):
         raise ValueError(f"Desired time {t_desired} not available in array {t_array}")
 
 
+def new_figure(new_fig: bool):
+    if new_fig:
+        plt.figure()
+
+
 def save_figure(
     path_name: str = "",
     fig_name: str = "",
@@ -517,35 +529,40 @@ def set_plot_colors(
     return cmap, colors
 
 
-def set_plot_rcparams(option: str = "profiles"):
-    plot_params: dict = {
-        "profiles": {
-            "font.size": 13,
-            "legend.fontsize": 11,
-            "lines.markersize": 10,
-            "lines.linewidth": 2,
-        },
-        "multi": {
-            "font.size": 13,
-            "legend.fontsize": 13,
-            "lines.markersize": 10,
-            "lines.linewidth": 2,
-            "figure.figsize": [6.4, 3.8],
-            "figure.subplot.bottom": 0.15,
-        },
-        "time_evolution": {
-            "font.size": 11,
-            "legend.fontsize": 8,
-            "lines.markersize": 5,
-            "lines.linewidth": 2,
-            "font.weight": 600,
-        },
-    }
+def set_plot_rcparams(option: str = "profiles", rc_params: dict = None):
+    if rc_params is None:
+        plot_params: dict = {
+            "profiles": {
+                "axes.titlesize": 13,
+                "font.size": 13,
+                "legend.fontsize": 11,
+                "lines.markersize": 6,
+                "lines.linewidth": 2,
+                "figure.figsize": (7, 5),
+            },
+            "multi": {
+                "font.size": 12,
+                "legend.fontsize": 13,
+                "lines.markersize": 6,
+                "lines.linewidth": 2,
+                "figure.figsize": [6.4, 3.8],
+                "figure.subplot.bottom": 0.15,
+            },
+            "time_evolution": {
+                "font.size": 12,
+                "legend.fontsize": 8,
+                "lines.markersize": 6,
+                "lines.linewidth": 2,
+                "font.weight": 600,
+            },
+        }
 
-    if option not in plot_params.keys():
-        return
+        if option not in plot_params.keys():
+            return
 
-    for key, value in plot_params[option].items():
+        rc_params = plot_params[option]
+
+    for key, value in rc_params.items():
         rcParams.update({key: value})
 
 
@@ -580,3 +597,23 @@ def hash_vals(**kwargs: Any) -> str:
         hash_result.update(bytes(str(val), encoding="utf-8"))
         hash_result.update(b",")
     return hash_result.hexdigest()
+
+
+def scale_dataarray(
+    dataarray: DataArray, scaling: float, new_unit: str, new_name: str = None
+):
+    dataarray.attrs["units"] = new_unit
+
+    dataarray *= scaling
+    if "error" in dataarray.coords:
+        _error = dataarray.error * scaling
+        dataarray = dataarray.drop_vars("error")
+        dataarray = dataarray.assign_coords(error=(dataarray.dims, _error.data))
+
+    if "stdev" in dataarray.coords:
+        _stdev = dataarray.stdev * scaling
+        dataarray = dataarray.drop_vars("stdev")
+        dataarray = dataarray.assign_coords(stdev=(dataarray.dims, _stdev.data))
+
+    if new_name is not None:
+        dataarray.attrs["long_name"] = new_name

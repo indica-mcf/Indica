@@ -49,3 +49,11 @@ toroidal_rotation:
     peaking: 0.3
     wcenter: 0.25
     wped: 3
+
+residence_time:
+    y0: 0.1
+    y1: 0.01
+    yend: 0.1
+    peaking: 0.3
+    wcenter: 0.25
+    wped: 1
