@@ -1,9 +1,7 @@
 import numpy as np
 
 # Paths & environment: file locations for geometry, FIDASIM install, and default inputs/outputs.
-GEOMETRY_PKL_PATH = "geometry_pkl_files/TriWaSp_geometry_7los_50-77_sector1.pkl"
 TE_FIDASIM_CODE_PATH = "/home/jussi.hakosalo/te-fidasim"
-TE_FIDASIM_INPUT_REWRITE_FROM = "/home/bart.lomanowski/TE-fidasim/"
 FIDASIM_BASE_DIR = "/home/jussi.hakosalo/fidasim/FIDASIM-2.0.0"
 FIDASIM_INPUT_REWRITE_TO = FIDASIM_BASE_DIR + "/"
 FIDASIM_OUTPUT_DIR = "/home/jussi.hakosalo/fidasim_output"
@@ -189,7 +187,7 @@ def get_hnbi_geo():
 # Default NBI + spectroscopy config used in tests and examples.
 DEFAULT_NBI_SPECS = {
     "name": "hnbi",
-    "spec_name": "TriWaSp_P2p4",
+    "spec_name": "TriWaSp_P2p4", #Spectroscopy config
     "spec_json_path": "indica/operators/pi_spec_13475_t_0.090000.json",
     "einj": 52.0,  # keV
     "pinj": 0.5,   # MW

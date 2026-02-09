@@ -60,15 +60,7 @@ def parse_input_file(input_dict_file):
 
     os.remove('temp.json')
 
-    # Check input dict
-    input_dict['input_files']['geqdsk_file'] = input_dict['input_files']['geqdsk_file'].replace(
-        TE_FIDASIM_INPUT_REWRITE_FROM,
-        FIDASIM_INPUT_REWRITE_TO
-    )
-    input_dict['input_files']['fi_dist_file'] = input_dict['input_files']['fi_dist_file'].replace(
-        TE_FIDASIM_INPUT_REWRITE_FROM,
-        FIDASIM_INPUT_REWRITE_TO
-    )
+
     print(input_dict['save_dir'])
     print(input_dict['input_files']['geqdsk_file'])
     print(input_dict['input_files']['fi_dist_file'])
@@ -360,7 +352,6 @@ def prepare_fidasim(  # requires spec to be defined first (specconfig["spec_json
 
     debugging_shape = False
     if debugging_shape:
-        from matplotlib import pyplot as plt
 
         plt.figure()
         plt.imshow(mask)
