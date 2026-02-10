@@ -151,18 +151,24 @@ def run_example_diagnostic_model(
     solutions=[]
 
     #hofs=[[ 0.0, 6.0, 15.0, 18.0, 336.0, 356.0, 0.0, 0.0, 0.14285714, 0.14285714, -0.14285714, 0.0, -0.28571429,-0.7]]
+    #hofs=[[23.0, 33.0, 275.0, 293.0, 346.0, 352.0, 0.28571429, 0.85714286, 0.0, 0.14285714, 0.14285714, 0.14285714]]
+    #hofs=[[1.0, 33.0, 42.0, 306.0, 335.0, 355.0, 0.14285714, 0.85714286, 0.85714286, -0.28571429, -0.14285714, 0.14285714]]
+    hofs=[[6.0, 16.0, 19.0, 331.0, 334.0, 60.0, -0.28571429, 0.0, -0.14285714, -0.14285714, -0.28571429,0.85]]
+
+    
     print(f"Cos pruned to a length of {len(hofs)}")
     for sol in hofs:
         solu=get_solution(sol,transform,model,phantom_emission,"sqrt")
+
         if solu:
             solutions.append(solu)
+            print(sol,solu[-3])
     print(f"Validity filtered to a length of {len(solutions)}")
 
     #Sort list: sort by best penalised
     sort_by_penalized=True
     if sort_by_penalized:
         solutions = sorted(solutions, key=lambda x: x[-2])
-        print(solutions[0])
     else:
 
         solutions = sorted(solutions, key=lambda x: x[-3])

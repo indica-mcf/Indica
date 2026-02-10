@@ -1533,7 +1533,7 @@ def grab_figure_as_image(callable_plotter, *, pick=None, dpi=200):
     return artist_fn
 
 
-def get_solution(individual, transform, model, phantom_emission,los_penalty=None):
+def get_solution(individual, transform, model, phantom_emission,los_penalty=None,return_transform_object=False):
     try:
         N = len(individual) // 2
         los_angles = individual[:N]
@@ -1596,7 +1596,7 @@ def assert_valid_impact_params(transform):
     #imp=np.sort(transform.impact_parameter["dist"])
     imp2=transform.impact_rho.sel(t=0,method="nearest")
     imp2_s=np.sort(transform.impact_rho.sel(t=0,method="nearest"))
-    assert(np.all(0.005<np.diff(imp2_s)))
+    assert(np.all(0.01<np.diff(imp2_s)))
 
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
