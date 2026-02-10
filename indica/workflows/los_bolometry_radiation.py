@@ -1137,7 +1137,6 @@ def run_example_diagnostic_model(
                         if sol:
                             sols.append(sol)
                     interactive_solution_timeslice_plot_from_list(sols)
-                    ata
                 else:
                     hof,bestPerGen=run_ga(los_count,model,phantom_emission)
 
