@@ -96,7 +96,3 @@ def example_lyman_alpha_2d(
     model.plot()
 
     return model, data
-
-
-if __name__ == "__main__":
-    example_lyman_alpha_2d()
