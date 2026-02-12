@@ -112,7 +112,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         """Returns transition matrix used to convert
         PECs to emissivity"""
         # fmt: off
-        _Nimp = self.Nimp.sel(element=element, )
+        _Nimp = self.Nimp.sel(element=element, ).drop("element")
         _Fz = self.Fz[element]
         transition_matrix = xr.concat([
             self.Ne * _Nimp * _Fz,
@@ -133,12 +133,23 @@ class PassiveSpectrometer(AbstractDiagnostic):
         * wavelength of transition
         """
         self.intensity = {}
+        self.measured_intensity = {}
+
         for element, pec in self.pecs.items():
             mult = self._transition_matrix(
                 element=element,
             )
             pec = pec.interp(electron_temperature=self.Te, electron_density=self.Ne)
             self.intensity[element] = (pec * mult).sum("type").sum("ion_charge")
+
+            self.measured_intensity[element] = self.transform.integrate_on_los(
+                self.intensity[element],
+                t=self.intensity[element].t,
+                calc_rho=True,
+            )
+            self.measured_intensity[element] = self.measured_intensity[element].assign_coords(
+                {"wavelength": self.intensity[element].wavelength}
+            )
         return self.intensity
 
     def make_spectra(
@@ -276,8 +287,27 @@ class PassiveSpectrometer(AbstractDiagnostic):
                     color=cols_time[i],
                     label=f"t={t:1.2f} s",
                 )
-            plt.ylabel("Emissivity (W/m^3/nm)")
+            plt.ylabel("Emissivity (photon/m^2/nm/s)")
             plt.xlabel("Wavelength (nm)")
             plt.legend()
             set_axis_sci()
+
+            plt.figure()
+            for element, intensity in self.measured_intensity.items():
+                if "channel" in intensity.dims:
+                    intensity = intensity.sel(channel=int(np.median(channels)))
+                for i, t in enumerate(np.array(self.t, ndmin=1)):
+                    plt.plot(
+                        intensity.wavelength,
+                        intensity.sel(t=t),
+                        color=cols_time[i],
+                        label=f"t={t:1.2f} s",
+                        marker="^",
+                        linestyle="",
+                    )
+            plt.ylabel("Emissivity (photon/m^2/s)")
+            plt.xlabel("Wavelength (nm)")
+            plt.legend()
+            set_axis_sci()
+
         plt.show(block=True)

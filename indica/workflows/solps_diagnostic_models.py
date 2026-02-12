@@ -76,8 +76,8 @@ def example_lyman_alpha_2d(
     transform = transforms[instrument]
     transform.set_equilibrium(equilibrium)
 
-    window = np.linspace(100, 150, 1000)
-    adf15 = read_adf15s(elements=["h", ], )
+    window = np.linspace(120, 140, 500)
+    adf15 = read_adf15s(elements=["h", "c"], )
     pecs = format_pecs(adf15, wavelength_bounds=slice(window.min(), window.max()))
 
     model = PassiveSpectrometer(name=instrument, pecs=pecs, window=window)

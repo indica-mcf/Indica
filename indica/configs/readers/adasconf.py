@@ -7,7 +7,8 @@ ADF15 = {
         ),
     },
     "ne": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 8)},
-    "c": {str(charge): dict(file_type="bnd", year="96") for charge in range(5, 6)},
+    # "c": {str(charge): dict(file_type="bnd", year="96") for charge in range(5, 6)},
+    "c": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 6)},
     "b": {
         "1": dict(
             file_type="llu",
