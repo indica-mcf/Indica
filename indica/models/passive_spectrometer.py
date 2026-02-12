@@ -149,9 +149,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
             )
             self.measured_intensity[element] = self.measured_intensity[
                 element
-            ].assign_coords(
-                {"wavelength": self.intensity[element].wavelength}
-            )
+            ].assign_coords({"wavelength": self.intensity[element].wavelength})
         return self.intensity
 
     def make_spectra(
