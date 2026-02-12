@@ -2,10 +2,10 @@ import numpy as np
 
 from indica import Equilibrium
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import PinholeCamera
 from indica.models import PassiveSpectrometer
-from indica.models.passive_spectrometer import read_adf15s
+from indica.models import PinholeCamera
 from indica.models.passive_spectrometer import format_pecs
+from indica.models.passive_spectrometer import read_adf15s
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import SOLPSReader
 from indica.readers import ST40Reader
