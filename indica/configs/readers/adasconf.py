@@ -1,4 +1,5 @@
 ADF15 = {
+    "h": {str(charge): dict(file_type="pju", year="12") for charge in range(0, 1)},
     "he": {
         "1": dict(
             file_type="bnd",
