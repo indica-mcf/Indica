@@ -22,7 +22,7 @@ AuroraConfig = dict(
     cxr_flag=False,
     nbi_cxr_flag=False,
     source_type="const",
-    source_rate=1e22,
+    source_rate=1e21,
     source_file=None,
     explicit_source_vals=None,
     explicit_source_time=None,
@@ -103,8 +103,6 @@ AuroraConfig = dict(
 
 @dataclass
 class AuroraSteadyStateConfig:
-    D_z: np.ndarray
-    V_z: np.ndarray
     nz_init: np.ndarray = None
     unstage: bool = False
     alg_opt: int = 1
