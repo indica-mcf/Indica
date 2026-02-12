@@ -2,8 +2,10 @@ import numpy as np
 
 from indica import Equilibrium
 from indica.defaults.load_defaults import load_default_objects
-from indica.models import PinholeCamera, PassiveSpectrometer
-from indica.models.passive_spectrometer import read_adf15s, format_pecs
+from indica.models import PinholeCamera
+from indica.models import PassiveSpectrometer
+from indica.models.passive_spectrometer import read_adf15s
+from indica.models.passive_spectrometer import format_pecs
 from indica.operators.atomic_data import default_atomic_data
 from indica.readers import SOLPSReader
 from indica.readers import ST40Reader
@@ -77,7 +79,9 @@ def example_lyman_alpha_2d(
     transform.set_equilibrium(equilibrium)
 
     window = np.linspace(120, 140, 500)
-    adf15 = read_adf15s(elements=["h", "c"], )
+    adf15 = read_adf15s(
+        elements=["h", "c"],
+    )
     pecs = format_pecs(adf15, wavelength_bounds=slice(window.min(), window.max()))
 
     model = PassiveSpectrometer(name=instrument, pecs=pecs, window=window)
@@ -89,7 +93,7 @@ def example_lyman_alpha_2d(
         Nimp=data["nion"],
         Nh=data["nion"].sel(element="h") * data["fz"]["h"].sel(ion_charge=0),
         Fz=data["fz"],
-        Ti= 10,
+        Ti=10,
         t=data["te"].t,
     )
 
