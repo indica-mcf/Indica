@@ -11,8 +11,6 @@ class AbstractDiagnostic(ABC):
     plasma: Plasma
     transform: CoordinateTransform
 
-    plasma = None
-
     def set_transform(self, transform: CoordinateTransform):
         """
         Line-of-sight or Transect coordinate transform
