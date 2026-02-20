@@ -32,8 +32,8 @@ class testNBI:
         nbi_transform.spot_height = spot_height
 
 
-        # NBI+spectroscopy config (copied so tests can tweak locally if needed). This should probably just come from
-        #configs and not be given to the operator. Spec config is currently a JSOn instad of CXSfile
+        # NBI config (copied so tests can tweak locally if needed). This should probably just come from
+        #configs and not be given to the operator.
         nbispecs = copy.deepcopy(DEFAULT_NBI_SPECS)
 
 
