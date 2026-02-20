@@ -184,11 +184,9 @@ def get_hnbi_geo():
     return hnbi
 
 
-# Default NBI + spectroscopy config used in tests and examples.
+# Default NBI config used in tests and examples.
 DEFAULT_NBI_SPECS = {
     "name": "hnbi",
-    "spec_name": "TriWaSp_P2p4", #Spectroscopy config
-    "spec_json_path": "indica/operators/pi_spec_13475_t_0.090000.json",
     "einj": 52.0,  # keV
     "pinj": 0.5,   # MW
     "current_fractions": [

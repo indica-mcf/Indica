@@ -84,11 +84,10 @@ def parse_input_file(input_dict_file):
             
     return input_dict
 
-def prepare_fidasim(  # requires spec to be defined first (specconfig["spec_json_path"])
+def prepare_fidasim(
         shot: int,
         time: float,
         nbiconfig: dict,
-        specconfig: dict,
         plasmaconfig: dict,
         fi_dist_file: str = TE_FIDASIM_FI_DIST_FILE,
         save_dir: str = FIDASIM_OUTPUT_DIR,
@@ -102,8 +101,6 @@ def prepare_fidasim(  # requires spec to be defined first (specconfig["spec_json
 
         force_no_plasma_rot: Turns off rotation, even if OMEGA is available in TRANSP output
     """
-    #TODO: spec. what do we do with spec?
- 
     # Output dictionary for storing jet-fidasim relevant outputs.
     out_dict = {}
 
@@ -131,47 +128,10 @@ def prepare_fidasim(  # requires spec to be defined first (specconfig["spec_json
     st40_beams = nbiconfig
     beam_amu = st40_beams['ab']
     beam_name = st40_beams['name']
-    st40_spec = specconfig
     #run = input_dict['run']
     runid = pwd.getpwuid(os.getuid())[0]
-    spec_name = st40_spec['name']
-    cross_section_corr = False
-    if 'cross_section_corr' in st40_spec:
-        cross_section_corr = st40_spec['cross_section_corr']
     plasma_ion_amu = plasmaconfig['plasma_ion_amu']
     #vtor_peak_kms = input_dict['vtor_peak_kms']
-
-    # Configure spec dictionary compatible with fidasim format.
-    spec = None
-
-
-
-    #Todo: use the actual class. Now I am just using a presaved thing.
-    spec_json_path = st40_spec.get("spec_json_path")
-    if not spec_json_path:
-        raise ValueError("specconfig['spec_json_path'] is required to build spec from JSON.")
-    with open(spec_json_path, "r", encoding="utf-8") as f:
-        spec_json = json.load(f)
-    chords = spec_json.get("chords", [])
-    if not chords:
-        raise ValueError(f"No chords found in spec JSON: {spec_json_path}")
-
-    nchan = len(chords)
-    ids = []
-    radius = []
-    lens = []
-    axis = []
-    _spot_radius = 1.25  # TODO: estimate spot radius on Princeton foreoptic
-    spot_size = []
-    _sigma_pi_ratio = 1.0  # default sigma/pi ratio
-    sigma_pi = []
-    for chord in chords:
-        ids.append(chord["id"].encode(encoding="utf_8"))
-        radius.append(chord["tang_rad"])
-        lens.append(chord["origin"])
-        axis.append(chord["diruvec"])
-        spot_size.append(_spot_radius)
-        sigma_pi.append(_sigma_pi_ratio)
 
     # if spec_name in st40_spec['name']:
     #     #pi_spec = CxsSpec(shot, chord_IDs=input_dict['cxs_spec']['chord_IDs'],
@@ -206,17 +166,6 @@ def prepare_fidasim(  # requires spec to be defined first (specconfig["spec_json
     # Preprocessing for each participating pini
     # Note, since input dictionaries are modified in preprocessing.py, recreate the same inputs for every pini.
     beam_id = st40_beams["name"]
-
-    spec = {'nchan': nchan,
-            'system': spec_name,
-            'data_source': 'MDSplus',
-            'id': np.asarray(ids),
-            'radius': np.asarray(radius),
-            'lens': np.asarray(lens).T,
-            'axis': np.asarray(axis).T,
-            'spot_size': np.asarray(spot_size),
-            'sigma_pi': np.asarray(sigma_pi),
-            }
 
     # Define plasma interpolation grid bounds
     rmin = PLASMA_INTERP_GRID_SETTINGS["rmin"]
@@ -498,8 +447,7 @@ def prepare_fidasim(  # requires spec to be defined first (specconfig["spec_json
 
     for beam in nbis:
         if beam_id == beam['name']:
-            #with spec
-            fidasim.prefida(inputs, grid, beam, plasma, equil, fi_dist,spec=spec)
+            fidasim.prefida(inputs, grid, beam, plasma, equil, fi_dist)
 
 
     # If here then preprocessing was successful for this beam. Launch batch job.
