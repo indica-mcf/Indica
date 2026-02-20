@@ -4,10 +4,9 @@ from indica.examples.example_readers import example_model_reader
 from indica.plotters import DataPlotter
 from indica.readers import SOLPSReader
 
-BCKC, MODEL_READER = example_model_reader(plot=False)
-
-
 def example_dataplotter():
+    BCKC, MODEL_READER = example_model_reader(plot=False)
+
     plasma = MODEL_READER.plasma
     plotter = DataPlotter(0, plasma.t)
 
