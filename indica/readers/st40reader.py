@@ -97,9 +97,13 @@ class ST40Reader(DataReader):
 
         _spectra = np.nansum(database_results["spectra"], axis=2)
         _spectra = np.nansum(_spectra, axis=0)
-        has_data = np.where(np.isfinite(_spectra) * (_spectra > 0))[0]
+        _channel = np.arange(_spectra.size)
+        has_data = np.where(
+            np.isfinite(_spectra) * (_spectra > 0) * (_channel > 19) * (_channel < 27)
+        )[0]
 
-        database_results["channel"] = has_data
+        database_results["channel_label"] = has_data
+        database_results["channel"] = np.arange(has_data.size)
         database_results["spectra"] = database_results["spectra"][:, has_data, :]
         database_results["spectra_error"] = database_results["spectra_error"][
             :, has_data, :
