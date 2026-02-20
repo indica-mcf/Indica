@@ -11,7 +11,6 @@ import h5py as h5
 from .nbi_configs import FIDASIM_BASE_DIR
 from .nbi_configs import FIDASIM_OUTPUT_DIR
 from .nbi_configs import TE_FIDASIM_FI_DIST_FILE
-from .nbi_configs import TE_FIDASIM_INPUT_REWRITE_FROM
 from .nbi_configs import FIDASIM_INPUT_REWRITE_TO
 from .nbi_configs import build_general_settings
 from .nbi_configs import build_nbi_settings
@@ -500,7 +499,7 @@ def prepare_fidasim(  # requires spec to be defined first (specconfig["spec_json
     for beam in nbis:
         if beam_id == beam['name']:
             #with spec
-            fidasim.prefida(inputs, grid, beam, plasma, equil, fi_dist, spec=spec)
+            fidasim.prefida(inputs, grid, beam, plasma, equil, fi_dist,spec=spec)
 
 
     # If here then preprocessing was successful for this beam. Launch batch job.
