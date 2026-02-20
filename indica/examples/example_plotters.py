@@ -2,6 +2,7 @@ import matplotlib.pylab as plt
 
 from indica.examples.example_readers import example_model_reader
 from indica.plotters import DataPlotter
+from indica.readers import SOLPSReader
 
 BCKC, MODEL_READER = example_model_reader(plot=False)
 
@@ -24,6 +25,17 @@ def example_dataplotter():
     plotter.plot_plasma_attribute(
         "fz", plasma, element="ar", ylog=False, sci=False, to_plot=("profiles",)
     )
+
+
+def example_plot_solps():
+    solps = SOLPSReader(13565, 0.16)
+    processed = {}
+    processed["solps"] = solps.get()
+
+    t = processed["solps"]["ne"].t.values
+    plotter = DataPlotter(13565, t, nplot=1)
+
+    plotter.plot(processed, "solps", "nion", element="h", ion_charge=0)
 
 
 if __name__ == "__main__":
