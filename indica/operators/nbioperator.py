@@ -88,10 +88,17 @@ class NBIOperator(Operator):
     """
 
 
+
+    Take abstract diag: plasma, params, transform
+
+
+    nbi model selection to init
     def __init__(
         self,
         transform,
         nbispecs,
+        selected_model="FIDASIM"
+
     ):
         #Initialized with beam related info, so transform and geam parameters. Beam geometry comes later and 
         #through the configs instead.
@@ -125,8 +132,14 @@ class NBIOperator(Operator):
 
         # Set-up FIDASIM run
 
-
+        also transf is c
         # Loop over time
+
+        get this from TS, same type of naming convention
+        if slef.plasna:
+            self.plasma=plasma
+
+
         neutrals_by_time = {}
         for i_time, time in enumerate(profiles["t"].data):
             rho_1d = profiles["ion_temperature"].rhop.values
@@ -147,6 +160,7 @@ class NBIOperator(Operator):
             )
 
             # rho toroidal
+            equilibrium too (convert_flux_coordinates func)
             rho_tor = eqdata["convert_flux_coords"](rho_2d, t=time)
             rho_tor = rho_tor[0].values
 
@@ -178,11 +192,17 @@ class NBIOperator(Operator):
             #     t=time
             # )
             # bt = bt.values  # NaN values an issue??
+
+            this comes from eq inside trasnform. transform.eq.bfield
+
+
             irod = 3.0 * 1e6
             bt = irod * (4 * np.pi * 1e-7) / (2 * np.pi * R_2d)
 
             # rho
+            comes from eq too
             rho = rho_2d.values
+            
 
             # plasmaconfig
             plasmaconfig = {
@@ -220,6 +240,10 @@ class NBIOperator(Operator):
 
             # Variables
             beam = self.nbispecs["name"]
+
+
+            this should be in the preparation
+            and generalizable to other beam models
 
             # File paths
             save_dir = FIDASIM_OUTPUT_DIR
