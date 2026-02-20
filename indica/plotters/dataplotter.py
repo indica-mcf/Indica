@@ -494,8 +494,8 @@ class DataPlotter:
         x_to_y = (Rlim[1] - Rlim[0]) / (zlim[1] - zlim[0])
 
         if fig_obj is not None:
-            fig_obj.set_figwidth(height * x_to_y * 1.5 * px)
-            fig_obj.set_figheight(height / 1.5 * px)
+            fig_obj.set_figwidth(height * x_to_y * 1.8 * px)
+            fig_obj.set_figheight(height / 1.2 * px)
 
         if logcol:
             vmin = xr.where(_data > 0, _data, np.nan).min()
