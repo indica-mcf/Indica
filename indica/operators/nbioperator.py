@@ -38,17 +38,15 @@ from indica.utilities import set_plot_colors
 from .abstractoperator import Operator
 from .nbi_configs import FIDASIM_BIN_PATH
 from .nbi_configs import FIDASIM_OUTPUT_DIR
-from .nbi_configs import GEOMETRY_PKL_PATH
 from .nbi_configs import NBI_USER
 from .nbi_configs import TE_FIDASIM_CODE_PATH
 
 # Flow/Config map:
-# 1) NBIOperator takes a transform + nbispecs (=beam + spectrometer spec).
+# 1) NBIOperator takes a transform + nbispecs (=beam specs).
 # 2) nbispecs (from nbi_configs.DEFAULT_NBI_SPECS or test overrides) supplies
-#    beam operating params (einj/pinj/current_fractions/ab) and spec JSON path.
+#    beam operating params (einj/pinj/current_fractions/ab).
 # 3) nbi_utils.prepare_fidasim builds FIDASIM inputs by combining:
 #    - nbispecs (beam params; also picks beam name for geometry),
-#    - specconfig JSON (diagnostic chords, so spectroscopy config. This should actually come with the CXS spec class.),
 #    - plasmaconfig (equilibrium + profiles),
 #    - global settings in nbi_configs.py (paths, MC settings, grids, switches),
 #    - beam geometry from get_hnbi_geo/get_rfx_geo via create_st40_beam_grid.
@@ -100,7 +98,7 @@ class NBIOperator(Operator):
         self.transform = transform
 
 
-        #NBI and spectroscopy config
+        #NBI config
         self.nbispecs = nbispecs
         self.name = nbispecs.get("name")
         self.einj = nbispecs.get("einj")
@@ -117,27 +115,6 @@ class NBIOperator(Operator):
 
 
 
-        origin = self.transform.origin
-        direction = self.transform.direction
-        x_pos = self.transform.origin_x
-        y_pos = self.transform.origin_y
-
-
-
-        #Spectroscopy config formatting using the trasnform
-        chord_ids = [f"M{i + 1}" for i in range(np.shape(direction)[0])]
-        geom_dict = {}
-        for i_chord, id in enumerate(chord_ids):
-            geom_dict[id] = {}
-            geom_dict[id]["origin"] = list(origin[i_chord, :] * 1e2)
-            geom_dict[id]["diruvec"] = list(direction[i_chord, :])
-        self.specconfig = {
-            "chord_IDs": chord_ids,
-            "geom_dict": geom_dict,
-            "name": nbispecs.get("spec_name"),
-            "cross_section_corr": False,
-            "spec_json_path": nbispecs.get("spec_json_path"),
-        }
 
 
 
@@ -237,7 +214,6 @@ class NBIOperator(Operator):
             print(f'shot_number = {pulse}')
             print(f'time = {time}')
             print('num_cores = 3')
-            print(f'spec = {self.specconfig["name"]}')
             print(f'beam = {self.nbispecs["name"]}')
             print(f'user = {NBI_USER}')
             print(f'force_run_fidasim = {run_fidasim}')
@@ -270,12 +246,11 @@ class NBIOperator(Operator):
                     )
 
             # Run pre-processing code
-            #This takes in pulse nuber, time, the nbi configuration, the spectroscopy configuration, and plasma.
+            #This takes in pulse number, time, the nbi configuration, and plasma.
             nbi_utils.prepare_fidasim(
                 pulse,
                 time,
                 self.nbispecs,
-                self.specconfig,
                 plasmaconfig,
                 save_dir=save_dir,
                 plot_geo=False,
