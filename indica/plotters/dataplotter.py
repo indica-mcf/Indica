@@ -498,8 +498,8 @@ class DataPlotter:
             fig_obj.set_figheight(height / 1.2 * px)
 
         if logcol:
-            vmin = xr.where(_data > 0, _data, np.nan).min()
             vmax = xr.where(_data > 0, _data, np.nan).max()
+            vmin = np.max([vmax / 1.0e4, xr.where(_data > 0, _data, np.nan).min()])
             _data.plot.imshow(norm=LogNorm(vmin=vmin, vmax=vmax))
         else:
             _data.plot()

@@ -4,6 +4,7 @@ from indica.examples.example_readers import example_model_reader
 from indica.plotters import DataPlotter
 from indica.readers import SOLPSReader
 
+
 def example_dataplotter():
     BCKC, MODEL_READER = example_model_reader(plot=False)
 
@@ -35,6 +36,7 @@ def example_plot_solps():
     plotter = DataPlotter(13565, t, nplot=1)
 
     plotter.plot(processed, "solps", "nion", element="h", ion_charge=0)
+    plotter.plot(processed, "solps", "nion", element="c", ion_charge=0)
 
 
 if __name__ == "__main__":
