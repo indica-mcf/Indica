@@ -39,8 +39,13 @@ class testNBI:
 
 
         #Operator initialisation
-        nbi_op = nbioperator.NBIOperator(nbi_transform,nbispecs)
+        this should be verbose instead
+        nbi_op = nbioperator.NBIOperator(nbispecs)
 
+
+
+        nbi_op.set_transform(transform(+eq in it))
+        nbi_op.set_plasma(plasma) (optional)
 
         #Profiles and eqdata organisation
         profiles = {
@@ -61,7 +66,12 @@ class testNBI:
 
 
         #Go time
-        neutrals_by_time=nbi_op(profiles,eqdata, pulse=pulse)
+        just plasma, if. Look thomson. 
+
+
+        This call can be zero params. If it already has plasma, thjat is
+        neutrals_by_time=nbi_op(timepoint or time array)
+        
         print(neutrals_by_time)
 
 
