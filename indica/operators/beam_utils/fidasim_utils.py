@@ -15,7 +15,6 @@ from ..nbi_configs import FIDASIM_OUTPUT_DIR
 from ..nbi_configs import NBI_USER
 from ..nbi_configs import TE_FIDASIM_CODE_PATH
 from ..nbi_configs import TE_FIDASIM_FI_DIST_FILE
-from ..nbi_configs import FIDASIM_INPUT_REWRITE_TO
 from ..nbi_configs import build_general_settings
 from ..nbi_configs import build_nbi_settings
 from ..nbi_configs import build_plasma_settings
