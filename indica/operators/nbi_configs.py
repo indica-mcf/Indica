@@ -3,7 +3,6 @@ import numpy as np
 # Paths & environment: file locations for geometry, FIDASIM install, and default inputs/outputs.
 TE_FIDASIM_CODE_PATH = "/home/jussi.hakosalo/te-fidasim"
 FIDASIM_BASE_DIR = "/home/jussi.hakosalo/fidasim/FIDASIM-2.0.0"
-FIDASIM_INPUT_REWRITE_TO = FIDASIM_BASE_DIR + "/"
 FIDASIM_OUTPUT_DIR = "/home/jussi.hakosalo/fidasim_output"
 FIDASIM_BIN_PATH = FIDASIM_BASE_DIR + "/fidasim"
 TE_FIDASIM_FI_DIST_FILE = "/home/jussi.hakosalo/te-fidasim/9188_150_rfx/a5fidasim_distribution.h5"
@@ -183,16 +182,3 @@ def get_hnbi_geo():
 
     return hnbi
 
-
-# Default NBI config used in tests and examples.
-DEFAULT_NBI_SPECS = {
-    "name": "hnbi",
-    "einj": 52.0,  # keV
-    "pinj": 0.5,   # MW
-    "current_fractions": [
-        0.5,
-        0.35,
-        0.15,
-    ],
-    "ab": 2.014,
-}
