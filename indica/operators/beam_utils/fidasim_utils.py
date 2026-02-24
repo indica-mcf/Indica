@@ -9,28 +9,28 @@ import shutil
 import xarray as xr
 
 import h5py as h5
-from .nbi_configs import FIDASIM_BIN_PATH
-from .nbi_configs import FIDASIM_BASE_DIR
-from .nbi_configs import FIDASIM_OUTPUT_DIR
-from .nbi_configs import NBI_USER
-from .nbi_configs import TE_FIDASIM_CODE_PATH
-from .nbi_configs import TE_FIDASIM_FI_DIST_FILE
-from .nbi_configs import FIDASIM_INPUT_REWRITE_TO
-from .nbi_configs import build_general_settings
-from .nbi_configs import build_nbi_settings
-from .nbi_configs import build_plasma_settings
-from .nbi_configs import MC_SETTINGS_COARSE
-from .nbi_configs import MC_SETTINGS_FINE
-from .nbi_configs import PLASMA_INTERP_GRID_SETTINGS
-from .nbi_configs import SIMULATION_SWITCHES
-from .nbi_configs import WAVELENGTH_GRID_SETTINGS
-from .nbi_configs import WEIGHT_FUNCTION_SETTINGS
+from ..nbi_configs import FIDASIM_BIN_PATH
+from ..nbi_configs import FIDASIM_BASE_DIR
+from ..nbi_configs import FIDASIM_OUTPUT_DIR
+from ..nbi_configs import NBI_USER
+from ..nbi_configs import TE_FIDASIM_CODE_PATH
+from ..nbi_configs import TE_FIDASIM_FI_DIST_FILE
+from ..nbi_configs import FIDASIM_INPUT_REWRITE_TO
+from ..nbi_configs import build_general_settings
+from ..nbi_configs import build_nbi_settings
+from ..nbi_configs import build_plasma_settings
+from ..nbi_configs import MC_SETTINGS_COARSE
+from ..nbi_configs import MC_SETTINGS_FINE
+from ..nbi_configs import PLASMA_INTERP_GRID_SETTINGS
+from ..nbi_configs import SIMULATION_SWITCHES
+from ..nbi_configs import WAVELENGTH_GRID_SETTINGS
+from ..nbi_configs import WEIGHT_FUNCTION_SETTINGS
 
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = '1'
 
 from fidasim.utils import rz_grid, read_geqdsk, beam_grid
 import fidasim
-from .st40_utils import extract_hda_plasma, create_st40_beam_grid, convert_to_list, get_v_tor_v_pol
+from ..st40_utils import extract_hda_plasma, create_st40_beam_grid, convert_to_list, get_v_tor_v_pol
 #from cxspec import CxsSpec
 #import plot
 # from batch import submit_fidasim_batch_job

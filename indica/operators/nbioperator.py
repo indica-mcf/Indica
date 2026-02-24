@@ -1,7 +1,7 @@
 import os
 from typing import List
 
-from indica.operators import nbi_utils
+from indica.operators.beam_utils import nbi_utils
 
 
 
@@ -11,16 +11,6 @@ print(f'PATH_TO_TE_FIDASIM = {PATH_TO_TE_FIDASIM}')
 
 from .abstractoperator import Operator
 
-# Flow/Config map:
-# 1) NBIOperator takes a transform + nbispecs (=beam specs).
-# 2) nbispecs (from nbi_configs.DEFAULT_NBI_SPECS or test overrides) supplies
-#    beam operating params (einj/pinj/current_fractions/ab).
-# 3) fidasim_utils.prepare_fidasim builds FIDASIM inputs by combining:
-#    - nbispecs (beam params; also picks beam name for geometry),
-#    - plasmaconfig (equilibrium + profiles),
-#    - global settings in nbi_configs.py (paths, MC settings, grids, switches),
-#    - beam geometry from get_hnbi_geo/get_rfx_geo via create_st40_beam_grid.
-# 4) Resulting inputs are written to FIDASIM_OUTPUT_DIR and run.
 
 
 
@@ -46,7 +36,6 @@ class NBIOperator(Operator):
         self.transform = None
         self.pulse = pulse
 
-        # NBI config
         self.name = name
         self.einj = einj
         self.pinj = pinj
