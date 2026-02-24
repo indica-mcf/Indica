@@ -2,8 +2,26 @@
 
 import numpy as np
 
+from indica.operators import adas_nbi_utils
+from indica.operators import analytic_nbi_utils
+from indica.operators import fidasim_utils
 
-def build_nbi_context(
+
+def get_model_handler(model_key: str):
+    handlers = {
+        "FIDASIM": fidasim_utils._run_fidasim,
+        "ANALYTIC": analytic_nbi_utils._run_analytic,
+        "ADAS": adas_nbi_utils._run_adas,
+    }
+    if model_key not in handlers:
+        supported = ", ".join(handlers.keys())
+        raise ValueError(
+            f"Unknown nbi_model '{model_key}'. Supported models: {supported}"
+        )
+    return handlers[model_key]
+
+
+def build_nbi_contexts(
     operator,
     ion_temperature=None,
     electron_temperature=None,
@@ -48,8 +66,6 @@ def build_nbi_context(
     if t is None:
         t = ion_temperature.t
     t_values = np.atleast_1d(getattr(t, "data", t))
-    if t_values.size != 1:
-        raise ValueError("Expected a single time value for NBI model run.")
 
     if pulse is None:
         pulse = operator.pulse
@@ -65,84 +81,70 @@ def build_nbi_context(
         raise ValueError("transform is missing equilibrium data")
     eq = operator.transform.equilibrium
 
-    profiles = {
-        "t": t_values,
-        "ion_temperature": ion_temperature,
-        "electron_temperature": electron_temperature,
-        "electron_density": electron_density,
-        "neutral_density": neutral_density,
-        "toroidal_rotation": toroidal_rotation,
-        "zeff": zeff,
-    }
-    eqdata = {
-        "rhop": eq.rhop,
-        "convert_flux_coords": eq.convert_flux_coords,
-        "Br": eq.Br,
-        "Bz": eq.Bz,
-    }
+    contexts = []
+    for time in t_values:
+        rho_1d = ion_temperature.rhop.values
+        ion_temperature_t = ion_temperature.sel(t=time).values
+        electron_temperature_t = electron_temperature.sel(t=time).values
+        electron_density_t = electron_density.sel(t=time).values
+        neutral_density_t = neutral_density.sel(t=time).values
+        toroidal_rotation_t = toroidal_rotation.sel(t=time).values
+        zeffective = zeff.sum("element").sel(t=time).values
 
-    time = profiles["t"][0]
-    rho_1d = profiles["ion_temperature"].rhop.values
-    ion_temperature_t = profiles["ion_temperature"].sel(t=time).values
-    electron_temperature_t = profiles["electron_temperature"].sel(t=time).values
-    electron_density_t = profiles["electron_density"].sel(t=time).values
-    neutral_density_t = profiles["neutral_density"].sel(t=time).values
-    toroidal_rotation_t = profiles["toroidal_rotation"].sel(t=time).values
-    zeffective = profiles["zeff"].sum("element").sel(t=time).values
+        # rho poloidal
+        rho_2d = eq.rhop.interp(
+            t=time,
+            method="nearest",
+        )
 
-    # rho poloidal
-    rho_2d = eqdata["rhop"].interp(
-        t=time,
-        method="nearest",
-    )
+        # rho toroidal
+        rho_tor = eq.convert_flux_coords(rho_2d, t=time)
+        rho_tor = rho_tor[0].values
 
-    # rho toroidal
-    rho_tor = eqdata["convert_flux_coords"](rho_2d, t=time)
-    rho_tor = rho_tor[0].values
+        # radius
+        R = eq.rhop.R.values
+        z = eq.rhop.z.values
+        R_2d, z_2d = np.meshgrid(R, z)
 
-    # radius
-    R = eqdata["rhop"].R.values
-    z = eqdata["rhop"].z.values
-    R_2d, z_2d = np.meshgrid(R, z)
+        # Br
+        br, _ = eq.Br(
+            eq.rhop.R,
+            eq.rhop.z,
+            t=time,
+        )
+        br = br.values
 
-    # Br
-    br, _ = eqdata["Br"](
-        eqdata["rhop"].R,
-        eqdata["rhop"].z,
-        t=time,
-    )
-    br = br.values
+        # Bz
+        bz, _ = eq.Bz(
+            eq.rhop.R,
+            eq.rhop.z,
+            t=time,
+        )
+        bz = bz.values
 
-    # Bz
-    bz, _ = eqdata["Bz"](
-        eqdata["rhop"].R,
-        eqdata["rhop"].z,
-        t=time,
-    )
-    bz = bz.values
+        # Bt (toroidal field estimate)
+        irod = 3.0 * 1e6
+        bt = irod * (4 * np.pi * 1e-7) / (2 * np.pi * R_2d)
 
-    # Bt (toroidal field estimate)
-    irod = 3.0 * 1e6
-    bt = irod * (4 * np.pi * 1e-7) / (2 * np.pi * R_2d)
+        rho = rho_2d.values
+        ctx = {
+            "pulse": pulse,
+            "time": time,
+            "rho_1d": rho_1d,
+            "rho": rho,
+            "rho_tor": rho_tor,
+            "R_2d": R_2d,
+            "z_2d": z_2d,
+            "br": br,
+            "bz": bz,
+            "bt": bt,
+            "ion_temperature": ion_temperature_t,
+            "electron_temperature": electron_temperature_t,
+            "electron_density": electron_density_t,
+            "neutral_density": neutral_density_t,
+            "toroidal_rotation": toroidal_rotation_t,
+            "zeffective": zeffective,
+        }
+        contexts.append(ctx)
 
-    rho = rho_2d.values
-    ctx = {
-        "pulse": pulse,
-        "time": time,
-        "rho_1d": rho_1d,
-        "rho": rho,
-        "rho_tor": rho_tor,
-        "R_2d": R_2d,
-        "z_2d": z_2d,
-        "br": br,
-        "bz": bz,
-        "bt": bt,
-        "ion_temperature": ion_temperature_t,
-        "electron_temperature": electron_temperature_t,
-        "electron_density": electron_density_t,
-        "neutral_density": neutral_density_t,
-        "toroidal_rotation": toroidal_rotation_t,
-        "zeffective": zeffective,
-    }
-
-    return ctx
+    return contexts
