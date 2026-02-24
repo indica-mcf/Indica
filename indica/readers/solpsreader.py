@@ -1,11 +1,9 @@
-from copy import deepcopy
 import os
 from pathlib import Path
 from typing import Callable
 from typing import Dict
 from typing import Union
 
-import matplotlib.pylab as plt
 import numpy as np
 from xarray import DataArray
 
@@ -61,6 +59,8 @@ class SOLPSReader:
         R, z, database_results = {}, {}, {}
         files = os.listdir(self.path)
         for _file in files:
+            if "README" in _file:
+                continue
             file_type = _file.split(".")[0]
 
             filepath = self.path / _file
@@ -177,31 +177,3 @@ class SOLPSReader:
         self.data = data
 
         return data
-
-    def plot_solps_output(
-        self, key: str = "te", element: str = "c", ion_charge: int = 0
-    ):
-        if hasattr(self, "data"):
-            title = ""
-            data = deepcopy(self.data[key])
-            if key == "fz":
-                data = data[element]
-                title += f"{element} "
-            else:
-                if "element" in data.dims:
-                    data = data.sel(element=element)
-                    title += f"{element} "
-            if "ion_charge" in data.dims:
-                data = data.sel(ion_charge=ion_charge)
-                title += f"{ion_charge}+"
-
-            plt.figure()
-            data.plot()
-            Rlim = (data.R.min(), data.R.max())
-            zlim = (data.z.min(), data.z.max())
-            plt.vlines(Rlim[0], zlim[0], zlim[1], color="k")
-            plt.vlines(Rlim[1], zlim[0], zlim[1], color="k")
-            plt.hlines(zlim[0], Rlim[0], Rlim[1], color="k")
-            plt.hlines(zlim[1], Rlim[0], Rlim[1], color="k")
-            plt.axis("equal")
-            plt.title(title)
