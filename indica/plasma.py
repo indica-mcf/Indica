@@ -9,13 +9,11 @@ from typing import Tuple
 import numpy as np
 import xarray as xr
 
-from indica import Equilibrium
+from indica.equilibrium import Equilibrium
 from indica.configs import MACHINE_CONFS
 from indica.configs.operators.aurora import AuroraConfig
 from indica.converters.time import get_tlabels_dt
 from indica.numpy_typing import LabeledArray
-from indica.operators.atomic_data import default_atomic_data
-from indica.operators.atomic_data import FractionalAbundanceAurora
 import indica.physics as ph
 from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
@@ -671,6 +669,8 @@ class Plasma:
         If self.aurora_run is True, uses aurora for ionisation balance calculation,
         otherwise uses coronal approximation.
         """
+        
+        from indica.operators.atomic_data import default_atomic_data
         if self.aurora_run:
             assert (
                 self.equilibrium
@@ -694,6 +694,7 @@ class Plasma:
             fract_abu, power_loss_tot = default_atomic_data(
                 self.elements, full_run=self.full_run
             )
+
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
 
