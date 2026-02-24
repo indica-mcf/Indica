@@ -206,11 +206,13 @@ def _run_fidasim(operator, ctx: dict) -> dict:
     if not os.path.exists(neut_file):
         raise FileNotFoundError(f"Neutrals file not found: {neut_file}")
 
-    ctx["neutrals_by_time"][float(time)] = {
-        "path": neut_file,
-        "data": _fidasim_out_to_xarray_dataset(neut_file),
+    neutrals_by_time = {
+        float(time): {
+            "path": neut_file,
+            "data": _fidasim_out_to_xarray_dataset(neut_file),
+        }
     }
-    return ctx["neutrals_by_time"]
+    return neutrals_by_time
 
 def prepare_fidasim(
         shot: int,
