@@ -1,15 +1,19 @@
 from scipy.interpolate import RegularGridInterpolator
-import json, os, sys, pwd, copy
+import json, os, sys, pwd, copy, subprocess
 import numpy as np
 import argparse
 from collections import OrderedDict
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.art3d as art3d
 import shutil
+import xarray as xr
 
 import h5py as h5
+from .nbi_configs import FIDASIM_BIN_PATH
 from .nbi_configs import FIDASIM_BASE_DIR
 from .nbi_configs import FIDASIM_OUTPUT_DIR
+from .nbi_configs import NBI_USER
+from .nbi_configs import TE_FIDASIM_CODE_PATH
 from .nbi_configs import TE_FIDASIM_FI_DIST_FILE
 from .nbi_configs import FIDASIM_INPUT_REWRITE_TO
 from .nbi_configs import build_general_settings
@@ -83,6 +87,130 @@ def parse_input_file(input_dict_file):
             exit()
             
     return input_dict
+
+def _fidasim_out_to_xarray_dataset(h5_path: str) -> xr.Dataset:
+    data_vars = {}
+    with h5.File(h5_path, "r") as h5f:
+        root_attrs = dict(h5f.attrs)
+
+        # Visitor function. Check if object is a dataset, get the data,
+        # build a safe variable name.
+        def _visit(name, obj):
+            if isinstance(obj, h5.Dataset):
+                data = obj[()]
+                var_name = name.replace("/", "__")
+                # Synthetic dimension names
+                dims = tuple(
+                    f"{var_name}_dim_{i}" for i in range(getattr(data, "ndim", 0))
+                )
+                # Store the data to the xarray with the correct attributes
+                data_vars[var_name] = xr.DataArray(
+                    data, dims=dims, attrs=dict(obj.attrs)
+                )
+
+        # Recursive visitor function
+        h5f.visititems(_visit)
+    # Build the actual dataset
+    return xr.Dataset(data_vars=data_vars, attrs=root_attrs)
+
+def _run_fidasim(operator, ctx: dict) -> dict:
+    # From this point on, everything is FIDASIM specific.
+    plasmaconfig = {
+        "R": ctx["R_2d"],
+        "z": ctx["z_2d"],
+        "rho_1d": ctx["rho_1d"],
+        "rho": ctx["rho"],
+        "rho_t": ctx["rho_tor"],
+        "br": ctx["br"],
+        "bz": ctx["bz"],
+        "bt": ctx["bt"],
+        "ti": ctx["ion_temperature"],
+        "te": ctx["electron_temperature"],
+        "nn": ctx["neutral_density"],
+        "ne": ctx["electron_density"],
+        "omegator": ctx["toroidal_rotation"],
+        "zeff": ctx["zeffective"],
+        "plasma_ion_amu": operator.plasma_ion_amu,
+    }
+
+    print(f"plasmaconfig = {plasmaconfig}")
+
+    # Run TE-fidasim
+    run_fidasim_flag = True
+    sys.path.append(TE_FIDASIM_CODE_PATH)
+
+    pulse = ctx["pulse"]
+    time = ctx["time"]
+
+    # Print inputs
+    print(f"shot_number = {pulse}")
+    print(f"time = {time}")
+    print("num_cores = 3")
+    print(f"beam = {operator.nbispecs['name']}")
+    print(f"user = {NBI_USER}")
+    print(f"force_run_fidasim = {run_fidasim_flag}")
+
+    beam = operator.nbispecs["name"]
+
+    # File paths
+    save_dir = FIDASIM_OUTPUT_DIR
+    user = NBI_USER
+    num_cores = 3
+    fidasim_out = (
+        save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}/{user}_inputs.dat"
+    )
+
+    # Remove the existing folder if re-running fidasim
+    if run_fidasim_flag:
+        try:
+            path_to_fidasim = save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}"
+            shutil.rmtree(path_to_fidasim)
+            print("Remove " + save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}")
+        except FileNotFoundError:
+            print("No file " + save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}")
+
+    # Run pre-processing code
+    # This takes in pulse number, time, the nbi configuration, and plasma.
+    prepare_fidasim(
+        pulse,
+        time,
+        operator.nbispecs,
+        plasmaconfig,
+        save_dir=save_dir,
+        plot_geo=False,
+        fine_MC_res=True,
+    )
+
+    print("ready to go after preprocessing")
+
+    print("=== Subprocess user check ===")
+    subprocess.run(["whoami"])
+    subprocess.run(["id"])
+    print("=== End check ===")
+    if run_fidasim_flag:
+        print("...     FIDASIM")
+        subprocess.run(
+            [
+                FIDASIM_BIN_PATH,
+                fidasim_out,
+                f"{num_cores}",
+            ]
+        )
+
+    runid = pwd.getpwuid(os.getuid())[0]
+    time_str = "t_{:8.6f}".format(time)
+    run_dir = save_dir + "/" + str(pulse) + "/" + time_str
+    beam_save_dir = run_dir + "/" + beam
+    neut_file = beam_save_dir + "/" + runid + "_neutrals.h5"
+
+    if not os.path.exists(neut_file):
+        raise FileNotFoundError(f"Neutrals file not found: {neut_file}")
+
+    ctx["neutrals_by_time"][float(time)] = {
+        "path": neut_file,
+        "data": _fidasim_out_to_xarray_dataset(neut_file),
+    }
+    return ctx["neutrals_by_time"]
 
 def prepare_fidasim(
         shot: int,
