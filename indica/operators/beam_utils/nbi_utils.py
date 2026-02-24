@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from indica.operators import adas_nbi_utils
-from indica.operators import analytic_nbi_utils
-from indica.operators import fidasim_utils
+from indica.operators.beam_utils import adas_nbi_utils
+from indica.operators.beam_utils import analytic_nbi_utils
+from indica.operators.beam_utils import fidasim_utils
 
 
 def get_model_handler(model_key: str):
@@ -33,6 +33,7 @@ def build_nbi_contexts(
     pulse: int = None,
     plasma=None,
 ):
+    # Resolve missing inputs from the attached Plasma (if provided) or raise.
     if plasma is not None:
         operator.plasma = plasma
     if operator.plasma is not None:
@@ -53,6 +54,7 @@ def build_nbi_contexts(
             if t is None:
                 t = operator.plasma.t
 
+    # Validate required inputs are available.
     if (
         ion_temperature is None
         or electron_temperature is None
@@ -63,10 +65,12 @@ def build_nbi_contexts(
     ):
         raise ValueError("Give inputs or assign plasma class!")
 
+    # Normalize time input into a 1D array.
     if t is None:
         t = ion_temperature.t
     t_values = np.atleast_1d(getattr(t, "data", t))
 
+    # Resolve pulse and equilibrium from the transform.
     if pulse is None:
         pulse = operator.pulse
     if pulse is None:
@@ -81,6 +85,7 @@ def build_nbi_contexts(
         raise ValueError("transform is missing equilibrium data")
     eq = operator.transform.equilibrium
 
+    # Build a per-time context dict with profiles and equilibrium geometry.
     contexts = []
     for time in t_values:
         rho_1d = ion_temperature.rhop.values
@@ -122,9 +127,18 @@ def build_nbi_contexts(
         )
         bz = bz.values
 
-        # Bt (toroidal field estimate)
+        # Old
         irod = 3.0 * 1e6
         bt = irod * (4 * np.pi * 1e-7) / (2 * np.pi * R_2d)
+
+        #New: sensible? Mostly nans in the test example so using Jonnys old estimate for now.
+        bt2, _ = eq.Bt(
+            eq.rhop.R,
+            eq.rhop.z,
+            t=time,
+        )
+        bt2 = bt2.transpose("z", "R").values
+
 
         rho = rho_2d.values
         ctx = {

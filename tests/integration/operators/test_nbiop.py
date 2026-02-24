@@ -49,9 +49,9 @@ class testNBI:
 
         nbi_model="FIDASIM"
 
-        #This call can be zero params. If it already has a plasma.
+        #This call can be without plasma param. If it already has a plasma.
         neutrals_by_time = nbi_op(
-            nbi_model="FIDASIM",
+            nbi_model=nbi_model,
             ion_temperature=self.plasma.ion_temperature,
             electron_temperature=self.plasma.electron_temperature,
             electron_density=self.plasma.electron_density,
