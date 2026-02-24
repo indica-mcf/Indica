@@ -1,25 +1,11 @@
-import copy
-import json
 import os
-import pickle
-import pwd
-import shutil
-import subprocess
-import sys
 from typing import List
-from typing import Tuple
-from typing import cast
 
-import h5py as h5
-import matplotlib.pylab as plt
 import numpy as np
-import scipy
-import xarray as xr
-from numpy.core.numeric import zeros_like
-from pandas import DataFrame
-from xarray import DataArray
 
-from indica.operators import nbi_utils
+from indica.operators import adas_nbi_utils
+from indica.operators import analytic_nbi_utils
+from indica.operators import fidasim_utils
 
 
 
@@ -27,56 +13,19 @@ PATH_TO_TE_FIDASIM = os.path.dirname(os.path.realpath(__file__))
 print(f'PATH_TO_TE_FIDASIM = {PATH_TO_TE_FIDASIM}')
 
 
-from indica.configs.readers.adasconf import ADF11
-from indica.numpy_typing import LabeledArray
-from indica.profilers.profiler_gauss import ProfilerGauss
-from indica.readers.adas import ADASReader
-from indica.utilities import DATA_PATH
-from indica.utilities import set_plot_colors
 from .abstractoperator import Operator
-from .nbi_configs import FIDASIM_BIN_PATH
-from .nbi_configs import FIDASIM_OUTPUT_DIR
-from .nbi_configs import NBI_USER
-from .nbi_configs import TE_FIDASIM_CODE_PATH
 
 # Flow/Config map:
 # 1) NBIOperator takes a transform + nbispecs (=beam specs).
 # 2) nbispecs (from nbi_configs.DEFAULT_NBI_SPECS or test overrides) supplies
 #    beam operating params (einj/pinj/current_fractions/ab).
-# 3) nbi_utils.prepare_fidasim builds FIDASIM inputs by combining:
+# 3) fidasim_utils.prepare_fidasim builds FIDASIM inputs by combining:
 #    - nbispecs (beam params; also picks beam name for geometry),
 #    - plasmaconfig (equilibrium + profiles),
 #    - global settings in nbi_configs.py (paths, MC settings, grids, switches),
 #    - beam geometry from get_hnbi_geo/get_rfx_geo via create_st40_beam_grid.
 # 4) Resulting inputs are written to FIDASIM_OUTPUT_DIR and run.
 
-
-
-#From h5 to xarray. Still WIP.It doesn’t preserve original dimension names (only creates generic ones).
-def _h5_to_xarray_dataset(h5_path: str) -> xr.Dataset:
-    data_vars = {}
-    with h5.File(h5_path, "r") as h5f:
-        root_attrs = dict(h5f.attrs)
-
-        #Visitor function. Check if object is a dataset, get the data,
-        #Build a safe variable name
-        def _visit(name, obj):
-            if isinstance(obj, h5.Dataset):
-                data = obj[()]
-                var_name = name.replace("/", "__")
-                #Synthetic dumension names
-                dims = tuple(
-                    f"{var_name}_dim_{i}" for i in range(getattr(data, "ndim", 0))
-                )
-                #Store the data to the xarray with the correct attrivbutes
-                data_vars[var_name] = xr.DataArray(
-                    data, dims=dims, attrs=dict(obj.attrs)
-                )
-
-        #Recursive visitor function
-        h5f.visititems(_visit)
-    #Build the actual dataset
-    return xr.Dataset(data_vars=data_vars, attrs=root_attrs)
 
 
 class NBIOperator(Operator):
@@ -121,6 +70,7 @@ class NBIOperator(Operator):
 
     def __call__(
         self,
+        nbi_model="FIDASIM",
         ion_temperature=None,
         electron_temperature=None,
         electron_density=None,
@@ -131,10 +81,10 @@ class NBIOperator(Operator):
         pulse: int = None,
         plasma=None,
     ) -> dict:
-        
+        model = nbi_model or self.selected_model or "FIDASIM"
+        model_key = str(model).strip().upper()
+        model_handler = self._get_model_handler(model_key)
 
-        
-        # Set-up FIDASIM run.
         if plasma is not None:
             self.plasma = plasma
         if self.plasma is not None:
@@ -258,120 +208,42 @@ class NBIOperator(Operator):
             # rho
             # comes from eq too
             rho = rho_2d.values
-            
-
-
-
-            # From this point on, everything is FIDASIM specific. I should make more general!
-            # plasmaconfig
-            plasmaconfig = {
-                "R": R_2d,
-                "z": z_2d,
+            ctx = {
+                "pulse": pulse,
+                "time": time,
                 "rho_1d": rho_1d,
                 "rho": rho,
-                "rho_t": rho_tor,
+                "rho_tor": rho_tor,
+                "R_2d": R_2d,
+                "z_2d": z_2d,
                 "br": br,
                 "bz": bz,
                 "bt": bt,
-                "ti": ion_temperature,
-                "te": electron_temperature,
-                "nn": neutral_density,
-                "ne": electron_density,
-                "omegator": toroidal_rotation,
-                "zeff": zeffective,
-                "plasma_ion_amu": self.plasma_ion_amu,
+                "ion_temperature": ion_temperature,
+                "electron_temperature": electron_temperature,
+                "electron_density": electron_density,
+                "neutral_density": neutral_density,
+                "toroidal_rotation": toroidal_rotation,
+                "zeffective": zeffective,
+                "neutrals_by_time": neutrals_by_time,
             }
-
-            print(f"plasmaconfig = {plasmaconfig}")
-
-            # Run TE-fidasim
-            run_fidasim = True
-            sys.path.append(TE_FIDASIM_CODE_PATH)
-
-
-            # Print inputs
-            print(f'shot_number = {pulse}')
-            print(f'time = {time}')
-            print('num_cores = 3')
-            print(f'beam = {self.nbispecs["name"]}')
-            print(f'user = {NBI_USER}')
-            print(f'force_run_fidasim = {run_fidasim}')
-
-            # Variables
-            beam = self.nbispecs["name"]
-
-
-            # this should be in the preparation
-            # and generalizable to other beam models
-
-            # File paths
-            save_dir = FIDASIM_OUTPUT_DIR
-            user = NBI_USER
-            num_cores = 3
-            fidasim_out = (
-                save_dir
-                + f'/{pulse}/t_{time:0.6f}/{beam.lower()}/{user}_inputs.dat'
-            )
-
-            # Remove the existing folder if re-running fidasim
-            if run_fidasim:
-                try:
-                    path_to_fidasim = (
-                        save_dir + f'/{pulse}/t_{time:0.6f}/{beam.lower()}'
-                    )
-                    shutil.rmtree(path_to_fidasim)
-                    print(
-                        'Remove ' + save_dir + f'/{pulse}/t_{time:0.6f}/{beam.lower()}'
-                    )
-                except FileNotFoundError:
-                    print(
-                        'No file ' + save_dir + f'/{pulse}/t_{time:0.6f}/{beam.lower()}'
-                    )
-
-            # Run pre-processing code
-            #This takes in pulse number, time, the nbi configuration, and plasma.
-            nbi_utils.prepare_fidasim(
-                pulse,
-                time,
-                self.nbispecs,
-                plasmaconfig,
-                save_dir=save_dir,
-                plot_geo=False,
-                fine_MC_res=True,
-            )
-
-            print("ready to go after preprocessing")
-
-
-            print("=== Subprocess user check ===")
-            subprocess.run(["whoami"])
-            subprocess.run(["id"])
-            print("=== End check ===")
-            if run_fidasim:
-                print('...     FIDASIM')
-                subprocess.run(
-                    [
-                        FIDASIM_BIN_PATH,
-                        fidasim_out,
-                        f"{num_cores}"
-                    ]
-                )
-
-
-            runid = pwd.getpwuid(os.getuid())[0]
-            time_str = "t_{:8.6f}".format(time)
-            run_dir = save_dir + "/" + str(pulse) + "/" + time_str
-            beam_save_dir = run_dir + "/" + beam
-            neut_file = beam_save_dir + "/" + runid + "_neutrals.h5"
-
-            if not os.path.exists(neut_file):
-                raise FileNotFoundError(f"Neutrals file not found: {neut_file}")
-
-            neutrals_by_time[float(time)] = {
-                "path": neut_file,
-                "data": _h5_to_xarray_dataset(neut_file),
-            }
-
-
+            result = model_handler(self, ctx)
+            if isinstance(result, dict):
+                neutrals_by_time = result
+            elif result is not None:
+                neutrals_by_time[float(time)] = result
 
         return neutrals_by_time
+
+    def _get_model_handler(self, model_key: str):
+        handlers = {
+            "FIDASIM": fidasim_utils._run_fidasim,
+            "ANALYTIC": analytic_nbi_utils._run_analytic,
+            "ADAS": adas_nbi_utils._run_adas,
+        }
+        if model_key not in handlers:
+            supported = ", ".join(handlers.keys())
+            raise ValueError(
+                f"Unknown nbi_model '{model_key}'. Supported models: {supported}"
+            )
+        return handlers[model_key]
