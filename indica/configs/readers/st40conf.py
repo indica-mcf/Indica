@@ -1,5 +1,8 @@
 from indica.configs.readers.machineconf import MachineConf
 
+# TODO: add "server" and "tree" information to this config and out of MDSUtils.
+#      Reader anyway takes config as input to init!
+
 
 class ST40Conf(MachineConf):
     def __init__(self):
@@ -40,6 +43,7 @@ class ST40Conf(MachineConf):
             "transp_test": "get_transp",
             "astra": "get_astra",
             "metis": "get_metis",
+            "solps": "get_solps",
         }
         self.QUANTITIES_PATH = {
             "get_equilibrium": {

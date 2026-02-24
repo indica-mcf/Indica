@@ -1,10 +1,12 @@
 """Plotting routines for Indica read/modelled data"""
 from copy import deepcopy
 from getpass import getuser
+import tkinter as tk
 from typing import Dict
 from typing import List
 from typing import Union
 
+from matplotlib.colors import LogNorm
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
@@ -214,8 +216,10 @@ class DataPlotter:
         if fig_name is None:
             fig_name = f"{self.fig_name}_{instrument.upper()}_{quantity}"
 
-        new_figure(new_fig)
-        getattr(self, plot_method)(_data, quantity, fig_name=fig_name, **kwargs)
+        fig_obj = new_figure(new_fig)
+        getattr(self, plot_method)(
+            _data, quantity, fig_name=fig_name, fig_obj=fig_obj, **kwargs
+        )
         common_plot_calls(title, sci, ylog, xlim=xlim, ylim=ylim)
         save_figure(FIG_PATH, fig_name, save_fig=save_fig)
 
@@ -225,6 +229,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "ne",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         marker="o",
         linestyle="",
         **kwargs,
@@ -243,6 +248,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "ne_rhop",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         marker="o",
         linestyle="",
         **kwargs,
@@ -275,6 +281,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "spectra",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         channel: int = None,
         **kwargs,
     ):
@@ -290,6 +297,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "zeff",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         **kwargs,
     ):
         xdim = "rhop"
@@ -302,6 +310,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "emission_rhop",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         **kwargs,
     ):
         xdim = "rhop"
@@ -318,6 +327,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "ti",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         **kwargs,
     ):
         # Keep only channels where fits have been performed
@@ -347,6 +357,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "ipla",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         **kwargs,
     ):
         self._plot_time_evolution(data[quantity], **kwargs)
@@ -356,6 +367,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "brightness",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         **kwargs,
     ):
         self._plot_profile_data(
@@ -368,6 +380,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "ti_w",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         **kwargs,
     ):
         y = data[quantity]
@@ -381,6 +394,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
     ):
         raise NotImplementedError
 
@@ -389,6 +403,7 @@ class DataPlotter:
         data: dict,
         quantity: str = "ne",
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         **kwargs,
     ):
         self._plot_time_evolution(data[quantity], **kwargs)
@@ -398,6 +413,7 @@ class DataPlotter:
         plasma: Plasma,
         quantity: str,
         fig_name: str = "",
+        fig_obj: plt.figure = None,
         element: str = None,
         **kwargs,
     ):
@@ -430,6 +446,65 @@ class DataPlotter:
             # 1D integral values (e.g. Prad)
             y = _y
             self._plot_time_evolution(y, **kwargs)
+
+    def plot_solps(
+        self,
+        data: dict,
+        quantity: str,
+        t: float = None,
+        element: str = None,
+        ion_charge: int = None,
+        logcol: bool = True,
+        fig_name: str = "",
+        fig_obj: plt.figure = None,
+        **kwargs,
+    ):
+        """
+        data - dictionary as returned by SOLPSReader
+        """
+
+        title = ""
+        if t is None and "t" in data[quantity].dims:
+            t = data[quantity].t.mean().values
+
+        _data = data[quantity].sel(t=t)
+        if quantity == "fz":
+            _data = _data[element].sel(ion_charge=ion_charge)
+            title += f"{ion_charge}+"
+            fig_name += f"_{ion_charge}+"
+        if quantity == "nion":
+            _data = _data.sel(element=element)
+            _data.attrs["long_name"] += f" {element.capitalize()}"
+            title += f"{element} "
+            fig_name += f"_{element}"
+            if ion_charge is not None:
+                _data = _data * data["fz"][element].sel(t=t).sel(ion_charge=ion_charge)
+                _data.attrs["long_name"] += f"{ion_charge}+"
+                title += f"{ion_charge}+"
+                fig_name += f"_{ion_charge}+"
+
+        Rlim = (_data.R.min(), _data.R.max())
+        zlim = (_data.z.min(), _data.z.max())
+
+        # Size figure window reasonably
+        root = tk.Tk()
+        root.withdraw()
+        height = root.winfo_screenheight()
+        px = 1 / plt.rcParams["figure.dpi"]
+        x_to_y = (Rlim[1] - Rlim[0]) / (zlim[1] - zlim[0])
+
+        if fig_obj is not None:
+            fig_obj.set_figwidth(height * x_to_y * 1.8 * px)
+            fig_obj.set_figheight(height / 1.2 * px)
+
+        if logcol:
+            vmax = xr.where(_data > 0, _data, np.nan).max()
+            vmin = np.max([vmax / 1.0e4, xr.where(_data > 0, _data, np.nan).min()])
+            _data.plot.imshow(norm=LogNorm(vmin=vmin, vmax=vmax))
+        else:
+            _data.plot()
+        plt.axis("equal")
+        plt.title(title)
 
     def within_tolerance(self, y, t):
         try:

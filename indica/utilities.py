@@ -473,8 +473,11 @@ def check_time_present(t_desired: LabeledArray, t_array: LabeledArray):
 
 
 def new_figure(new_fig: bool):
+    fig = None
     if new_fig:
-        plt.figure()
+        fig = plt.figure()
+
+    return fig
 
 
 def save_figure(
@@ -530,15 +533,15 @@ def set_plot_colors(
 
 
 def set_plot_rcparams(option: str = "profiles", rc_params: dict = None):
+
     if rc_params is None:
         plot_params: dict = {
             "profiles": {
-                "axes.titlesize": 13,
-                "font.size": 13,
-                "legend.fontsize": 11,
+                "font.size": 16,
+                "legend.fontsize": 14,
                 "lines.markersize": 6,
                 "lines.linewidth": 2,
-                "figure.figsize": (7, 5),
+                "figure.figsize": (6.6, 5.6),
             },
             "multi": {
                 "font.size": 12,
@@ -602,18 +605,21 @@ def hash_vals(**kwargs: Any) -> str:
 def scale_dataarray(
     dataarray: DataArray, scaling: float, new_unit: str, new_name: str = None
 ):
-    dataarray.attrs["units"] = new_unit
+    _dataarray = deepcopy(dataarray)
+    _dataarray.attrs["units"] = new_unit
 
-    dataarray *= scaling
+    _dataarray.data = (dataarray * scaling).data
     if "error" in dataarray.coords:
         _error = dataarray.error * scaling
-        dataarray = dataarray.drop_vars("error")
-        dataarray = dataarray.assign_coords(error=(dataarray.dims, _error.data))
+        _dataarray = _dataarray.drop_vars("error")
+        _dataarray = _dataarray.assign_coords(error=(_dataarray.dims, _error.data))
 
     if "stdev" in dataarray.coords:
         _stdev = dataarray.stdev * scaling
-        dataarray = dataarray.drop_vars("stdev")
-        dataarray = dataarray.assign_coords(stdev=(dataarray.dims, _stdev.data))
+        _dataarray = _dataarray.drop_vars("stdev")
+        _dataarray = _dataarray.assign_coords(stdev=(_dataarray.dims, _stdev.data))
 
     if new_name is not None:
-        dataarray.attrs["long_name"] = new_name
+        _dataarray.attrs["long_name"] = new_name
+
+    return _dataarray
