@@ -1,9 +1,6 @@
 import os
 from typing import List
 
-from indica.operators import adas_nbi_utils
-from indica.operators import analytic_nbi_utils
-from indica.operators import fidasim_utils
 from indica.operators import nbi_utils
 
 
@@ -83,12 +80,12 @@ class NBIOperator(Operator):
 
 
         # Resolve which NBI model runner to use for this call.
-        model = nbi_model  or nbi_model
+        model = nbi_model
         model_key = str(model).strip().upper()
-        model_handler = self._get_model_handler(model_key)
+        model_handler = nbi_utils.get_model_handler(model_key)
 
-        # Build the context dictionary (profiles + equilibrium geometry).
-        ctx = nbi_utils.build_nbi_context(
+        # Build per-time context dictionaries (profiles + equilibrium geometry).
+        contexts = nbi_utils.build_nbi_contexts(
             self,
             ion_temperature=ion_temperature,
             electron_temperature=electron_temperature,
@@ -100,26 +97,14 @@ class NBIOperator(Operator):
             pulse=pulse,
             plasma=plasma,
         )
-        # Execute the selected model once and collect results.
+        # Execute the selected model for each time slice and collect results.
         neutrals_by_time = {}
-        result = model_handler(self, ctx)
-        if isinstance(result, dict):
-            neutrals_by_time.update(result)
-        elif result is not None:
-            neutrals_by_time[float(ctx["time"])] = result
+        for ctx in contexts:
+            result = model_handler(self, ctx)
+            if isinstance(result, dict):
+                neutrals_by_time.update(result)
+            elif result is not None:
+                neutrals_by_time[float(ctx["time"])] = result
 
         # Return all neutrals indexed by time.
         return neutrals_by_time
-
-    def _get_model_handler(self, model_key: str):
-        handlers = {
-            "FIDASIM": fidasim_utils._run_fidasim,
-            "ANALYTIC": analytic_nbi_utils._run_analytic,
-            "ADAS": adas_nbi_utils._run_adas,
-        }
-        if model_key not in handlers:
-            supported = ", ".join(handlers.keys())
-            raise ValueError(
-                f"Unknown nbi_model '{model_key}'. Supported models: {supported}"
-            )
-        return handlers[model_key]
