@@ -145,11 +145,11 @@ def _run_fidasim(operator, ctx: dict) -> dict:
     print(f"shot_number = {pulse}")
     print(f"time = {time}")
     print("num_cores = 3")
-    print(f"beam = {operator.nbispecs['name']}")
+    print(f"beam = {operator.name}")
     print(f"user = {NBI_USER}")
     print(f"force_run_fidasim = {run_fidasim_flag}")
 
-    beam = operator.nbispecs["name"]
+    beam = operator.name
 
     # File paths
     save_dir = FIDASIM_OUTPUT_DIR
@@ -173,7 +173,13 @@ def _run_fidasim(operator, ctx: dict) -> dict:
     prepare_fidasim(
         pulse,
         time,
-        operator.nbispecs,
+        {
+            "name": operator.name,
+            "einj": operator.einj,
+            "pinj": operator.pinj,
+            "current_fractions": operator.current_fractions,
+            "ab": operator.ab,
+        },
         plasmaconfig,
         save_dir=save_dir,
         plot_geo=False,
