@@ -41,6 +41,8 @@ class NBIOperator(Operator):
         self.pinj = pinj
         self.current_fractions = current_fractions
         self.ab = ab
+        #Fidasim utils still need tihs.
+        """
         self.nbispecs = {
             "name": self.name,
             "einj": self.einj,
@@ -48,6 +50,7 @@ class NBIOperator(Operator):
             "current_fractions": self.current_fractions,
             "ab": self.ab,
         }
+        """
 
         self.plasma_ion_amu = plasma_ion_amu
 
