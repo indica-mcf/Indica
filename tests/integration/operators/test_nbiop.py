@@ -58,11 +58,12 @@ class testNBI:
             neutral_density=self.plasma.neutral_density,
             toroidal_rotation=self.plasma.toroidal_rotation,
             zeff=self.plasma.zeff,
-            t=self.plasma.t,
+            t=self.plasma.t[5],
             pulse=pulse,
         )
         
-        print(neutrals_by_time)
+
+
 
 
 a=testNBI()
