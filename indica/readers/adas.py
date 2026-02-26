@@ -479,16 +479,15 @@ class ADASReader(BaseIO):
             for _ in range(math.ceil(ntt / 8)):
                 tt.extend(f.readline().split())
             tt = np.asarray(tt, dtype=float)
-            sv = sv.expand_dims({"target_temperature": tt}).copy()
+            sv = sv.expand_dims({"target_temperature": tt}, axis=-1).copy()
             f.readline()  # Separator
             svt = []
             for _ in range(math.ceil(ntt / 8)):
                 svt.extend(f.readline().split())
             svt = np.asarray(svt, dtype=float) * 10**-6
-            for i, t in enumerate(tt):
-                sv.loc[t, :, :] *= svt[i] / sv.sel(
-                    beam_energy=eref, target_density=dref, target_temperature=tref
-                )
+            sv *= svt / float(
+                sv.sel(beam_energy=eref, target_density=dref, target_temperature=tref)
+            )
 
         assign_datatype(sv.target_temperature, "target_temperature")
         assign_datatype(sv.target_density, "target_density")
