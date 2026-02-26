@@ -245,6 +245,8 @@ def build_dataarrays(
     """Organizes data in DataArray format with coordinates, long_name & units"""
     data_arrays: dict = {}
 
+    data["transform"] = transform
+
     for quantity in available_quantities.keys():
         if quantity not in data.keys():
             continue
@@ -290,12 +292,16 @@ def build_dataarrays(
                 _data = _data.isel(t=ind_unique)
 
         # Add attributes and assign to dictionary
-        if transform is not None:
-            _data.attrs["transform"] = transform
-        if "uid" in _data:
-            _data.attrs["uid"] = data["uid"]
-        if "revision" in _data:
-            _data.attrs["revision"] = data["revision"]
+        _attrs = ["transform", "uid", "instrument", "revision", "best_revision"]
+
+        for key in _attrs:
+            _data.attrs[key] = ""
+            if key in data:
+                _data.attrs[key] = data[key]
+
+        _data.attrs["path"] = ""
+        if f"{quantity}_records" in data:
+            _data.attrs["path"] = data[f"{quantity}_records"]
 
         data_arrays[quantity] = _data
     return data_arrays
