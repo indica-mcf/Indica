@@ -15,6 +15,16 @@ class MockReader(ADASReader):
         return self.test_file.open("r")
 
 
+class TestADF12:
+    reader = MockReader()
+
+    def test_read(self):
+        self.reader.test_file = Path(__file__).parent / "test_adf12.dat"
+        data = self.reader.get_adf12("", "", "")
+        ref = np.load(Path(__file__).parent / "test_adf12.npz")
+        assert np.all(np.isclose(data.to_numpy(), ref["data"], rtol=1e-5))
+
+
 class Testadf15:
     """Provides unit tests for the ADF15 reader"""
 
