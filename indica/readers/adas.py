@@ -157,16 +157,14 @@ class ADASReader(BaseIO):
                 if (_idx := re.search(r"ISEL=\s*(.*)", header)) is None:
                     raise UserWarning(f"Failed to find ISEL in {header}")
                 idx.append(int(_idx.group(1)))
-                qefref = float(f.readline().split()[0].replace("D", "E"))
+                qefref = float(f.readline().split()[0].replace("D", "E")) * 10**-6
                 parmref = [
                     float(val.replace("D", "E")) for val in f.readline().split()[:-1]
                 ]
                 nparmsc = [int(val) for val in f.readline().split()[:-1]]
                 _qef = DataArray(qefref, name="QEFF")
-                refloc = []
                 for pspec, pref, nparm in zip(parmspec, parmref, nparmsc):
                     name = pspec["name"]
-                    refloc.append(pref)
                     dim = []
                     for i in range(pspec["nlines"]):
                         line = f.readline()
@@ -176,6 +174,8 @@ class ADASReader(BaseIO):
                             [float(val.replace("D", "E")) for val in line.split()[:6]]
                         )
                     dim = np.asarray(dim[:nparm])
+                    if pspec["datatype"] == "electron_density":
+                        dim *= 10.0**6
                     quant = []
                     for i in range(pspec["nlines"]):
                         line = f.readline()
@@ -184,12 +184,13 @@ class ADASReader(BaseIO):
                         quant.extend(
                             [float(val.replace("D", "E")) for val in line.split()[:6]]
                         )
-                    quant = np.asarray(quant[:nparm])
+                    quant = np.asarray(quant[:nparm]) * 10.0**-6
                     _qef = _qef.expand_dims({pspec["datatype"]: dim}, axis=-1).copy()
                     _qef *= quant / qefref
                     assign_datatype(_qef[pspec["datatype"]], pspec["datatype"])
                 qef.append(_qef)
         qef = concat(qef, dim="idx").assign_coords({"idx": idx}).copy()
+        assign_datatype(qef, "qef")
         return qef
 
     def get_adf15(
