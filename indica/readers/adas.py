@@ -12,7 +12,9 @@ from urllib.request import pathname2url
 from urllib.request import urlretrieve
 
 import numpy as np
+from xarray import concat
 from xarray import DataArray
+from xarray import Dataset
 
 from indica import BaseIO
 from indica.utilities import assign_datatype
@@ -127,6 +129,68 @@ class ADASReader(BaseIO):
         )
         assign_datatype(_adf11, quantity)
         return _adf11
+
+    def get_adf12(
+        self,
+        element: str,
+        charge: str,
+        year: str,
+        beam: str = "h",
+    ) -> Dataset:
+        """Fetch ADF12 data"""
+        filename = pathname2url(
+            f"qef{year}][{beam}/qef{year}][{beam}_{element}{charge}.dat"
+        )
+        parmspec = [
+            dict(name="ENER", nlines=24 // 6, datatype="beam_energy"),
+            dict(name="TIEV", nlines=12 // 6, datatype="ion_temperature"),
+            dict(name="DENSI", nlines=24 // 6, datatype="electron_density"),
+            dict(name="ZEFF", nlines=12 // 6, datatype="effective_charge"),
+            dict(name="BMAG", nlines=12 // 6, datatype="total_magnetic_field"),
+        ]
+        qef, idx = [], []
+        with self._get_file("adf12", filename) as f:
+            nsel = int(f.readline().strip())
+            header = ""
+            for i in range(1, nsel + 1):
+                header = f.readline()
+                if (_idx := re.search(r"ISEL=\s*(.*)", header)) is None:
+                    raise UserWarning(f"Failed to find ISEL in {header}")
+                idx.append(int(_idx.group(1)))
+                qefref = float(f.readline().split()[0].replace("D", "E"))
+                parmref = [
+                    float(val.replace("D", "E")) for val in f.readline().split()[:-1]
+                ]
+                nparmsc = [int(val) for val in f.readline().split()[:-1]]
+                _qef = DataArray(qefref, name="QEFF")
+                refloc = []
+                for pspec, pref, nparm in zip(parmspec, parmref, nparmsc):
+                    name = pspec["name"]
+                    refloc.append(pref)
+                    dim = []
+                    for i in range(pspec["nlines"]):
+                        line = f.readline()
+                        if i == 0:
+                            assert name in line
+                        dim.extend(
+                            [float(val.replace("D", "E")) for val in line.split()[:6]]
+                        )
+                    dim = np.asarray(dim[:nparm])
+                    quant = []
+                    for i in range(pspec["nlines"]):
+                        line = f.readline()
+                        if i == 0:
+                            assert f"Q{name}" in line
+                        quant.extend(
+                            [float(val.replace("D", "E")) for val in line.split()[:6]]
+                        )
+                    quant = np.asarray(quant[:nparm])
+                    _qef = _qef.expand_dims({pspec["datatype"]: dim}, axis=-1).copy()
+                    _qef *= quant / qefref
+                    assign_datatype(_qef[pspec["datatype"]], pspec["datatype"])
+                qef.append(_qef)
+        qef = concat(qef, dim="idx").assign_coords({"idx": idx}).copy()
+        return qef
 
     def get_adf15(
         self,
