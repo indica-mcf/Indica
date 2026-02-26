@@ -192,4 +192,6 @@ class TestADF21ADF22:
             year="",
         )
         ref = np.load(Path(__file__).parent / "test_adf21.npz")
-        assert np.all(np.isclose(data.to_numpy(), ref["data"], rtol=1e-5))
+        assert np.all(
+            np.isclose(data.to_numpy(), ref["data"].transpose((1, 2, 0)), rtol=1e-5)
+        )
