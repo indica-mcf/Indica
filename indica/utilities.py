@@ -293,9 +293,13 @@ def build_dataarrays(
 
         # Add attributes and assign to dictionary
         _attrs = ["transform", "uid", "instrument", "revision", "best_revision"]
+
         for key in _attrs:
+            _data.attrs[key] = ""
             if key in data:
                 _data.attrs[key] = data[key]
+
+        _data.attrs["path"] = ""
         if f"{quantity}_records" in data:
             _data.attrs["path"] = data[f"{quantity}_records"]
 
