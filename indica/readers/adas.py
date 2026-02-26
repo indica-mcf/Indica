@@ -437,7 +437,9 @@ class ADASReader(BaseIO):
             f.readline()  # Separator
             line = f.readline().split()
             neb, ndt = int(line[0]), int(line[1])
-            tref = float(re.match(r"/TREF=(.*)", line[2]).group(1))
+            if (tref := re.match(r"/TREF=(.*)", line[2])) is None:
+                raise UserWarning(f"Failed to find TREF in {line[2]}")
+            tref = float(tref.group(1))
             f.readline()  # Separator
             eb = []
             for _ in range(math.ceil(neb / 8)):
@@ -466,8 +468,12 @@ class ADASReader(BaseIO):
             f.readline()  # Separator
             line = f.readline().split()
             ntt = int(line[0])
-            eref = float(re.match(r"/EREF=(.*)", line[1]).group(1))
-            dref = float(re.match(r"/NREF=(.*)", line[2]).group(1)) * 10**6
+            if (eref := re.match(r"/EREF=(.*)", line[1])) is None:
+                raise UserWarning(f"Failed to find EREF in {line[1]}")
+            eref = float(eref.group(1))
+            if (dref := re.match(r"/NREF=(.*)", line[2])) is None:
+                raise UserWarning(f"Failed to find DREF in {line[2]}")
+            dref = float(dref.group(1)) * 10.0**6
             f.readline()  # Separator
             tt = []
             for _ in range(math.ceil(ntt / 8)):
