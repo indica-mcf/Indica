@@ -124,7 +124,7 @@ class NBIOperator(Operator):
 
 
 
-        
+
         # TODO: sequential time stepping
         # If multiple times are provided, we should run them in order and allow
         # the plasma to be updated between steps (the simulation may modify
@@ -132,6 +132,9 @@ class NBIOperator(Operator):
         #   __call__(..., plasma_updater: Callable[[Plasma, dict, Any], Plasma] = None)
         # where plasma_updater receives (plasma, ctx, result) and returns the
         # updated plasma to use for the next step. Default behavior is stateless.
+
+
+        
         # Execute the selected model for each time slice and collect results.
         neutrals_by_time = {}
         for ctx in contexts:
@@ -189,6 +192,10 @@ class NBIOperator(Operator):
             br = br.values
             bz = bz.values
             bt = bt.transpose("z", "R").values
+
+            ##TODO - remove this. Currently using this bt estimate as otherwise it wont run due to nan errors.
+            irod = 3.0 * 1e6
+            bt = irod * (4 * np.pi * 1e-7) / (2 * np.pi * R_2d) 
 
             rho = rho_2d.values
             ctx = {

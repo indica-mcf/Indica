@@ -1,10 +1,10 @@
-from scipy.interpolate import RegularGridInterpolator
-import json, os, sys, pwd, copy, subprocess
+import json
+import os
+import sys
+import pwd
+import copy
+import subprocess
 import numpy as np
-import argparse
-from collections import OrderedDict
-import matplotlib.pyplot as plt
-import mpl_toolkits.mplot3d.art3d as art3d
 import shutil
 import xarray as xr
 
@@ -25,11 +25,9 @@ from ..nbi_configs import SIMULATION_SWITCHES
 from ..nbi_configs import WAVELENGTH_GRID_SETTINGS
 from ..nbi_configs import WEIGHT_FUNCTION_SETTINGS
 
-os.environ["HDF5_DISABLE_VERSION_CHECK"] = '1'
-
-from fidasim.utils import rz_grid, read_geqdsk, beam_grid
+from fidasim.utils import rz_grid
 import fidasim
-from ..st40_utils import extract_hda_plasma, create_st40_beam_grid, convert_to_list, get_v_tor_v_pol
+from ..st40_utils import create_st40_beam_grid, convert_to_list, get_v_tor_v_pol
 #from cxspec import CxsSpec
 #import plot
 # from batch import submit_fidasim_batch_job
@@ -44,10 +42,8 @@ def parse_input_file(input_dict_file):
 
     """
 
-    if os.path.isfile(input_dict_file):
-        print('Found input dictionary: ', input_dict_file)
-    else:
-        sys.exit('\033[91m' + input_dict_file + ' not found.' + '\033[0m')
+    if not os.path.isfile(input_dict_file):
+        raise FileNotFoundError(f"{input_dict_file} not found.")
 
     # Strip comments and read input dictionary
     with open(input_dict_file, mode='r', encoding='utf-8') as f:
@@ -63,27 +59,21 @@ def parse_input_file(input_dict_file):
     os.remove('temp.json')
 
 
-    print(input_dict['save_dir'])
-    print(input_dict['input_files']['geqdsk_file'])
-    print(input_dict['input_files']['fi_dist_file'])
-
     # Check if write permissions to save directory
     if not os.access(input_dict['save_dir'], os.R_OK):
-        print('\033[91m' + 'ERROR: You do not have read permissions in the specified save directory (' +
-              input_dict['save_dir'] + ')' + '\033[0m')
-        exit()
+        raise PermissionError(
+            "You do not have read permissions in the specified save directory "
+            f"({input_dict['save_dir']})"
+        )
 
     # Check is transp files exist
     for file_key, file_path in input_dict['input_files'].items():
-        if os.path.isfile(file_path):
-            print('Found ' + file_key + ' (' + file_path + ')')
-        else:
-            sys.exit('\033[91m' + 'ERROR: ' + file_key + ' not found (' + file_path + ')' + '\033[0m')
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"{file_key} not found ({file_path})")
 
     if 'cxs_spec' in input_dict:
         if not 'chord_IDs' in input_dict['cxs_spec']:
-            print('\033[91m' + 'ERROR: chords not specified for cxs spec.' + '\033[0m')
-            exit()
+            raise ValueError("chords not specified for cxs spec.")
             
     return input_dict
 
@@ -132,22 +122,12 @@ def _run_fidasim(operator, ctx: dict) -> dict:
         "plasma_ion_amu": operator.plasma_ion_amu,
     }
 
-    print(f"plasmaconfig = {plasmaconfig}")
-
     # Run TE-fidasim
     run_fidasim_flag = True
     sys.path.append(TE_FIDASIM_CODE_PATH)
 
     pulse = ctx["pulse"]
     time = ctx["time"]
-
-    # Print inputs
-    print(f"shot_number = {pulse}")
-    print(f"time = {time}")
-    print("num_cores = 3")
-    print(f"beam = {operator.name}")
-    print(f"user = {NBI_USER}")
-    print(f"force_run_fidasim = {run_fidasim_flag}")
 
     beam = operator.name
 
@@ -164,9 +144,8 @@ def _run_fidasim(operator, ctx: dict) -> dict:
         try:
             path_to_fidasim = save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}"
             shutil.rmtree(path_to_fidasim)
-            print("Remove " + save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}")
         except FileNotFoundError:
-            print("No file " + save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}")
+            pass
 
     # Run pre-processing code
     # This takes in pulse number, time, the nbi configuration, and plasma.
@@ -186,14 +165,7 @@ def _run_fidasim(operator, ctx: dict) -> dict:
         fine_MC_res=True,
     )
 
-    print("ready to go after preprocessing")
-
-    print("=== Subprocess user check ===")
-    subprocess.run(["whoami"])
-    subprocess.run(["id"])
-    print("=== End check ===")
     if run_fidasim_flag:
-        print("...     FIDASIM")
         subprocess.run(
             [
                 FIDASIM_BIN_PATH,
@@ -243,21 +215,6 @@ def prepare_fidasim(
     # REQUIRED FILES - OK
     # NOW DO FIDASIM PREPROCESSING
 
-    ax = None
-    if plot_geo:
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.view_init(elev=90, azim=-90)
-        ax.set_xlim(-100, 100)
-        ax.set_ylim(-100, 100)
-        ax.set_zlim(-100, 100)
-        Rmaj = plt.Circle((0,0), 40, color='k', fill=False)
-        Rsep = plt.Circle((0,0), 40+26, color='darkgrey', fill=False) 
-        ax.add_patch(Rmaj)
-        ax.add_patch(Rsep)
-        art3d.pathpatch_2d_to_3d(Rmaj, z=0, zdir="z")
-        art3d.pathpatch_2d_to_3d(Rsep, z=0, zdir="z")
-
     time = time
     #geqdsk_file = input_dict['input_files']['geqdsk_file']
     st40_beams = nbiconfig
@@ -268,35 +225,6 @@ def prepare_fidasim(
     plasma_ion_amu = plasmaconfig['plasma_ion_amu']
     #vtor_peak_kms = input_dict['vtor_peak_kms']
 
-    # if spec_name in st40_spec['name']:
-    #     #pi_spec = CxsSpec(shot, chord_IDs=input_dict['cxs_spec']['chord_IDs'],
-    #     #          amu=plasma_ion_amu, plot_chords=plot_geo, ax=ax,
-    #     #          spec_name=spec_name, cross_section_corr=cross_section_corr)
-    #     pi_spec = CxsSpec(shot, chord_IDs=st40_spec['chord_IDs'],
-    #               amu=plasma_ion_amu, plot_chords=plot_geo, ax=ax,
-    #               spec_name=spec_name, beam_amu=beam_amu, beam_name=beam_name, cross_section_corr=cross_section_corr,
-    #               custom_geo_dict=st40_spec["geom_dict"])
-    #     nchan = len(st40_spec['chord_IDs'])
-    #
-    #     ids = []
-    #     for id in st40_spec['chord_IDs']:
-    #         ids.append(id.encode(encoding='utf_8'))
-    #
-    #     ids = []
-    #     radius = []
-    #     lens = []
-    #     axis = []
-    #     _spot_radius = 1.25  # TODO: estimate spot radius on Princeton foreoptic
-    #     spot_size = []
-    #     _sigma_pi_ratio = 1.  # default sigma/pi ratio
-    #     sigma_pi = []
-    #     for chord in pi_spec.chords:
-    #         ids.append(chord.id.encode(encoding='utf_8'))
-    #         radius.append(chord.tang_rad)
-    #         lens.append(chord.origin)
-    #         axis.append(chord.diruvec)
-    #         spot_size.append(_spot_radius)
-    #         sigma_pi.append(_sigma_pi_ratio)
 
     # Preprocessing for each participating pini
     # Note, since input dictionaries are modified in preprocessing.py, recreate the same inputs for every pini.
@@ -314,9 +242,7 @@ def prepare_fidasim(
     # Create the beam grid oriented on the RFX axis
     bgrid, nbis = create_st40_beam_grid(beam_name)
 
-    # Geometry plot for inspection
-    if plot_geo:
-        plt.show()
+    # Geometry plotting removed (see fidasim_utils_plotting_legacy.py).
 
     #fields, rhogrid, btipsign = read_geqdsk(geqdsk_file, grid, poloidal=True)
     equil = dict()
@@ -327,8 +253,6 @@ def prepare_fidasim(
     equil["er"] = plasmaconfig['br'] * 0.0
     equil["et"] = plasmaconfig['br'] * 0.0
     equil["ez"] = plasmaconfig['br'] * 0.0
-
-    print(np.shape(plasmaconfig['br']))
 
     # Interpolate data according to fast particle grid
     for key in equil.keys():
@@ -375,7 +299,6 @@ def prepare_fidasim(
 
     # Interpolate rho grid
     rhogrid = plasmaconfig['rho']
-    print(np.shape(rhogrid))
     r_plasma = plasmaconfig['R'][0, :]
     z_plasma = plasmaconfig['z'][:, 0]
     from scipy.interpolate import interp2d
@@ -433,82 +356,6 @@ def prepare_fidasim(
     mask[w] = 1
     plasma['mask'] = mask
 
-    debugging_shape = False
-    if debugging_shape:
-
-        plt.figure()
-        plt.imshow(mask)
-        plt.show()
-
-        plt.figure()
-        plt.subplot(121)
-        plt.contourf(
-            grid["z2d"][0, :],
-            grid["r2d"][:, 0],
-            plasma['ti'],
-        )
-        plt.contour(
-            grid["z2d"][0, :],
-            grid["r2d"][:, 0],
-            plasma['ti'],
-            [1.0*1e-3],
-            colors='k',
-        )
-        plt.ylim([rmin, rmax])
-        plt.xlim([zmin, zmax])
-        plt.subplot(122)
-        plt.contourf(
-            #plasmaconfig['R'][0, :]*1e2,
-            #plasmaconfig['z'][:, 0]*1e2,
-            grid["z2d"][0, :],
-            grid["r2d"][:, 0],
-            rhogrid,
-        )
-        plt.contour(
-            #plasmaconfig['R'][0, :]*1e2,
-            #plasmaconfig['z'][:, 0]*1e2,
-            grid["z2d"][0, :],
-            grid["r2d"][:, 0],
-            rhogrid,
-            [1.0],
-            colors='k',
-        )
-        plt.ylim([rmin, rmax])
-        plt.xlim([zmin, zmax])
-
-        plt.figure()
-        plt.subplot(131)
-        plt.contourf(
-            grid['r2d'][:, 0],
-            grid['z2d'][0, :],
-            equil['br'],
-        )
-        plt.colorbar()
-        plt.subplot(132)
-        plt.contourf(
-            grid['r2d'][:, 0],
-            grid['z2d'][0, :],
-            equil['bz'],
-        )
-        plt.colorbar()
-        plt.subplot(133)
-        plt.contourf(
-            grid['r2d'][:, 0],
-            grid['z2d'][0, :],
-            equil['bt'],
-        )
-        plt.colorbar()
-
-        plt.show(block=True)
-
-    ## Transpose magnetic data
-    #equil["br"] = np.transpose(equil['br'], (1, 0))
-    #equil["bt"] = np.transpose(equil['bt'], (1, 0))
-    #equil["bz"] = np.transpose(equil['bz'], (1, 0))
-    #equil["er"] = np.transpose(equil['er'], (1, 0))
-    #equil["et"] = np.transpose(equil['et'], (1, 0))
-    #equil["ez"] = np.transpose(equil['ez'], (1, 0))
-    #equil["mask"] = np.transpose(equil['mask'], (1, 0))
 
     # Add grid and flux to plasma dict
     plasma['grid'] = grid
@@ -532,8 +379,6 @@ def prepare_fidasim(
 
     # Create results directory
     case_save_dir = save_dir + '/' + str(shot)
-    print(f'save_dir = {save_dir}')
-    print(f'case_save_dir = {case_save_dir}')
     if not os.path.exists(case_save_dir):
         os.makedirs(case_save_dir)
 
@@ -586,8 +431,6 @@ def prepare_fidasim(
 
 
     # If here then preprocessing was successful for this beam. Launch batch job.
-    print('Pre-processing complete. Save dir: ', beam_save_dir)
-
     # submit_fidasim_batch_job(beam_save_dir)
 
 
@@ -658,36 +501,6 @@ def postproc_fidasim(
 
         for index, chord in enumerate(pi_spec.chords):
 
-            """
-            if spec_name == "Princeton":
-                if los_type == 'center':
-                    origin_new = los_data['CENTER']['ORIGIN']
-                    direction_new = los_data['CENTER']['DIRECTION']
-                elif los_type == 'lhs':
-                    origin_new = los_data['LHS']['ORIGIN']
-                    direction_new = los_data['LHS']['DIRECTION']
-                elif los_type == 'rhs':
-                    origin_new = los_data['RHS']['ORIGIN']
-                    direction_new = los_data['RHS']['DIRECTION']
-                else:
-                    raise ValueError
-
-                print(index)
-                print(chord.origin)
-                print(chord.diruvec)
-
-                if index > 0:
-                    chord.origin = [origin_new[index-1, 0]*100, origin_new[index-1, 1]*100, 0.0]
-                    chord.diruvec = [direction_new[index-1, 0], direction_new[index-1, 1], 0.0]
-                else:
-                    chord.origin = [origin_new[0, 0]*100, origin_new[0, 1]*100, 0.0]
-                    chord.diruvec = [-0.90, -0.50, 0.0]
-                pi_spec.chords[index] = chord
-
-                print(chord.origin)
-                print(chord.diruvec)
-                print(' ')
-            """
 
             ids.append(chord.id.encode(encoding='utf_8'))
             radius.append(chord.tang_rad)
@@ -708,7 +521,9 @@ def postproc_fidasim(
     beam_save_dir = run_dir + '/' +beam_name
 
     if not os.path.exists(beam_save_dir):
-        print('\033[91m' + 'ERROR: results directory path not found: ' + beam_save_dir + '\033[0m')
+        raise FileNotFoundError(f"Results directory path not found: {beam_save_dir}")
+    
+    
 
     if spec_name in st40_spec['name'] and process_spec:
         spec_file = beam_save_dir + '/' + runid + '_spectra.h5'
@@ -716,15 +531,10 @@ def postproc_fidasim(
         # dcx_file = beam_save_dir + '/' + runid + '_dcx.h5'
         neut_file = beam_save_dir + '/' + runid + '_neutrals.h5'
 
-        print(spec_file)
-        print(geo_file)
-        print(neut_file)
-
         try:
             open(spec_file, 'rb')
         except FileNotFoundError:
-            print('\033[91m' + 'ERROR: results spectra file not found: ' + spec_file + '\033[0m')
-            sys.exit()
+            raise FileNotFoundError(f"Results spectra file not found: {spec_file}")
 
         # Collect results from fidasim
         pi_spec.collect_pini_spectra(beam_name, spec_file, geo_file, neut_file)
@@ -751,8 +561,6 @@ def postproc_fidasim(
 
         # Save results to JSON dictionary and append to main output dictionary
         out_dict[spec_name] = pi_spec.serialize()
-        print()
-
         # Extract fit data, export as dictionary
         Ti = np.zeros(len(out_dict[spec_name].keys()))
         Ti_err = np.zeros(len(out_dict[spec_name].keys()))
@@ -765,9 +573,6 @@ def postproc_fidasim(
             Ti_err[i_chord] = out_dict[spec_name][id]['res'][beam_name]['man_los_integral']['fit_cvi']['Ti_err']
             cwl[i_chord] = out_dict[spec_name][id]['res'][beam_name]['man_los_integral']['fit_cvi']['cwl']
             cwl_err[i_chord] = out_dict[spec_name][id]['res'][beam_name]['man_los_integral']['fit_cvi']['cwl_err']
-
-            print(out_dict[spec_name][id]['origin'])
-            print(out_dict[spec_name][id]['beam_intersect_pos'])
 
             # Convert Doppler shift to toroidal rotation
             vtor[i_chord] = get_v_tor_v_pol(
@@ -791,39 +596,13 @@ def postproc_fidasim(
         export_dict['vtor'] = vtor
         export_dict['vtor_err'] = vtor_err
 
-    #print(out_dict.keys())
-    #print(out_dict['Princeton'].keys())
-    #print(out_dict['Princeton']['M5'].keys())
-    #print(out_dict['Princeton']['M5']['res'].keys())
-    #dict_keys(['res', 'id', 'diruvec', 'origin', 'beam_intersect_pos', 'tang_rad'])
-    #print(out_dict['Princeton']['M5']['diruvec'])
-    #print(out_dict['Princeton']['M5']['origin'])
-    #print(out_dict['Princeton']['M5']['beam_intersect_pos'])
-    #print(out_dict['Princeton']['M5']['tang_rad'])
-    #print(out_dict['Princeton']['M5']['res']['total'].keys())
-    #print(out_dict['Princeton']['M5']['res']['rfx'].keys())
-    #print(out_dict['Princeton']['M5']['res']['rfx']['man_los_integral'].keys())
-    ##print(out_dict['Princeton']['M5']['res']['rfx']['dopp'].keys())
-    #print(out_dict['Princeton']['M5']['res']['rfx']['man_los_integral']['cvi'].keys())
-    #print(out_dict['Princeton']['M5']['res']['rfx']['man_los_integral']['fit_cvi'].keys())
-    #print(' ')
-    #print(out_dict['Princeton']['M5']['res']['rfx']['man_los_integral']['fit_cvi'])
-    #print(' ')
-    #print(' ')
-    #print(out_dict['Princeton']['M5']['res']['rfx']['man_los_integral']['cvi']['lambda'])
-    #print(' ')
-    #print('aa'**2)
+
 
     # Write output dictionary in JSON format and save to run directory
     savefile = run_dir + '/TE-fidasim_output.json'
     with open (savefile, mode='w', encoding='utf-8') as f:
         json.dump(out_dict, f, indent=2)
-    print('Saving post-processed fidasim output to:', savefile)
-
-    if (not block) and debug:
-        plt.show(block=True)
-    else:
-        plt.close('all')
+    # Plotting removed (see fidasim_utils_plotting_legacy.py).
 
     # Export temperature and velocity results from simulated data
     return export_dict
