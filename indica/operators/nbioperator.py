@@ -1,12 +1,15 @@
 import os
 from typing import List
+from typing import Optional
+from typing import Union
 
-from indica.operators.beam_utils import nbi_utils
+from indica.operators.beam_utils import adas_nbi_utils
+from indica.operators.beam_utils import analytic_nbi_utils
+from indica.operators.beam_utils import fidasim_utils
+from indica import Plasma
 
-
-
-PATH_TO_TE_FIDASIM = os.path.dirname(os.path.realpath(__file__))
-print(f'PATH_TO_TE_FIDASIM = {PATH_TO_TE_FIDASIM}')
+import numpy as np
+from xarray import DataArray
 
 
 from .abstractoperator import Operator
@@ -32,8 +35,9 @@ class NBIOperator(Operator):
         pulse: int = None,
         plasma_ion_amu: float = 2.014,
     ):
-        # Initialized with beam related info; transform is set later.
+        # Initialized with beam related info; transform and plasma are set later.
         self.transform = None
+        self.plasma = None
         self.pulse = pulse
 
         self.name = name
@@ -41,54 +45,93 @@ class NBIOperator(Operator):
         self.pinj = pinj
         self.current_fractions = current_fractions
         self.ab = ab
-        #Fidasim utils still need tihs.
-        """
-        self.nbispecs = {
-            "name": self.name,
-            "einj": self.einj,
-            "pinj": self.pinj,
-            "current_fractions": self.current_fractions,
-            "ab": self.ab,
-        }
-        """
+
 
         self.plasma_ion_amu = plasma_ion_amu
 
     def __call__(
         self,
-        nbi_model="FIDASIM",
-        ion_temperature=None,
-        electron_temperature=None,
-        electron_density=None,
-        neutral_density=None,
-        toroidal_rotation=None,
-        zeff=None,
-        t=None,
-        pulse: int = None,
-        plasma=None,
+        nbi_model: str = "FIDASIM",
+        ion_temperature: Optional[DataArray] = None,
+        electron_temperature: Optional[DataArray] = None,
+        electron_density: Optional[DataArray] = None,
+        neutral_density: Optional[DataArray] = None,
+        toroidal_rotation: Optional[DataArray] = None,
+        zeff: Optional[DataArray] = None,
+        *,
+        t: Union[DataArray, float, int],
+        pulse: int,
+        plasma: Optional[Plasma] = None,
     ) -> dict:
 
+        self.nbi_model = nbi_model
+        self.ion_temperature = ion_temperature
+        self.electron_temperature = electron_temperature
+        self.electron_density = electron_density
+        self.neutral_density = neutral_density
+        self.toroidal_rotation = toroidal_rotation
+        self.zeff = zeff
+        self.t = t
+        if plasma is not None:
+            self.plasma = plasma
+        self.pulse = pulse
 
+        if self.plasma is not None:
+            if self.ion_temperature is None:
+                self.ion_temperature = self.plasma.ion_temperature
+            if self.electron_temperature is None:
+                self.electron_temperature = self.plasma.electron_temperature
+            if self.electron_density is None:
+                self.electron_density = self.plasma.electron_density
+            if self.neutral_density is None:
+                self.neutral_density = self.plasma.neutral_density
+            if self.toroidal_rotation is None:
+                self.toroidal_rotation = self.plasma.toroidal_rotation
+            if self.zeff is None:
+                self.zeff = self.plasma.zeff
+
+        if (
+            self.ion_temperature is None
+            or self.electron_temperature is None
+            or self.electron_density is None
+            or self.neutral_density is None
+            or self.toroidal_rotation is None
+            or self.zeff is None
+        ):
+            raise ValueError("Give inputs or assign plasma class!")
+
+        if self.t is None:
+            raise ValueError("t is required (pass to __call__)")
+        if self.pulse is None:
+            raise ValueError("pulse is required (set it on init or pass to __call__)")
+        if self.transform is None:
+            raise ValueError("transform is required (set it before calling)")
+        if (
+            not hasattr(self.transform, "equilibrium")
+            or self.transform.equilibrium is None
+        ):
+            raise ValueError("transform is missing equilibrium data")
 
 
         # Resolve which NBI model runner to use for this call.
         model = nbi_model
         model_key = str(model).strip().upper()
-        model_handler = nbi_utils.get_model_handler(model_key)
+        model_handler = self._get_model_handler(model_key)
 
         # Build per-time context dictionaries (profiles + equilibrium geometry).
-        contexts = nbi_utils.build_nbi_contexts(
-            self,
-            ion_temperature=ion_temperature,
-            electron_temperature=electron_temperature,
-            electron_density=electron_density,
-            neutral_density=neutral_density,
-            toroidal_rotation=toroidal_rotation,
-            zeff=zeff,
-            t=t,
-            pulse=pulse,
-            plasma=plasma,
-        )
+        contexts = self._build_nbi_contexts()
+
+
+
+
+        
+        # TODO: sequential time stepping
+        # If multiple times are provided, we should run them in order and allow
+        # the plasma to be updated between steps (the simulation may modify
+        # plasma parameters). Suggested future API:
+        #   __call__(..., plasma_updater: Callable[[Plasma, dict, Any], Plasma] = None)
+        # where plasma_updater receives (plasma, ctx, result) and returns the
+        # updated plasma to use for the next step. Default behavior is stateless.
         # Execute the selected model for each time slice and collect results.
         neutrals_by_time = {}
         for ctx in contexts:
@@ -100,3 +143,86 @@ class NBIOperator(Operator):
 
         # Return all neutrals indexed by time.
         return neutrals_by_time
+
+    def _build_nbi_contexts(self):
+        t = self.t
+        pulse = self.pulse
+
+        # Normalize time input into a 1D array.
+        t_values = np.atleast_1d(getattr(t, "data", t))
+
+        # Resolve pulse and equilibrium from the transform.
+        eq = self.transform.equilibrium
+
+        # Build a per-time context dict with profiles and equilibrium geometry.
+        contexts = []
+        for time in t_values:
+            rho_1d = self.ion_temperature.rhop.values
+            ion_temperature_t = self.ion_temperature.sel(t=time).values
+            electron_temperature_t = self.electron_temperature.sel(t=time).values
+            electron_density_t = self.electron_density.sel(t=time).values
+            neutral_density_t = self.neutral_density.sel(t=time).values
+            toroidal_rotation_t = self.toroidal_rotation.sel(t=time).values
+            zeffective = self.zeff.sum("element").sel(t=time).values
+
+            # rho poloidal
+            rho_2d = eq.rhop.interp(
+                t=time,
+                method="nearest",
+            )
+
+            # rho toroidal
+            rho_tor = eq.convert_flux_coords(rho_2d, t=time)
+            rho_tor = rho_tor[0].values
+
+            # radius
+            R = eq.rhop.R.values
+            z = eq.rhop.z.values
+            R_2d, z_2d = np.meshgrid(R, z)
+
+            # B field components
+            br, bz, bt, _ = eq.Bfield(
+                eq.rhop.R,
+                eq.rhop.z,
+                t=time,
+            )
+            br = br.values
+            bz = bz.values
+            bt = bt.transpose("z", "R").values
+
+            rho = rho_2d.values
+            ctx = {
+                "pulse": pulse,
+                "time": time,
+                "rho_1d": rho_1d,
+                "rho": rho,
+                "rho_tor": rho_tor,
+                "R_2d": R_2d,
+                "z_2d": z_2d,
+                "br": br,
+                "bz": bz,
+                "bt": bt,
+                "ion_temperature": ion_temperature_t,
+                "electron_temperature": electron_temperature_t,
+                "electron_density": electron_density_t,
+                "neutral_density": neutral_density_t,
+                "toroidal_rotation": toroidal_rotation_t,
+                "zeffective": zeffective,
+            }
+            contexts.append(ctx)
+
+        return contexts
+
+    @staticmethod
+    def _get_model_handler(model_key: str):
+        handlers = {
+            "FIDASIM": fidasim_utils._run_fidasim,
+            "ANALYTIC": analytic_nbi_utils._run_analytic,
+            "ADAS": adas_nbi_utils._run_adas,
+        }
+        if model_key not in handlers:
+            supported = ", ".join(handlers.keys())
+            raise ValueError(
+                f"Unknown nbi_model '{model_key}'. Supported models: {supported}"
+            )
+        return handlers[model_key]
