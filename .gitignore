@@ -9,9 +9,9 @@ indica.egg-info/
 dist/
 htmlcov/
 .dir-locals.el
-#*.pkl
 indica/git_version
 .vscode/
+test/integration/operators/neutrals_pick.pkl
 !tests/unit/readers/ppf_samples.pkl
 !tests/unit/readers/invalid_adf11_file.dat
 *.png
