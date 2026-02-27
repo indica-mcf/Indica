@@ -105,10 +105,10 @@ class MDSUtils(BaseIO):
 
         return data, dims, unit, _path
 
-    def revision_name(self, revision: RevisionLike) -> str:
+    def revision_name(self, revision: RevisionLike) -> RevisionLike:
         """Return string defining RUN## or BEST if revision = 0"""
 
-        if type(revision) == int:
+        if isinstance(revision, int):
             _revision = int(revision)
             if _revision < 0:
                 rev_str = ""
@@ -130,7 +130,9 @@ class MDSUtils(BaseIO):
         best_revision, _ = self.get_signal(uid, instrument, ".best_run", "best")
         return best_revision
 
-    def get_revision(self, uid: str, instrument: str, revision: RevisionLike) -> str:
+    def get_revision(
+        self, uid: str, instrument: str, revision: RevisionLike
+    ) -> tuple[RevisionLike, bool]:
         """
         Return revision name given
         """
@@ -138,7 +140,7 @@ class MDSUtils(BaseIO):
         if revision_name == "BEST":
             revision_name = self.get_best_revision(uid, instrument)
 
-        return revision_name
+        return revision_name, revision_name == "BEST"
 
     def get_mds_path(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike

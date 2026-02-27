@@ -146,7 +146,7 @@ class SALUtils(BaseIO):
 
     def get_revision(
         self, uid: str, instrument: str, revision: RevisionLike
-    ) -> RevisionLike:
+    ) -> tuple[RevisionLike, bool]:
         """
         Get actual revision that's being read from database, converts relative revision
         (e.g. 0, latest) to absolute
@@ -154,7 +154,7 @@ class SALUtils(BaseIO):
         info = self._client.list(
             self.get_sal_path(uid=uid, instrument=instrument, revision=revision)
         )
-        return info.revision_current
+        return info.revision_current, revision == 0
 
     def _rewrite_instrument(self, instrument: str) -> str:
         """Return modified instrument, if needed, based on input. Used due to slight

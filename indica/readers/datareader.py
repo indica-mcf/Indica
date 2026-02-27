@@ -117,11 +117,9 @@ class DataReader(ABC):
         """
         method = self.instrument_methods[instrument]
         quantities_paths = self.quantities_path[method]
-        if revision == "BEST" or revision == 0:
-            best_revision = True
-        else:
-            best_revision = False
-        revision = self.reader_utils.get_revision(uid, instrument, revision)
+        revision, best_revision = self.reader_utils.get_revision(
+            uid, instrument, revision
+        )
         results: Dict[str, Any] = {
             "uid": uid,
             "instrument": instrument,
@@ -269,7 +267,6 @@ class DataReader(ABC):
         debug: bool = False,
         equilibrium: Equilibrium = None,
     ):
-
         if instruments is None:
             instruments = self.machine_conf.INSTRUMENT_METHODS.keys()
         if revisions is None:
