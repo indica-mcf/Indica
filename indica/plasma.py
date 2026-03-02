@@ -618,11 +618,8 @@ class Plasma:
         """
         Assigns default atomic fractional abundance and radiated power operators
         """
-<<<<<<< HEAD
         from indica.operators.atomic_data import default_atomic_data
 
-=======
->>>>>>> main
         fract_abu, power_loss_tot = default_atomic_data(
             self.elements, full_run=self.full_run
         )
