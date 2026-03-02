@@ -5,11 +5,11 @@ import datetime
 from typing import Any
 from typing import Union
 
-from indica.converters import CoordinateTransform
-from indica.plasma import Plasma
-
 from xarray import DataArray
 from xarray import Dataset
+
+from indica.converters import CoordinateTransform
+from indica.plasma import Plasma
 
 Data = Union[DataArray, Dataset]
 

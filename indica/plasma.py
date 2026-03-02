@@ -9,9 +9,9 @@ from typing import Tuple
 import numpy as np
 import xarray as xr
 
-from indica.equilibrium import Equilibrium
 from indica.configs import MACHINE_CONFS
 from indica.converters.time import get_tlabels_dt
+from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.profilers.profiler_base import ProfilerBase
