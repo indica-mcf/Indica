@@ -117,15 +117,13 @@ class DataReader(ABC):
         """
         method = self.instrument_methods[instrument]
         quantities_paths = self.quantities_path[method]
-        revision, best_revision = self.reader_utils.get_revision(
-            uid, instrument, revision
-        )
+        revision, is_best = self.reader_utils.get_revision(uid, instrument, revision)
         results: Dict[str, Any] = {
             "uid": uid,
             "instrument": instrument,
             "machine_dims": self.machine_dims,
             "revision": revision,
-            "best_revision": best_revision,
+            "is_best": is_best,
         }
         for _key, _path in quantities_paths.items():
             _key_err = _key + "_error"
