@@ -140,7 +140,8 @@ class MDSUtils(BaseIO):
         if revision_name == "BEST":
             revision_name = self.get_best_revision(uid, instrument)
 
-        return revision_name, revision_name == "BEST"
+        is_best = revision_name == "BEST"
+        return revision_name, is_best
 
     def get_mds_path(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike

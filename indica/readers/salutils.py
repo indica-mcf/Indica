@@ -154,7 +154,8 @@ class SALUtils(BaseIO):
         info = self._client.list(
             self.get_sal_path(uid=uid, instrument=instrument, revision=revision)
         )
-        return info.revision_current, revision == 0
+        is_best = revision == 0
+        return info.revision_current, is_best
 
     def _rewrite_instrument(self, instrument: str) -> str:
         """Return modified instrument, if needed, based on input. Used due to slight
