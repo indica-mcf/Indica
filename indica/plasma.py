@@ -9,10 +9,18 @@ from typing import Tuple
 import numpy as np
 import xarray as xr
 
+<<<<<<< HEAD
 from indica.equilibrium import Equilibrium
 from indica.configs import MACHINE_CONFS
 from indica.converters.time import get_tlabels_dt
 from indica.numpy_typing import LabeledArray
+=======
+from indica import Equilibrium
+from indica.configs import MACHINE_CONFS
+from indica.converters.time import get_tlabels_dt
+from indica.numpy_typing import LabeledArray
+from indica.operators.atomic_data import default_atomic_data
+>>>>>>> main
 import indica.physics as ph
 from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
@@ -610,8 +618,11 @@ class Plasma:
         """
         Assigns default atomic fractional abundance and radiated power operators
         """
+<<<<<<< HEAD
         from indica.operators.atomic_data import default_atomic_data
 
+=======
+>>>>>>> main
         fract_abu, power_loss_tot = default_atomic_data(
             self.elements, full_run=self.full_run
         )
