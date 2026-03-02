@@ -669,7 +669,6 @@ class Plasma:
         If self.aurora_run is True, uses aurora for ionisation balance calculation,
         otherwise uses coronal approximation.
         """
-        
         from indica.operators.atomic_data import default_atomic_data
         if self.aurora_run:
             assert (
