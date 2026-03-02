@@ -1,29 +1,22 @@
-import os
 from typing import List
 from typing import Optional
 from typing import Union
 
-from indica.operators.beam_utils import adas_nbi_utils
-from indica.operators.beam_utils import analytic_nbi_utils
-from indica.operators.beam_utils import fidasim_utils
-from indica import Plasma
-
 import numpy as np
 from xarray import DataArray
 
-
+from indica import Plasma
+from indica.operators.beam_utils import adas_nbi_utils
+from indica.operators.beam_utils import analytic_nbi_utils
+from indica.operators.beam_utils import fidasim_utils
 from .abstractoperator import Operator
-
-
 
 
 class NBIOperator(Operator):
 
     """This operator should be operating on a standard plasma+profiles, and spit out
-        fast neutral density and fast particle pressure. I believe it does.
+    fast neutral density and fast particle pressure. I believe it does.
     """
-
-
 
     def __init__(
         self,
@@ -45,7 +38,6 @@ class NBIOperator(Operator):
         self.pinj = pinj
         self.current_fractions = current_fractions
         self.ab = ab
-
 
         self.plasma_ion_amu = plasma_ion_amu
 
@@ -112,7 +104,6 @@ class NBIOperator(Operator):
         ):
             raise ValueError("transform is missing equilibrium data")
 
-
         # Resolve which NBI model runner to use for this call.
         model = nbi_model
         model_key = str(model).strip().upper()
@@ -120,10 +111,6 @@ class NBIOperator(Operator):
 
         # Build per-time context dictionaries (profiles + equilibrium geometry).
         contexts = self._build_nbi_contexts()
-
-
-
-
 
         # TODO: sequential time stepping
         # If multiple times are provided, we should run them in order and allow
@@ -133,8 +120,6 @@ class NBIOperator(Operator):
         # where plasma_updater receives (plasma, ctx, result) and returns the
         # updated plasma to use for the next step. Default behavior is stateless.
 
-
-        
         # Execute the selected model for each time slice and collect results.
         neutrals_by_time = {}
         for ctx in contexts:
@@ -195,7 +180,7 @@ class NBIOperator(Operator):
 
             ##TODO - remove this. Currently using this bt estimate as otherwise it wont run due to nan errors.
             irod = 3.0 * 1e6
-            bt = irod * (4 * np.pi * 1e-7) / (2 * np.pi * R_2d) 
+            bt = irod * (4 * np.pi * 1e-7) / (2 * np.pi * R_2d)
 
             rho = rho_2d.values
             ctx = {

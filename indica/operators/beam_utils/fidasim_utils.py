@@ -1,38 +1,42 @@
+import copy
 import json
 import os
-import sys
 import pwd
-import copy
-import subprocess
-import numpy as np
 import shutil
+import subprocess
+import sys
+
+import fidasim
+from fidasim.utils import rz_grid
+import h5py as h5
+import numpy as np
 import xarray as xr
 
-import h5py as h5
-from ..nbi_configs import FIDASIM_BIN_PATH
-from ..nbi_configs import FIDASIM_BASE_DIR
-from ..nbi_configs import FIDASIM_OUTPUT_DIR
-from ..nbi_configs import NBI_USER
-from ..nbi_configs import TE_FIDASIM_CODE_PATH
-from ..nbi_configs import TE_FIDASIM_FI_DIST_FILE
 from ..nbi_configs import build_general_settings
 from ..nbi_configs import build_nbi_settings
 from ..nbi_configs import build_plasma_settings
+from ..nbi_configs import FIDASIM_BASE_DIR
+from ..nbi_configs import FIDASIM_BIN_PATH
+from ..nbi_configs import FIDASIM_OUTPUT_DIR
 from ..nbi_configs import MC_SETTINGS_COARSE
 from ..nbi_configs import MC_SETTINGS_FINE
+from ..nbi_configs import NBI_USER
 from ..nbi_configs import PLASMA_INTERP_GRID_SETTINGS
 from ..nbi_configs import SIMULATION_SWITCHES
+from ..nbi_configs import TE_FIDASIM_CODE_PATH
+from ..nbi_configs import TE_FIDASIM_FI_DIST_FILE
 from ..nbi_configs import WAVELENGTH_GRID_SETTINGS
 from ..nbi_configs import WEIGHT_FUNCTION_SETTINGS
+from ..st40_utils import convert_to_list
+from ..st40_utils import create_st40_beam_grid
+from ..st40_utils import get_v_tor_v_pol
 
-from fidasim.utils import rz_grid
-import fidasim
-from ..st40_utils import create_st40_beam_grid, convert_to_list, get_v_tor_v_pol
-#from cxspec import CxsSpec
-#import plot
+# from cxspec import CxsSpec
+# import plot
 # from batch import submit_fidasim_batch_job
 
-os.environ["HDF5_DISABLE_VERSION_CHECK"] = '1'
+os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
+
 
 def parse_input_file(input_dict_file):
     """Parses and checks jet-fidasim input dictionary.
@@ -46,36 +50,36 @@ def parse_input_file(input_dict_file):
         raise FileNotFoundError(f"{input_dict_file} not found.")
 
     # Strip comments and read input dictionary
-    with open(input_dict_file, mode='r', encoding='utf-8') as f:
-        with open("temp.json", 'w') as wf:
+    with open(input_dict_file, mode="r", encoding="utf-8") as f:
+        with open("temp.json", "w") as wf:
             for line in f.readlines():
-                if line[0:2] == '//' or line[0:1] == '#':
+                if line[0:2] == "//" or line[0:1] == "#":
                     continue
                 wf.write(line)
 
-    with open("temp.json", 'r') as f:
+    with open("temp.json", "r") as f:
         input_dict = json.load(f)
 
-    os.remove('temp.json')
-
+    os.remove("temp.json")
 
     # Check if write permissions to save directory
-    if not os.access(input_dict['save_dir'], os.R_OK):
+    if not os.access(input_dict["save_dir"], os.R_OK):
         raise PermissionError(
             "You do not have read permissions in the specified save directory "
             f"({input_dict['save_dir']})"
         )
 
     # Check is transp files exist
-    for file_key, file_path in input_dict['input_files'].items():
+    for file_key, file_path in input_dict["input_files"].items():
         if not os.path.isfile(file_path):
             raise FileNotFoundError(f"{file_key} not found ({file_path})")
 
-    if 'cxs_spec' in input_dict:
-        if not 'chord_IDs' in input_dict['cxs_spec']:
+    if "cxs_spec" in input_dict:
+        if not "chord_IDs" in input_dict["cxs_spec"]:
             raise ValueError("chords not specified for cxs spec.")
-            
+
     return input_dict
+
 
 def _fidasim_out_to_xarray_dataset(h5_path: str) -> xr.Dataset:
     data_vars = {}
@@ -101,6 +105,7 @@ def _fidasim_out_to_xarray_dataset(h5_path: str) -> xr.Dataset:
         h5f.visititems(_visit)
     # Build the actual dataset
     return xr.Dataset(data_vars=data_vars, attrs=root_attrs)
+
 
 def _run_fidasim(operator, ctx: dict) -> dict:
     # From this point on, everything is FIDASIM specific.
@@ -135,9 +140,7 @@ def _run_fidasim(operator, ctx: dict) -> dict:
     save_dir = FIDASIM_OUTPUT_DIR
     user = NBI_USER
     num_cores = 3
-    fidasim_out = (
-        save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}/{user}_inputs.dat"
-    )
+    fidasim_out = save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}/{user}_inputs.dat"
 
     # Remove the existing folder if re-running fidasim
     if run_fidasim_flag:
@@ -191,22 +194,23 @@ def _run_fidasim(operator, ctx: dict) -> dict:
     }
     return neutrals_by_time
 
-def prepare_fidasim(
-        shot: int,
-        time: float,
-        nbiconfig: dict,
-        plasmaconfig: dict,
-        fi_dist_file: str = TE_FIDASIM_FI_DIST_FILE,
-        save_dir: str = FIDASIM_OUTPUT_DIR,
-        fida_dir: str = FIDASIM_BASE_DIR,
-        fine_MC_res: bool = False,
-        imp_charge: int = 6,
-        plot_geo: bool = True,
-):
-    """Processes the jet-fidasim input dictionary into the specific input requirements for launching fidasim.
-        Prepares and submits batch jobs in LoadLeveler for each pini.
 
-        force_no_plasma_rot: Turns off rotation, even if OMEGA is available in TRANSP output
+def prepare_fidasim(
+    shot: int,
+    time: float,
+    nbiconfig: dict,
+    plasmaconfig: dict,
+    fi_dist_file: str = TE_FIDASIM_FI_DIST_FILE,
+    save_dir: str = FIDASIM_OUTPUT_DIR,
+    fida_dir: str = FIDASIM_BASE_DIR,
+    fine_MC_res: bool = False,
+    imp_charge: int = 6,
+    plot_geo: bool = True,
+):
+    """Process jet-fidasim input into the required format for launching fidasim.
+    Prepares and submits batch jobs in LoadLeveler for each pini.
+
+    force_no_plasma_rot: Turns off rotation, even if OMEGA is available in TRANSP output
     """
     # Output dictionary for storing jet-fidasim relevant outputs.
     out_dict = {}
@@ -216,18 +220,18 @@ def prepare_fidasim(
     # NOW DO FIDASIM PREPROCESSING
 
     time = time
-    #geqdsk_file = input_dict['input_files']['geqdsk_file']
+    # geqdsk_file = input_dict['input_files']['geqdsk_file']
     st40_beams = nbiconfig
-    beam_amu = st40_beams['ab']
-    beam_name = st40_beams['name']
-    #run = input_dict['run']
+    beam_amu = st40_beams["ab"]
+    beam_name = st40_beams["name"]
+    # run = input_dict['run']
     runid = pwd.getpwuid(os.getuid())[0]
-    plasma_ion_amu = plasmaconfig['plasma_ion_amu']
-    #vtor_peak_kms = input_dict['vtor_peak_kms']
-
+    plasma_ion_amu = plasmaconfig["plasma_ion_amu"]
+    # vtor_peak_kms = input_dict['vtor_peak_kms']
 
     # Preprocessing for each participating pini
-    # Note, since input dictionaries are modified in preprocessing.py, recreate the same inputs for every pini.
+    # Note: preprocessing.py modifies input dictionaries, so recreate the same
+    # inputs for every pini.
     beam_id = st40_beams["name"]
 
     # Define plasma interpolation grid bounds
@@ -244,166 +248,191 @@ def prepare_fidasim(
 
     # Geometry plotting removed (see fidasim_utils_plotting_legacy.py).
 
-    #fields, rhogrid, btipsign = read_geqdsk(geqdsk_file, grid, poloidal=True)
+    # fields, rhogrid, btipsign = read_geqdsk(geqdsk_file, grid, poloidal=True)
     equil = dict()
     equil["time"] = time
-    equil["br"] = plasmaconfig['br']
-    equil["bt"] = plasmaconfig['bt']
-    equil["bz"] = plasmaconfig['bz']
-    equil["er"] = plasmaconfig['br'] * 0.0
-    equil["et"] = plasmaconfig['br'] * 0.0
-    equil["ez"] = plasmaconfig['br'] * 0.0
+    equil["br"] = plasmaconfig["br"]
+    equil["bt"] = plasmaconfig["bt"]
+    equil["bz"] = plasmaconfig["bz"]
+    equil["er"] = plasmaconfig["br"] * 0.0
+    equil["et"] = plasmaconfig["br"] * 0.0
+    equil["ez"] = plasmaconfig["br"] * 0.0
 
     # Interpolate data according to fast particle grid
     for key in equil.keys():
-        if key != 'time':
-            r_plasma = plasmaconfig['R'][0, :]
-            z_plasma = plasmaconfig['z'][:, 0]
-            #data_obj = RegularGridInterpolator((r_plasma, z_plasma), equil[key], bounds_error=False, fill_value=0.0)
+        if key != "time":
+            r_plasma = plasmaconfig["R"][0, :]
+            z_plasma = plasmaconfig["z"][:, 0]
+            # data_obj = RegularGridInterpolator(
+            #     (r_plasma, z_plasma), equil[key], bounds_error=False,
+            #     fill_value=0.0
+            # )
 
             from scipy.interpolate import interp2d
-            data_obj = interp2d(r_plasma, z_plasma, equil[key], bounds_error=False, fill_value=0.0)
+
+            data_obj = interp2d(
+                r_plasma, z_plasma, equil[key], bounds_error=False, fill_value=0.0
+            )
 
             data_interp = np.zeros((nr, nz))
             for i_z in range(nz):
                 for i_r in range(nr):
-                    data_interp[i_r, i_z] = data_obj(grid['r2d'][i_r, 0]*1e-2, grid['z2d'][0, i_z]*1e-2) / 2*np.pi
+                    data_interp[i_r, i_z] = (
+                        data_obj(grid["r2d"][i_r, 0] * 1e-2, grid["z2d"][0, i_z] * 1e-2)
+                        / 2
+                        * np.pi
+                    )
 
-            #data_interp = data_obj((grid['r2d']*1e-2, grid['z2d']*1e-2))
+            # data_interp = data_obj((grid['r2d']*1e-2, grid['z2d']*1e-2))
             equil[key] = data_interp
 
-    equil["data_source"] = 'Indica'
-    equil["mask"] = np.ones_like(equil['br'], dtype=np.int32)
+    equil["data_source"] = "Indica"
+    equil["mask"] = np.ones_like(equil["br"], dtype=np.int32)
 
     # Read the dummy fast-ion distribution
-    _fi_dist = h5.File(fi_dist_file, 'r')
+    _fi_dist = h5.File(fi_dist_file, "r")
     fi_dist = dict()
-    fi_dist['type'] = int(_fi_dist['type'][()])
-    fi_dist['time'] = _fi_dist['time'][()]
-    fi_dist['nenergy'] = int(_fi_dist['nenergy'][()])
-    fi_dist['energy'] = _fi_dist['energy'][()]
-    fi_dist['npitch'] = int(_fi_dist['npitch'][()])
-    fi_dist['pitch'] = _fi_dist['pitch'][()]
-    fbm_grid = np.zeros((fi_dist['nenergy'],fi_dist['npitch'],nr,nz))
+    fi_dist["type"] = int(_fi_dist["type"][()])
+    fi_dist["time"] = _fi_dist["time"][()]
+    fi_dist["nenergy"] = int(_fi_dist["nenergy"][()])
+    fi_dist["energy"] = _fi_dist["energy"][()]
+    fi_dist["npitch"] = int(_fi_dist["npitch"][()])
+    fi_dist["pitch"] = _fi_dist["pitch"][()]
+    fbm_grid = np.zeros((fi_dist["nenergy"], fi_dist["npitch"], nr, nz))
     # fi_dist['f'] = np.asarray(_fi_dist['f'][()].T.tolist())
-    fi_dist['f'] = fbm_grid
-    fi_dist['denf'] = _fi_dist['denf'][()]
-    fi_dist['data_source'] = str(_fi_dist['data_source'][()])
+    fi_dist["f"] = fbm_grid
+    fi_dist["denf"] = _fi_dist["denf"][()]
+    fi_dist["data_source"] = str(_fi_dist["data_source"][()])
 
     # Fast particle positions
-    r_fi = _fi_dist['r'][()]
-    z_fi = _fi_dist['z'][()]
+    r_fi = _fi_dist["r"][()]
+    z_fi = _fi_dist["z"][()]
     r_fi, z_fi = np.meshgrid(r_fi, z_fi)
 
- 
-
     # Interpolate rho grid
-    rhogrid = plasmaconfig['rho']
-    r_plasma = plasmaconfig['R'][0, :]
-    z_plasma = plasmaconfig['z'][:, 0]
+    rhogrid = plasmaconfig["rho"]
+    r_plasma = plasmaconfig["R"][0, :]
+    z_plasma = plasmaconfig["z"][:, 0]
     from scipy.interpolate import interp2d
-    data_obj = interp2d(r_plasma, z_plasma, rhogrid, bounds_error=False, fill_value=10.0)
+
+    data_obj = interp2d(
+        r_plasma, z_plasma, rhogrid, bounds_error=False, fill_value=10.0
+    )
     data_interp = np.zeros((nr, nz))
     for i_z in range(nz):
         for i_r in range(nr):
-            data_interp[i_r, i_z] = data_obj(grid['r2d'][i_r, 0] * 1e-2, grid['z2d'][0, i_z] * 1e-2)
+            data_interp[i_r, i_z] = data_obj(
+                grid["r2d"][i_r, 0] * 1e-2, grid["z2d"][0, i_z] * 1e-2
+            )
     rhogrid = data_interp
 
     # Interpolate kinetic data
     from scipy.interpolate import interp1d
+
     dims = rhogrid.shape
-    f_zeff = interp1d(plasmaconfig['rho_1d'], plasmaconfig['zeff'], fill_value='extrapolate')
+    f_zeff = interp1d(
+        plasmaconfig["rho_1d"], plasmaconfig["zeff"], fill_value="extrapolate"
+    )
     zeff = f_zeff(rhogrid)
-    zeff = np.where(zeff > 1, zeff, 1.0).astype('float64')
+    zeff = np.where(zeff > 1, zeff, 1.0).astype("float64")
 
-    f_te = interp1d(plasmaconfig['rho_1d'], plasmaconfig['te'], fill_value='extrapolate')
+    f_te = interp1d(
+        plasmaconfig["rho_1d"], plasmaconfig["te"], fill_value="extrapolate"
+    )
     te = f_te(rhogrid)
-    te = np.where(te > 0.0, te, 0.0).astype('float64')
+    te = np.where(te > 0.0, te, 0.0).astype("float64")
 
-    f_ti = interp1d(plasmaconfig['rho_1d'], plasmaconfig['ti'], fill_value='extrapolate')
+    f_ti = interp1d(
+        plasmaconfig["rho_1d"], plasmaconfig["ti"], fill_value="extrapolate"
+    )
     ti = f_ti(rhogrid)
-    ti = np.where(ti > 0.0, ti, 0.0).astype('float64')
+    ti = np.where(ti > 0.0, ti, 0.0).astype("float64")
 
-    f_nn = interp1d(plasmaconfig['rho_1d'], plasmaconfig['nn'], fill_value='extrapolate')
+    f_nn = interp1d(
+        plasmaconfig["rho_1d"], plasmaconfig["nn"], fill_value="extrapolate"
+    )
     nn = f_nn(rhogrid)
-    nn = np.where(nn > 0.0, nn, 0.0).astype('float64')
+    nn = np.where(nn > 0.0, nn, 0.0).astype("float64")
 
-    f_ne = interp1d(plasmaconfig['rho_1d'], plasmaconfig['ne'], fill_value='extrapolate')
+    f_ne = interp1d(
+        plasmaconfig["rho_1d"], plasmaconfig["ne"], fill_value="extrapolate"
+    )
     ne = f_ne(rhogrid)
-    ne = np.where(ne > 0.0, ne, 0.0).astype('float64')
+    ne = np.where(ne > 0.0, ne, 0.0).astype("float64")
 
-    f_omega = interp1d(plasmaconfig['rho_1d'], plasmaconfig['omegator'], fill_value='extrapolate')
+    f_omega = interp1d(
+        plasmaconfig["rho_1d"], plasmaconfig["omegator"], fill_value="extrapolate"
+    )
     omega = f_omega(rhogrid)
-    omega = np.where(omega > 0.0, omega, 0.0).astype('float64')
-    vt = grid['r2d'] * omega # cm/s
+    omega = np.where(omega > 0.0, omega, 0.0).astype("float64")
+    vt = grid["r2d"] * omega  # cm/s
 
-
-    #TODO: double check units
+    # TODO: double check units
     plasma = dict()
-    plasma['time'] = time
-    plasma['zeff'] = zeff
-    plasma['te'] = 1.e-03 * te  # fidasim expects keV
-    plasma['ti'] = 1.e-03 * ti  # fidasim expects keV
-    plasma['denn'] = 1.e-06 * nn  # fidasim expects cm^-3
-    plasma['dene'] = 1.e-06 * ne  # fidasim expects cm^-3
-    plasma['vr'] = np.zeros_like(plasma['ti'])
-    plasma['vz'] = np.zeros_like(plasma['ti'])
-    plasma['vt'] = vt
-    plasma['data_source'] = 'Indica'
-    max_rho = np.nanmax(np.abs(plasmaconfig['rho_1d']))
-    mask = np.zeros_like(plasma['ti'], dtype='int')
-    w = np.where(rhogrid <= max_rho) #where we have profiles
+    plasma["time"] = time
+    plasma["zeff"] = zeff
+    plasma["te"] = 1.0e-03 * te  # fidasim expects keV
+    plasma["ti"] = 1.0e-03 * ti  # fidasim expects keV
+    plasma["denn"] = 1.0e-06 * nn  # fidasim expects cm^-3
+    plasma["dene"] = 1.0e-06 * ne  # fidasim expects cm^-3
+    plasma["vr"] = np.zeros_like(plasma["ti"])
+    plasma["vz"] = np.zeros_like(plasma["ti"])
+    plasma["vt"] = vt
+    plasma["data_source"] = "Indica"
+    max_rho = np.nanmax(np.abs(plasmaconfig["rho_1d"]))
+    mask = np.zeros_like(plasma["ti"], dtype="int")
+    w = np.where(rhogrid <= max_rho)  # where we have profiles
     mask[w] = 1
-    plasma['mask'] = mask
-
+    plasma["mask"] = mask
 
     # Add grid and flux to plasma dict
-    plasma['grid'] = grid
-    plasma['flux'] = rhogrid
-    plasma['bgrid'] = bgrid
+    plasma["grid"] = grid
+    plasma["flux"] = rhogrid
+    plasma["bgrid"] = bgrid
 
     # extract omp profiles from 2D plasma grid
     # Assume z grid is up-down symmetric
-    plasma['profiles'] = {}
-    i_z = int(nz/2)
-    plasma['profiles']['ti'] = plasma['ti'][:,i_z]
-    plasma['profiles']['te'] = plasma['te'][:,i_z]
-    plasma['profiles']['dene'] = plasma['dene'][:,i_z]
-    plasma['profiles']['denn'] = plasma['denn'][:,i_z]
-    plasma['profiles']['rho'] = plasma['flux'][:,i_z]
-    plasma['profiles']['r_omp'] = plasma['grid']['r']
+    plasma["profiles"] = {}
+    i_z = int(nz / 2)
+    plasma["profiles"]["ti"] = plasma["ti"][:, i_z]
+    plasma["profiles"]["te"] = plasma["te"][:, i_z]
+    plasma["profiles"]["dene"] = plasma["dene"][:, i_z]
+    plasma["profiles"]["denn"] = plasma["denn"][:, i_z]
+    plasma["profiles"]["rho"] = plasma["flux"][:, i_z]
+    plasma["profiles"]["r_omp"] = plasma["grid"]["r"]
 
     # manual v_tor profile
-    plasma['profiles']['vt'] = plasma['vt'][:,i_z]
-
+    plasma["profiles"]["vt"] = plasma["vt"][:, i_z]
 
     # Create results directory
-    case_save_dir = save_dir + '/' + str(shot)
+    case_save_dir = save_dir + "/" + str(shot)
     if not os.path.exists(case_save_dir):
         os.makedirs(case_save_dir)
 
-    time_str = 't_{:8.6f}'.format(time)
-    _case_save_dir = case_save_dir + '/' + time_str
+    time_str = "t_{:8.6f}".format(time)
+    _case_save_dir = case_save_dir + "/" + time_str
     if not os.path.exists(_case_save_dir):
         os.makedirs(_case_save_dir)
 
-    out_dict['plasma'] = copy.deepcopy(plasma)
-    out_dict['plasma']['time'] = str(out_dict['plasma']['time'])
-    out_dict['flux'] = copy.deepcopy(rhogrid)
-    out_dict['grid'] = copy.deepcopy(grid)
-    out_dict['bgrid'] = copy.deepcopy(bgrid)
+    out_dict["plasma"] = copy.deepcopy(plasma)
+    out_dict["plasma"]["time"] = str(out_dict["plasma"]["time"])
+    out_dict["flux"] = copy.deepcopy(rhogrid)
+    out_dict["grid"] = copy.deepcopy(grid)
+    out_dict["bgrid"] = copy.deepcopy(bgrid)
     convert_to_list(out_dict)
     # Write plasma dictionary in JSON format and save to run directory
-    save_plasma_file = _case_save_dir + '/TE-fidasim_plasma.json'
-    with open(save_plasma_file, mode='w', encoding='utf-8') as f:
+    save_plasma_file = _case_save_dir + "/TE-fidasim_plasma.json"
+    with open(save_plasma_file, mode="w", encoding="utf-8") as f:
         json.dump(out_dict, f, indent=2)
 
     # Create results directory for each beam
-    beam_save_dir = _case_save_dir + '/' + beam_id
+    beam_save_dir = _case_save_dir + "/" + beam_id
     if not os.path.exists(beam_save_dir):
         os.makedirs(beam_save_dir)
 
-    general_settings = build_general_settings(shot, time, runid, beam_save_dir, fida_dir)
+    general_settings = build_general_settings(
+        shot, time, runid, beam_save_dir, fida_dir
+    )
     simulation_switches = SIMULATION_SWITCHES
 
     if fine_MC_res:
@@ -426,64 +455,70 @@ def prepare_fidasim(
     inputs.update(bgrid)
 
     for beam in nbis:
-        if beam_id == beam['name']:
+        if beam_id == beam["name"]:
             fidasim.prefida(inputs, grid, beam, plasma, equil, fi_dist)
-
 
     # If here then preprocessing was successful for this beam. Launch batch job.
     # submit_fidasim_batch_job(beam_save_dir)
 
 
 def postproc_fidasim(
-        shot: int,
-        time: float,
-        nbiconfig: dict,
-        specconfig: dict,
-        plasmaconfig: dict,
-        save_dir: str = FIDASIM_OUTPUT_DIR,
-        process_spec=True,
-        block=False,
-        debug=False,
-        los_type='center'
+    shot: int,
+    time: float,
+    nbiconfig: dict,
+    specconfig: dict,
+    plasmaconfig: dict,
+    save_dir: str = FIDASIM_OUTPUT_DIR,
+    process_spec=True,
+    block=False,
+    debug=False,
+    los_type="center",
 ):
-    
-    """Collects the fidasim hdf5 results from each pini. Optionally fits cxs spectra, and saves processed output
-        to a JSON dictionary.
+
+    """Collect fidasim hdf5 results from each pini.
+    Optionally fit CXS spectra and save processed output to a JSON dictionary.
 
     Parameters
     ----------
     process_spec : bool
-        Flag for collecting and fitting cxs spectra for each pini, as well as the total of all pinis.
+        Flag for collecting and fitting CXS spectra for each pini, as well as
+        the total of all pinis.
 
     """
 
-    out_dict = {} # Ouptut dictionary containing combined pini results
+    out_dict = {}  # Ouptut dictionary containing combined pini results
     time = time
     st40_beams = nbiconfig
-    beam_amu = st40_beams['ab']
-    beam_name = st40_beams['name']
+    beam_amu = st40_beams["ab"]
+    beam_name = st40_beams["name"]
     st40_spec = specconfig
     runid = pwd.getpwuid(os.getuid())[0]
-    spec_name = st40_spec['name']
+    spec_name = st40_spec["name"]
     cross_section_corr = False
-    if 'cross_section_corr' in st40_spec:
-        cross_section_corr = st40_spec['cross_section_corr']
-    plasma_ion_amu = plasmaconfig['plasma_ion_amu']
+    if "cross_section_corr" in st40_spec:
+        cross_section_corr = st40_spec["cross_section_corr"]
+    plasma_ion_amu = plasmaconfig["plasma_ion_amu"]
 
-    out_dict['amu'] = plasma_ion_amu
+    out_dict["amu"] = plasma_ion_amu
 
     # Configure spec dictionary compatible with fidasim format.
     spec = None
-    if spec_name in st40_spec['name']:
-        pi_spec = CxsSpec(shot, chord_IDs=st40_spec['chord_IDs'],
-                  amu=plasma_ion_amu, beam_amu=beam_amu,  beam_name=beam_name, spec_name=spec_name,
-                  cross_section_corr=cross_section_corr,
-                  custom_geo_dict=st40_spec["geom_dict"])
-        nchan = len(st40_spec['chord_IDs'])
+    if spec_name in st40_spec["name"]:
+        pi_spec = CxsSpec(
+            shot,
+            chord_IDs=st40_spec["chord_IDs"],
+            amu=plasma_ion_amu,
+            beam_amu=beam_amu,
+            beam_name=beam_name,
+            spec_name=spec_name,
+            cross_section_corr=cross_section_corr,
+            custom_geo_dict=st40_spec["geom_dict"],
+        )
+        nchan = len(st40_spec["chord_IDs"])
 
         ids = []
-        for id in st40_spec['chord_IDs']:
-            ids.append(id.encode(encoding='utf_8'))
+        for id in st40_spec["chord_IDs"]:
+            ids.append(id.encode(encoding="utf_8"))
 
         ids = []
         radius = []
@@ -491,71 +526,77 @@ def postproc_fidasim(
         axis = []
         _spot_radius = 1.25  # TODO: estimate spot radius on Princeton foreoptic
         spot_size = []
-        _sigma_pi_ratio = 1.  # default sigma/pi ratio
+        _sigma_pi_ratio = 1.0  # default sigma/pi ratio
         sigma_pi = []
 
         ## import LOS data from local pickle file (J Wood 29/07/22)
-        #import pickle
-        #los_data = pickle.load(open('PI_LOS_geometry_processed.p', 'rb'))
-        #los_data = los_data['3POINT_AV']
+        # import pickle
+        # los_data = pickle.load(open('PI_LOS_geometry_processed.p', 'rb'))
+        # los_data = los_data['3POINT_AV']
 
         for index, chord in enumerate(pi_spec.chords):
 
-
-            ids.append(chord.id.encode(encoding='utf_8'))
+            ids.append(chord.id.encode(encoding="utf_8"))
             radius.append(chord.tang_rad)
             lens.append(chord.origin)
             axis.append(chord.diruvec)
             spot_size.append(_spot_radius)
             sigma_pi.append(_sigma_pi_ratio)
 
-    # run directory        
-    time_str = 't_{:8.6f}'.format(time)
-    run_dir = save_dir + '/' + str(shot) + '/' + time_str
-    plasma_file = run_dir + '/TE-fidasim_plasma.json'
+    # run directory
+    time_str = "t_{:8.6f}".format(time)
+    run_dir = save_dir + "/" + str(shot) + "/" + time_str
+    plasma_file = run_dir + "/TE-fidasim_plasma.json"
 
     # Collect fidasim results for each beam and store in output dictionary
-    #icnt = 0
-    #for beam_id, beam_detail in st40_beams.items():
+    # icnt = 0
+    # for beam_id, beam_detail in st40_beams.items():
 
-    beam_save_dir = run_dir + '/' +beam_name
+    beam_save_dir = run_dir + "/" + beam_name
 
     if not os.path.exists(beam_save_dir):
         raise FileNotFoundError(f"Results directory path not found: {beam_save_dir}")
-    
-    
 
-    if spec_name in st40_spec['name'] and process_spec:
-        spec_file = beam_save_dir + '/' + runid + '_spectra.h5'
-        geo_file = beam_save_dir + '/' + runid + '_geometry.h5'
+    if spec_name in st40_spec["name"] and process_spec:
+        spec_file = beam_save_dir + "/" + runid + "_spectra.h5"
+        geo_file = beam_save_dir + "/" + runid + "_geometry.h5"
         # dcx_file = beam_save_dir + '/' + runid + '_dcx.h5'
-        neut_file = beam_save_dir + '/' + runid + '_neutrals.h5'
+        neut_file = beam_save_dir + "/" + runid + "_neutrals.h5"
 
         try:
-            open(spec_file, 'rb')
+            open(spec_file, "rb")
         except FileNotFoundError:
             raise FileNotFoundError(f"Results spectra file not found: {spec_file}")
 
         # Collect results from fidasim
         pi_spec.collect_pini_spectra(beam_name, spec_file, geo_file, neut_file)
 
-        # Using fidasim dcx and halo density, manually perform line-integration as sanity check against fidasim
-        pi_spec.los_integrate_pini_brightness(beam_name, beam_save_dir, plasma_file, neut_file)
+        # Using fidasim DCX and halo density, manually perform line-integration
+        # as a sanity check against fidasim.
+        pi_spec.los_integrate_pini_brightness(
+            beam_name, beam_save_dir, plasma_file, neut_file
+        )
 
-        # Using fidasim full energy neutral beam density, manually perform CVI line-integration
+        # Using fidasim full-energy neutral beam density, manually perform CVI
+        # line-integration.
         # Assume constant C_6+ concetration
-        pi_spec.los_integrate_CVI_brightness(beam_name, beam_save_dir, plasma_file, neut_file, block=block)
+        pi_spec.los_integrate_CVI_brightness(
+            beam_name, beam_save_dir, plasma_file, neut_file, block=block
+        )
 
     export_dict = dict()
-    if spec_name in st40_spec['name'] and process_spec:
+    if spec_name in st40_spec["name"] and process_spec:
         # Fit fidasim spectra from individual pini and sum of pinis for Ti, v_tor
         pi_spec.fit_spectra(block=block)
 
-        # Calculate doppler shifts for full, half and third energy components of each pini
+        # Calculate Doppler shifts for full, half, and third-energy components
+        # of each pini.
         pi_spec.calc_bes_dopp_shifts()
 
-        # Also fit manually line-integrated spectra from individual beam and sum of beams for Ti, v_tor
-        # Spectra are generated using the fidasim 3d density plots and the 2D poloidal plasma Ti contours
+        # Also fit manually line-integrated spectra from each beam and the
+        # beam-summed spectra for Ti, v_tor.
+        # Spectra are generated using fidasim 3D density plots and 2D poloidal
+        # plasma Ti contours.
         pi_spec.fit_spectra(fit_manual_los_integral=True, block=block)
         pi_spec.fit_spectra(fit_manual_cvi_integral=True, block=block, run_dir=run_dir)
 
@@ -569,38 +610,44 @@ def postproc_fidasim(
         vtor = np.zeros(len(out_dict[spec_name].keys()))
         vtor_err = np.zeros(len(out_dict[spec_name].keys()))
         for i_chord, id in enumerate(out_dict[spec_name].keys()):
-            Ti[i_chord] = out_dict[spec_name][id]['res'][beam_name]['man_los_integral']['fit_cvi']['Ti']
-            Ti_err[i_chord] = out_dict[spec_name][id]['res'][beam_name]['man_los_integral']['fit_cvi']['Ti_err']
-            cwl[i_chord] = out_dict[spec_name][id]['res'][beam_name]['man_los_integral']['fit_cvi']['cwl']
-            cwl_err[i_chord] = out_dict[spec_name][id]['res'][beam_name]['man_los_integral']['fit_cvi']['cwl_err']
+            Ti[i_chord] = out_dict[spec_name][id]["res"][beam_name]["man_los_integral"][
+                "fit_cvi"
+            ]["Ti"]
+            Ti_err[i_chord] = out_dict[spec_name][id]["res"][beam_name][
+                "man_los_integral"
+            ]["fit_cvi"]["Ti_err"]
+            cwl[i_chord] = out_dict[spec_name][id]["res"][beam_name][
+                "man_los_integral"
+            ]["fit_cvi"]["cwl"]
+            cwl_err[i_chord] = out_dict[spec_name][id]["res"][beam_name][
+                "man_los_integral"
+            ]["fit_cvi"]["cwl_err"]
 
             # Convert Doppler shift to toroidal rotation
             vtor[i_chord] = get_v_tor_v_pol(
-                out_dict[spec_name][id]['origin'],
-                np.array(out_dict[spec_name][id]['beam_intersect_pos'][beam_name]),
+                out_dict[spec_name][id]["origin"],
+                np.array(out_dict[spec_name][id]["beam_intersect_pos"][beam_name]),
                 529.059 - cwl[i_chord],
                 529.059,
             )
             vtor_err[i_chord] = get_v_tor_v_pol(
-                out_dict[spec_name][id]['origin'],
-                np.array(out_dict[spec_name][id]['beam_intersect_pos'][beam_name]),
+                out_dict[spec_name][id]["origin"],
+                np.array(out_dict[spec_name][id]["beam_intersect_pos"][beam_name]),
                 cwl_err[i_chord],
                 529.059,
             )
 
-        export_dict['chord_id'] = list(out_dict[spec_name].keys())
-        export_dict['Ti'] = Ti
-        export_dict['Ti_err'] = Ti_err
-        export_dict['cwl'] = cwl
-        export_dict['cwl_err'] = cwl_err
-        export_dict['vtor'] = vtor
-        export_dict['vtor_err'] = vtor_err
-
-
+        export_dict["chord_id"] = list(out_dict[spec_name].keys())
+        export_dict["Ti"] = Ti
+        export_dict["Ti_err"] = Ti_err
+        export_dict["cwl"] = cwl
+        export_dict["cwl_err"] = cwl_err
+        export_dict["vtor"] = vtor
+        export_dict["vtor_err"] = vtor_err
 
     # Write output dictionary in JSON format and save to run directory
-    savefile = run_dir + '/TE-fidasim_output.json'
-    with open (savefile, mode='w', encoding='utf-8') as f:
+    savefile = run_dir + "/TE-fidasim_output.json"
+    with open(savefile, mode="w", encoding="utf-8") as f:
         json.dump(out_dict, f, indent=2)
     # Plotting removed (see fidasim_utils_plotting_legacy.py).
 
