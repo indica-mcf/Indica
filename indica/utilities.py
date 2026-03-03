@@ -1,4 +1,5 @@
 """Various miscellanious helper functions."""
+
 from copy import deepcopy
 from getpass import getuser
 import hashlib
@@ -148,10 +149,10 @@ def get_slice_limits(low: float, high: float, data: OnlyArray) -> Tuple[int, int
     """
     start = np.argmax(data > low) - 1
     if start < 0:
-        raise ValueError("Low value {} not in range of provided " "data.".format(low))
+        raise ValueError("Low value {} not in range of provided data.".format(low))
     end = np.argmax(data >= high)
     if end < 1:
-        raise ValueError("High value {} not in range of provided " "data.".format(high))
+        raise ValueError("High value {} not in range of provided data.".format(high))
 
     return (start, end)  # type: ignore
 
@@ -292,7 +293,7 @@ def build_dataarrays(
                 _data = _data.isel(t=ind_unique)
 
         # Add attributes and assign to dictionary
-        _attrs = ["transform", "uid", "instrument", "revision", "best_revision"]
+        _attrs = ["transform", "uid", "instrument", "revision", "is_best"]
 
         for key in _attrs:
             _data.attrs[key] = ""
@@ -521,7 +522,6 @@ def save_figure(
 def set_plot_colors(
     color_map: str = "gnuplot2",
 ):
-
     cmap = getattr(cm, color_map)
     colors = {
         "electron": cmap(0.1),
@@ -539,7 +539,6 @@ def set_plot_colors(
 
 
 def set_plot_rcparams(option: str = "profiles", rc_params: dict = None):
-
     if rc_params is None:
         plot_params: dict = {
             "profiles": {

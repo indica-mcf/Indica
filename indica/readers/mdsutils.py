@@ -2,6 +2,7 @@ from typing import List
 from typing import Tuple
 
 from MDSplus import Connection
+from MDSplus.mdsExceptions import TreeNNF
 import numpy as np
 
 from indica import BaseIO
@@ -105,10 +106,10 @@ class MDSUtils(BaseIO):
 
         return data, dims, unit, _path
 
-    def revision_name(self, revision: RevisionLike) -> str:
+    def revision_name(self, revision: RevisionLike) -> RevisionLike:
         """Return string defining RUN## or BEST if revision = 0"""
 
-        if type(revision) == int:
+        if isinstance(revision, int):
             _revision = int(revision)
             if _revision < 0:
                 rev_str = ""
@@ -123,22 +124,35 @@ class MDSUtils(BaseIO):
 
         return rev_str.upper()
 
-    def get_best_revision(self, uid: str, instrument: str):
+    def get_best_revision(
+        self,
+        uid: str,
+        instrument: str,
+        revision_name: str = "best",
+    ):
         """
         Return revision name to which BEST is pointing to
         """
-        best_revision, _ = self.get_signal(uid, instrument, ".best_run", "best")
+        best_revision, _ = self.get_signal(uid, instrument, ".best_run", revision_name)
         return best_revision
 
-    def get_revision(self, uid: str, instrument: str, revision: RevisionLike) -> str:
+    def get_revision(
+        self, uid: str, instrument: str, revision: RevisionLike
+    ) -> tuple[RevisionLike, bool]:
         """
         Return revision name given
         """
-        revision_name = self.revision_name(revision)
-        if revision_name == "BEST":
-            revision_name = self.get_best_revision(uid, instrument)
+        _revision_name = self.revision_name(revision)
+        is_best = False
+        if "BEST" in _revision_name:
+            try:
+                revision_name = self.get_best_revision(uid, instrument, _revision_name)
+                is_best = True
+            except TreeNNF:
+                revision_name = _revision_name
+                is_best = False
 
-        return revision_name
+        return revision_name, is_best
 
     def get_mds_path(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
