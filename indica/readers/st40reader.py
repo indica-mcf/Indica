@@ -127,7 +127,11 @@ class ST40Reader(DataReader):
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         # Add boundary index
-        database_results["index"] = np.arange(np.size(database_results["rbnd"][0, :]))
+        if "rbnd" in database_results:
+            database_results["index"] = np.arange(
+                np.size(database_results["rbnd"][0, :])
+            )
+
         # Re-shape psi matrix
         database_results["psi"] = database_results["psi"].reshape(
             (

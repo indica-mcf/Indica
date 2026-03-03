@@ -142,14 +142,13 @@ class MDSUtils(BaseIO):
         """
         Return revision name given
         """
-        _revision_name = self.revision_name(revision)
+        revision_name = self.revision_name(revision)
         is_best = False
-        if "BEST" in _revision_name:
+        if "BEST" in revision_name:
             try:
-                revision_name = self.get_best_revision(uid, instrument, _revision_name)
+                revision_name = self.get_best_revision(uid, instrument, revision_name)
                 is_best = True
             except TreeNNF:
-                revision_name = _revision_name
                 is_best = False
 
         return revision_name, is_best
