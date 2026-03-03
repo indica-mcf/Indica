@@ -29,7 +29,6 @@ from ..nbi_configs import WAVELENGTH_GRID_SETTINGS
 from ..nbi_configs import WEIGHT_FUNCTION_SETTINGS
 from ..st40_utils import convert_to_list
 from ..st40_utils import create_st40_beam_grid
-from ..st40_utils import get_v_tor_v_pol
 
 # from cxspec import CxsSpec
 # import plot
@@ -75,7 +74,7 @@ def parse_input_file(input_dict_file):
             raise FileNotFoundError(f"{file_key} not found ({file_path})")
 
     if "cxs_spec" in input_dict:
-        if not "chord_IDs" in input_dict["cxs_spec"]:
+        if "chord_IDs" not in input_dict["cxs_spec"]:
             raise ValueError("chords not specified for cxs spec.")
 
     return input_dict
@@ -222,7 +221,7 @@ def prepare_fidasim(
     time = time
     # geqdsk_file = input_dict['input_files']['geqdsk_file']
     st40_beams = nbiconfig
-    beam_amu = st40_beams["ab"]
+    # beam_amu = st40_beams["ab"]
     beam_name = st40_beams["name"]
     # run = input_dict['run']
     runid = pwd.getpwuid(os.getuid())[0]
@@ -329,7 +328,7 @@ def prepare_fidasim(
     # Interpolate kinetic data
     from scipy.interpolate import interp1d
 
-    dims = rhogrid.shape
+    # dims = rhogrid.shape
     f_zeff = interp1d(
         plasmaconfig["rho_1d"], plasmaconfig["zeff"], fill_value="extrapolate"
     )
@@ -462,6 +461,8 @@ def prepare_fidasim(
     # submit_fidasim_batch_job(beam_save_dir)
 
 
+# Might be used later.
+"""
 def postproc_fidasim(
     shot: int,
     time: float,
@@ -475,7 +476,7 @@ def postproc_fidasim(
     los_type="center",
 ):
 
-    """Collect fidasim hdf5 results from each pini.
+    Collect fidasim hdf5 results from each pini.
     Optionally fit CXS spectra and save processed output to a JSON dictionary.
 
     Parameters
@@ -484,7 +485,7 @@ def postproc_fidasim(
         Flag for collecting and fitting CXS spectra for each pini, as well as
         the total of all pinis.
 
-    """
+
 
     out_dict = {}  # Ouptut dictionary containing combined pini results
     time = time
@@ -653,3 +654,4 @@ def postproc_fidasim(
 
     # Export temperature and velocity results from simulated data
     return export_dict
+    """
