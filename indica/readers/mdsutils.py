@@ -2,6 +2,7 @@ from typing import List
 from typing import Tuple
 
 from MDSplus import Connection
+from MDSplus.mdsExceptions import TreeNNF
 import numpy as np
 
 from indica import BaseIO
@@ -123,11 +124,16 @@ class MDSUtils(BaseIO):
 
         return rev_str.upper()
 
-    def get_best_revision(self, uid: str, instrument: str):
+    def get_best_revision(
+        self,
+        uid: str,
+        instrument: str,
+        revision_name: str = "best",
+    ):
         """
         Return revision name to which BEST is pointing to
         """
-        best_revision, _ = self.get_signal(uid, instrument, ".best_run", "best")
+        best_revision, _ = self.get_signal(uid, instrument, ".best_run", revision_name)
         return best_revision
 
     def get_revision(
@@ -136,11 +142,16 @@ class MDSUtils(BaseIO):
         """
         Return revision name given
         """
-        revision_name = self.revision_name(revision)
-        if revision_name == "BEST":
-            revision_name = self.get_best_revision(uid, instrument)
+        _revision_name = self.revision_name(revision)
+        is_best = False
+        if "BEST" in _revision_name:
+            try:
+                revision_name = self.get_best_revision(uid, instrument, _revision_name)
+                is_best = True
+            except TreeNNF:
+                revision_name = _revision_name
+                is_best = False
 
-        is_best = revision_name == "BEST"
         return revision_name, is_best
 
     def get_mds_path(
