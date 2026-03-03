@@ -2,10 +2,8 @@ from itertools import product
 import os
 
 from fidasim.utils import beam_grid
-import matplotlib.pyplot as plt
-from MDSplus import *
+from MDSplus import Tree
 import numpy as np
-import pandas as pd
 from scipy.interpolate import interp1d
 from scipy.interpolate import LinearNDInterpolator
 
@@ -55,7 +53,6 @@ def extract_hda_plasma(
     hda_te = tree.getNode("RUN" + str(run) + ".PROFILES.PSI_NORM.TE").data()
     hda_ti = tree.getNode("RUN" + str(run) + ".PROFILES.PSI_NORM.TI").data()
     hda_ne = tree.getNode("RUN" + str(run) + ".PROFILES.PSI_NORM.NE").data()
-    hda_ni = tree.getNode("RUN" + str(run) + ".PROFILES.PSI_NORM.NI").data()
     hda_zeff = tree.getNode("RUN" + str(run) + ".PROFILES.PSI_NORM.ZEFF").data()
     hda_t = tree.getNode("RUN" + str(run) + ".TIME").data()
 
@@ -80,18 +77,22 @@ def extract_hda_plasma(
     # Use custom Ti profile
     ti_edge = hda_ti[it, -1]
     # plim = (1.5, 5.0)
-    # Ti_profiles_list = profiles.scan_profile_peaking(y0=ti0, wcenter=wcenter, plim=plim)
+    # Ti_profiles_list = profiles.scan_profile_peaking(
+    #     y0=ti0, wcenter=wcenter, plim=plim
+    # )
     # Ti_profile = Ti_profiles_list[iprofile]
 
     # plim = (peaking, peaking)
-    # Ti_profiles_list = profiles.scan_profile_peaking(y0=ti0, wcenter=wcenter, plim=plim)
+    # Ti_profiles_list = profiles.scan_profile_peaking(
+    #     y0=ti0, wcenter=wcenter, plim=plim
+    # )
     # Ti_profile = Ti_profiles_list[0]
     # rho = Ti_profile.xspl
     # Ti = Ti_profile.yspl.data
     # Ti_mod = Ti - Ti[-1]  # remove baseline
     # Ti_mod = Ti_mod * (ti0 - ti_edge) / np.max(Ti_mod)
     # Ti_mod = Ti_mod + ti_edge
-    ## f_ti = interp1d(hda_rho,hda_ti[it,:],fill_value='extrapolate')
+    # f_ti = interp1d(hda_rho,hda_ti[it,:],fill_value='extrapolate')
     # f_ti = interp1d(rho, Ti_mod, fill_value='extrapolate')
 
     print(f"ti0 = {ti0}")
@@ -147,10 +148,8 @@ def extract_hda_plasma(
 
         hda_omega = omega_core * hda_ti[it, :] / np.max(hda_ti[it, :])
 
-        factor = omega_core / np.max(hda_ti[it, :])
         # print(f'omega_core = {omega_core}')
         # print(f'np.max(hda_ti[it,:]) = {np.max(hda_ti[it,:])}')
-        # print(f'factor = {factor}')
         # print('aa'**2)
 
         flag = False
@@ -530,30 +529,34 @@ def read_cxs_spec_geometry(
             elif i == 4 and spec_name == "Chers_mod":
                 origin = [csv_data[i][1], csv_data[i][2], csv_data[i][3]]
             else:
-                los_name = csv_data[i][0].decode(
-                    "utf-8-sig"
-                )  # https://stackoverflow.com/questions/17912307/u-ufeff-in-python-string
+                los_name = csv_data[i][0].decode("utf-8-sig")  # strip BOM if present
 
                 if los_name not in geo_dict:
 
                     geo_dict[los_name] = {
                         "origin": origin,
-                        "diruvec": [csv_data[i][1], csv_data[i][2], csv_data[i][3]],
+                        "diruvec": [
+                            csv_data[i][1],
+                            csv_data[i][2],
+                            csv_data[i][3],
+                        ],
                     }
 
             if spec_name == "Chers_new":
                 if (i == 0) or (i == 2) or (i == 4):
                     origin = [csv_data[i][1], csv_data[i][2], csv_data[i][3]]
                 else:
-                    los_name = csv_data[i][0].decode(
-                        "utf-8-sig"
-                    )  # https://stackoverflow.com/questions/17912307/u-ufeff-in-python-string
+                    los_name = csv_data[i][0].decode("utf-8-sig")
 
                     if los_name not in geo_dict:
 
                         geo_dict[los_name] = {
                             "origin": origin,
-                            "diruvec": [csv_data[i][1], csv_data[i][2], csv_data[i][3]],
+                            "diruvec": [
+                                csv_data[i][1],
+                                csv_data[i][2],
+                                csv_data[i][3],
+                            ],
                         }
 
     return geo_dict, False
@@ -656,10 +659,6 @@ def read_adf12_qef(adf12file, transition="8-7", level="n1"):
     berr = False
 
     # Find all catia geo files and check that given pulse is valid
-    path = "adf12/"
-
-    # filepath = path + adf12file
-
     # f = open(filepath, 'r')
     # lines = f.readlines()
 
@@ -1003,7 +1002,8 @@ def create_st40_beam_grid(
 ):
     """Fidasim beam grid creation for ST-40 beams.
 
-    Beam grid is static regardless of the beams used for a given pulse. This is necessary for superposition
+    Beam grid is static regardless of the beams used for a given pulse
+    This is necessary for superposition
     of multi-beam runs.
 
 
