@@ -9,16 +9,16 @@ from indica.converters import TransectCoordinates
 def line_of_sight_example(make_plot=True):
     # Dummy line-of-sight
     machine_dims = ((0.15, 0.85), (-0.75, 0.75))
-    origin_x = np.array([1.0, 1.0, 1.0], dtype=float)
-    origin_y = np.array([0.0, 0.0, 0.0], dtype=float)
-    origin_z = np.array([0.0, 0.0, 0.0], dtype=float)
-    direction_x = np.array([-0.8, -0.8, -0.8], dtype=float)
-    direction_y = np.array([0.4, 0.1, 0.0], dtype=float)
-    direction_z = np.array([0.0, 0.0, 0.0], dtype=float)
+    origin_x     = np.array([1.0, 1.0, 1.0], dtype=float)
+    origin_y     = np.array([0.0, 0.0, 0.0], dtype=float)
+    origin_z     = np.array([0.0, 0.0, 0.0], dtype=float)
+    direction_x  = np.array([-0.8, -0.8, -0.8], dtype=float)
+    direction_y  = np.array([0.4, 0.1, 0.0], dtype=float)
+    direction_z  = np.array([0.0, 0.0, 0.0], dtype=float)
     name = "dummy_los"
 
     # Optional inputs for the spot
-    focal_length = -0.5  # meter
+    focal_length = 0.5  # meter
     spot_width = 0.010  # meter
     spot_height = 0.015  # meter
     spot_shape = "round"
