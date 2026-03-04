@@ -6,6 +6,7 @@ ADF15 = {
             year="96",
         ),
     },
+    "li": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 3)},
     "ne": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 8)},
     "c": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 6)},
     "b": {
