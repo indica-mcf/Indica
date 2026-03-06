@@ -1,6 +1,4 @@
-"""Experimental design for performing mathematical operations on data.
-"""
-
+"""Experimental design for performing mathematical operations on data."""
 from abc import ABC
 from abc import abstractmethod
 import datetime
@@ -9,6 +7,9 @@ from typing import Union
 
 from xarray import DataArray
 from xarray import Dataset
+
+from indica.converters import CoordinateTransform
+from indica.plasma import Plasma
 
 Data = Union[DataArray, Dataset]
 
@@ -25,6 +26,27 @@ class Operator(ABC):
     def __init__(self, **kwargs: Any):
         """Creates a provenance - currently not very elaborate."""
         self._init_time: datetime.datetime
+
+    def set_transform(self, transform: CoordinateTransform):
+        """
+        Line-of-sight or Transect coordinate transform
+        """
+        # TODO: types attribute set during initialisation!
+        self.transform = transform
+
+    def set_plasma(self, plasma: Plasma):
+        """
+        Assign Plasma class to use for computation of forward model
+        """
+        self.plasma = plasma
+
+    def set_parameters(self, **kwargs):
+        """
+        Set any model kwargs
+        """
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
     @abstractmethod
     def __call__(self, *args: DataArray) -> Union[DataArray, Dataset]:
