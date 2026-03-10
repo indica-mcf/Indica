@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 import fidasim
+from fidasim.utils import beam_grid
 from fidasim.utils import rz_grid
 import h5py as h5
 import numpy as np
@@ -18,6 +19,8 @@ from ..nbi_configs import build_plasma_settings
 from ..nbi_configs import FIDASIM_BASE_DIR
 from ..nbi_configs import FIDASIM_BIN_PATH
 from ..nbi_configs import FIDASIM_OUTPUT_DIR
+from ..nbi_configs import get_hnbi_geo
+from ..nbi_configs import get_rfx_geo
 from ..nbi_configs import MC_SETTINGS_COARSE
 from ..nbi_configs import MC_SETTINGS_FINE
 from ..nbi_configs import NBI_USER
@@ -27,14 +30,88 @@ from ..nbi_configs import TE_FIDASIM_CODE_PATH
 from ..nbi_configs import TE_FIDASIM_FI_DIST_FILE
 from ..nbi_configs import WAVELENGTH_GRID_SETTINGS
 from ..nbi_configs import WEIGHT_FUNCTION_SETTINGS
-from ..st40_utils import convert_to_list
-from ..st40_utils import create_st40_beam_grid
 
 # from cxspec import CxsSpec
 # import plot
 # from batch import submit_fidasim_batch_job
 
 os.environ["HDF5_DISABLE_VERSION_CHECK"] = "1"
+
+
+def convert_to_list(resdict):
+    """Recursively search nested dict for arrays and convert to list."""
+
+    for key, value in resdict.items():
+        if isinstance(value, dict):
+            convert_to_list(value)
+        elif isinstance(value, np.ndarray):
+            resdict[key] = value.tolist()
+
+
+def create_st40_beam_grid(beam, plot_bgrid=False, ax=None, delta_src=0.0, delta_ang=0.0):
+    """Fidasim beam grid creation for ST-40 beams."""
+
+    rfx = get_rfx_geo()
+    hnbi = get_hnbi_geo()
+
+    # Modify RFX source position
+    delta = delta_src
+    norm_angle = np.arctan2(rfx["axis"][1], rfx["axis"][0]) + np.pi / 2
+    dx = delta * np.cos(norm_angle)
+    dy = delta * np.sin(norm_angle)
+    rfx["src"][0] = rfx["src"][0] + dx * 100
+    rfx["src"][1] = rfx["src"][1] + dy * 100
+
+    # Modify RFX angle
+    rfx_angle = np.arctan2(rfx["axis"][1], rfx["axis"][0])
+    rfx_angle_new = rfx_angle + delta_ang
+    axis_new = np.array([np.cos(rfx_angle_new), np.sin(rfx_angle_new), 0.0])
+    rfx["axis"] = axis_new
+
+    nbi_list = [rfx, hnbi]
+
+    if ax:
+        for beam_cfg in nbi_list:
+            ax.scatter(
+                beam_cfg["src"][0],
+                beam_cfg["src"][1],
+                beam_cfg["src"][2],
+                marker="x",
+                color="k",
+            )
+            pini_len = 1000
+            pinix = beam_cfg["src"][0] + beam_cfg["axis"][0] * pini_len
+            piniy = beam_cfg["src"][1] + beam_cfg["axis"][1] * pini_len
+            piniz = beam_cfg["src"][2] + beam_cfg["axis"][2] * pini_len
+            ax.plot3D(
+                [beam_cfg["src"][0], pinix],
+                [beam_cfg["src"][1], piniy],
+                zs=[beam_cfg["src"][2], piniz],
+                color="r",
+            )
+
+    rstart = 100  # [cm]
+
+    if beam.upper() == "RFX":
+        bgrid = beam_grid(
+            rfx,
+            rstart,
+            length=250.0,
+            width=250.0,
+            height=50.0,
+            dv=2.0,
+        )
+    else:
+        bgrid = beam_grid(
+            hnbi,
+            rstart,
+            length=250.0,
+            width=250.0,
+            height=50.0,
+            dv=2.0,
+        )
+
+    return bgrid, nbi_list
 
 
 def parse_input_file(input_dict_file):
