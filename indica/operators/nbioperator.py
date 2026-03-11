@@ -25,13 +25,12 @@ class NBIOperator(Operator):
         pinj: float,
         current_fractions: List[float],
         ab: float,
-        pulse: int = None,
         plasma_ion_amu: float = 2.014,
+        file_name: str = "nbiop",
     ):
         # Initialized with beam related info; transform and plasma are set later.
         self.transform = None
         self.plasma = None
-        self.pulse = pulse
 
         self.name = name
         self.einj = einj
@@ -40,6 +39,7 @@ class NBIOperator(Operator):
         self.ab = ab
 
         self.plasma_ion_amu = plasma_ion_amu
+        self.file_name = file_name
 
     def __call__(
         self,
@@ -52,7 +52,7 @@ class NBIOperator(Operator):
         zeff: Optional[DataArray] = None,
         *,
         t: Union[DataArray, float, int],
-        pulse: int,
+        file_name: Optional[str] = None,
         plasma: Optional[Plasma] = None,
     ) -> dict:
 
@@ -66,7 +66,8 @@ class NBIOperator(Operator):
         self.t = t
         if plasma is not None:
             self.plasma = plasma
-        self.pulse = pulse
+        if file_name is not None:
+            self.file_name = file_name
 
         if self.plasma is not None:
             if self.ion_temperature is None:
@@ -94,8 +95,8 @@ class NBIOperator(Operator):
 
         if self.t is None:
             raise ValueError("t is required (pass to __call__)")
-        if self.pulse is None:
-            raise ValueError("pulse is required (set it on init or pass to __call__)")
+        if not self.file_name:
+            raise ValueError("file_name is required (set it on init or pass to __call__)")
         if self.transform is None:
             raise ValueError("transform is required (set it before calling)")
         if (
@@ -134,12 +135,11 @@ class NBIOperator(Operator):
 
     def _build_nbi_contexts(self):
         t = self.t
-        pulse = self.pulse
 
         # Normalize time input into a 1D array.
         t_values = np.atleast_1d(getattr(t, "data", t))
 
-        # Resolve pulse and equilibrium from the transform.
+        # Resolve equilibrium from the transform.
         eq = self.transform.equilibrium
 
         # Build a per-time context dict with profiles and equilibrium geometry.
@@ -185,7 +185,7 @@ class NBIOperator(Operator):
 
             rho = rho_2d.values
             ctx = {
-                "pulse": pulse,
+                "file_name": self.file_name,
                 "time": time,
                 "rho_1d": rho_1d,
                 "rho": rho,

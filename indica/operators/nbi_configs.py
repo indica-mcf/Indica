@@ -1,15 +1,15 @@
 import numpy as np
+from pathlib import Path
 
 # Paths & environment: file locations for geometry,
 #  FIDASIM install, and default inputs/outputs.
-TE_FIDASIM_CODE_PATH = "/home/jussi.hakosalo/te-fidasim"
-FIDASIM_BASE_DIR = "/home/jussi.hakosalo/fidasim/FIDASIM-2.0.0"
-FIDASIM_OUTPUT_DIR = "/home/jussi.hakosalo/fidasim_output"
-FIDASIM_BIN_PATH = FIDASIM_BASE_DIR + "/fidasim"
-TE_FIDASIM_FI_DIST_FILE = (
-    "/home/jussi.hakosalo/te-fidasim/9188_150_rfx/a5fidasim_distribution.h5"
+FIDASIM_ROOT = Path.home() / ".Indica" / "fidasim"
+FIDASIM_BASE_DIR = str(FIDASIM_ROOT / "FIDASIM-2.0.0")
+FIDASIM_OUTPUT_DIR = str(FIDASIM_ROOT / "output")
+FIDASIM_BIN_PATH = str(Path(FIDASIM_BASE_DIR) / "fidasim")
+FIDASIM_FI_DIST_FILE = str(
+    FIDASIM_ROOT / "dists" / "9188_150_rfx" / "a5fidasim_distribution.h5"
 )
-NBI_USER = "jussi.hakosalo"
 
 # Simulation switches: enable/disable individual fidasim capabilities
 SIMULATION_SWITCHES = {
