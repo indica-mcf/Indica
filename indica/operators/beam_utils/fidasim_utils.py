@@ -1,10 +1,8 @@
 import copy
 import json
 import os
-import pwd
 import shutil
 import subprocess
-import sys
 
 import fidasim
 from fidasim.utils import beam_grid
@@ -23,11 +21,9 @@ from ..nbi_configs import get_hnbi_geo
 from ..nbi_configs import get_rfx_geo
 from ..nbi_configs import MC_SETTINGS_COARSE
 from ..nbi_configs import MC_SETTINGS_FINE
-from ..nbi_configs import NBI_USER
 from ..nbi_configs import PLASMA_INTERP_GRID_SETTINGS
 from ..nbi_configs import SIMULATION_SWITCHES
-from ..nbi_configs import TE_FIDASIM_CODE_PATH
-from ..nbi_configs import TE_FIDASIM_FI_DIST_FILE
+from ..nbi_configs import FIDASIM_FI_DIST_FILE
 from ..nbi_configs import WAVELENGTH_GRID_SETTINGS
 from ..nbi_configs import WEIGHT_FUNCTION_SETTINGS
 
@@ -183,6 +179,17 @@ def _fidasim_out_to_xarray_dataset(h5_path: str) -> xr.Dataset:
     return xr.Dataset(data_vars=data_vars, attrs=root_attrs)
 
 
+def _time_to_ms(time: float) -> int:
+    return int(round(float(time) * 1.0e3))
+
+
+def _build_run_prefix(file_name: str, time: float, nbi_name: str) -> str:
+    base_name = str(file_name).strip()
+    if not base_name:
+        raise ValueError("file_name cannot be empty")
+    return f"{base_name}_{_time_to_ms(time)}_ms_{nbi_name}"
+
+
 def _run_fidasim(operator, ctx: dict) -> dict:
     # From this point on, everything is FIDASIM specific.
     plasmaconfig = {
@@ -205,31 +212,31 @@ def _run_fidasim(operator, ctx: dict) -> dict:
 
     # Run TE-fidasim
     run_fidasim_flag = True
-    sys.path.append(TE_FIDASIM_CODE_PATH)
 
-    pulse = ctx["pulse"]
+    file_name = ctx["file_name"]
     time = ctx["time"]
 
     beam = operator.name
+    run_prefix = _build_run_prefix(file_name, time, beam)
 
     # File paths
     save_dir = FIDASIM_OUTPUT_DIR
-    user = NBI_USER
+    run_dir = os.path.join(save_dir, run_prefix)
+    beam_save_dir = os.path.join(run_dir, beam)
     num_cores = 3
-    fidasim_out = save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}/{user}_inputs.dat"
+    fidasim_out = os.path.join(beam_save_dir, f"{run_prefix}_inputs.dat")
 
     # Remove the existing folder if re-running fidasim
     if run_fidasim_flag:
         try:
-            path_to_fidasim = save_dir + f"/{pulse}/t_{time:0.6f}/{beam.lower()}"
-            shutil.rmtree(path_to_fidasim)
+            shutil.rmtree(run_dir)
         except FileNotFoundError:
             pass
 
     # Run pre-processing code
-    # This takes in pulse number, time, the nbi configuration, and plasma.
+    # This takes in filename/time context, the nbi configuration, and plasma.
     prepare_fidasim(
-        pulse,
+        file_name,
         time,
         {
             "name": operator.name,
@@ -253,11 +260,7 @@ def _run_fidasim(operator, ctx: dict) -> dict:
             ]
         )
 
-    runid = pwd.getpwuid(os.getuid())[0]
-    time_str = "t_{:8.6f}".format(time)
-    run_dir = save_dir + "/" + str(pulse) + "/" + time_str
-    beam_save_dir = run_dir + "/" + beam
-    neut_file = beam_save_dir + "/" + runid + "_neutrals.h5"
+    neut_file = os.path.join(beam_save_dir, f"{run_prefix}_neutrals.h5")
 
     if not os.path.exists(neut_file):
         raise FileNotFoundError(f"Neutrals file not found: {neut_file}")
@@ -272,11 +275,11 @@ def _run_fidasim(operator, ctx: dict) -> dict:
 
 
 def prepare_fidasim(
-    shot: int,
+    file_name: str,
     time: float,
     nbiconfig: dict,
     plasmaconfig: dict,
-    fi_dist_file: str = TE_FIDASIM_FI_DIST_FILE,
+    fi_dist_file: str = FIDASIM_FI_DIST_FILE,
     save_dir: str = FIDASIM_OUTPUT_DIR,
     fida_dir: str = FIDASIM_BASE_DIR,
     fine_MC_res: bool = False,
@@ -300,8 +303,7 @@ def prepare_fidasim(
     st40_beams = nbiconfig
     # beam_amu = st40_beams["ab"]
     beam_name = st40_beams["name"]
-    # run = input_dict['run']
-    runid = pwd.getpwuid(os.getuid())[0]
+    run_prefix = _build_run_prefix(file_name, time, beam_name)
     plasma_ion_amu = plasmaconfig["plasma_ion_amu"]
     # vtor_peak_kms = input_dict['vtor_peak_kms']
 
@@ -481,12 +483,11 @@ def prepare_fidasim(
     plasma["profiles"]["vt"] = plasma["vt"][:, i_z]
 
     # Create results directory
-    case_save_dir = save_dir + "/" + str(shot)
+    case_save_dir = os.path.join(save_dir, run_prefix)
     if not os.path.exists(case_save_dir):
         os.makedirs(case_save_dir)
 
-    time_str = "t_{:8.6f}".format(time)
-    _case_save_dir = case_save_dir + "/" + time_str
+    _case_save_dir = case_save_dir
     if not os.path.exists(_case_save_dir):
         os.makedirs(_case_save_dir)
 
@@ -497,17 +498,17 @@ def prepare_fidasim(
     out_dict["bgrid"] = copy.deepcopy(bgrid)
     convert_to_list(out_dict)
     # Write plasma dictionary in JSON format and save to run directory
-    save_plasma_file = _case_save_dir + "/TE-fidasim_plasma.json"
+    save_plasma_file = os.path.join(_case_save_dir, f"{run_prefix}_plasma.json")
     with open(save_plasma_file, mode="w", encoding="utf-8") as f:
         json.dump(out_dict, f, indent=2)
 
     # Create results directory for each beam
-    beam_save_dir = _case_save_dir + "/" + beam_id
+    beam_save_dir = os.path.join(_case_save_dir, beam_id)
     if not os.path.exists(beam_save_dir):
         os.makedirs(beam_save_dir)
 
     general_settings = build_general_settings(
-        shot, time, runid, beam_save_dir, fida_dir
+        0, time, run_prefix, beam_save_dir, fida_dir
     )
     simulation_switches = SIMULATION_SWITCHES
 
