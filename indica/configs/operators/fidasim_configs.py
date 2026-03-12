@@ -163,11 +163,3 @@ def build_general_settings(shot, time, runid, beam_save_dir, fida_dir):
         "result_dir": beam_save_dir,
         "tables_file": fida_dir + "/tables/atomic_tables.h5",
     }
-
-
-# Build plasma settings: ion mass and impurity charge state.
-def build_plasma_settings(plasma_ion_amu, imp_charge):
-    return {
-        "ai": plasma_ion_amu,
-        "impurity_charge": imp_charge,
-    }
