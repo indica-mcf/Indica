@@ -7,6 +7,14 @@ from indica.operators import nbioperator
 def run_nbi_operator_example():
     """Build default inputs and run the NBI operator once."""
     machine = "st40"
+
+
+    #Basically, this transform is only used to provide access to an equilibrium to the operator. 
+    #The beam geometry comes from the fidasim_config: get_rfx_geo/get_hnbi_geo. 
+    #So the question is, how do we want to use it? Basically, should I aspire to construct
+    #A transform object from the config object?
+
+    
     transforms = load_default_objects(machine, "geometry")
     nbi_transform = transforms["tws_c"]  # Placeholder until dedicated NBI geometry.
 
