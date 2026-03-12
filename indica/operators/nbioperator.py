@@ -159,10 +159,6 @@ class NBIOperator(Operator):
             bz = bz.values
             bt = bt.transpose("z", "R").values
 
-            # TODO - remove this. Currently using this bt estimate
-            #  as otherwise it wont run due to nan errors.
-            irod = 3.0 * 1e6
-            bt = irod * (4 * np.pi * 1e-7) / (2 * np.pi * R_2d)
 
             rho = rho_2d.values
             ctx = {
