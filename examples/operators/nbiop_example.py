@@ -15,9 +15,6 @@ def run_nbi_operator_example():
     plasma.set_equilibrium(equilibrium)
     nbi_transform.set_equilibrium(equilibrium)
 
-    pulse = 13475
-    # fidasim_utils uses pulse when creating output dictionaries and paths.
-
     # These values are used in existing workflows but should come from geometry.
     nbi_transform.focal_length = -0.03995269  # meter
     nbi_transform.spot_width = 1.1e-3
@@ -29,7 +26,6 @@ def run_nbi_operator_example():
         pinj=0.5,  # MW
         current_fractions=[0.5, 0.35, 0.15],
         ab=2.014,
-        pulse=pulse,
     )
     nbi_op.set_transform(nbi_transform)
     nbi_op.set_plasma(plasma)
@@ -43,7 +39,7 @@ def run_nbi_operator_example():
         toroidal_rotation=plasma.toroidal_rotation,
         zeff=plasma.zeff,
         t=plasma.t[5],
-        pulse=pulse,
+        file_name="nbiop_example",
     )
     print(neutrals_by_time)
     return neutrals_by_time
