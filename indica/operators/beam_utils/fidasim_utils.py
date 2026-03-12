@@ -210,9 +210,6 @@ def _run_fidasim(operator, ctx: dict) -> dict:
         "plasma_ion_amu": operator.plasma_ion_amu,
     }
 
-    # Run TE-fidasim
-    run_fidasim_flag = True
-
     file_name = ctx["file_name"]
     time = ctx["time"]
 
@@ -227,11 +224,10 @@ def _run_fidasim(operator, ctx: dict) -> dict:
     fidasim_out = os.path.join(beam_save_dir, f"{run_prefix}_inputs.dat")
 
     # Remove the existing folder if re-running fidasim
-    if run_fidasim_flag:
-        try:
-            shutil.rmtree(run_dir)
-        except FileNotFoundError:
-            pass
+    try:
+        shutil.rmtree(run_dir)
+    except FileNotFoundError:
+        pass
 
     # Run pre-processing code
     # This takes in filename/time context, the nbi configuration, and plasma.
@@ -251,14 +247,13 @@ def _run_fidasim(operator, ctx: dict) -> dict:
         fine_MC_res=True,
     )
 
-    if run_fidasim_flag:
-        subprocess.run(
-            [
-                FIDASIM_BIN_PATH,
-                fidasim_out,
-                f"{num_cores}",
-            ]
-        )
+    subprocess.run(
+        [
+            FIDASIM_BIN_PATH,
+            fidasim_out,
+            f"{num_cores}",
+        ]
+    )
 
     neut_file = os.path.join(beam_save_dir, f"{run_prefix}_neutrals.h5")
 
