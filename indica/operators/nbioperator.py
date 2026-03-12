@@ -27,6 +27,7 @@ class NBIOperator(Operator):
         ab: float,
         plasma_ion_amu: float = 2.014,
         file_name: str = "nbiop",
+        nbi_model: str = "FIDASIM",
     ):
         # Initialized with beam related info; transform and plasma are set later.
         self.transform = None
@@ -40,10 +41,10 @@ class NBIOperator(Operator):
 
         self.plasma_ion_amu = plasma_ion_amu
         self.file_name = file_name
+        self.nbi_model = nbi_model
 
     def __call__(
         self,
-        nbi_model: str = "FIDASIM",
         ion_temperature: Optional[DataArray] = None,
         electron_temperature: Optional[DataArray] = None,
         electron_density: Optional[DataArray] = None,
@@ -56,7 +57,6 @@ class NBIOperator(Operator):
         plasma: Optional[Plasma] = None,
     ) -> dict:
 
-        self.nbi_model = nbi_model
         self.ion_temperature = ion_temperature
         self.electron_temperature = electron_temperature
         self.electron_density = electron_density
@@ -106,7 +106,7 @@ class NBIOperator(Operator):
             raise ValueError("transform is missing equilibrium data")
 
         # Resolve which NBI model runner to use for this call.
-        model = nbi_model
+        model = self.nbi_model
         model_key = str(model).strip().upper()
         model_handler = self._get_model_handler(model_key)
 
