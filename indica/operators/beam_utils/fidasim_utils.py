@@ -190,7 +190,7 @@ def _build_run_prefix(file_name: str, time: float, nbi_name: str) -> str:
     return f"{base_name}_{_time_to_ms(time)}_ms_{nbi_name}"
 
 
-def _run_fidasim(operator, ctx: dict) -> dict:
+def run_fidasim(operator, ctx: dict) -> dict:
     # From this point on, everything is FIDASIM specific.
     plasmaconfig = {
         "R": ctx["R_2d"],
@@ -267,6 +267,10 @@ def _run_fidasim(operator, ctx: dict) -> dict:
         }
     }
     return neutrals_by_time
+
+
+# Backward compatibility alias.
+_run_fidasim = run_fidasim
 
 
 def prepare_fidasim(

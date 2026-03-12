@@ -2,14 +2,14 @@
 
 from typing import Callable
 
-from .adas_nbi_utils import _run_adas
-from .analytic_nbi_utils import _run_analytic
-from .fidasim_utils import _run_fidasim
+from .adas_nbi_utils import run_adas
+from .analytic_nbi_utils import run_analytic
+from .fidasim_utils import run_fidasim
 
 NBI_MODEL_HANDLERS = {
-    "FIDASIM": _run_fidasim,
-    "ANALYTIC": _run_analytic,
-    "ADAS": _run_adas,
+    "FIDASIM": run_fidasim,
+    "ANALYTIC": run_analytic,
+    "ADAS": run_adas,
 }
 
 
@@ -26,6 +26,9 @@ __all__ = [
     "adas_nbi_utils",
     "analytic_nbi_utils",
     "fidasim_utils",
+    "run_adas",
+    "run_analytic",
+    "run_fidasim",
     "NBI_MODEL_HANDLERS",
     "get_nbi_model_handler",
 ]
