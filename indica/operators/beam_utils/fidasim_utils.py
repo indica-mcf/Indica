@@ -11,21 +11,21 @@ import h5py as h5
 import numpy as np
 import xarray as xr
 
-from ..nbi_configs import build_general_settings
-from ..nbi_configs import build_nbi_settings
-from ..nbi_configs import build_plasma_settings
-from ..nbi_configs import FIDASIM_BASE_DIR
-from ..nbi_configs import FIDASIM_BIN_PATH
-from ..nbi_configs import FIDASIM_OUTPUT_DIR
-from ..nbi_configs import get_hnbi_geo
-from ..nbi_configs import get_rfx_geo
-from ..nbi_configs import MC_SETTINGS_COARSE
-from ..nbi_configs import MC_SETTINGS_FINE
-from ..nbi_configs import PLASMA_INTERP_GRID_SETTINGS
-from ..nbi_configs import SIMULATION_SWITCHES
-from ..nbi_configs import FIDASIM_FI_DIST_FILE
-from ..nbi_configs import WAVELENGTH_GRID_SETTINGS
-from ..nbi_configs import WEIGHT_FUNCTION_SETTINGS
+from indica.configs.operators.fidasim_configs import build_general_settings
+from indica.configs.operators.fidasim_configs import build_nbi_settings
+from indica.configs.operators.fidasim_configs import build_plasma_settings
+from indica.configs.operators.fidasim_configs import FIDASIM_BASE_DIR
+from indica.configs.operators.fidasim_configs import FIDASIM_BIN_PATH
+from indica.configs.operators.fidasim_configs import FIDASIM_OUTPUT_DIR
+from indica.configs.operators.fidasim_configs import FIDASIM_FI_DIST_FILE
+from indica.configs.operators.fidasim_configs import MC_SETTINGS_COARSE
+from indica.configs.operators.fidasim_configs import MC_SETTINGS_FINE
+from indica.configs.operators.fidasim_configs import PLASMA_INTERP_GRID_SETTINGS
+from indica.configs.operators.fidasim_configs import SIMULATION_SWITCHES
+from indica.configs.operators.fidasim_configs import WAVELENGTH_GRID_SETTINGS
+from indica.configs.operators.fidasim_configs import WEIGHT_FUNCTION_SETTINGS
+from indica.configs.operators.nbi_configs import get_hnbi_geo
+from indica.configs.operators.nbi_configs import get_rfx_geo
 
 # from cxspec import CxsSpec
 # import plot
