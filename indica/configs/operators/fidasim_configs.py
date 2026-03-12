@@ -150,16 +150,3 @@ WEIGHT_FUNCTION_SETTINGS = {
     "lambdamin_wght": 647.0,
     "lambdamax_wght": 667.0,
 }
-
-
-# Build general settings: run metadata and result locations.
-def build_general_settings(shot, time, runid, beam_save_dir, fida_dir):
-    return {
-        "device": "ST-40",
-        "shot": shot,
-        "time": time,
-        "runid": runid,
-        "comment": "test",
-        "result_dir": beam_save_dir,
-        "tables_file": fida_dir + "/tables/atomic_tables.h5",
-    }
