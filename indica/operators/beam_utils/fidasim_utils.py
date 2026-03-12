@@ -12,7 +12,6 @@ import numpy as np
 import xarray as xr
 
 from indica.configs.operators.fidasim_configs import build_general_settings
-from indica.configs.operators.fidasim_configs import build_nbi_settings
 from indica.configs.operators.fidasim_configs import build_plasma_settings
 from indica.configs.operators.fidasim_configs import FIDASIM_BASE_DIR
 from indica.configs.operators.fidasim_configs import FIDASIM_BIN_PATH
@@ -24,8 +23,8 @@ from indica.configs.operators.fidasim_configs import PLASMA_INTERP_GRID_SETTINGS
 from indica.configs.operators.fidasim_configs import SIMULATION_SWITCHES
 from indica.configs.operators.fidasim_configs import WAVELENGTH_GRID_SETTINGS
 from indica.configs.operators.fidasim_configs import WEIGHT_FUNCTION_SETTINGS
-from indica.configs.operators.nbi_configs import get_hnbi_geo
-from indica.configs.operators.nbi_configs import get_rfx_geo
+from indica.configs.operators.fidasim_configs import get_hnbi_geo
+from indica.configs.operators.fidasim_configs import get_rfx_geo
 
 # from cxspec import CxsSpec
 # import plot
@@ -230,17 +229,11 @@ def run_fidasim(operator, ctx: dict) -> dict:
         pass
 
     # Run pre-processing code
-    # This takes in filename/time context, the nbi configuration, and plasma.
+    # This takes in filename/time context, operator beam settings, and plasma.
     prepare_fidasim(
+        operator,
         file_name,
         time,
-        {
-            "name": operator.name,
-            "einj": operator.einj,
-            "pinj": operator.pinj,
-            "current_fractions": operator.current_fractions,
-            "ab": operator.ab,
-        },
         plasmaconfig,
         save_dir=save_dir,
         plot_geo=False,
@@ -274,9 +267,9 @@ _run_fidasim = run_fidasim
 
 
 def prepare_fidasim(
+    operator,
     file_name: str,
     time: float,
-    nbiconfig: dict,
     plasmaconfig: dict,
     fi_dist_file: str = FIDASIM_FI_DIST_FILE,
     save_dir: str = FIDASIM_OUTPUT_DIR,
@@ -298,10 +291,7 @@ def prepare_fidasim(
     # NOW DO FIDASIM PREPROCESSING
 
     time = time
-    # geqdsk_file = input_dict['input_files']['geqdsk_file']
-    st40_beams = nbiconfig
-    # beam_amu = st40_beams["ab"]
-    beam_name = st40_beams["name"]
+    beam_name = operator.name
     run_prefix = _build_run_prefix(file_name, time, beam_name)
     plasma_ion_amu = plasmaconfig["plasma_ion_amu"]
     # vtor_peak_kms = input_dict['vtor_peak_kms']
@@ -309,7 +299,7 @@ def prepare_fidasim(
     # Preprocessing for each participating pini
     # Note: preprocessing.py modifies input dictionaries, so recreate the same
     # inputs for every pini.
-    beam_id = st40_beams["name"]
+    beam_id = operator.name
 
     # Define plasma interpolation grid bounds
     rmin = PLASMA_INTERP_GRID_SETTINGS["rmin"]
@@ -516,7 +506,12 @@ def prepare_fidasim(
     else:
         mc_settings = MC_SETTINGS_COARSE
 
-    nbi_settings = build_nbi_settings(st40_beams)
+    nbi_settings = {
+        "einj": operator.einj,
+        "pinj": operator.pinj,
+        "current_fractions": np.array((operator.current_fractions)),
+        "ab": operator.ab,
+    }
     plasma_settings = build_plasma_settings(plasma_ion_amu, imp_charge)
     wavelength_grid_settings = WAVELENGTH_GRID_SETTINGS
     weight_function_settings = WEIGHT_FUNCTION_SETTINGS

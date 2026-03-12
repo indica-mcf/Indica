@@ -165,16 +165,6 @@ def build_general_settings(shot, time, runid, beam_save_dir, fida_dir):
     }
 
 
-# Build NBI settings: beam energy/power/species mix used by FIDASIM.
-def build_nbi_settings(st40_beams):
-    return {
-        "einj": st40_beams["einj"],
-        "pinj": st40_beams["pinj"],
-        "current_fractions": np.array((st40_beams["current_fractions"])),
-        "ab": st40_beams["ab"],
-    }
-
-
 # Build plasma settings: ion mass and impurity charge state.
 def build_plasma_settings(plasma_ion_amu, imp_charge):
     return {
