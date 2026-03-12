@@ -5,7 +5,6 @@ from typing import Union
 import numpy as np
 from xarray import DataArray
 
-from indica import Plasma
 from indica.operators.beam_utils import adas_nbi_utils
 from indica.operators.beam_utils import analytic_nbi_utils
 from indica.operators.beam_utils import fidasim_utils
@@ -14,8 +13,8 @@ from .abstractoperator import Operator
 
 class NBIOperator(Operator):
 
-    """This operator should be operating on a standard plasma+profiles, and spit out
-    fast neutral density and fast particle pressure. I believe it does.
+    """This operator should operate on profile inputs and spit out
+    fast neutral density and fast particle pressure.
     """
 
     def __init__(
@@ -29,9 +28,8 @@ class NBIOperator(Operator):
         file_name: str = "nbiop",
         nbi_model: str = "FIDASIM",
     ):
-        # Initialized with beam related info; transform and plasma are set later.
+        # Initialized with beam related info; transform is set later.
         self.transform = None
-        self.plasma = None
 
         self.name = name
         self.einj = einj
@@ -45,16 +43,15 @@ class NBIOperator(Operator):
 
     def __call__(
         self,
-        ion_temperature: Optional[DataArray] = None,
-        electron_temperature: Optional[DataArray] = None,
-        electron_density: Optional[DataArray] = None,
-        neutral_density: Optional[DataArray] = None,
-        toroidal_rotation: Optional[DataArray] = None,
-        zeff: Optional[DataArray] = None,
+        ion_temperature: DataArray,
+        electron_temperature: DataArray,
+        electron_density: DataArray,
+        neutral_density: DataArray,
+        toroidal_rotation: DataArray,
+        zeff: DataArray,
         *,
         t: Union[DataArray, float, int],
         file_name: Optional[str] = None,
-        plasma: Optional[Plasma] = None,
     ) -> dict:
 
         self.ion_temperature = ion_temperature
@@ -64,24 +61,8 @@ class NBIOperator(Operator):
         self.toroidal_rotation = toroidal_rotation
         self.zeff = zeff
         self.t = t
-        if plasma is not None:
-            self.plasma = plasma
         if file_name is not None:
             self.file_name = file_name
-
-        if self.plasma is not None:
-            if self.ion_temperature is None:
-                self.ion_temperature = self.plasma.ion_temperature
-            if self.electron_temperature is None:
-                self.electron_temperature = self.plasma.electron_temperature
-            if self.electron_density is None:
-                self.electron_density = self.plasma.electron_density
-            if self.neutral_density is None:
-                self.neutral_density = self.plasma.neutral_density
-            if self.toroidal_rotation is None:
-                self.toroidal_rotation = self.plasma.toroidal_rotation
-            if self.zeff is None:
-                self.zeff = self.plasma.zeff
 
         if (
             self.ion_temperature is None
@@ -91,7 +72,7 @@ class NBIOperator(Operator):
             or self.toroidal_rotation is None
             or self.zeff is None
         ):
-            raise ValueError("Give inputs or assign plasma class!")
+            raise ValueError("All profile inputs are required.")
 
         if self.t is None:
             raise ValueError("t is required (pass to __call__)")
@@ -115,11 +96,11 @@ class NBIOperator(Operator):
 
         # TODO: sequential time stepping
         # If multiple times are provided, we should run them in order and allow
-        # the plasma to be updated between steps (the simulation may modify
-        # plasma parameters). Suggested future API:
-        #   __call__(..., plasma_updater: Callable[[Plasma, dict, Any], Plasma] = None)
-        # where plasma_updater receives (plasma, ctx, result) and returns the
-        # updated plasma to use for the next step. Default behavior is stateless.
+        # the profile state to be updated between steps (the simulation may modify
+        # profile parameters). Suggested future API:
+        #   __call__(..., profile_updater: Callable[[dict, Any], dict] = None)
+        # where profile_updater receives (ctx, result) and returns updated inputs
+        # for the next step. Default behavior is stateless.
 
         # Execute the selected model for each time slice and collect results.
         neutrals_by_time = {}

@@ -29,7 +29,6 @@ def run_nbi_operator_example():
         nbi_model="FIDASIM",
     )
     nbi_op.set_transform(nbi_transform)
-    nbi_op.set_plasma(plasma)
 
     neutrals_by_time = nbi_op(
         ion_temperature=plasma.ion_temperature,
