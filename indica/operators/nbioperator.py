@@ -85,9 +85,7 @@ class NBIOperator(Operator):
             raise ValueError("transform is missing equilibrium data")
 
         # Resolve which NBI model runner to use for this call.
-        model = self.nbi_model
-        model_key = str(model).strip().upper()
-        model_handler = get_nbi_model_handler(model_key)
+        model_handler = get_nbi_model_handler(str(self.nbi_model).strip().upper())
 
         # Build per-time context dictionaries (profiles + equilibrium geometry).
         contexts = self._build_nbi_contexts()
