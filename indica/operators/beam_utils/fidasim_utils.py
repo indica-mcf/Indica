@@ -11,7 +11,6 @@ import h5py as h5
 import numpy as np
 import xarray as xr
 
-from indica.configs.operators.fidasim_configs import build_general_settings
 from indica.configs.operators.fidasim_configs import FIDASIM_BASE_DIR
 from indica.configs.operators.fidasim_configs import FIDASIM_BIN_PATH
 from indica.configs.operators.fidasim_configs import FIDASIM_OUTPUT_DIR
@@ -495,9 +494,15 @@ def prepare_fidasim(
     if not os.path.exists(beam_save_dir):
         os.makedirs(beam_save_dir)
 
-    general_settings = build_general_settings(
-        0, time, run_prefix, beam_save_dir, fida_dir
-    )
+    general_settings = {
+        "device": "ST-40",
+        "shot": 0,
+        "time": time,
+        "runid": run_prefix,
+        "comment": "test",
+        "result_dir": beam_save_dir,
+        "tables_file": fida_dir + "/tables/atomic_tables.h5",
+    }
     simulation_switches = SIMULATION_SWITCHES
 
     if fine_MC_res:
