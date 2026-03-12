@@ -5,9 +5,7 @@ from typing import Union
 import numpy as np
 from xarray import DataArray
 
-from indica.operators.beam_utils import adas_nbi_utils
-from indica.operators.beam_utils import analytic_nbi_utils
-from indica.operators.beam_utils import fidasim_utils
+from indica.operators.beam_utils import get_nbi_model_handler
 from .abstractoperator import Operator
 
 
@@ -89,7 +87,7 @@ class NBIOperator(Operator):
         # Resolve which NBI model runner to use for this call.
         model = self.nbi_model
         model_key = str(model).strip().upper()
-        model_handler = self._get_model_handler(model_key)
+        model_handler = get_nbi_model_handler(model_key)
 
         # Build per-time context dictionaries (profiles + equilibrium geometry).
         contexts = self._build_nbi_contexts()
@@ -182,17 +180,3 @@ class NBIOperator(Operator):
             contexts.append(ctx)
 
         return contexts
-
-    @staticmethod
-    def _get_model_handler(model_key: str):
-        handlers = {
-            "FIDASIM": fidasim_utils._run_fidasim,
-            "ANALYTIC": analytic_nbi_utils._run_analytic,
-            "ADAS": adas_nbi_utils._run_adas,
-        }
-        if model_key not in handlers:
-            supported = ", ".join(handlers.keys())
-            raise ValueError(
-                f"Unknown nbi_model '{model_key}'. Supported models: {supported}"
-            )
-        return handlers[model_key]
