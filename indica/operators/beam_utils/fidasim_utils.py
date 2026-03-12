@@ -12,7 +12,6 @@ import numpy as np
 import xarray as xr
 
 from indica.configs.operators.fidasim_configs import build_general_settings
-from indica.configs.operators.fidasim_configs import build_plasma_settings
 from indica.configs.operators.fidasim_configs import FIDASIM_BASE_DIR
 from indica.configs.operators.fidasim_configs import FIDASIM_BIN_PATH
 from indica.configs.operators.fidasim_configs import FIDASIM_OUTPUT_DIR
@@ -512,7 +511,10 @@ def prepare_fidasim(
         "current_fractions": np.array((operator.current_fractions)),
         "ab": operator.ab,
     }
-    plasma_settings = build_plasma_settings(plasma_ion_amu, imp_charge)
+    plasma_settings = {
+        "ai": plasma_ion_amu,
+        "impurity_charge": imp_charge,
+    }
     wavelength_grid_settings = WAVELENGTH_GRID_SETTINGS
     weight_function_settings = WEIGHT_FUNCTION_SETTINGS
 
