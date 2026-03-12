@@ -26,12 +26,12 @@ def run_nbi_operator_example():
         pinj=0.5,  # MW
         current_fractions=[0.5, 0.35, 0.15],
         ab=2.014,
+        nbi_model="FIDASIM",
     )
     nbi_op.set_transform(nbi_transform)
     nbi_op.set_plasma(plasma)
 
     neutrals_by_time = nbi_op(
-        nbi_model="FIDASIM",
         ion_temperature=plasma.ion_temperature,
         electron_temperature=plasma.electron_temperature,
         electron_density=plasma.electron_density,
