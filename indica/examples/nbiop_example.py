@@ -15,10 +15,7 @@ def run_nbi_operator_example():
     plasma.set_equilibrium(equilibrium)
     nbi_transform.set_equilibrium(equilibrium)
 
-    # These values are used in existing workflows but should come from geometry.
-    nbi_transform.focal_length = -0.03995269  # meter
-    nbi_transform.spot_width = 1.1e-3
-    nbi_transform.spot_height = 1.1e-3
+
 
     nbi_op = nbioperator.NBIOperator(
         name="hnbi",
