@@ -22,7 +22,7 @@ AuroraConfig = dict(
     cxr_flag=False,
     nbi_cxr_flag=False,
     source_type="const",
-    source_rate=1e21,
+    source_rate=1e20,
     source_file=None,
     explicit_source_vals=None,
     explicit_source_time=None,
@@ -78,11 +78,11 @@ AuroraConfig = dict(
         "rhop": None, "vals": None
     },
 
-    timing={
-        "dt_increase": [1.005, 1.],
-        "dt_start": [1e-5, 1e-3],
-        "steps_per_cycle": [1, 1],
-        "times": [0, 0.1],
+    timing={  # Be cautious changing these values can break the simulation easily
+        "dt_increase": np.array([1.01, 1.0]),
+        "dt_start": np.array([1e-4, 1e-3]),
+        "steps_per_cycle": np.array([1, 1]),
+        "times": np.array([-0.1, 1.0, ]),
     },
     kin_profs={
         "Te": {
