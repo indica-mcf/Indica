@@ -6,6 +6,7 @@ import numpy as np
 from xarray import DataArray
 
 from indica.operators.beam_utils.nbi_utils import clean_magnetic_field_components
+from indica.operators.beam_utils.nbi_utils import save_magnetic_field_maps
 from indica.operators.beam_utils import get_nbi_model_handler
 from .abstractoperator import Operator
 
@@ -158,7 +159,27 @@ class NBIOperator(Operator):
             br = br.values
             bz = bz.values
             bt = bt.transpose("z", "R").values
+            save_magnetic_field_maps(
+                file_name=self.file_name,
+                R_2d=R_2d,
+                z_2d=z_2d,
+                br=br,
+                bz=bz,
+                bt=bt,
+                time=time,
+                stage="before_bfield_fix",
+            )
             br, bz, bt = clean_magnetic_field_components(br, bz, bt)
+            save_magnetic_field_maps(
+                file_name=self.file_name,
+                R_2d=R_2d,
+                z_2d=z_2d,
+                br=br,
+                bz=bz,
+                bt=bt,
+                time=time,
+                stage="after_bfield_fix",
+            )
 
 
             rho = rho_2d.values

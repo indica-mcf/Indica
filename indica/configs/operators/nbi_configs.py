@@ -9,10 +9,10 @@ DEFAULT_NBI_TRANSFORM_CONFIG = {
     # See fields such as LOCATION, DIRECTION, GRID_WIDTH/HEIGHT, GRID_SHAPE, etc.
 
     # 1) Already supported by LineOfSightTransform
-    "origin_x": np.array([0.0], dtype=float),  # DB: LOCATION[..., x] [m]
-    "origin_y": np.array([0.0], dtype=float),  # DB: LOCATION[..., y] [m]
+    "origin_x": np.array([0.339], dtype=float),  # DB: LOCATION[..., x] [m]
+    "origin_y": np.array([0.375], dtype=float),  # DB: LOCATION[..., y] [m]
     "origin_z": np.array([0.0], dtype=float),  # DB: LOCATION[..., z] [m]
-    "direction_x": np.array([1.0], dtype=float),  # DB: DIRECTION[..., xhat]
+    "direction_x": np.array([-0.779], dtype=float),  # DB: DIRECTION[..., xhat]
     "direction_y": np.array([0.0], dtype=float),  # DB: DIRECTION[..., yhat]
     "direction_z": np.array([0.0], dtype=float),  # DB: DIRECTION[..., zhat]
     "name": "hnbi",  # DB: LABEL / beam identifier
@@ -24,7 +24,7 @@ DEFAULT_NBI_TRANSFORM_CONFIG = {
     "spot_width": 0.01,  # DB: GRID_WIDTH [m]
     "spot_height": 0.01,  # DB: GRID_HEIGHT [m]
     "spot_shape": "round",  # DB: GRID_SHAPE (CIRCULAR/RECTANGULAR)
-    "focal_length": 1.0,  # DB: approx from FOCUS_H/FOCUS_V [m]
+    "focal_length": 1.0,  # Marco: where does this come from?
     "plot_beamlets": False,
 
     # 3) Not in LineOfSightTransform, but shared NBI beam settings used
