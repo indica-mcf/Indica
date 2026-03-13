@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import subprocess
+from typing import Any
 
 import fidasim
 from fidasim.utils import beam_grid
@@ -21,8 +22,8 @@ from indica.configs.operators.fidasim_configs import PLASMA_INTERP_GRID_SETTINGS
 from indica.configs.operators.fidasim_configs import SIMULATION_SWITCHES
 from indica.configs.operators.fidasim_configs import WAVELENGTH_GRID_SETTINGS
 from indica.configs.operators.fidasim_configs import WEIGHT_FUNCTION_SETTINGS
-from indica.configs.operators.fidasim_configs import get_hnbi_geo
-from indica.configs.operators.fidasim_configs import get_rfx_geo
+from indica.configs.operators.nbi_configs import get_default_nbi_beam_schema_defaults
+from indica.configs.operators.nbi_configs import get_default_nbi_transform_config
 
 # from cxspec import CxsSpec
 # import plot
@@ -41,70 +42,188 @@ def convert_to_list(resdict):
             resdict[key] = value.tolist()
 
 
-def create_st40_beam_grid(beam, plot_bgrid=False, ax=None, delta_src=0.0, delta_ang=0.0):
-    """Fidasim beam grid creation for ST-40 beams."""
+def _as_single_value(value: Any, field_name: str) -> float:
+    """Return a single float from scalar/array-like input.
 
-    rfx = get_rfx_geo()
-    hnbi = get_hnbi_geo()
+    Accepts scalar values or arrays where all entries are equal; otherwise raises.
+    """
+    arr = np.asarray(value, dtype=float).reshape(-1)
+    if arr.size == 0:
+        raise ValueError(f"transform.{field_name} is empty")
+    if arr.size > 1 and not np.allclose(arr, arr[0]):
+        raise ValueError(
+            f"transform.{field_name} must be scalar or constant across channels "
+            f"to derive a single beam geometry value."
+        )
+    return float(arr[0])
 
-    # Modify RFX source position
-    delta = delta_src
-    norm_angle = np.arctan2(rfx["axis"][1], rfx["axis"][0]) + np.pi / 2
-    dx = delta * np.cos(norm_angle)
-    dy = delta * np.sin(norm_angle)
-    rfx["src"][0] = rfx["src"][0] + dx * 100
-    rfx["src"][1] = rfx["src"][1] + dy * 100
 
-    # Modify RFX angle
-    rfx_angle = np.arctan2(rfx["axis"][1], rfx["axis"][0])
-    rfx_angle_new = rfx_angle + delta_ang
-    axis_new = np.array([np.cos(rfx_angle_new), np.sin(rfx_angle_new), 0.0])
-    rfx["axis"] = axis_new
+def _as_three_component(value: Any, field_name: str) -> np.ndarray:
+    """Return a 3-element float vector from scalar/array-like input."""
+    arr = np.asarray(value, dtype=float).reshape(-1)
+    if arr.size == 1:
+        return np.repeat(arr[0], 3)
+    if arr.size != 3:
+        raise ValueError(f"transform.{field_name} must be scalar or length-3")
+    return arr
 
-    nbi_list = [rfx, hnbi]
+
+def enrich_transform_beam_geometry(transform: Any, beam_name: str | None = None) -> None:
+    """Populate missing beam-geometry attributes on a transform.
+
+    Derived fields:
+    - src  from origin_x/y/z  (m -> cm)
+    - axis from direction_x/y/z (normalized)
+    - widy/widz from spot_width/spot_height (m -> cm)
+    - shape from spot_shape (rect/square -> 1, round/circular -> 2)
+    """
+    if beam_name and not hasattr(transform, "beam_name"):
+        setattr(transform, "beam_name", beam_name)
+
+    if not hasattr(transform, "src") or getattr(transform, "src") is None:
+        ox = _as_single_value(getattr(transform, "origin_x"), "origin_x")
+        oy = _as_single_value(getattr(transform, "origin_y"), "origin_y")
+        oz = _as_single_value(getattr(transform, "origin_z"), "origin_z")
+        setattr(transform, "src", 100.0 * np.array([ox, oy, oz], dtype=float))
+
+    if not hasattr(transform, "axis") or getattr(transform, "axis") is None:
+        dx = _as_single_value(getattr(transform, "direction_x"), "direction_x")
+        dy = _as_single_value(getattr(transform, "direction_y"), "direction_y")
+        dz = _as_single_value(getattr(transform, "direction_z"), "direction_z")
+        axis = np.array([dx, dy, dz], dtype=float)
+        norm = np.linalg.norm(axis)
+        if norm <= 0.0:
+            raise ValueError("transform direction vector has zero norm")
+        setattr(transform, "axis", axis / norm)
+
+    if not hasattr(transform, "widy") or getattr(transform, "widy") is None:
+        spot_width = _as_single_value(getattr(transform, "spot_width"), "spot_width")
+        setattr(transform, "widy", 100.0 * spot_width)
+
+    if not hasattr(transform, "widz") or getattr(transform, "widz") is None:
+        spot_height = _as_single_value(getattr(transform, "spot_height"), "spot_height")
+        setattr(transform, "widz", 100.0 * spot_height)
+
+    if not hasattr(transform, "shape") or getattr(transform, "shape") is None:
+        spot_shape = str(getattr(transform, "spot_shape", "")).lower()
+        shape_map = {
+            "rectangular": 1,
+            "rectangle": 1,
+            "square": 1,
+            "round": 2,
+            "circular": 2,
+        }
+        if spot_shape in shape_map:
+            setattr(transform, "shape", shape_map[spot_shape])
+        else:
+            # Safe fallback if spot_shape is unset/unrecognized.
+            setattr(transform, "shape", 2)
+
+    # Shared NBI defaults (kept in nbi_configs, used by multiple paths).
+    shared_nbi_defaults = get_default_nbi_transform_config()
+    for key in ("divy", "divz"):
+        if not hasattr(transform, key) or getattr(transform, key) is None:
+            setattr(transform, key, copy.deepcopy(shared_nbi_defaults[key]))
+
+    # FIDASIM-specific schema/sanity fields that cannot be derived from LOS geometry.
+    schema_defaults = get_default_nbi_beam_schema_defaults()
+    for key, value in schema_defaults.items():
+        if not hasattr(transform, key) or getattr(transform, key) is None:
+            setattr(transform, key, copy.deepcopy(value))
+
+
+def _build_fidasim_beam_from_transform(transform: Any, beam_name: str) -> dict:
+    """Build a FIDASIM beam-geometry dictionary directly from transform fields."""
+    src = np.asarray(getattr(transform, "src"), dtype=float).reshape(-1)
+    axis = np.asarray(getattr(transform, "axis"), dtype=float).reshape(-1)
+    if src.size != 3:
+        raise ValueError("transform.src must be length-3")
+    if axis.size != 3:
+        raise ValueError("transform.axis must be length-3")
+    axis_norm = np.linalg.norm(axis.astype(float))
+    if axis_norm <= 0.0:
+        raise ValueError("transform.axis has zero norm")
+
+    nbi = {
+        "name": str(beam_name),
+        "data_source": str(getattr(transform, "data_source")),
+        "shape": int(round(_as_single_value(getattr(transform, "shape"), "shape"))),
+        "src": src.astype(float),
+        "axis": axis.astype(float) / axis_norm,
+        "widy": float(_as_single_value(getattr(transform, "widy"), "widy")),
+        "widz": float(_as_single_value(getattr(transform, "widz"), "widz")),
+        "divy": _as_three_component(getattr(transform, "divy"), "divy"),
+        "divz": _as_three_component(getattr(transform, "divz"), "divz"),
+        # Transform defaults are SI; FIDASIM beam geometry uses cm.
+        "focy": 100.0 * float(_as_single_value(getattr(transform, "focy"), "focy")),
+        "focz": 100.0 * float(_as_single_value(getattr(transform, "focz"), "focz")),
+        "naperture": int(
+            round(_as_single_value(getattr(transform, "naperture"), "naperture"))
+        ),
+    }
+
+    if nbi["naperture"] > 0:
+        aperture_keys = ("ashape", "awidy", "awidz", "aoffy", "aoffz", "adist")
+        for key in aperture_keys:
+            if not hasattr(transform, key):
+                raise ValueError(f"transform.{key} is required when naperture > 0")
+        nbi["ashape"] = np.array(getattr(transform, "ashape"), dtype=int, ndmin=1)
+        nbi["awidy"] = np.array(getattr(transform, "awidy"), dtype=float, ndmin=1)
+        nbi["awidz"] = np.array(getattr(transform, "awidz"), dtype=float, ndmin=1)
+        nbi["aoffy"] = np.array(getattr(transform, "aoffy"), dtype=float, ndmin=1)
+        nbi["aoffz"] = np.array(getattr(transform, "aoffz"), dtype=float, ndmin=1)
+        nbi["adist"] = 100.0 * np.array(getattr(transform, "adist"), dtype=float, ndmin=1)
+
+    return nbi
+
+
+def create_st40_beam_grid(
+    transform: Any,
+    beam_name: str,
+    plot_bgrid=False,
+    ax=None,
+    delta_src=0.0,
+    delta_ang=0.0,
+):
+    """Fidasim beam grid creation for ST-40 beams from transform geometry."""
+    nbi = _build_fidasim_beam_from_transform(transform, beam_name)
+
+    # Optional source offset normal to beam axis in XY plane.
+    if delta_src != 0.0:
+        norm_angle = np.arctan2(nbi["axis"][1], nbi["axis"][0]) + np.pi / 2
+        nbi["src"][0] = nbi["src"][0] + delta_src * np.cos(norm_angle) * 100.0
+        nbi["src"][1] = nbi["src"][1] + delta_src * np.sin(norm_angle) * 100.0
+
+    # Optional in-plane axis rotation.
+    if delta_ang != 0.0:
+        axis_angle = np.arctan2(nbi["axis"][1], nbi["axis"][0]) + delta_ang
+        nbi["axis"] = np.array([np.cos(axis_angle), np.sin(axis_angle), nbi["axis"][2]])
+        nbi["axis"] = nbi["axis"] / np.linalg.norm(nbi["axis"])
 
     if ax:
-        for beam_cfg in nbi_list:
-            ax.scatter(
-                beam_cfg["src"][0],
-                beam_cfg["src"][1],
-                beam_cfg["src"][2],
-                marker="x",
-                color="k",
-            )
-            pini_len = 1000
-            pinix = beam_cfg["src"][0] + beam_cfg["axis"][0] * pini_len
-            piniy = beam_cfg["src"][1] + beam_cfg["axis"][1] * pini_len
-            piniz = beam_cfg["src"][2] + beam_cfg["axis"][2] * pini_len
-            ax.plot3D(
-                [beam_cfg["src"][0], pinix],
-                [beam_cfg["src"][1], piniy],
-                zs=[beam_cfg["src"][2], piniz],
-                color="r",
-            )
+        ax.scatter(nbi["src"][0], nbi["src"][1], nbi["src"][2], marker="x", color="k")
+        pini_len = 1000
+        pinix = nbi["src"][0] + nbi["axis"][0] * pini_len
+        piniy = nbi["src"][1] + nbi["axis"][1] * pini_len
+        piniz = nbi["src"][2] + nbi["axis"][2] * pini_len
+        ax.plot3D(
+            [nbi["src"][0], pinix],
+            [nbi["src"][1], piniy],
+            zs=[nbi["src"][2], piniz],
+            color="r",
+        )
 
     rstart = 100  # [cm]
+    bgrid = beam_grid(
+        nbi,
+        rstart,
+        length=250.0,
+        width=250.0,
+        height=50.0,
+        dv=2.0,
+    )
 
-    if beam.upper() == "RFX":
-        bgrid = beam_grid(
-            rfx,
-            rstart,
-            length=250.0,
-            width=250.0,
-            height=50.0,
-            dv=2.0,
-        )
-    else:
-        bgrid = beam_grid(
-            hnbi,
-            rstart,
-            length=250.0,
-            width=250.0,
-            height=50.0,
-            dv=2.0,
-        )
-
-    return bgrid, nbi_list
+    return bgrid, nbi
 
 
 def parse_input_file(input_dict_file):
@@ -189,6 +308,9 @@ def _build_run_prefix(file_name: str, time: float, nbi_name: str) -> str:
 
 def run_fidasim(operator, ctx: dict) -> dict:
     # From this point on, everything is FIDASIM specific.
+    # Only the FIDASIM path enriches transform beam-geometry fields.
+    enrich_transform_beam_geometry(operator.transform, beam_name=operator.name)
+
     plasmaconfig = {
         "R": ctx["R_2d"],
         "z": ctx["z_2d"],
@@ -308,8 +430,8 @@ def prepare_fidasim(
     nz = PLASMA_INTERP_GRID_SETTINGS["nz"]
     grid = rz_grid(rmin, rmax, nr, zmin, zmax, nz)
 
-    # Create the beam grid oriented on the RFX axis
-    bgrid, nbis = create_st40_beam_grid(beam_name)
+    # Create beam grid directly from transform beam geometry.
+    bgrid, beam_cfg = create_st40_beam_grid(operator.transform, beam_name)
 
     # Geometry plotting removed (see fidasim_utils_plotting_legacy.py).
 
@@ -532,9 +654,7 @@ def prepare_fidasim(
     inputs.update(weight_function_settings)
     inputs.update(bgrid)
 
-    for beam in nbis:
-        if beam_id == beam["name"]:
-            fidasim.prefida(inputs, grid, beam, plasma, equil, fi_dist)
+    fidasim.prefida(inputs, grid, beam_cfg, plasma, equil, fi_dist)
 
     # If here then preprocessing was successful for this beam. Launch batch job.
     # submit_fidasim_batch_job(beam_save_dir)

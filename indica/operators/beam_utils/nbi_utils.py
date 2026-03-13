@@ -52,4 +52,3 @@ def clean_magnetic_field_components(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Apply consistent NaN handling to all magnetic field components."""
     return fill_nan_2d(br), fill_nan_2d(bz), fill_nan_2d(bt)
-
