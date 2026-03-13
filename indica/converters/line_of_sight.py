@@ -67,6 +67,10 @@ class LineOfSightTransform(CoordinateTransform):
         Shape of the spot. e.g. "round", "square" or "rectangular"
     focal_length
         Focal length of the LOS in (m).
+    divy
+        Horizontal divergence in (rad). Stored for external beam models.
+    divz
+        Vertical divergence in (rad). Stored for external beam models.
     plot_beamlets
         True/False flag to plot beamlet distribution across
         the spot
@@ -118,9 +122,9 @@ class LineOfSightTransform(CoordinateTransform):
         spot_height: float = 0.0,
         spot_shape: str = "square",
         focal_length: float = -1000.0,
+        divy: Any = None,
+        divz: Any = None,
         plot_beamlets: bool = False,
-        # div_width: float = 0.0,
-        # div_height: float = 0.0,
         **kwargs: Any,
     ):
         self.instrument_name: str = name
@@ -147,10 +151,9 @@ class LineOfSightTransform(CoordinateTransform):
         self.spot_height = spot_height
         self.spot_shape = spot_shape
         self.focal_length = focal_length
+        self.divy = divy
+        self.divz = divz
         self.distribute_beamlets(n_beamlets, beamlets_method, debug=plot_beamlets)
-
-        # self.div_width = div_width
-        # self.spot_height = spot_height
 
         # Calculate LOS coordinates
         self.set_dl(dl)
