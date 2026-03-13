@@ -9,11 +9,11 @@ DEFAULT_NBI_TRANSFORM_CONFIG = {
     # See fields such as LOCATION, DIRECTION, GRID_WIDTH/HEIGHT, GRID_SHAPE, etc.
 
     # 1) Already supported by LineOfSightTransform
-    "origin_x": np.array([0.339], dtype=float),  # DB: LOCATION[..., x] [m]
-    "origin_y": np.array([0.375], dtype=float),  # DB: LOCATION[..., y] [m]
+    "origin_x": np.array([3.322], dtype=float),  # DB: LOCATION[..., x] [m]
+    "origin_y": np.array([3.945], dtype=float),  # DB: LOCATION[..., y] [m]
     "origin_z": np.array([0.0], dtype=float),  # DB: LOCATION[..., z] [m]
-    "direction_x": np.array([-0.779], dtype=float),  # DB: DIRECTION[..., xhat]
-    "direction_y": np.array([0.0], dtype=float),  # DB: DIRECTION[..., yhat]
+    "direction_x": np.array([-0.704], dtype=float),  # DB: DIRECTION[..., xhat]
+    "direction_y": np.array([-0.7099], dtype=float),  # DB: DIRECTION[..., yhat]
     "direction_z": np.array([0.0], dtype=float),  # DB: DIRECTION[..., zhat]
     "name": "hnbi",  # DB: LABEL / beam identifier
     "machine_dimensions": ((1.83, 3.9), (-1.75, 2.0)),
@@ -21,16 +21,16 @@ DEFAULT_NBI_TRANSFORM_CONFIG = {
     "passes": 1,
     "beamlets_method": "simple",
     "n_beamlets": 1,
-    "spot_width": 0.01,  # DB: GRID_WIDTH [m]
-    "spot_height": 0.01,  # DB: GRID_HEIGHT [m]
+    "spot_width": 0.25,  # DB: GRID_WIDTH [m]
+    "spot_height": 0.25,  # DB: GRID_HEIGHT [m]
     "spot_shape": "round",  # DB: GRID_SHAPE (CIRCULAR/RECTANGULAR)
     "focal_length": 1.0,  # Marco: where does this come from?
     "plot_beamlets": False,
 
     # 3) Not in LineOfSightTransform, but shared NBI beam settings used
     #    by FIDASIM and other NBI-related paths.
-    "divy": np.array([0.01, 0.01, 0.01], dtype=float),  # DB: DIVERGENCE_H [rad]
-    "divz": np.array([0.01, 0.01, 0.01], dtype=float),  # DB: DIVERGENCE_V [rad]
+    "divy": np.array([0.0131, 0.0131, 0.0131], dtype=float),  # DB: DIVERGENCE_H [rad] Marco: 1 vs 3 values?
+    "divz": np.array([0.0134, 0.0134, 0.0134], dtype=float),  # DB: DIVERGENCE_V [rad] Marco: 1 vs 3 values?
 }
 
 # Beam-schema defaults used across NBI beam models when geometry metadata
