@@ -5,6 +5,7 @@ from typing import Union
 import numpy as np
 from xarray import DataArray
 
+from indica.operators.beam_utils.nbi_utils import clean_magnetic_field_components
 from indica.operators.beam_utils import get_nbi_model_handler
 from .abstractoperator import Operator
 
@@ -145,15 +146,19 @@ class NBIOperator(Operator):
             z = eq.rhop.z.values
             R_2d, z_2d = np.meshgrid(R, z)
 
+
+            _R = DataArray(np.array(R), coords={"R":np.array(R)})
+            _z = DataArray(np.array(z), coords={"z":np.array(z)})
             # B field components
             br, bz, bt, _ = eq.Bfield(
-                eq.rhop.R,
-                eq.rhop.z,
+                _R,
+                _z,
                 t=time,
             )
             br = br.values
             bz = bz.values
             bt = bt.transpose("z", "R").values
+            br, bz, bt = clean_magnetic_field_components(br, bz, bt)
 
 
             rho = rho_2d.values
