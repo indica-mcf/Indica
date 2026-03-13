@@ -111,13 +111,13 @@ PLASMA_INTERP_GRID_SETTINGS = {
 
 # Monte Carlo settings: high-resolution (fine) particle counts.
 MC_SETTINGS_FINE = {
-    "n_fida": 5000000,
-    "n_pfida": 5000000,
-    "n_npa": 5000000,
-    "n_pnpa": 5000000,
-    "n_nbi": 500000,
-    "n_halo": 500000,
-    "n_dcx": 500000,
+    "n_fida": 1000000,
+    "n_pfida": 1000000,
+    "n_npa": 1000000,
+    "n_pnpa": 1000000,
+    "n_nbi": 100000,
+    "n_halo": 100000,
+    "n_dcx": 100000,
     "n_birth": 10000,
 }
 
