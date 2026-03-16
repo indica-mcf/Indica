@@ -52,6 +52,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "omegator": ("toroidal_angular_frequency", ["t", "channel"]),
         "ti": ("ion_temperature", ["t", "channel"]),
         "conc": ("concentration", ["t", "channel"]),
+        "dens": ("impurity_density", ["t", "channel"]),
         "spectra": ("spectra", ["t", "channel", "wavelength"]),
         "fit": ("spectra_fit", ["t", "channel", "wavelength"]),
     },
