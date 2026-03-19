@@ -133,13 +133,14 @@ class ST40Reader(DataReader):
             )
 
         # Re-shape psi matrix
-        database_results["psi"] = database_results["psi"].reshape(
-            (
-                len(database_results["t"]),
-                len(database_results["z"]),
-                len(database_results["R"]),
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
             )
-        )
         transform = assign_trivial_transform()
         return database_results, transform
 
