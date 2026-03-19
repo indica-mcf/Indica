@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Dict
 from typing import Optional
 from typing import Tuple
@@ -6,7 +7,6 @@ import numpy as np
 import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
-from xarray import where
 
 from indica.utilities import check_time_present
 from .numpy_typing import FloatOrDataArray
@@ -142,43 +142,51 @@ class Equilibrium:
         R - Major radius position (m).
         z - The vertical position (m).
         t - Times (s).
+
+        full_Rz - set to True if you want a 2D map on input R and z
         """
 
         if t is not None:
             check_time_present(t, self.t)
-            psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
-            f = self.f.interp(t=t, method="nearest", assume_sorted=True)
-            _rhop, _, _ = self.flux_coords(R, z, t)
         else:
             t = self.rhop.coords["t"]
-            psi = self.psi
-            f = self.f
-            _rhop, _, _ = self.flux_coords(R, z)
 
-        dpsi_dR = psi.differentiate("R").interp(R=R, z=z)
-        dpsi_dz = psi.differentiate("z").interp(
-            R=R,
-            z=z,
+        _psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
+        _f = self.f.interp(t=t, method="nearest", assume_sorted=True)
+        _rmag = self.rmag.interp(t=t, method="nearest", assume_sorted=True)
+        _rhop, _, _ = self.flux_coords(R, z, t)
+
+        _R = deepcopy(R)
+        _z = deepcopy(z)
+        if full_Rz:
+            # To return Bfield on a 2D (R, z) grid
+            _R = DataArray(np.array(_R), coords={"R": np.array(R)})
+            _z = DataArray(np.array(_z), coords={"z": np.array(z)})
+
+        dpsi_dR = _psi.differentiate("R").interp(R=_R, z=_z)
+        dpsi_dz = _psi.differentiate("z").interp(
+            R=_R,
+            z=_z,
         )
 
-        b_R = -(np.float64(1.0) / R) * dpsi_dz  # type: ignore
+        b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
         b_R = b_R.T
 
-        b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
+        b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
         b_z.name = "Vertical Magnetic Field (T)"
         b_z = b_z.T
-        _rhop = where(_rhop > np.float64(0.0), _rhop, np.float64(-1.0) * _rhop)
+        _rhop = xr.where(_rhop > np.float64(0.0), _rhop, np.float64(-1.0) * _rhop)
 
-        f = f.interp(rhop=_rhop)
+        # Calculate Bt on magnetic axis,
+        # then over R and expand to (R, z) grid,
+        # and finally interpolate on desired R and z
+        f = _f.interp(rhop=0).drop_vars("rhop")
         f.name = self.f.name
-        b_T = f / R
+        b_T_rmag = f / _rmag
+        _b_T = b_T_rmag * _rmag / self.rhop.R
+        b_T = _b_T.expand_dims(dim={"z": self.rhop.z}).interp(R=_R, z=_z)
         b_T.name = "Toroidal Magnetic Field (T)"
-
-        if full_Rz:
-            _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rhop.R
-            _b_T = _b_T.drop(["z", "rhop"]).expand_dims(dim={"z": self.rhop.z})
-            b_T = _b_T.interp(R=R, z=z)
 
         return b_R, b_z, b_T, t
 
