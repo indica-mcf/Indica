@@ -68,6 +68,7 @@ class ST40Conf(MachineConf):
                 "ipla": ".constraints.ip:cvalue",
                 "wp": ".virial:wp",
                 "df": ".constraints.df:cvalue",
+                "data_q": ".data_q.score_1d",
             },
             "get_helike_spectroscopy": {
                 "t": ":time",
@@ -85,12 +86,14 @@ class ST40Conf(MachineConf):
                 "int_tot": ".global:int_tot",
                 "int_n3": ".global:int_n3",
                 "background": ".global:back_avg",
+                "data_q": ".data_q.score_1d",
             },
             "get_interferometry": {
                 "t": ":time",
                 "location": ".geometry:location",
                 "direction": ".geometry:direction",
                 "ne": ".global:ne_int_s",
+                "data_q": ".data_q.score_1d",
             },
             "get_diode_filters": {
                 "t": ":time",
@@ -98,6 +101,7 @@ class ST40Conf(MachineConf):
                 "location": ".geometry:location",
                 "direction": ".geometry:direction",
                 "brightness": ":data",
+                "data_q": ".data_q.score_1d",
             },
             "get_radiation": {
                 "t": ":time",
@@ -105,6 +109,7 @@ class ST40Conf(MachineConf):
                 "location": ".geometry:location",
                 "direction": ".geometry:direction",
                 "brightness": ".profiles:emission",
+                "data_q": ".data_q.score_1d",
             },
             "get_radiation_inversion": {
                 "t": ":time",
@@ -115,6 +120,7 @@ class ST40Conf(MachineConf):
                 "z": ".profiles.rz_2d:z",
                 "emission_rhop": ".profiles.psi_norm:emis_loc",
                 "emission_rz": ".profiles.rz_2d:emis_loc",
+                "data_q": ".data_q.score_1d",
             },
             "get_charge_exchange": {
                 "t": ":time",
@@ -128,6 +134,7 @@ class ST40Conf(MachineConf):
                 "vtor": ".profiles:vtor",
                 "spectra": ":spectra",
                 "fit": ":full_fit",
+                "data_q": ".data_q.score_1d",
             },
             "get_spectrometer": {
                 "t": ":time",
@@ -136,6 +143,7 @@ class ST40Conf(MachineConf):
                 "wavelength": ":wavelen",
                 "spectra": ":emission",
                 "spectra_raw": ":intens",
+                "data_q": ".data_q.score_1d",
             },
             "get_thomson_scattering": {
                 "t": ":time",
@@ -147,6 +155,7 @@ class ST40Conf(MachineConf):
                 "te": ".profiles:te",
                 "pe": ".profiles:pe",
                 "chi2": ".profiles:chi2",
+                "data_q": ".data_q.score_1d",
             },
             "get_profile_fits": {
                 "t": ":time",
@@ -168,6 +177,7 @@ class ST40Conf(MachineConf):
                 "te_data": ".profiles.inputs:te",
                 "pe_data": ".profiles.inputs:pe",
                 "R_shift": ".global:rshift",
+                "data_q": ".data_q.score_1d",
             },
             "get_zeff": {
                 "t": ":time",
@@ -185,6 +195,7 @@ class ST40Conf(MachineConf):
                 "bremss_emission": ".profiles.psi_norm:emis_loc",
                 "te": ".profiles.psi_norm:te",
                 "ne": ".profiles.psi_norm:ne",
+                "data_q": ".data_q.score_1d",
             },
             "get_astra": {
                 "t": ":time",
