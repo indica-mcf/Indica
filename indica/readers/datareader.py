@@ -275,7 +275,9 @@ class DataReader(ABC):
 
         self.data = {}
         for instrument in instruments:
-            print(f"Reading {instrument}")
+            if debug:
+                print(f"Reading {instrument}")
+
             try:
                 self.data[instrument] = self.get(
                     "",
@@ -287,4 +289,5 @@ class DataReader(ABC):
                 print(f"error reading: {instrument} \nException: {e}")
                 if debug:
                     raise e
+
         return self.data
