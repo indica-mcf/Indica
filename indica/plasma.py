@@ -669,7 +669,6 @@ class Plasma:
         If self.aurora_run is True, uses aurora for ionisation balance calculation,
         otherwise uses coronal approximation.
         """
-<<<<<<< HEAD
         from indica.operators.atomic_data import default_atomic_data
         if self.aurora_run:
             assert (
@@ -695,13 +694,6 @@ class Plasma:
                 self.elements, full_run=self.full_run
             )
 
-=======
-
-        from indica.operators.atomic_data import default_atomic_data
-        fract_abu, power_loss_tot = default_atomic_data(
-            self.elements, full_run=self.full_run
-        )
->>>>>>> bfb853ab (feat: plasma dependency on the nbiop removed)
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
 
