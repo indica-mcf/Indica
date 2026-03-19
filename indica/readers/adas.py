@@ -154,7 +154,7 @@ class ADASReader(BaseIO):
             header = ""
             for i in range(1, nsel + 1):
                 header = f.readline()
-                if (_idx := re.search(r"ISEL=\s*(.*)", header)) is None:
+                if (_idx := re.search(r"(?:ISEL|isel)=\s*(.*)", header)) is None:
                     raise UserWarning(f"Failed to find ISEL in {header}")
                 idx.append(int(_idx.group(1)))
                 qefref = float(f.readline().split()[0].replace("D", "E")) * 10**-6
