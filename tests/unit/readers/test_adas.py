@@ -18,10 +18,16 @@ class MockReader(ADASReader):
 class TestADF12:
     reader = MockReader()
 
-    def test_read(self):
-        self.reader.test_file = Path(__file__).parent / "test_adf12.dat"
+    def test_read_oldstyle(self):
+        self.reader.test_file = Path(__file__).parent / "test_adf12_oldstyle.dat"
         data = self.reader.get_adf12("", "", "")
-        ref = np.load(Path(__file__).parent / "test_adf12.npz")
+        ref = np.load(Path(__file__).parent / "test_adf12_oldstyle.npz")
+        assert np.all(np.isclose(data.to_numpy(), ref["data"], rtol=1e-5))
+
+    def test_read_newstyle(self):
+        self.reader.test_file = Path(__file__).parent / "test_adf12_newstyle.dat"
+        data = self.reader.get_adf12("", "", "")
+        ref = np.load(Path(__file__).parent / "test_adf12_newstyle.npz")
         assert np.all(np.isclose(data.to_numpy(), ref["data"], rtol=1e-5))
 
 
