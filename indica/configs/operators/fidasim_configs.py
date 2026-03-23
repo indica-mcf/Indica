@@ -27,12 +27,9 @@ SIMULATION_SWITCHES = {
     "dump_dcx": 1,
 }
 
-# Plasma grid: interpolation bounds and resolution for building the FIDASIM plasma grid.
+# Plasma grid: resolution for building the FIDASIM plasma grid.
+# Interpolation bounds defined by LineOfSightTransform._machine_dims
 PLASMA_INTERP_GRID_SETTINGS = {
-    "rmin": 11,
-    "rmax": 99,
-    "zmin": -50,
-    "zmax": 50,
     "nr": 200,
     "nz": 100,
 }
