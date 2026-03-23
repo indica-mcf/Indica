@@ -19,8 +19,6 @@ def run_nbi_operator_example():
     plasma.set_equilibrium(equilibrium)
     nbi_transform.set_equilibrium(equilibrium)
 
-
-
     nbi_op = nbioperator.NBIOperator(
         name="hnbi",
         einj=52.0,  # keV

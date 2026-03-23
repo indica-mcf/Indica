@@ -1,2 +1,1 @@
 """Operator-specific configuration modules."""
-

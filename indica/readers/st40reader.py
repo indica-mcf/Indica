@@ -5,7 +5,6 @@ from typing import Dict
 from typing import Tuple
 
 import numpy as np
-import xarray as xr
 
 from indica.configs.readers import ST40Conf
 from indica.converters import CoordinateTransform
