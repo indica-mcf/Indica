@@ -240,6 +240,12 @@ class DataReader(ABC):
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
+    def _get_nbi(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
     def _get_transp(
         self,
         data: dict,

@@ -6,7 +6,7 @@ from indica.configs.readers.machineconf import MachineConf
 
 class ST40Conf(MachineConf):
     def __init__(self):
-        self.MACHINE_DIMS = ((0.15, 0.85), (-0.8, 0.8))
+        self.MACHINE_DIMS = ((0.15, 1.00), (-0.8, 0.8))
         self.INSTRUMENT_METHODS = {
             "efit": "get_equilibrium",
             "xrcs": "get_helike_spectroscopy",
@@ -40,6 +40,8 @@ class ST40Conf(MachineConf):
             "ppts": "get_profile_fits",
             "bda": "get_profile_fits",
             "zeff_brems": "get_zeff",
+            "hnbi1": "get_nbi",
+            "rfx": "get_nbi",
             "transp_test": "get_transp",
             "astra": "get_astra",
             "metis": "get_metis",
@@ -185,6 +187,26 @@ class ST40Conf(MachineConf):
                 "bremss_emission": ".profiles.psi_norm:emis_loc",
                 "te": ".profiles.psi_norm:te",
                 "ne": ".profiles.psi_norm:ne",
+            },
+            "get_nbi": {
+                "t": ":time",
+                "atomic_weight": ":anum",
+                "atomic_number": ":znum",
+                "location": ".geometry:location",
+                "direction": ".geometry:location",
+                "focus_h": ".geometry:focus_h",
+                "focus_v": ".geometry:focus_v",
+                "div_h": ".geometry:divergence_h",
+                "div_v": ".geometry:divergence_v",
+                "spot_width": ".geometry:grid_width",
+                "spot_height": ".geometry:grid_height",
+                "spot_shape": ".geometry:grid_shape",
+                "current_fraction1": ":current_frc1",
+                "current_fraction2": ":current_frc2",
+                "current_fraction3": ":current_frc3",
+                "power_fraction1": ":power_frac1",
+                "power_fraction2": ":power_frac2",
+                "power_fraction3": ":power_frac3",
             },
             "get_astra": {
                 "t": ":time",

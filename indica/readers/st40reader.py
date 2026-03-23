@@ -5,6 +5,7 @@ from typing import Dict
 from typing import Tuple
 
 import numpy as np
+import xarray as xr
 
 from indica.configs.readers import ST40Conf
 from indica.converters import CoordinateTransform
@@ -202,6 +203,37 @@ class ST40Reader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
+    def _get_nbi(
+        self,
+        database_results: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+
+        database_results["beam_energy_components"] = [1, 2, 3]
+
+        database_results["current_fraction"] = np.array(
+            [
+                database_results["current_fraction1"],
+                database_results["current_fraction2"],
+                database_results["current_fraction3"],
+            ]
+        ).T
+
+        database_results["power_fraction"] = np.array(
+            [
+                database_results["power_fraction1"],
+                database_results["power_fraction2"],
+                database_results["power_fraction3"],
+            ]
+        ).T
+
+        # TODO: Temporary fix, but must be sorted
+        database_results["focal_length"] = np.mean(
+            [database_results["focus_h"], database_results["focus_v"]]
+        )
+        transform = assign_lineofsight_transform(database_results)
+
+        return database_results, transform
+
     def _get_astra(
         self,
         database_results: dict,
@@ -321,6 +353,23 @@ def assign_lineofsight_transform(database_results: Dict):
         database_results["location"] = np.array([database_results["location"]])
         database_results["direction"] = np.array([database_results["direction"]])
 
+    kwargs = {
+        "machine_dimensions": database_results["machine_dims"],
+        "dl": database_results["dl"],
+        "passes": database_results["passes"],
+    }
+    _to_add = [
+        "spot_width",
+        "spot_height",
+        "spot_shape",
+        "div_h",
+        "div_v",
+        "focal_length",
+    ]
+    for k in _to_add:
+        if k in database_results:
+            kwargs[k] = database_results[k]
+
     transform = LineOfSightTransform(
         database_results["location"][:, 0],
         database_results["location"][:, 1],
@@ -328,9 +377,7 @@ def assign_lineofsight_transform(database_results: Dict):
         database_results["direction"][:, 0],
         database_results["direction"][:, 1],
         database_results["direction"][:, 2],
-        machine_dimensions=database_results["machine_dims"],
-        dl=database_results["dl"],
-        passes=database_results["passes"],
+        **kwargs,
     )
     return transform
 
