@@ -687,3 +687,17 @@ def fill_nan_2d(field: np.ndarray) -> np.ndarray:
             arr[missing] = float(np.mean(finite)) if finite.size > 0 else 0.0
 
     return arr
+
+
+def convert_to_list(resdict):
+    """Recursively search nested dict for arrays and convert to list."""
+
+    for key, value in resdict.items():
+        if isinstance(value, dict):
+            convert_to_list(value)
+        elif isinstance(value, np.ndarray):
+            resdict[key] = value.tolist()
+
+
+def time_to_ms(time: float) -> int:
+    return int(round(float(time) * 1.0e3))
