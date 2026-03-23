@@ -7,7 +7,6 @@ import numpy as np
 DEFAULT_NBI_TRANSFORM_CONFIG = {
     # Source mapping: these defaults are placeholders for NBI database fields.
     # See fields such as LOCATION, DIRECTION, GRID_WIDTH/HEIGHT, GRID_SHAPE, etc.
-
     # 1) Already supported by LineOfSightTransform
     "origin_x": np.array([3.322], dtype=float),  # DB: LOCATION[..., x] [m]
     "origin_y": np.array([3.945], dtype=float),  # DB: LOCATION[..., y] [m]
@@ -26,11 +25,14 @@ DEFAULT_NBI_TRANSFORM_CONFIG = {
     "spot_shape": "round",  # DB: GRID_SHAPE (CIRCULAR/RECTANGULAR)
     "focal_length": 1.0,  # Marco: where does this come from?
     "plot_beamlets": False,
-
     # 3) Not in LineOfSightTransform, but shared NBI beam settings used
     #    by FIDASIM and other NBI-related paths.
-    "divy": np.array([0.0131, 0.0131, 0.0131], dtype=float),  # DB: DIVERGENCE_H [rad] Marco: 1 vs 3 values?
-    "divz": np.array([0.0134, 0.0134, 0.0134], dtype=float),  # DB: DIVERGENCE_V [rad] Marco: 1 vs 3 values?
+    "divy": np.array(
+        [0.0131, 0.0131, 0.0131], dtype=float
+    ),  # DB: DIVERGENCE_H [rad] Marco: 1 vs 3 values?
+    "divz": np.array(
+        [0.0134, 0.0134, 0.0134], dtype=float
+    ),  # DB: DIVERGENCE_V [rad] Marco: 1 vs 3 values?
 }
 
 # Beam-schema defaults used across NBI beam models when geometry metadata
