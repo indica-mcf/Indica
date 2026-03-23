@@ -1,19 +1,21 @@
 from abc import ABC
 from abc import abstractmethod
+from typing import Optional
+from typing import Tuple
+
+from xarray import DataArray
 
 from indica import Equilibrium
-from indica.numpy_typing import LabeledArray
-from xarray import DataArray
-from indica.converters import CoordinateTransform, LineOfSightTransform
-from typing import Tuple, Optional
-from  indica.utilities import get_element_info
-import numpy as np
+from indica.converters import CoordinateTransform
+from indica.converters import LineOfSightTransform
+from indica.utilities import get_element_info
+
 
 class NbiOperator(ABC):
     """Abstract class to run NBI modelling codes e.g. Fidasim, Nubeam"""
 
-    equilibrium:Equilibrium
-    transform:LineOfSightTransform
+    equilibrium: Equilibrium
+    transform: LineOfSightTransform
 
     def __init__(
         self,
@@ -66,14 +68,14 @@ class NbiOperator(ABC):
         Nn: DataArray,
         Vtor: DataArray,
         Zeff: DataArray,
-        MeanZ:DataArray,
+        MeanZ: DataArray,
         target_element: str,
         t: float,
         file_name: Optional[str] = "",
-        pulse:int = 0,
-        machine:str="tokamak",
-        prepare_kwargs:dict={},
-        run_kwargs:dict={},
+        pulse: int = 0,
+        machine: str = "tokamak",
+        prepare_kwargs: dict = {},
+        run_kwargs: dict = {},
     ) -> dict:
         """
         Run NBI code for specified time-point (one only!)
@@ -147,6 +149,4 @@ class NbiOperator(ABC):
         }
 
         """
-        raise NotImplementedError(
-            "Implement this method to reorganise NBI code output"
-        )
+        raise NotImplementedError("Implement this method to reorganise NBI code output")

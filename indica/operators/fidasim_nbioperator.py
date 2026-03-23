@@ -2,20 +2,27 @@ from copy import deepcopy
 
 import numpy as np
 
+import os
 from indica.converters import LineOfSightTransform
 from indica.operators import NbiOperator
-import os
 from indica.utilities import time_to_ms, convert_to_list
-from indica.configs.operators.fidasim_configs import (FIDASIM_OUTPUT_DIR, PLASMA_INTERP_GRID_SETTINGS,
-                                                      FIDASIM_FI_DIST_FILE, FIDASIM_BASE_DIR,
-                                                      SIMULATION_SWITCHES, MC_SETTINGS_COARSE, MC_SETTINGS_FINE,
-                                                      WAVELENGTH_GRID_SETTINGS,
-                                                      WEIGHT_FUNCTION_SETTINGS, FIDASIM_BIN_PATH)
+from indica.configs.operators.fidasim_configs import (
+    FIDASIM_OUTPUT_DIR,
+    PLASMA_INTERP_GRID_SETTINGS,
+    FIDASIM_FI_DIST_FILE,
+    FIDASIM_BASE_DIR,
+    SIMULATION_SWITCHES,
+    MC_SETTINGS_FINE,
+    WAVELENGTH_GRID_SETTINGS,
+    WEIGHT_FUNCTION_SETTINGS,
+    FIDASIM_BIN_PATH,
+)
 import shutil
 import xarray as xr
 
 import subprocess
 import json
+
 import fidasim
 from fidasim.utils import beam_grid
 from fidasim.utils import rz_grid
@@ -30,15 +37,17 @@ SHAPE_MAP = {
 }
 SHAPE_MAP_DEFAULT = 2
 
-class RunFidasim(NbiOperator):
-    def prepare(self,
-                fi_dist_file: str = FIDASIM_FI_DIST_FILE,
-                save_dir: str = FIDASIM_OUTPUT_DIR,
-                fida_dir: str = FIDASIM_BASE_DIR,
-                mc_settings:dict = MC_SETTINGS_FINE,
-                wavelength_grid_settings:dict=WAVELENGTH_GRID_SETTINGS,
-                weight_function_settings:dict = WEIGHT_FUNCTION_SETTINGS,
-                simulation_switches:dict = SIMULATION_SWITCHES,
+
+class NbiFidasim(NbiOperator):
+    def prepare(
+        self,
+        fi_dist_file: str = FIDASIM_FI_DIST_FILE,
+        save_dir: str = FIDASIM_OUTPUT_DIR,
+        fida_dir: str = FIDASIM_BASE_DIR,
+        mc_settings: dict = MC_SETTINGS_FINE,
+        wavelength_grid_settings: dict = WAVELENGTH_GRID_SETTINGS,
+        weight_function_settings: dict = WEIGHT_FUNCTION_SETTINGS,
+        simulation_switches: dict = SIMULATION_SWITCHES,
     ):
         """
         Prepare NBI code input files translating Indica native
@@ -46,7 +55,9 @@ class RunFidasim(NbiOperator):
         """
 
         # File names and paths
-        run_prefix = f"{str(self.file_name).strip()}_{time_to_ms(t)}_ms_{self.name}"
+        run_prefix = (
+            f"{str(self.file_name).strip()}_{time_to_ms(self.t)}_ms_{self.name}"
+        )
         run_dir = os.path.join(save_dir, run_prefix)
         if not os.path.exists(run_dir):
             os.makedirs(run_dir)
@@ -83,9 +94,9 @@ class RunFidasim(NbiOperator):
         equilibrium = self.transform.equilibrium
         _R = grid["r2d"][0, :]
         _z = grid["z2d"][:, 0]
-        R = xr.DataArray(_R, coords={"R":_R})
-        z = xr.DataArray(_z, coords={"z":_z})
-        rhop_2d = equilibrium.rhop.interp(t = self.t).interp(R = R, z= z)
+        R = xr.DataArray(_R, coords={"R": _R})
+        z = xr.DataArray(_z, coords={"z": _z})
+        rhop_2d = equilibrium.rhop.interp(t=self.t).interp(R=R, z=z)
         rhot_2d, _ = self.equilibrium.convert_flux_coords(rhop_2d, t=self.t)
         br_2d, bz_2d, bt_2d, _ = self.equilibrium.Bfield(R, z, t=self.t, full_Rz=True)
 
@@ -95,52 +106,56 @@ class RunFidasim(NbiOperator):
         mask = xr.where(rhop_2d <= max_rhop_profiles, mask, 0)
 
         plasma = {
-            "data_source":"Indica",
-            "time":self.t,
+            "data_source": "Indica",
+            "time": self.t,
             "zeff": self.Zeff.sel(rhop=rhop_2d).data,
-            "ti": self.Ti.sel(rhop=rhop_2d).data*1.0e-03,
-            "te": self.Te.sel(rhop=rhop_2d).data*1.0e-03,
-            "denn": self.Nn.sel(rhop=rhop_2d).data*1.0e-06,
-            "dene": self.Ne.sel(rhop=rhop_2d).data*1.0e-06,
+            "ti": self.Ti.sel(rhop=rhop_2d).data * 1.0e-03,
+            "te": self.Te.sel(rhop=rhop_2d).data * 1.0e-03,
+            "denn": self.Nn.sel(rhop=rhop_2d).data * 1.0e-06,
+            "dene": self.Ne.sel(rhop=rhop_2d).data * 1.0e-06,
             "vr": np.zeros_like(rhop_2d),
             "vz": np.zeros_like(rhop_2d),
-            "vt": self.Vtor.sel(rhop=rhop_2d).data*100.,
-            "mask":mask.data,
+            "vt": self.Vtor.sel(rhop=rhop_2d).data * 100.0,
+            "mask": mask.data,
             "plasma_ion_amu": self.target_element_info["A"],
-            "grid":grid,
-            "flux":rhop_2d,
-            "bgrid":bgrid,
+            "grid": grid,
+            "flux": rhop_2d,
+            "bgrid": bgrid,
         }
 
         # Add midplane profiles to plasma dictionary
         zmag = xr.full_like(R, self.equilibrium.zmag.sel(t=self.t).data)
         rhop_midplane = self.equilibrium.flux_coords(R, zmag, t=self.t)
-        profiles_midplane = {"ti":self.Ti.interp(rhop=rhop_midplane).data*1.0e-03,
-                             "te":self.Te.interp(rhop=rhop_midplane).data*1.0e-03,
-                             "dene":self.Ne.interp(rhop=rhop_midplane).data*1.0e-06,
-                             "denn":self.Nn.interp(rhop=rhop_midplane).data*1.0e-06,
-                             "vt": self.Vtor.interp(rhop=rhop_midplane).data*100.,
-                             "rho":rhop_midplane,
-                             "r_omp":self.equilibrium.R.data*100}
+        profiles_midplane = {
+            "ti": self.Ti.interp(rhop=rhop_midplane).data * 1.0e-03,
+            "te": self.Te.interp(rhop=rhop_midplane).data * 1.0e-03,
+            "dene": self.Ne.interp(rhop=rhop_midplane).data * 1.0e-06,
+            "denn": self.Nn.interp(rhop=rhop_midplane).data * 1.0e-06,
+            "vt": self.Vtor.interp(rhop=rhop_midplane).data * 100.0,
+            "rho": rhop_midplane,
+            "r_omp": self.equilibrium.R.data * 100,
+        }
         plasma["profiles"] = profiles_midplane
 
         # Create equilibrium dictionary
         # TODO: Electric field currently set to 0
-        # TODO: Equilibrium class should have provenance info (e.g. EFIT) for "data_source"!!
+        # TODO: Equilibrium class should have provenance info
+        #       (e.g. EFIT) for "data_source"!!
         equil = {
-            "time":self.t,
-            "data_source":"Provenance to be implemented!",
-            "br":br_2d,
-            "bz":bz_2d,
-            "bt":bt_2d,
-            "er":np.zeros_like(br_2d),
-            "ez":np.zeros_like(br_2d),
-            "et":np.zeros_like(br_2d),
-            "mask":xr.full_like(rhop_2d, 1),
+            "time": self.t,
+            "data_source": "Provenance to be implemented!",
+            "br": br_2d,
+            "bz": bz_2d,
+            "bt": bt_2d,
+            "er": np.zeros_like(br_2d),
+            "ez": np.zeros_like(br_2d),
+            "et": np.zeros_like(br_2d),
+            "mask": xr.full_like(rhop_2d, 1),
         }
 
         # Read the dummy fast-ion distribution
-        # TODO: this should be refactored to something sensible, but can leave this for later
+        # TODO: this should be refactored to something sensible,
+        #       but can leave this for later
         _fi_dist = h5.File(fi_dist_file, "r")
         fi_dist = dict()
         fi_dist["type"] = int(_fi_dist["type"][()])
@@ -206,8 +221,7 @@ class RunFidasim(NbiOperator):
 
         fidasim.prefida(inputs, grid, beam_cfg, plasma, equil, fi_dist)
 
-    def run(self,
-            num_cores:int = 3):
+    def run(self, num_cores: int = 3):
         """
         Run beam code
         """
@@ -222,12 +236,14 @@ class RunFidasim(NbiOperator):
 
     def refactor_output(self) -> xr.Dataset:
         """
-        This is the old fidasim_out_to_xarray_dataset function, changed to general name that
-        matches the abstract Nbi operator
+        This is the old fidasim_out_to_xarray_dataset function,
+        changed to general name that matches the abstract Nbi operator
 
-        # TODO: but what is this output exactly? Why to DataSet and not a DataArrays?
-                what are its coordinates/dimensions? we'd like it as indica native as possible
-        # TODO: make the output of this == dict as explained in the abstract method of the ABC class
+        # TODO: but what is this output exactly? Why to DataSet and
+                not a DataArrays? what are its coordinates/dimensions?
+                we'd like it as indica native as possible
+        # TODO: make the output of this == dict as explained in the
+                abstract method of the ABC class
         """
 
         if not os.path.exists(self.neut_file):
@@ -292,11 +308,13 @@ def create_grids(
         "divz": transform.div_height[0],
         "focy": 100.0 * transform.focal_length,
         "focz": 100.0 * transform.focal_length,
-        "naperture": 0, # Default for now
+        "naperture": 0,  # Default for now
     }
 
     if beam_cfg["naperture"] > 0:
-        raise NotImplementedError("LineOfSightTransform doesn't have the necessary attributes")
+        raise NotImplementedError(
+            "LineOfSightTransform doesn't have the necessary attributes"
+        )
 
     # Optional source offset normal to beam axis in XY plane.
     if delta_src != 0.0:
@@ -317,11 +335,10 @@ def create_grids(
     bgrid = beam_grid(
         beam_cfg,
         rstart,
-        length=rstart*2.5,
-        width=rstart*2.5,
-        height=rstart/2.,
+        length=rstart * 2.5,
+        width=rstart * 2.5,
+        height=rstart / 2.0,
         dv=2.0,
     )
 
     return bgrid, beam_cfg
-
