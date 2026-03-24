@@ -1,11 +1,9 @@
-from copy import deepcopy
-
 import numpy as np
 
 import os
 from indica.converters import LineOfSightTransform
 from indica.operators import NbiOperator
-from indica.utilities import time_to_ms, convert_to_list
+from indica.utilities import time_to_ms
 from indica.configs.operators.fidasim_configs import (
     FIDASIM_OUTPUT_DIR,
     PLASMA_INTERP_GRID_SETTINGS,
@@ -21,7 +19,6 @@ import shutil
 import xarray as xr
 
 import subprocess
-import json
 
 import fidasim
 from fidasim.utils import beam_grid
@@ -66,7 +63,6 @@ class NbiFidasim(NbiOperator):
             os.makedirs(beam_save_dir)
 
         fidasim_out = os.path.join(beam_save_dir, f"{run_prefix}_inputs.dat")
-        save_plasma_file = os.path.join(run_dir, f"{run_prefix}_plasma.json")
         neut_file = os.path.join(beam_save_dir, f"{run_prefix}_neutrals.h5")
 
         # Store information necessary for run phase
@@ -168,26 +164,6 @@ class NbiFidasim(NbiOperator):
         fi_dist["f"] = fbm_grid
         fi_dist["denf"] = _fi_dist["denf"][()]
         fi_dist["data_source"] = str(_fi_dist["data_source"][()])
-
-        # TODO: this is not used. Why? is it needed?
-        r_fi = _fi_dist["r"][()]
-        z_fi = _fi_dist["z"][()]
-        r_fi, z_fi = np.meshgrid(r_fi, z_fi)
-
-        # Create results dictionary
-        # TODO: Why is this stored? Where is it used? Do we need it?
-        # TODO: if we do need it, could we just save the "plasma"?
-        out_dict = {}
-        out_dict["plasma"] = deepcopy(plasma)
-        out_dict["plasma"]["time"] = str(out_dict["plasma"]["time"])
-        out_dict["flux"] = deepcopy(plasma["flux"])
-        out_dict["grid"] = deepcopy(plasma["grid"])
-        out_dict["bgrid"] = deepcopy(plasma["bgrid"])
-        convert_to_list(out_dict)
-
-        # Write plasma dictionary in JSON format
-        with open(save_plasma_file, mode="w", encoding="utf-8") as f:
-            json.dump(out_dict, f, indent=2)
 
         general_settings = {
             "device": self.machine,
