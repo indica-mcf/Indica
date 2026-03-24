@@ -92,6 +92,10 @@ class NbiFidasim(NbiOperator):
         nz = PLASMA_INTERP_GRID_SETTINGS["nz"]
         grid = rz_grid(rmin, rmax, nr, zmin, zmax, nz)
         bgrid, beam_cfg = create_grids(self.transform)
+
+
+
+
         # Persist beam-grid transform terms (alpha/beta/gamma/origin) produced
         # by create_grids/FIDASIM beam_grid.
         self._beam_grid = dict(bgrid)
@@ -99,6 +103,8 @@ class NbiFidasim(NbiOperator):
         # equilibrium context is already in-memory (TriWaSp workflow principle).
         # This keeps refactor_output focused on reading outputs + binning only.
         self._cache_refactor_mappings(grid=grid, bgrid=bgrid)
+
+        
 
         # Map all quantities to the Fidasim 2D (R,z) grid
         equilibrium = self.transform.equilibrium
