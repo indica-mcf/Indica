@@ -193,7 +193,7 @@ class ST40Conf(MachineConf):
                 "atomic_weight": ":anum",
                 "atomic_number": ":znum",
                 "location": ".geometry:location",
-                "direction": ".geometry:location",
+                "direction": ".geometry:direction",
                 "focus_h": ".geometry:focus_h",
                 "focus_v": ".geometry:focus_v",
                 "div_h": ".geometry:divergence_h",
