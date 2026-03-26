@@ -531,27 +531,48 @@ class NbiFidasim(NbiOperator):
         self._last_result = result
         return result
 
-    def plot(
+    def _result_for_plot(self, result: dict | None) -> dict:
+        """Resolve plot input result, reusing cached output when available."""
+        if result is not None:
+            return result
+        if hasattr(self, "_last_result"):
+            return self._last_result
+        return self.refactor_output()
+
+    @staticmethod
+    def _resolve_z_plane_index(z_m: np.ndarray, z_index: int | None) -> int:
+        """Pick z-plane index; default is plane closest to z=0."""
+        if z_index is None:
+            return int(np.argmin(np.abs(z_m)))
+        return int(np.clip(z_index, 0, len(z_m) - 1))
+
+    def _read_neutral_plot_data_m3(
         self,
-        result: dict | None = None,
-        z_index: int | None = None,
-        show: bool = True,
-    ) -> dict:
-        """
-        Quick-look plotting for NBI outputs.
+    ) -> tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, np.ndarray]:
+        """Read neutral components and beam-grid axes for plotting."""
+        with h5.File(self.neut_file, "r") as h5f:
+            components = {
+                "fdens": np.asarray(h5f["fdens"][...], dtype=float) * 1.0e6,
+                "hdens": np.asarray(h5f["hdens"][...], dtype=float) * 1.0e6,
+                "tdens": np.asarray(h5f["tdens"][...], dtype=float) * 1.0e6,
+            }
+            x_m = np.asarray(h5f["grid"]["x"][...], dtype=float) * 1.0e-2
+            y_m = np.asarray(h5f["grid"]["y"][...], dtype=float) * 1.0e-2
+            z_m = np.asarray(h5f["grid"]["z"][...], dtype=float) * 1.0e-2
+        return components, x_m, y_m, z_m
 
-        This mirrors the legacy TriWaSp workflow style at a practical level:
-        - plot refactor_output radial profiles,
-        - plot full/half/third neutral components on a beam-grid plane.
-        """
-        import matplotlib.pyplot as plt
+    def _ground_state_neutral_components_for_plot(
+        self, components: dict[str, np.ndarray]
+    ) -> list[tuple[np.ndarray, str]]:
+        """Prepare ground-state full/half/third component maps for plotting."""
+        return [
+            (self._ground_state_component(components["fdens"]), "fdens (full)"),
+            (self._ground_state_component(components["hdens"]), "hdens (half)"),
+            (self._ground_state_component(components["tdens"]), "tdens (third)"),
+        ]
 
-        if result is None:
-            if hasattr(self, "_last_result"):
-                result = self._last_result
-            else:
-                result = self.refactor_output()
-
+    def _plot_profile_panel(self, plt, result: dict):
+        """Plot refactor_output radial profiles in a 2x2 panel."""
         fig_profiles, axs = plt.subplots(2, 2, figsize=(10, 7), sharex=True)
         profile_keys = [
             "neutral_density",
@@ -567,36 +588,52 @@ class NbiFidasim(NbiOperator):
             ax.set_ylabel(key)
             ax.grid(True, alpha=0.3)
         fig_profiles.tight_layout()
+        return fig_profiles
 
-        fig_neutrals = None
-        if os.path.exists(self.neut_file):
-            with h5.File(self.neut_file, "r") as h5f:
-                fdens = np.asarray(h5f["fdens"][...], dtype=float)
-                hdens = np.asarray(h5f["hdens"][...], dtype=float)
-                tdens = np.asarray(h5f["tdens"][...], dtype=float)
-                x_m = np.asarray(h5f["grid"]["x"][...], dtype=float) * 1.0e-2
-                y_m = np.asarray(h5f["grid"]["y"][...], dtype=float) * 1.0e-2
-                z_m = np.asarray(h5f["grid"]["z"][...], dtype=float) * 1.0e-2
+    def _plot_neutral_plane_panel(self, plt, z_index: int | None):
+        """Plot ground-state neutral components on one selected z-plane."""
+        if not os.path.exists(self.neut_file):
+            return None
 
-            if z_index is None:
-                z_index = int(np.argmin(np.abs(z_m)))
-            z_index = int(np.clip(z_index, 0, len(z_m) - 1))
+        # Step 1: read neutral component maps + beam-grid axes.
+        components, x_m, y_m, z_m = self._read_neutral_plot_data_m3()
+        # Step 2: choose plotting plane (defaults to nearest z=0).
+        plane_index = self._resolve_z_plane_index(z_m, z_index)
+        # Step 3: select full/half/third ground-state component maps.
+        components_ground = self._ground_state_neutral_components_for_plot(components)
 
-            # Ground state neutral components, converted cm^-3 -> m^-3.
-            components = [
-                (fdens[..., 0] * 1.0e6, "fdens (full)"),
-                (hdens[..., 0] * 1.0e6, "hdens (half)"),
-                (tdens[..., 0] * 1.0e6, "tdens (third)"),
-            ]
+        # Step 4: render the three neutral components on the selected plane.
+        fig_neutrals, axs2 = plt.subplots(1, 3, figsize=(14, 4), sharex=True, sharey=True)
+        for ax, (arr, title) in zip(axs2, components_ground):
+            im = ax.pcolormesh(x_m, y_m, arr[plane_index, :, :], shading="auto")
+            ax.set_title(f"{title} @ z={z_m[plane_index]:.3f} m")
+            ax.set_xlabel("x (m)")
+            ax.set_ylabel("y (m)")
+            fig_neutrals.colorbar(im, ax=ax)
+        fig_neutrals.tight_layout()
+        return fig_neutrals
 
-            fig_neutrals, axs2 = plt.subplots(1, 3, figsize=(14, 4), sharex=True, sharey=True)
-            for ax, (arr, title) in zip(axs2, components):
-                im = ax.pcolormesh(x_m, y_m, arr[z_index, :, :], shading="auto")
-                ax.set_title(f"{title} @ z={z_m[z_index]:.3f} m")
-                ax.set_xlabel("x (m)")
-                ax.set_ylabel("y (m)")
-                fig_neutrals.colorbar(im, ax=ax)
-            fig_neutrals.tight_layout()
+    def plot(
+        self,
+        result: dict | None = None,
+        z_index: int | None = None,
+        show: bool = True,
+    ) -> dict:
+        """
+        Quick-look plotting for NBI outputs.
+
+        This mirrors the legacy TriWaSp workflow style at a practical level:
+        - plot refactor_output radial profiles,
+        - plot full/half/third neutral components on a beam-grid plane.
+        """
+        import matplotlib.pyplot as plt
+
+        # Step 1: resolve data to plot.
+        result_plot = self._result_for_plot(result)
+        # Step 2: render radial profile panel.
+        fig_profiles = self._plot_profile_panel(plt, result_plot)
+        # Step 3: render neutral component plane panel (if neutrals output exists).
+        fig_neutrals = self._plot_neutral_plane_panel(plt, z_index)
 
         if show:
             plt.show()
