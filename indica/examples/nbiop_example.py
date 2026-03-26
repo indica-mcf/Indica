@@ -16,8 +16,12 @@ from indica.defaults.load_defaults import load_default_objects
 from indica.operators import NbiFidasim
 
 
-def run_nbi_operator_example(show_plots: bool = True):
-    """Build default inputs, run NbiFidasim once, and plot output profiles."""
+def run_nbi_operator_example(
+    show_plots: bool = True,
+    reuse_existing_outputs: bool = False,
+    overwrite: bool = True,
+):
+    """Build default inputs, run/reuse NbiFidasim outputs, and plot profiles."""
     machine = "st40"
 
     # Build NBI transform from editable default config and attach equilibrium.
@@ -40,6 +44,7 @@ def run_nbi_operator_example(show_plots: bool = True):
     nbi_op.set_transform(nbi_transform)
 
     # Run one time point through prepare -> run -> refactor_output.
+    # For fast reruns, set reuse_existing_outputs=True and overwrite=False.
     result = nbi_op(
         Ti=plasma.ion_temperature,
         Te=plasma.electron_temperature,
@@ -52,6 +57,11 @@ def run_nbi_operator_example(show_plots: bool = True):
         t=float(plasma.t[5]),
         file_name="nbiop_example",
         machine=machine,
+        prepare_kwargs={
+            "overwrite": overwrite,
+            "reuse_existing_outputs": reuse_existing_outputs,
+        },
+        run_kwargs={"reuse_existing_outputs": reuse_existing_outputs},
     )
 
     print("NBI result keys:", list(result.keys()))
@@ -82,4 +92,4 @@ def run_nbi_operator_example(show_plots: bool = True):
 
 
 if __name__ == "__main__":
-    run_nbi_operator_example(show_plots=True)
+    run_nbi_operator_example(show_plots=False, reuse_existing_outputs=True, overwrite=False)

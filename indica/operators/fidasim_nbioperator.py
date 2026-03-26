@@ -46,6 +46,8 @@ class NbiFidasim(NbiOperator):
         wavelength_grid_settings: dict = WAVELENGTH_GRID_SETTINGS,
         weight_function_settings: dict = WEIGHT_FUNCTION_SETTINGS,
         simulation_switches: dict = SIMULATION_SWITCHES,
+        overwrite: bool = True,
+        reuse_existing_outputs: bool = False,
     ):
         """
         Prepare NBI code input files translating Indica native
@@ -57,11 +59,7 @@ class NbiFidasim(NbiOperator):
             f"{str(self.file_name).strip()}_{time_to_ms(self.t)}_ms_{self.name}"
         )
         run_dir = os.path.join(save_dir, run_prefix)
-        if not os.path.exists(run_dir):
-            os.makedirs(run_dir)
         beam_save_dir = os.path.join(run_dir, self.name)
-        if not os.path.exists(beam_save_dir):
-            os.makedirs(beam_save_dir)
 
         # FIDASIM naming convention from preprocessing.py/check_inputs:
         #   <runid>_inputs.dat, <runid>_neutrals.h5, <runid>_distribution.h5
@@ -76,12 +74,10 @@ class NbiFidasim(NbiOperator):
         self.neut_file = neut_file
         self.distribution_file = distribution_file
 
-        # Remove the existing folder if re-running fidasim
-        # TODO: do we need a safety net if we don't want to overwrite?
-        try:
+        # Overwrite mode: drop previous run folder before creating fresh inputs.
+        if overwrite and os.path.exists(run_dir):
             shutil.rmtree(run_dir)
-        except FileNotFoundError:
-            pass
+        os.makedirs(beam_save_dir, exist_ok=True)
 
         # Define plasma interpolation grid bounds and create beam grid from transform
         # FIDASIM rz_grid uses cm, while transform machine dimensions are in m.
@@ -233,21 +229,38 @@ class NbiFidasim(NbiOperator):
         inputs.update(weight_function_settings)
         inputs.update(bgrid)
 
+        existing_outputs = os.path.exists(self.fidasim_out) and os.path.exists(
+            self.neut_file
+        )
+        if reuse_existing_outputs and (not overwrite) and existing_outputs:
+            self._reuse_existing_outputs = True
+            return
+
+        self._reuse_existing_outputs = False
         fidasim.prefida(inputs, grid, beam_cfg, plasma, equil, fi_dist)
 
-    def run(self, num_cores: int = 3):
+    def run(self, num_cores: int = 3, reuse_existing_outputs: bool = False):
         """
         Run beam code
         """
+        if (reuse_existing_outputs or getattr(self, "_reuse_existing_outputs", False)) and os.path.exists(self.neut_file):
+            print("Reusing existing FIDASIM outputs: skipping subprocess run.")
+            return
+
         print("Running beam code")
 
-        subprocess.run(
+        completed = subprocess.run(
             [
                 FIDASIM_BIN_PATH,
                 self.fidasim_out,
                 f"{num_cores}",
             ]
         )
+        if completed.returncode != 0:
+            raise RuntimeError(
+                f"FIDASIM subprocess failed with return code {completed.returncode}. "
+                "Run with reuse_existing_outputs=True to process existing files."
+            )
 
 
 
