@@ -405,7 +405,6 @@ class NbiFidasim(NbiOperator):
             np.asarray(self._fast_weights_flat, dtype=float),
             np.asarray(self._rhop_refactor, dtype=float),
         )
-
     def refactor_output(self) -> dict:
         """
         Return Indica-native NBI results following the abstract operator contract.
@@ -436,7 +435,7 @@ class NbiFidasim(NbiOperator):
                 },
             )
 
-        return {
+        result = {
             "neutral_density": _to_da(
                 "neutral_density",
                 neutral_profile,
@@ -458,8 +457,87 @@ class NbiFidasim(NbiOperator):
                 "placeholder_distribution_moment_not_implemented",
             ),
         }
+        self._last_result = result
+        return result
+
+    def plot(
+        self,
+        result: dict | None = None,
+        z_index: int | None = None,
+        show: bool = True,
+    ) -> dict:
+        """
+        Quick-look plotting for NBI outputs.
+
+        This mirrors the legacy TriWaSp workflow style at a practical level:
+        - plot refactor_output radial profiles,
+        - plot full/half/third neutral components on a beam-grid plane.
+        """
+        import matplotlib.pyplot as plt
+
+        if result is None:
+            if hasattr(self, "_last_result"):
+                result = self._last_result
+            else:
+                result = self.refactor_output()
+
+        fig_profiles, axs = plt.subplots(2, 2, figsize=(10, 7), sharex=True)
+        profile_keys = [
+            "neutral_density",
+            "fast_ion_density",
+            "parallel_fast_ion_pressure",
+            "perpendicular_fast_ion_pressure",
+        ]
+        for ax, key in zip(axs.flat, profile_keys):
+            da = result[key]
+            ax.plot(da.rhop.values, da.isel(t=0).values)
+            ax.set_title(key)
+            ax.set_xlabel("rhop")
+            ax.set_ylabel(key)
+            ax.grid(True, alpha=0.3)
+        fig_profiles.tight_layout()
+
+        fig_neutrals = None
+        if os.path.exists(self.neut_file):
+            with h5.File(self.neut_file, "r") as h5f:
+                fdens = np.asarray(h5f["fdens"][...], dtype=float)
+                hdens = np.asarray(h5f["hdens"][...], dtype=float)
+                tdens = np.asarray(h5f["tdens"][...], dtype=float)
+                x_m = np.asarray(h5f["grid"]["x"][...], dtype=float) * 1.0e-2
+                y_m = np.asarray(h5f["grid"]["y"][...], dtype=float) * 1.0e-2
+                z_m = np.asarray(h5f["grid"]["z"][...], dtype=float) * 1.0e-2
+
+            if z_index is None:
+                z_index = int(np.argmin(np.abs(z_m)))
+            z_index = int(np.clip(z_index, 0, len(z_m) - 1))
+
+            # Ground state neutral components, converted cm^-3 -> m^-3.
+            components = [
+                (fdens[..., 0] * 1.0e6, "fdens (full)"),
+                (hdens[..., 0] * 1.0e6, "hdens (half)"),
+                (tdens[..., 0] * 1.0e6, "tdens (third)"),
+            ]
+
+            fig_neutrals, axs2 = plt.subplots(1, 3, figsize=(14, 4), sharex=True, sharey=True)
+            for ax, (arr, title) in zip(axs2, components):
+                im = ax.pcolormesh(x_m, y_m, arr[z_index, :, :], shading="auto")
+                ax.set_title(f"{title} @ z={z_m[z_index]:.3f} m")
+                ax.set_xlabel("x (m)")
+                ax.set_ylabel("y (m)")
+                fig_neutrals.colorbar(im, ax=ax)
+            fig_neutrals.tight_layout()
+
+        if show:
+            plt.show()
+
+        return {
+            "profiles": fig_profiles,
+            "neutrals": fig_neutrals,
+        }
+
 
 def create_grids(
+
     transform: LineOfSightTransform,
     delta_src=0.0,
     delta_ang=0.0,
