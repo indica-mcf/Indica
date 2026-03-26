@@ -638,6 +638,67 @@ class NbiFidasim(NbiOperator):
         fig_neutrals.tight_layout()
         return fig_neutrals
 
+    def _plot_beam_attenuation_panel(self, plt, z_index: int | None):
+        """Plot beam attenuation along x on beam centerline (y≈0) for one z plane."""
+        if not os.path.exists(self.neut_file):
+            return None
+
+        # Step 1: read neutral components and axes, then choose plotting plane/centerline.
+        components, x_m, y_m, z_m = self._read_neutral_plot_data_m3()
+        plane_index = self._resolve_z_plane_index(z_m, z_index)
+        y_index = int(np.argmin(np.abs(y_m)))
+        components_ground = self._ground_state_neutral_components_for_plot(components)
+
+        # Step 2: extract full/half/third centerline attenuation profiles along beam x.
+        centerline = {}
+        for arr, label in components_ground:
+            centerline[label] = np.asarray(arr[plane_index, y_index, :], dtype=float)
+        total = (
+            centerline["fdens (full)"]
+            + centerline["hdens (half)"]
+            + centerline["tdens (third)"]
+        )
+
+        # Step 3: compute normalized attenuation n(x)/n(x0) for each component.
+        def _normalize(profile: np.ndarray) -> np.ndarray:
+            p0 = profile[0] if profile.size > 0 else np.nan
+            if not np.isfinite(p0) or p0 <= 0.0:
+                return np.full_like(profile, np.nan, dtype=float)
+            return profile / p0
+
+        centerline_norm = {name: _normalize(profile) for name, profile in centerline.items()}
+        total_norm = _normalize(total)
+
+        # Step 4: render absolute and normalized attenuation views.
+        fig_attn, (ax_abs, ax_norm) = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
+        colors = {
+            "fdens (full)": "tab:blue",
+            "hdens (half)": "tab:orange",
+            "tdens (third)": "tab:green",
+            "total": "k",
+        }
+        for name in ["fdens (full)", "hdens (half)", "tdens (third)"]:
+            ax_abs.plot(x_m, centerline[name], label=name, color=colors[name])
+        ax_abs.plot(x_m, total, label="total", color=colors["total"], linewidth=1.8)
+        ax_abs.set_ylabel("Neutral Density (m$^{-3}$)")
+        ax_abs.set_title(
+            f"Beam Attenuation @ z={z_m[plane_index]:.3f} m, y={y_m[y_index]:.3f} m"
+        )
+        ax_abs.grid(True, alpha=0.3)
+        ax_abs.legend()
+
+        for name in ["fdens (full)", "hdens (half)", "tdens (third)"]:
+            ax_norm.plot(x_m, centerline_norm[name], label=name, color=colors[name])
+        ax_norm.plot(x_m, total_norm, label="total", color=colors["total"], linewidth=1.8)
+        ax_norm.set_xlabel("Beam-Axis Distance x (m)")
+        ax_norm.set_ylabel("Normalized n(x)/n(x0)")
+        ax_norm.set_ylim(bottom=0.0)
+        ax_norm.grid(True, alpha=0.3)
+        ax_norm.legend()
+
+        fig_attn.tight_layout()
+        return fig_attn
+
     def plot(
         self,
         result: dict | None = None,
@@ -653,6 +714,7 @@ class NbiFidasim(NbiOperator):
         This mirrors the legacy TriWaSp workflow style at a practical level:
         - plot refactor_output radial profiles,
         - plot full/half/third neutral components on a beam-grid plane.
+        - plot centerline beam attenuation along beam-axis distance.
         """
         import matplotlib.pyplot as plt
 
@@ -662,6 +724,8 @@ class NbiFidasim(NbiOperator):
         fig_profiles = self._plot_profile_panel(plt, result_plot)
         # Step 3: render neutral component plane panel (if neutrals output exists).
         fig_neutrals = self._plot_neutral_plane_panel(plt, z_index)
+        # Step 4: render centerline beam attenuation panel.
+        fig_attenuation = self._plot_beam_attenuation_panel(plt, z_index)
 
         saved_paths = {}
         if save_plots:
@@ -688,6 +752,10 @@ class NbiFidasim(NbiOperator):
                 neutrals_path = os.path.join(out_dir, f"{prefix}_neutrals.png")
                 fig_neutrals.savefig(neutrals_path, dpi=150, bbox_inches="tight")
                 saved_paths["neutrals"] = neutrals_path
+            if fig_attenuation is not None:
+                attenuation_path = os.path.join(out_dir, f"{prefix}_attenuation.png")
+                fig_attenuation.savefig(attenuation_path, dpi=150, bbox_inches="tight")
+                saved_paths["attenuation"] = attenuation_path
 
         if show:
             plt.show()
@@ -695,6 +763,7 @@ class NbiFidasim(NbiOperator):
         return {
             "profiles": fig_profiles,
             "neutrals": fig_neutrals,
+            "attenuation": fig_attenuation,
             "saved_paths": saved_paths,
         }
 
