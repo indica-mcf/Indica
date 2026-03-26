@@ -541,9 +541,9 @@ class Equilibrium:
         volume = self.area.interp(rhop=rhop).interp(t=t)
         return volume, t
 
-    def write_to_geqdsk(self, time_point:float, filename: str = None, ) -> str:
+    def write_to_geqdsk(self, t_point:float, filename: str = None, ) -> str:
 
-        t_idx = np.argmin(np.abs(self.t.values-time_point))
+        t_idx = np.argmin(np.abs(self.t.values-t_point))
         geqdsk_inputs = dict(
                 comment="equilibrium default",
                 shot=-1,
@@ -572,7 +572,7 @@ class Equilibrium:
         geqdsk_data_dict = GeqdskDataDict(geqdsk_inputs)
 
         if filename is None:
-            filename = f"default_equilibrium_{int(time_point*1000)}ms.txt"
+            filename = f"default_equilibrium_{int(t_point*1000)}ms.txt"
         filepath = f"{GEQDSK_DIR}{filename}"
         Path(GEQDSK_DIR).mkdir(parents=True, exist_ok=True)
 

@@ -359,8 +359,8 @@ class FractionalAbundanceAurora(Operator):
     IF the atomic data is not given it will be inferred from Indica defaults in ADF11
 
     equilibrium
-        equilibrium object to take the geqdsk from
-    geqdsk_time_point
+        Equilibrium object to take the geqdsk from
+    t_point
         time point at which to take the geqdsk from the equilibrium object
     element
         impurity element to calculate the fractional abundance for
@@ -377,7 +377,7 @@ class FractionalAbundanceAurora(Operator):
     def __init__(
             self,
             equilibrium: Equilibrium,
-            geqdsk_time_point: float,
+            t_point: float,
             element: str = "ar",
             scd: str = None,
             acd: str = None,
@@ -387,7 +387,7 @@ class FractionalAbundanceAurora(Operator):
 
         self.aurora_config = aurora_config
         self.equilibrium = equilibrium
-        self.geqdsk = self.set_geqdsk(geqdsk_time_point)
+        self.geqdsk = self.set_geqdsk(t_point)
 
         self.scd = scd
         self.acd = acd
@@ -403,9 +403,9 @@ class FractionalAbundanceAurora(Operator):
         self.aurora_config["kin_profs"]["imp"] = element.title()   # Aurora likes first letter capitalised
 
 
-    def set_geqdsk(self, time_point: float):
+    def set_geqdsk(self, t_point: float):
         assert isinstance(self.equilibrium, Equilibrium)
-        geqdsk_filepath = self.equilibrium.write_to_geqdsk(time_point=time_point)
+        geqdsk_filepath = self.equilibrium.write_to_geqdsk(time_point=t_point)
         return omfit_eqdsk.OMFITgeqdsk(geqdsk_filepath)
 
 
