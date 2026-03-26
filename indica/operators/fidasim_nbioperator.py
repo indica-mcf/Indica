@@ -643,6 +643,9 @@ class NbiFidasim(NbiOperator):
         result: dict | None = None,
         z_index: int | None = None,
         show: bool = True,
+        save_plots: bool = False,
+        plot_dir: str | None = None,
+        filename_prefix: str | None = None,
     ) -> dict:
         """
         Quick-look plotting for NBI outputs.
@@ -660,12 +663,39 @@ class NbiFidasim(NbiOperator):
         # Step 3: render neutral component plane panel (if neutrals output exists).
         fig_neutrals = self._plot_neutral_plane_panel(plt, z_index)
 
+        saved_paths = {}
+        if save_plots:
+            if plot_dir is not None:
+                out_dir = plot_dir
+            elif hasattr(self, "neut_file"):
+                out_dir = os.path.dirname(self.neut_file)
+            else:
+                out_dir = os.getcwd()
+            os.makedirs(out_dir, exist_ok=True)
+
+            if filename_prefix is not None:
+                prefix = filename_prefix
+            elif hasattr(self, "fidasim_out"):
+                prefix = os.path.basename(self.fidasim_out).replace("_inputs.dat", "")
+            else:
+                prefix = f"fidasim_{self.name}"
+
+            profiles_path = os.path.join(out_dir, f"{prefix}_profiles.png")
+            fig_profiles.savefig(profiles_path, dpi=150, bbox_inches="tight")
+            saved_paths["profiles"] = profiles_path
+
+            if fig_neutrals is not None:
+                neutrals_path = os.path.join(out_dir, f"{prefix}_neutrals.png")
+                fig_neutrals.savefig(neutrals_path, dpi=150, bbox_inches="tight")
+                saved_paths["neutrals"] = neutrals_path
+
         if show:
             plt.show()
 
         return {
             "profiles": fig_profiles,
             "neutrals": fig_neutrals,
+            "saved_paths": saved_paths,
         }
 
 #MARCO: This class had a bunch of references to self.equilibrium, should be self.transform.equilbirium.

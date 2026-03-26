@@ -8,8 +8,6 @@ This example is intended as a smoke test for the new abstract-NBI interface:
 
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
-
 from indica.configs.operators.nbi_configs import get_default_nbi_transform_config
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.defaults.load_defaults import load_default_objects
@@ -20,8 +18,10 @@ def run_nbi_operator_example(
     show_plots: bool = True,
     reuse_existing_outputs: bool = False,
     overwrite: bool = True,
+    save_plots: bool = True,
+    plot_dir: str | None = None,
 ):
-    """Build default inputs, run/reuse NbiFidasim outputs, and plot profiles."""
+    """Build default inputs, run/reuse NbiFidasim outputs, and use operator plotting."""
     machine = "st40"
 
     # Build NBI transform from editable default config and attach equilibrium.
@@ -68,28 +68,23 @@ def run_nbi_operator_example(
     for key, value in result.items():
         print(f"{key}: dims={value.dims}, shape={value.shape}")
 
-    # Plot the four Indica-native outputs vs rhop at the single returned time.
-    fig, axs = plt.subplots(2, 2, figsize=(10, 6), sharex=True)
-    keys = [
-        "neutral_density",
-        "fast_ion_density",
-        "parallel_fast_ion_pressure",
-        "perpendicular_fast_ion_pressure",
-    ]
-
-    for ax, key in zip(axs.flat, keys):
-        da = result[key]
-        ax.plot(da.rhop.values, da.isel(t=0).values)
-        ax.set_title(key)
-        ax.set_xlabel("rhop")
-        ax.set_ylabel(key)
-
-    fig.tight_layout()
-    if show_plots:
-        plt.show()
+    plot_out = nbi_op.plot(
+        result=result,
+        show=show_plots,
+        save_plots=save_plots,
+        plot_dir=plot_dir,
+    )
+    for key, path in plot_out["saved_paths"].items():
+        print(f"Saved {key} plot: {path}")
 
     return result
 
 
 if __name__ == "__main__":
-    run_nbi_operator_example(show_plots=False, reuse_existing_outputs=True, overwrite=False)
+    run_nbi_operator_example(
+        show_plots=False,
+        reuse_existing_outputs=True,
+        overwrite=False,
+        save_plots=True,
+        plot_dir="/home/jussi.hakosalo/Indica/indica/examples/fidasimtestplots"
+    )
