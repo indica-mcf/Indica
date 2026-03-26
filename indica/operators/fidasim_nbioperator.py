@@ -108,10 +108,7 @@ class NbiFidasim(NbiOperator):
 
         # Map all quantities to the Fidasim 2D (R,z) grid
         equilibrium = self.transform.equilibrium
-        #_R = grid["r2d"][0, :]
-        #_z = grid["z2d"][:, 0]
-        #MARCO: these should be the other way around. We want to recover unique r and z
-        # so it would be
+
         _R = grid["r2d"][:, 0]# ie. take any column and all values in that column
         _z = grid["z2d"][0, :]# The same thing. Just that R is transposed!
         R = xr.DataArray(_R, coords={"R": _R})
@@ -127,21 +124,28 @@ class NbiFidasim(NbiOperator):
         mask = xr.full_like(rhop_2d, 1)
         mask = xr.where(rhop_2d <= max_rhop_profiles, mask, 0)
 
-        #These fail because of key errors. Is this not because we are trying to select
-        #with an interpolated index of rhop_2d, and not the original rhop index the profiles have?
-        #So instead of sel, should this not be interp?
+
+        map_masked = (
+            lambda profile, scale=1.0: xr.where(
+                mask > 0,
+                profile.interp(rhop=rhop_2d) * scale,
+                0,
+            )
+            .T.data
+        )
+        
         plasma = {
             "data_source": "Indica",
             "time": self.t,
-            "zeff": self.Zeff.sel(rhop=rhop_2d).data,
-            "ti": self.Ti.sel(rhop=rhop_2d).data * 1.0e-03,
-            "te": self.Te.sel(rhop=rhop_2d).data * 1.0e-03,
-            "denn": self.Nn.sel(rhop=rhop_2d).data * 1.0e-06,
-            "dene": self.Ne.sel(rhop=rhop_2d).data * 1.0e-06,
-            "vr": np.zeros_like(rhop_2d),
-            "vz": np.zeros_like(rhop_2d),
-            "vt": self.Vtor.sel(rhop=rhop_2d).data * 100.0,
-            "mask": mask.data,
+            "zeff": map_masked(self.Zeff),
+            "ti": map_masked(self.Ti, 1.0e-03),
+            "te": map_masked(self.Te, 1.0e-03),
+            "denn": map_masked(self.Nn, 1.0e-06),
+            "dene": map_masked(self.Ne, 1.0e-06),
+            "vr": np.zeros_like(rhop_2d).T,
+            "vz": np.zeros_like(rhop_2d).T,
+            "vt": map_masked(self.Vtor, 100.0),
+            "mask": np.int_(mask.data.T),
             "plasma_ion_amu": self.target_element_info["A"],
             "grid": grid,
             "flux": rhop_2d,
@@ -149,8 +153,8 @@ class NbiFidasim(NbiOperator):
         }
 
         # Add midplane profiles to plasma dictionary
-        zmag = xr.full_like(R, self.transform.equilibrium.zmag.sel(t=self.t).data)
-        rhop_midplane = self.transform.equilibrium.flux_coords(R, zmag, t=self.t)
+        zmag = xr.full_like(R, self.transform.equilibrium.zmag.interp(t=self.t).data)
+        rhop_midplane,_,_ = self.transform.equilibrium.flux_coords(R, zmag, t=self.t)
         profiles_midplane = {
             "ti": self.Ti.interp(rhop=rhop_midplane).data * 1.0e-03,
             "te": self.Te.interp(rhop=rhop_midplane).data * 1.0e-03,
@@ -169,14 +173,15 @@ class NbiFidasim(NbiOperator):
         equil = {
             "time": self.t,
             "data_source": "Provenance to be implemented!",
-            "br": br_2d,
-            "bz": bz_2d,
-            "bt": bt_2d,
-            "er": np.zeros_like(br_2d),
-            "ez": np.zeros_like(br_2d),
-            "et": np.zeros_like(br_2d),
-            "mask": xr.full_like(rhop_2d, 1),
+            "br": br_2d.data.T,
+            "bz": bz_2d.data.T,
+            "bt": bt_2d.data.T,
+            "er": np.zeros_like(br_2d.data.T),
+            "ez": np.zeros_like(br_2d.data.T),
+            "et": np.zeros_like(br_2d.data.T),
+            "mask": np.int32(mask.data.T),
         }
+    
 
         # Read the dummy fast-ion distribution
         # TODO: this should be refactored to something sensible,
@@ -212,7 +217,8 @@ class NbiFidasim(NbiOperator):
         }
         plasma_settings = {
             "ai": self.target_element_info["A"],
-            "impurity_charge": np.mean(self.MeanZ),
+#            "impurity_charge": int(np.mean(self.MeanZ)),
+            "impurity_charge": 5,
         }
 
         inputs = dict(general_settings)
@@ -230,6 +236,7 @@ class NbiFidasim(NbiOperator):
         """
         Run beam code
         """
+        print("Running beam code")
 
         subprocess.run(
             [
@@ -483,6 +490,7 @@ class NbiFidasim(NbiOperator):
         - Geometry mappings are precomputed in prepare(); this stage only reads
           output densities and applies cached reductions to rhop profiles.
         """
+        print("refactoring")
         # Step 1: define output coordinates (single-time slice over cached rhop grid).
         rhop = np.asarray(self._rhop_refactor, dtype=float)
         t_coord = np.array([float(self.t)], dtype=float)
@@ -490,6 +498,7 @@ class NbiFidasim(NbiOperator):
         # Step 2: compute radial profiles with explicit staged helper workflow.
         profiles = self._build_refactor_profiles()
 
+        print(self.neut_file)
         def _to_da(name: str, profile: np.ndarray, status: str) -> xr.DataArray:
             # Local helper: wrap each profile into the contract-compliant DataArray.
             return xr.DataArray(
@@ -655,7 +664,6 @@ def create_grids(
     TODO: Indica transform currently has only 1 focal length
     """
     #_axis = np.array()
-    #MARCO: this was missing
     _axis = np.asarray(transform.direction[0], dtype=float)
 
     norm = np.linalg.norm(_axis)
@@ -670,15 +678,15 @@ def create_grids(
 
     beam_cfg = {
         "data_source": "",
+        "name":"testbeam",
         "shape": shape,
         "src": 100 * np.array(transform.origin[0]),
         "axis": axis,
         "widy": 100 * transform.spot_width,
         "widz": 100 * transform.spot_height,
-        #MARCO: this had a different name. divy or div_width? What do we wanna call em?
 
-        "divy": transform.div_width[0],
-        "divz": transform.div_height[0],
+        "divy": transform.div_width,
+        "divz": transform.div_height,
         "focy": 100.0 * transform.focal_length,
         "focz": 100.0 * transform.focal_length,
         "naperture": 0,  # Default for now
@@ -704,7 +712,6 @@ def create_grids(
         beam_cfg["axis"] = beam_cfg["axis"] / np.linalg.norm(beam_cfg["axis"])
 
     # TODO: Check that these make sense!!!
-    #MARCO: machine dims come from transform in meters!
     rstart = transform._machine_dims[0][1]*100.0
     bgrid = beam_grid(
         beam_cfg,
