@@ -117,7 +117,7 @@ class NbiFidasim(NbiOperator):
         R = xr.DataArray(_R, coords={"R": _R})
         z = xr.DataArray(_z, coords={"z": _z})
     
-
+        #2D map. We build the 2d grid from equilibrium
         rhop_2d = equilibrium.rhop.interp(t=self.t).interp(R=R, z=z)
         rhot_2d, _ = self.transform.equilibrium.convert_flux_coords(rhop_2d, t=self.t)
         br_2d, bz_2d, bt_2d, _ = self.transform.equilibrium.Bfield(R, z, t=self.t, full_Rz=True)
@@ -127,6 +127,9 @@ class NbiFidasim(NbiOperator):
         mask = xr.full_like(rhop_2d, 1)
         mask = xr.where(rhop_2d <= max_rhop_profiles, mask, 0)
 
+        #These fail because of key errors. Is this not because we are trying to select
+        #with an interpolated index of rhop_2d, and not the original rhop index the profiles have?
+        #So instead of sel, should this not be interp?
         plasma = {
             "data_source": "Indica",
             "time": self.t,
