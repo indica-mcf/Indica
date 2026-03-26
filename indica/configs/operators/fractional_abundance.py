@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from omfit_classes import omfit_eqdsk, omfit_gapy
 import aurora
-from st40_database.formatted_data_writers import geqdsk
+# from st40_database.formatted_data_writers import geqdsk
 
 
 AuroraConfig = dict(

@@ -7,6 +7,9 @@ import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
 from xarray import where
+from freeqdsk.geqdsk import GeqdskDataDict, write
+from getpass import getuser
+from pathlib import Path
 
 from indica.utilities import check_time_present
 from .numpy_typing import FloatOrDataArray
@@ -14,7 +17,7 @@ from .numpy_typing import LabeledArray
 from .numpy_typing import OnlyArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
-
+GEQDSK_DIR = f"/home/{getuser()}/.indica/geqdsks/"
 
 class Equilibrium:
     """Class to hold and map equilibrium data.
@@ -538,6 +541,43 @@ class Equilibrium:
         volume = self.area.interp(rhop=rhop).interp(t=t)
         return volume, t
 
-    def write_to_geqdsk(self):
-        # TODO: Implement writing to geqdsk
-        raise NotImplementedError("Method not yet implemented")
+    def write_to_geqdsk(self, time_point:float, filename: str = None, ) -> str:
+
+        t_idx = np.argmin(np.abs(self.t.values-time_point))
+        geqdsk_inputs = dict(
+                comment="equilibrium default",
+                shot=-1,
+                bcentr=0,  # Dummy values
+                pres=self.f[t_idx,].values * 0, # Dummy values
+                qpsi=self.f[t_idx,].values * 0, # Dummy values
+
+                fpol=self.f[t_idx,].values,
+                rdim=self.Rmax.values - self.Rmin.values,
+                rleft=self.Rmin.values,
+                rcentr=self.Rmin.values + (self.Rmax.values - self.Rmin.values) / 2,
+                zdim=self.zmax.values - self.zmin.values,
+                zmid=self.zmin.values + (self.zmax.values - self.zmin.values) / 2,
+                zmin=self.zmin.values,
+                rmagx=self.rmag[t_idx].values,
+                zmagx=self.zmag[t_idx].values,
+                simagx=self.psi_axis[t_idx].values,
+                sibdry=self.psi_boundary[t_idx].values,
+                cpasma=self.ipla[t_idx].values,
+                nx=self.psi.R.shape[0],
+                ny=self.psi.z.shape[0],
+                psi=self.psi[t_idx,].transpose("R", "z").values,  # Must be shape (nr, nz) for freeqdsk
+                rbdry=self.rbnd[t_idx,].values,
+                zbdry=self.zbnd[t_idx,].values,
+            )
+        geqdsk_data_dict = GeqdskDataDict(geqdsk_inputs)
+
+        if filename is None:
+            filename = f"default_equilibrium_{int(time_point*1000)}ms.txt"
+        filepath = f"{GEQDSK_DIR}{filename}"
+        Path(GEQDSK_DIR).mkdir(parents=True, exist_ok=True)
+
+        with open(filepath, "w") as handle:
+            write(geqdsk_data_dict, handle)
+
+        return filepath
+
