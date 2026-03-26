@@ -3,9 +3,11 @@ from typing import cast
 from typing import List
 from typing import Tuple
 
+import aurora
 import matplotlib.pylab as plt
 import numpy as np
 from numpy.core.numeric import zeros_like
+from omfit_classes import omfit_eqdsk
 from pandas import DataFrame
 import scipy
 import xarray as xr
@@ -18,6 +20,8 @@ from indica.readers.adas import ADASReader
 from indica.utilities import DATA_PATH
 from indica.utilities import set_plot_colors
 from .abstractoperator import Operator
+from indica import Equilibrium
+from indica.configs.operators.fractional_abundance import AuroraConfig
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
@@ -347,6 +351,143 @@ class FractionalAbundance(Operator):
             F_z_t = interpolate_results(self.F_z_t, self.Te, Te)
 
         return F_z_t
+
+
+class FractionalAbundanceAurora(Operator):
+    """
+    Calculate fractional abundance for all ionisation states of a given element using Aurora
+    IF the atomic data is not given it will be inferred from Indica defaults in ADF11
+
+    equilibrium
+        equilibrium object to take the geqdsk from
+    geqdsk_time_point
+        time point at which to take the geqdsk from the equilibrium object
+    element
+        impurity element to calculate the fractional abundance for
+    scd
+        effective ionisation rate coefficient string: f"scd{year}_{element}.dat"
+    acd
+        effective recombination rate coefficients string: f"acd{year}_{element}.dat"
+    ccd
+        charge exchange recombination coefficients string: f"ccd{year}_{element}.dat"
+    aurora_config
+        dictionary of Aurora namelist parameters, see configs/operators/fractional_abundance.py for defaults
+    """
+
+    def __init__(
+            self,
+            equilibrium: Equilibrium,
+            geqdsk_time_point: float,
+            element: str = "ar",
+            scd: str = None,
+            acd: str = None,
+            ccd: str = None,
+            aurora_config: dict = AuroraConfig,
+    ):
+
+        self.aurora_config = aurora_config
+        self.equilibrium = equilibrium
+        self.geqdsk = self.set_geqdsk(geqdsk_time_point)
+
+        self.scd = scd
+        self.acd = acd
+        self.ccd = ccd
+
+        for key in ["acd", "scd", "ccd"]:
+            if getattr(self, key) is None:
+                year = ADF11[element][key]
+                adas_key = f"{key}{year}_{element}.dat"
+                setattr(self, key, adas_key)
+                self.aurora_config[key] = adas_key
+
+        self.aurora_config["kin_profs"]["imp"] = element.title()   # Aurora likes first letter capitalised
+
+
+    def set_geqdsk(self, time_point: float):
+        assert isinstance(self.equilibrium, Equilibrium)
+        geqdsk_filepath = self.equilibrium.write_to_geqdsk(time_point=time_point)
+        return omfit_eqdsk.OMFITgeqdsk(geqdsk_filepath)
+
+
+    def set_kinetic_profiles(self, Te: xr.DataArray, Ne: xr.DataArray, Nh: xr.DataArray, ):
+        assert self.aurora_config
+        kp = self.aurora_config["kin_profs"]
+        kp["Te"]["rhop"] = Te.rhop.values
+        kp["ne"]["rhop"] = Ne.rhop.values
+        kp["n0"]["rhop"] = Nh.rhop.values
+        kp["Te"]["times"] = Te.t.values
+        kp["ne"]["times"] = Ne.t.values
+        kp["n0"]["times"] = Nh.t.values
+        kp["Te"]["vals"] = Te.values
+        kp["ne"]["vals"] = Ne.values * 1e-6  # m^-3 -> cm^-3
+        kp["n0"]["vals"] = Nh.values * 1e-6
+
+
+    def translate_coeff_to_aurora_grid(self, D_z: xr.DataArray, V_z: xr.DataArray):
+        # Cast the DataArrays to Aurora rhop grid whilst converting to cm^-2 and cm^-1 units
+        _D_z = (D_z.interp(rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"})).values * 1e4
+        _V_z = (V_z.interp(rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"})).values * 1e2
+        return _D_z, _V_z
+
+    def run_steady_state(self, D_z: np.ndarray, V_z: np.ndarray, plot: bool = False):
+        raise NotImplementedError
+        # return self.asim.run_aurora_steady(D_z, V_z, plot=plot)
+
+    def run_time_evolution(self, D_z: np.ndarray, V_z: np.ndarray, plot: bool = False):
+        return self.asim.run_aurora(D_z, V_z, plot=plot)
+
+    def calc_fz(self, nz: np.ndarray, rhop: np.ndarray, time: np.ndarray, zimp: np.ndarray,
+                time_out: np.ndarray, rhop_out: np.ndarray) -> xr.DataArray:
+        _Nimp = xr.DataArray(data=nz, coords={"rhop": rhop, "ion_charge": zimp, "t": time, }).transpose("t", "rhop",
+                                                                                                        "ion_charge")
+        Nimp = _Nimp.interp(t=time_out, rhop=rhop_out)
+        F_z_t = Nimp / Nimp.sum("ion_charge")
+        return F_z_t
+
+    def plot_fractional_abundance(self, F_z_t, ):
+        aurora.plot_tools.slider_plot(
+            F_z_t.rhop,
+            F_z_t.t,
+            F_z_t.values.transpose(2, 1, 0),
+            xlabel=r"$\rho$ [-]",
+            ylabel="time [s]",
+            zlabel=r"fractional abundance$ [-]",
+            labels=map(str, range(F_z_t.ion_charge.values.shape[0])),
+            plot_sum=True,
+        )
+
+    def __call__(
+            self,
+            Te: xr.DataArray,
+            Ne: xr.DataArray,
+            Nh: xr.DataArray,
+            D_z: xr.DataArray,
+            V_z: xr.DataArray,
+            plot: bool = False,
+    ) -> xr.DataArray:
+
+        """
+        Current behaviour based on Aurora takes a geqdsk and runs the time evolution for that static equilibrium
+
+        Returns
+            fractional abundance of all ionisation states as a function of time, rhop and ion charge.
+        """
+
+        assert self.geqdsk
+
+        self.set_kinetic_profiles(Te, Ne, Nh, )
+        self.asim = aurora.aurora_sim(namelist=self.aurora_config, geqdsk=self.geqdsk)
+        _D_z, _V_z = self.translate_coeff_to_aurora_grid(D_z, V_z)
+
+        out = self.run_time_evolution(D_z=_D_z, V_z=_V_z, plot=plot)
+        self.F_z_t = self.calc_fz(out["nz"], rhop=self.asim.rhop_grid,
+                                  time=self.asim.time_grid, zimp=np.arange(self.asim.Z_imp + 1),
+                                  time_out=Te.t.values, rhop_out=Te.rhop.values)
+
+        if plot:
+            self.plot_fractional_abundance(self.F_z_t)
+        return self.F_z_t
+
 
 
 class PowerLoss(Operator):

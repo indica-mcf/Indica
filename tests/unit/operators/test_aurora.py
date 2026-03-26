@@ -2,11 +2,9 @@ import numpy as np
 from omfit_classes import omfit_eqdsk
 import indica
 import os
-from indica.configs.operators.aurora_config import AuroraConfig, AuroraSteadyStateConfig
+from indica.configs.operators.fractional_abundance import AuroraConfig
 import aurora
 import pytest
-from dataclasses import asdict
-
 
 
 def example_profiles():

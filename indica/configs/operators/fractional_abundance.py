@@ -1,11 +1,4 @@
-import os
-from dataclasses import dataclass, field
 import numpy as np
-from matplotlib import pyplot as plt
-from omfit_classes import omfit_eqdsk, omfit_gapy
-import aurora
-# from st40_database.formatted_data_writers import geqdsk
-
 
 AuroraConfig = dict(
     imp="Ar",
@@ -19,7 +12,7 @@ AuroraConfig = dict(
     acd=None,
     scd=None,
     ccd=None,
-    cxr_flag=False,
+    cxr_flag=True,
     nbi_cxr_flag=False,
     source_type="const",
     source_rate=1e20,
@@ -99,20 +92,4 @@ AuroraConfig = dict(
         },
     }
 )
-
-
-@dataclass
-class AuroraSteadyStateConfig:
-    nz_init: np.ndarray = None
-    unstage: bool = False
-    alg_opt: int = 1
-    evolneut: bool = False
-    use_julia: bool = False
-    tolerance: float = 0.001
-    max_sim_time: int = 1000
-    dt: float = 1e-3
-    dt_increase: float = 1.05
-    n_steps: int = 10
-    plot: bool = False
-    plot_radial_coordinate: str = 'rho_pol'
 

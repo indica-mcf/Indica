@@ -3,9 +3,11 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.configs.operators.fractional_abundance import AuroraConfig
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ThomsonScattering
 from indica.operators import tomo_1D
+from indica.operators.atomic_data import FractionalAbundanceAurora
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_2d_map
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
 from indica.operators.spline_fit_R_shift import fit_profile_and_R_shift
@@ -362,3 +364,23 @@ def example_fit_ts(
         plt.show()
 
     return te_data, ne_data, te_fit, ne_fit
+
+
+def example_aurora_run(plot: bool = True):
+    ne = PLASMA.electron_density
+    Te = PLASMA.electron_temperature * 1 / 3
+    Nh = PLASMA.neutral_density
+    D_coeff = 1 * np.ones(50)
+    D_coeff[0:25] = np.linspace(0.5, 1, 25)
+    D_coeff[25:] = np.linspace(1, 1.5, 25)
+    V_coeff = -2 * np.ones(50)
+    V_coeff[:] = np.linspace(-0.1, -2, 50)
+    D_z = xr.DataArray(data=D_coeff, coords={"rhop": np.linspace(0, 1, 50)})
+    V_z = xr.DataArray(data=V_coeff, coords={"rhop": np.linspace(0, 1, 50)})
+
+    operator = FractionalAbundanceAurora(
+        element="ar",
+        aurora_config=AuroraConfig, equilibrium=EQUILIBRIUM, geqdsk_time_point=0.10)
+    fz_t = operator(Ne=ne, Te=Te, Nh=Nh, D_z=D_z, V_z=V_z, plot=plot)
+    plt.show(block=True)
+
