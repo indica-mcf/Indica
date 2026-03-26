@@ -113,8 +113,8 @@ class NbiFidasim(NbiOperator):
         R = xr.DataArray(_R, coords={"R": _R})
         z = xr.DataArray(_z, coords={"z": _z})
         rhop_2d = equilibrium.rhop.interp(t=self.t).interp(R=R, z=z)
-        rhot_2d, _ = self.equilibrium.convert_flux_coords(rhop_2d, t=self.t)
-        br_2d, bz_2d, bt_2d, _ = self.equilibrium.Bfield(R, z, t=self.t, full_Rz=True)
+        rhot_2d, _ = self.transform.equilibrium.convert_flux_coords(rhop_2d, t=self.t)
+        br_2d, bz_2d, bt_2d, _ = self.transform.equilibrium.Bfield(R, z, t=self.t, full_Rz=True)
 
         # Mask where plasma profiles are available
         max_rhop_profiles = np.max(self.Te.rhop)
@@ -140,8 +140,8 @@ class NbiFidasim(NbiOperator):
         }
 
         # Add midplane profiles to plasma dictionary
-        zmag = xr.full_like(R, self.equilibrium.zmag.sel(t=self.t).data)
-        rhop_midplane = self.equilibrium.flux_coords(R, zmag, t=self.t)
+        zmag = xr.full_like(R, self.transform.equilibrium.zmag.sel(t=self.t).data)
+        rhop_midplane = self.transform.equilibrium.flux_coords(R, zmag, t=self.t)
         profiles_midplane = {
             "ti": self.Ti.interp(rhop=rhop_midplane).data * 1.0e-03,
             "te": self.Te.interp(rhop=rhop_midplane).data * 1.0e-03,
@@ -149,7 +149,7 @@ class NbiFidasim(NbiOperator):
             "denn": self.Nn.interp(rhop=rhop_midplane).data * 1.0e-06,
             "vt": self.Vtor.interp(rhop=rhop_midplane).data * 100.0,
             "rho": rhop_midplane,
-            "r_omp": self.equilibrium.R.data * 100,
+            "r_omp": self.transform.equilibrium.R.data * 100,
         }
         plasma["profiles"] = profiles_midplane
 
@@ -468,7 +468,9 @@ def create_grids(
     Starting from Indica transforms create Fidasim beam grid
     TODO: Indica transform currently has only 1 focal length
     """
-    _axis = np.array()
+    #_axis = np.array()
+    _axis = np.asarray(transform.direction[0], dtype=float)
+
     norm = np.linalg.norm(_axis)
     if norm <= 0.0:
         raise ValueError("transform direction vector has zero norm")

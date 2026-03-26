@@ -27,10 +27,10 @@ DEFAULT_NBI_TRANSFORM_CONFIG = {
     "plot_beamlets": False,
     # 3) Not in LineOfSightTransform, but shared NBI beam settings used
     #    by FIDASIM and other NBI-related paths.
-    "divy": np.array(
+    "div_width": np.array(
         [0.0131, 0.0131, 0.0131], dtype=float
     ),  # DB: DIVERGENCE_H [rad] Marco: 1 vs 3 values?
-    "divz": np.array(
+    "div_height": np.array(
         [0.0134, 0.0134, 0.0134], dtype=float
     ),  # DB: DIVERGENCE_V [rad] Marco: 1 vs 3 values?
 }
