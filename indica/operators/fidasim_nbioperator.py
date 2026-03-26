@@ -108,10 +108,24 @@ class NbiFidasim(NbiOperator):
 
         # Map all quantities to the Fidasim 2D (R,z) grid
         equilibrium = self.transform.equilibrium
-        _R = grid["r2d"][0, :]
-        _z = grid["z2d"][:, 0]
+        #_R = grid["r2d"][0, :]
+        #_z = grid["z2d"][:, 0]
+        #MARCO: these should be the other way around. We want to recover unique r and z
+        # so it would be
+        _R = grid["r2d"][:, 0]# ie. take any column and all values in that column
+        _z = grid["z2d"][0, :]# The same thing. Just that R is transposed!
         R = xr.DataArray(_R, coords={"R": _R})
         z = xr.DataArray(_z, coords={"z": _z})
+    
+        print(equilibrium.rhop)
+        print(max(equilibrium.rhop.R),min(equilibrium.rhop.R))
+        print(max(_R),min(_R))
+        print(max(equilibrium.rhop.z),min(equilibrium.rhop.z))
+        print(max(_z),min(_z))
+
+        #MARCO: issue here. eq r is 0.1-1, whereas _R is 3.99,1.83
+        #Similaryl eq z is -1->1, _z is 1.96,-1.75 So bounds issue.
+
         rhop_2d = equilibrium.rhop.interp(t=self.t).interp(R=R, z=z)
         rhot_2d, _ = self.transform.equilibrium.convert_flux_coords(rhop_2d, t=self.t)
         br_2d, bz_2d, bt_2d, _ = self.transform.equilibrium.Bfield(R, z, t=self.t, full_Rz=True)
@@ -121,6 +135,8 @@ class NbiFidasim(NbiOperator):
         mask = xr.full_like(rhop_2d, 1)
         mask = xr.where(rhop_2d <= max_rhop_profiles, mask, 0)
 
+        #print(rhop_2d) #MARCO: just nans because of interpolation.
+        ata
         plasma = {
             "data_source": "Indica",
             "time": self.t,
@@ -535,7 +551,7 @@ class NbiFidasim(NbiOperator):
             "neutrals": fig_neutrals,
         }
 
-
+#MARCO: This class had a bunch of references to self.equilibrium, should be self.transform.equilbirium.
 def create_grids(
 
     transform: LineOfSightTransform,
@@ -547,6 +563,7 @@ def create_grids(
     TODO: Indica transform currently has only 1 focal length
     """
     #_axis = np.array()
+    #MARCO: this was missing
     _axis = np.asarray(transform.direction[0], dtype=float)
 
     norm = np.linalg.norm(_axis)
@@ -566,6 +583,8 @@ def create_grids(
         "axis": axis,
         "widy": 100 * transform.spot_width,
         "widz": 100 * transform.spot_height,
+        #MARCO: this had a different name. divy or div_width? What do we wanna call em?
+
         "divy": transform.div_width[0],
         "divz": transform.div_height[0],
         "focy": 100.0 * transform.focal_length,
@@ -593,7 +612,8 @@ def create_grids(
         beam_cfg["axis"] = beam_cfg["axis"] / np.linalg.norm(beam_cfg["axis"])
 
     # TODO: Check that these make sense!!!
-    rstart = transform._machine_dims[0][1]  # [cm]
+    #MARCO: machine dims come from transform in meters!
+    rstart = transform._machine_dims[0][1]*100.0
     bgrid = beam_grid(
         beam_cfg,
         rstart,
