@@ -84,10 +84,11 @@ class NbiFidasim(NbiOperator):
             pass
 
         # Define plasma interpolation grid bounds and create beam grid from transform
-        rmin = self.transform._machine_dims[0][0]
-        rmax = self.transform._machine_dims[0][1]
-        zmin = self.transform._machine_dims[1][0]
-        zmax = self.transform._machine_dims[1][1]
+        # FIDASIM rz_grid uses cm, while transform machine dimensions are in m.
+        rmin = self.transform._machine_dims[0][0] * 100.0
+        rmax = self.transform._machine_dims[0][1] * 100.0
+        zmin = self.transform._machine_dims[1][0] * 100.0
+        zmax = self.transform._machine_dims[1][1] * 100.0
         nr = PLASMA_INTERP_GRID_SETTINGS["nr"]
         nz = PLASMA_INTERP_GRID_SETTINGS["nz"]
         grid = rz_grid(rmin, rmax, nr, zmin, zmax, nz)
@@ -109,8 +110,9 @@ class NbiFidasim(NbiOperator):
         # Map all quantities to the Fidasim 2D (R,z) grid
         equilibrium = self.transform.equilibrium
 
-        _R = grid["r2d"][:, 0]# ie. take any column and all values in that column
-        _z = grid["z2d"][0, :]# The same thing. Just that R is transposed!
+        # Convert grid axes back to meters for equilibrium interpolation calls.
+        _R = grid["r2d"][:, 0] * 1.0e-2# ie. take any column and all values in that column
+        _z = grid["z2d"][0, :] * 1.0e-2# The same thing. Just that R is transposed!
         R = xr.DataArray(_R, coords={"R": _R})
         z = xr.DataArray(_z, coords={"z": _z})
     
