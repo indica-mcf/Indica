@@ -250,14 +250,19 @@ class NbiFidasim(NbiOperator):
         FIDASIM outputs store cell-center axes (x, y, z), so we reconstruct
         local widths via neighbor distances for volume-weighted binning.
         """
+        # Step 1: normalize to a float numpy array so downstream math is stable.
         coord = np.asarray(coord_1d, dtype=float)
+        # Step 2: single-point axis has no neighbors, so use unit width fallback.
         if coord.size == 1:
             return np.ones(1, dtype=float)
 
+        # Step 3: compute local widths from center-to-center spacing.
         widths = np.empty_like(coord)
         widths[1:-1] = 0.5 * (coord[2:] - coord[:-2])
+        # Step 4: edge cells use one-sided neighbor distance.
         widths[0] = coord[1] - coord[0]
         widths[-1] = coord[-1] - coord[-2]
+        # Step 5: enforce positive widths in case axis direction is reversed.
         return np.abs(widths)
 
     @staticmethod
@@ -272,8 +277,10 @@ class NbiFidasim(NbiOperator):
         This is the core reduction step that turns FIDASIM grid fields into
         the Indica-native 1D profile expected by the NBI abstract interface.
         """
+        # Step 1: load target rhop bin centers.
         rhop = np.asarray(rhop_centers, dtype=float)
         if rhop.size == 1:
+            # Step 2a: degenerate one-bin case -> one weighted average over valid points.
             out = np.full(1, np.nan, dtype=float)
             mask = (
                 np.isfinite(values)
@@ -285,13 +292,16 @@ class NbiFidasim(NbiOperator):
                 out[0] = np.sum(values[mask] * weights[mask]) / np.sum(weights[mask])
             return out
 
+        # Step 2b: reconstruct bin edges from center points.
         mids = 0.5 * (rhop[1:] + rhop[:-1])
         edges = np.empty(rhop.size + 1, dtype=float)
         edges[1:-1] = mids
         edges[0] = rhop[0] - (mids[0] - rhop[0])
         edges[-1] = rhop[-1] + (rhop[-1] - mids[-1])
 
+        # Step 3: assign each sample to a rhop bin.
         idx = np.digitize(rhop_values, edges) - 1
+        # Step 4: keep only finite, positive-weight, in-range samples.
         mask = (
             np.isfinite(values)
             & np.isfinite(rhop_values)
@@ -301,11 +311,13 @@ class NbiFidasim(NbiOperator):
             & (idx < rhop.size)
         )
 
+        # Step 5: accumulate weighted numerator and denominator per bin.
         num = np.bincount(
             idx[mask], weights=values[mask] * weights[mask], minlength=rhop.size
         )
         den = np.bincount(idx[mask], weights=weights[mask], minlength=rhop.size)
 
+        # Step 6: finalize per-bin averages (NaN when no contributing volume).
         out = np.full(rhop.size, np.nan, dtype=float)
         valid = den > 0.0
         out[valid] = num[valid] / den[valid]
@@ -319,11 +331,13 @@ class NbiFidasim(NbiOperator):
         This follows the legacy TriWaSp workflow intent: geometry transforms are
         determined once, and output files are then reduced using that mapping.
         """
+        # Step 1: cache the target rhop grid and time-sliced equilibrium rhop map.
         rhop = np.asarray(self.Nn.coords["rhop"].data, dtype=float)
         self._rhop_refactor = rhop
 
         eq_rhop = self.transform.equilibrium.rhop.interp(t=self.t)
 
+        # Step 2: build beam-grid cell-center coordinates in FIDASIM beam frame (cm).
         # Beam-grid (uvw in cm) -> machine (R,z in m) for neutral density maps.
         x_cm = np.linspace(float(bgrid["xmin"]), float(bgrid["xmax"]), int(bgrid["nx"]))
         y_cm = np.linspace(float(bgrid["ymin"]), float(bgrid["ymax"]), int(bgrid["ny"]))
@@ -331,6 +345,7 @@ class NbiFidasim(NbiOperator):
         z3, y3, x3 = np.meshgrid(z_cm, y_cm, x_cm, indexing="ij")
         uvw = np.vstack((x3.ravel(), y3.ravel(), z3.ravel()))
 
+        # Step 3: transform beam-frame points to machine coordinates, then map to rhop.
         xyz = uvw_to_xyz(
             float(bgrid["alpha"]),
             float(bgrid["beta"]),
@@ -345,6 +360,7 @@ class NbiFidasim(NbiOperator):
             z=xr.DataArray(z_m, dims=("point",)),
         ).data
 
+        # Step 4: precompute neutral-cell volume weights (cm^3 -> m^3) and flatten.
         dx_cm = self._cell_widths(x_cm)
         dy_cm = self._cell_widths(y_cm)
         dz_cm = self._cell_widths(z_cm)
@@ -352,6 +368,7 @@ class NbiFidasim(NbiOperator):
             dz_cm[:, None, None] * dy_cm[None, :, None] * dx_cm[None, None, :]
         ).ravel() * 1.0e-6
 
+        # Step 5: map interpolation-grid (R,z) points to rhop for denf reduction.
         # Interpolation grid (R,z) -> rhop for fast-ion density denf map.
         r2d = np.asarray(grid["r2d"], dtype=float)
         z2d = np.asarray(grid["z2d"], dtype=float)
@@ -365,6 +382,7 @@ class NbiFidasim(NbiOperator):
         dr_m = self._cell_widths(r_axis) * 1.0e-2
         dz_m = self._cell_widths(z_axis) * 1.0e-2
 
+        # Step 6: compute poloidal cell areas while handling grid orientation.
         if r2d.shape == (z_axis.size, r_axis.size):
             area = dz_m[:, None] * dr_m[None, :]
         elif r2d.shape == (r_axis.size, z_axis.size):
@@ -373,47 +391,88 @@ class NbiFidasim(NbiOperator):
             # Fallback for unexpected orientation; use mean cell sizes.
             area = np.full_like(r2d, float(np.mean(dr_m) * np.mean(dz_m)))
 
+        # Step 7: convert area to cylindrical volume weight using Jacobian ~ R.
         self._fast_weights_flat = (np.abs(r2d) * 1.0e-2 * area).ravel()
 
-    def _neutral_density_profile(self) -> np.ndarray:
-        """Map FIDASIM neutral densities to rhop using precomputed mapping.
-
-        Provenance
-        ----------
-        Mirrors the legacy TriWaSp usage pattern:
-        - use fdens/hdens/tdens ground state (index 0),
-        - convert cm^-3 -> m^-3,
-        - reduce with precomputed geometry->rhop weights.
-        """
+    def _read_neutral_components_m3(self) -> dict[str, np.ndarray]:
+        """Read FIDASIM neutral components and convert cm^-3 -> m^-3."""
         with h5.File(self.neut_file, "r") as h5f:
-            fdens = np.asarray(h5f["fdens"][...], dtype=float)
-            hdens = np.asarray(h5f["hdens"][...], dtype=float)
-            tdens = np.asarray(h5f["tdens"][...], dtype=float)
+            return {
+                "fdens": np.asarray(h5f["fdens"][...], dtype=float) * 1.0e6,
+                "hdens": np.asarray(h5f["hdens"][...], dtype=float) * 1.0e6,
+                "tdens": np.asarray(h5f["tdens"][...], dtype=float) * 1.0e6,
+            }
 
-        neutral_m3 = (fdens[..., 0] + hdens[..., 0] + tdens[..., 0]) * 1.0e6
+    @staticmethod
+    def _ground_state_component(component_4d: np.ndarray) -> np.ndarray:
+        """Select ground-state contribution (excitation index 0)."""
+        return np.asarray(component_4d[..., 0], dtype=float)
+
+    def _total_ground_state_neutral_density_m3(self) -> np.ndarray:
+        """Build total neutral density map from full/half/third components."""
+        components = self._read_neutral_components_m3()
+        fdens_gs = self._ground_state_component(components["fdens"])
+        hdens_gs = self._ground_state_component(components["hdens"])
+        tdens_gs = self._ground_state_component(components["tdens"])
+        return fdens_gs + hdens_gs + tdens_gs
+
+    def _map_neutral_grid_to_rhop(self, neutral_m3: np.ndarray) -> np.ndarray:
+        """Reduce beam-grid neutral map to rhop profile."""
         return self._rhop_bin_average(
-            neutral_m3.ravel(),
+            np.asarray(neutral_m3, dtype=float).ravel(),
             np.asarray(self._neutral_rhop_flat, dtype=float),
             np.asarray(self._neutral_weights_flat, dtype=float),
             np.asarray(self._rhop_refactor, dtype=float),
         )
 
-    def _fast_ion_density_profile(self) -> np.ndarray:
-        """Map FIDASIM denf to rhop using precomputed interpolation-grid mapping."""
+    def _neutral_density_profile(self) -> np.ndarray:
+        """Map FIDASIM neutral densities to rhop using TriWaSp-like staging."""
+        # Step 1: read component maps (fdens/hdens/tdens) in SI units.
+        # Step 2: select ground-state and sum full/half/third contributions.
+        neutral_m3 = self._total_ground_state_neutral_density_m3()
+        # Step 3: collapse the 3D beam map to a 1D rhop profile.
+        return self._map_neutral_grid_to_rhop(neutral_m3)
+
+    def _read_fast_ion_density_map_m3(self) -> np.ndarray | None:
+        """Read FIDASIM denf map and convert cm^-3 -> m^-3, if available."""
         if not os.path.exists(self.distribution_file):
-            return np.full(self._rhop_refactor.size, np.nan, dtype=float)
+            return None
 
         with h5.File(self.distribution_file, "r") as h5f:
             if "denf" not in h5f:
-                return np.full(self._rhop_refactor.size, np.nan, dtype=float)
-            denf_m3 = np.asarray(h5f["denf"][...], dtype=float) * 1.0e6
+                return None
+            return np.asarray(h5f["denf"][...], dtype=float) * 1.0e6
 
+    def _map_fast_ion_grid_to_rhop(self, denf_m3: np.ndarray) -> np.ndarray:
+        """Reduce denf map to rhop profile via cached interpolation-grid mapping."""
         return self._rhop_bin_average(
-            denf_m3.ravel(),
+            np.asarray(denf_m3, dtype=float).ravel(),
             np.asarray(self._fast_rhop_flat, dtype=float),
             np.asarray(self._fast_weights_flat, dtype=float),
             np.asarray(self._rhop_refactor, dtype=float),
         )
+
+    def _fast_ion_density_profile(self) -> np.ndarray:
+        """Map FIDASIM denf to rhop using precomputed interpolation-grid mapping."""
+        # Step 1: read denf map from distribution output.
+        denf_m3 = self._read_fast_ion_density_map_m3()
+        # Step 2: preserve output contract when denf is unavailable.
+        if denf_m3 is None:
+            return np.full(self._rhop_refactor.size, np.nan, dtype=float)
+        # Step 3: collapse denf map to the target 1D rhop profile.
+        return self._map_fast_ion_grid_to_rhop(denf_m3)
+
+    def _build_refactor_profiles(self) -> dict[str, np.ndarray]:
+        """Compute all radial profiles before DataArray packaging."""
+        rhop_size = int(np.asarray(self._rhop_refactor, dtype=float).size)
+        pressure_placeholder = np.full(rhop_size, np.nan, dtype=float)
+        return {
+            "neutral_density": self._neutral_density_profile(),
+            "fast_ion_density": self._fast_ion_density_profile(),
+            "parallel_fast_ion_pressure": pressure_placeholder.copy(),
+            "perpendicular_fast_ion_pressure": pressure_placeholder.copy(),
+        }
+
     def refactor_output(self) -> dict:
         """
         Return Indica-native NBI results following the abstract operator contract.
@@ -424,14 +483,15 @@ class NbiFidasim(NbiOperator):
         - Geometry mappings are precomputed in prepare(); this stage only reads
           output densities and applies cached reductions to rhop profiles.
         """
+        # Step 1: define output coordinates (single-time slice over cached rhop grid).
         rhop = np.asarray(self._rhop_refactor, dtype=float)
         t_coord = np.array([float(self.t)], dtype=float)
 
-        neutral_profile = self._neutral_density_profile()
-        fast_ion_profile = self._fast_ion_density_profile()
-        pressure_placeholder = np.full(rhop.size, np.nan, dtype=float)
+        # Step 2: compute radial profiles with explicit staged helper workflow.
+        profiles = self._build_refactor_profiles()
 
         def _to_da(name: str, profile: np.ndarray, status: str) -> xr.DataArray:
+            # Local helper: wrap each profile into the contract-compliant DataArray.
             return xr.DataArray(
                 profile[np.newaxis, :],
                 coords={"t": t_coord, "rhop": rhop},
@@ -444,28 +504,30 @@ class NbiFidasim(NbiOperator):
                 },
             )
 
+        # Step 3: assemble the abstract-operator output dictionary.
         result = {
             "neutral_density": _to_da(
                 "neutral_density",
-                neutral_profile,
+                profiles["neutral_density"],
                 "mapped_from_fidasim_neutrals_h5",
             ),
             "fast_ion_density": _to_da(
                 "fast_ion_density",
-                fast_ion_profile,
+                profiles["fast_ion_density"],
                 "mapped_from_fidasim_distribution_denf",
             ),
             "parallel_fast_ion_pressure": _to_da(
                 "parallel_fast_ion_pressure",
-                pressure_placeholder,
+                profiles["parallel_fast_ion_pressure"],
                 "placeholder_distribution_moment_not_implemented",
             ),
             "perpendicular_fast_ion_pressure": _to_da(
                 "perpendicular_fast_ion_pressure",
-                pressure_placeholder,
+                profiles["perpendicular_fast_ion_pressure"],
                 "placeholder_distribution_moment_not_implemented",
             ),
         }
+        # Step 4: cache last result for plotting convenience and return.
         self._last_result = result
         return result
 
