@@ -212,15 +212,16 @@ class NbiFidasim(NbiOperator):
         }
 
         nbi_settings = {
-            "einj": self.energy,
-            "pinj": self.power,
+            # Indica uses eV/W; FIDASIM input expects keV/MW.
+            "einj": self.energy * 1.0e-3,
+            "pinj": self.power * 1.0e-6,
             "current_fractions": np.array(self.current_fractions),
             "ab": self.nbi_element_info["A"],
         }
         plasma_settings = {
             "ai": self.target_element_info["A"],
 #            "impurity_charge": int(np.mean(self.MeanZ)),
-            "impurity_charge": 5,
+            "impurity_charge": 6,
         }
 
         inputs = dict(general_settings)
