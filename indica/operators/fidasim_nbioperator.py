@@ -10,17 +10,15 @@ import h5py as h5
 import numpy as np
 import xarray as xr
 
-from indica.configs.operators.fidasim_configs import (
-    FIDASIM_BASE_DIR,
-    FIDASIM_BIN_PATH,
-    FIDASIM_FI_DIST_FILE,
-    FIDASIM_OUTPUT_DIR,
-    MC_SETTINGS_FINE,
-    PLASMA_INTERP_GRID_SETTINGS,
-    SIMULATION_SWITCHES,
-    WAVELENGTH_GRID_SETTINGS,
-    WEIGHT_FUNCTION_SETTINGS,
-)
+from indica.configs.operators.fidasim_configs import FIDASIM_BASE_DIR
+from indica.configs.operators.fidasim_configs import FIDASIM_BIN_PATH
+from indica.configs.operators.fidasim_configs import FIDASIM_FI_DIST_FILE
+from indica.configs.operators.fidasim_configs import FIDASIM_OUTPUT_DIR
+from indica.configs.operators.fidasim_configs import MC_SETTINGS_FINE
+from indica.configs.operators.fidasim_configs import PLASMA_INTERP_GRID_SETTINGS
+from indica.configs.operators.fidasim_configs import SIMULATION_SWITCHES
+from indica.configs.operators.fidasim_configs import WAVELENGTH_GRID_SETTINGS
+from indica.configs.operators.fidasim_configs import WEIGHT_FUNCTION_SETTINGS
 from indica.converters import LineOfSightTransform
 from indica.operators import NbiOperator
 from indica.utilities import time_to_ms
