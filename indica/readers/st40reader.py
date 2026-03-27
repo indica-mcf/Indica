@@ -227,7 +227,7 @@ class ST40Reader(DataReader):
 
         # TODO: Temporary fix, but must be sorted
         database_results["focal_length"] = np.mean(
-            [database_results["focus_h"], database_results["focus_v"]]
+            [database_results["focus_width"], database_results["focus_height"]]
         )
         transform = assign_lineofsight_transform(database_results)
 
