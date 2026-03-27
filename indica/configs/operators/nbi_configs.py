@@ -15,8 +15,7 @@ DEFAULT_NBI_TRANSFORM_CONFIG = {
     "direction_y": np.array([-0.7099], dtype=float),  # DB: DIRECTION[..., yhat]
     "direction_z": np.array([0.0], dtype=float),  # DB: DIRECTION[..., zhat]
     "name": "hnbi",  # DB: LABEL / beam identifier
-    "machine_dimensions": ((0.15,0.95), (-0.7,0.7)),
-    
+    "machine_dimensions": ((0.15, 0.95), (-0.7, 0.7)),
     "dl": 0.01,
     "passes": 1,
     "beamlets_method": "simple",

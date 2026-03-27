@@ -90,9 +90,6 @@ class NbiFidasim(NbiOperator):
         grid = rz_grid(rmin, rmax, nr, zmin, zmax, nz)
         bgrid, beam_cfg = create_grids(self.transform)
 
-
-
-
         # Persist beam-grid transform terms (alpha/beta/gamma/origin) produced
         # by create_grids/FIDASIM beam_grid.
         self._beam_grid = dict(bgrid)
@@ -101,37 +98,35 @@ class NbiFidasim(NbiOperator):
         # This keeps refactor_output focused on reading outputs + binning only.
         self._cache_refactor_mappings(grid=grid, bgrid=bgrid)
 
-        
-
         # Map all quantities to the Fidasim 2D (R,z) grid
         equilibrium = self.transform.equilibrium
 
         # Convert grid axes back to meters for equilibrium interpolation calls.
-        _R = grid["r2d"][:, 0] * 1.0e-2# ie. take any column and all values in that column
-        _z = grid["z2d"][0, :] * 1.0e-2# The same thing. Just that R is transposed!
+        _R = (
+            grid["r2d"][:, 0] * 1.0e-2
+        )  # ie. take any column and all values in that column
+        _z = grid["z2d"][0, :] * 1.0e-2  # The same thing. Just that R is transposed!
         R = xr.DataArray(_R, coords={"R": _R})
         z = xr.DataArray(_z, coords={"z": _z})
-    
-        #2D map. We build the 2d grid from equilibrium
+
+        # 2D map. We build the 2d grid from equilibrium
         rhop_2d = equilibrium.rhop.interp(t=self.t).interp(R=R, z=z)
         rhot_2d, _ = self.transform.equilibrium.convert_flux_coords(rhop_2d, t=self.t)
-        br_2d, bz_2d, bt_2d, _ = self.transform.equilibrium.Bfield(R, z, t=self.t, full_Rz=True)
+        br_2d, bz_2d, bt_2d, _ = self.transform.equilibrium.Bfield(
+            R, z, t=self.t, full_Rz=True
+        )
 
         # Mask where plasma profiles are available
         max_rhop_profiles = np.max(self.Te.rhop)
         mask = xr.full_like(rhop_2d, 1)
         mask = xr.where(rhop_2d <= max_rhop_profiles, mask, 0)
 
+        map_masked = lambda profile, scale=1.0: xr.where(
+            mask > 0,
+            profile.interp(rhop=rhop_2d) * scale,
+            0,
+        ).T.data
 
-        map_masked = (
-            lambda profile, scale=1.0: xr.where(
-                mask > 0,
-                profile.interp(rhop=rhop_2d) * scale,
-                0,
-            )
-            .T.data
-        )
-        
         plasma = {
             "data_source": "Indica",
             "time": self.t,
@@ -152,7 +147,7 @@ class NbiFidasim(NbiOperator):
 
         # Add midplane profiles to plasma dictionary
         zmag = xr.full_like(R, self.transform.equilibrium.zmag.interp(t=self.t).data)
-        rhop_midplane,_,_ = self.transform.equilibrium.flux_coords(R, zmag, t=self.t)
+        rhop_midplane, _, _ = self.transform.equilibrium.flux_coords(R, zmag, t=self.t)
         profiles_midplane = {
             "ti": self.Ti.interp(rhop=rhop_midplane).data * 1.0e-03,
             "te": self.Te.interp(rhop=rhop_midplane).data * 1.0e-03,
@@ -179,7 +174,6 @@ class NbiFidasim(NbiOperator):
             "et": np.zeros_like(br_2d.data.T),
             "mask": np.int32(mask.data.T),
         }
-    
 
         # Read the dummy fast-ion distribution
         # TODO: this should be refactored to something sensible,
@@ -242,7 +236,9 @@ class NbiFidasim(NbiOperator):
         """
         Run beam code
         """
-        if (reuse_existing_outputs or getattr(self, "_reuse_existing_outputs", False)) and os.path.exists(self.neut_file):
+        if (
+            reuse_existing_outputs or getattr(self, "_reuse_existing_outputs", False)
+        ) and os.path.exists(self.neut_file):
             print("Reusing existing FIDASIM outputs: skipping subprocess run.")
             return
 
@@ -260,10 +256,6 @@ class NbiFidasim(NbiOperator):
                 f"FIDASIM subprocess failed with return code {completed.returncode}. "
                 "Run with reuse_existing_outputs=True to process existing files."
             )
-
-
-
-
 
     @staticmethod
     def _cell_widths(coord_1d: np.ndarray) -> np.ndarray:
@@ -514,6 +506,7 @@ class NbiFidasim(NbiOperator):
         profiles = self._build_refactor_profiles()
 
         print(self.neut_file)
+
         def _to_da(name: str, profile: np.ndarray, status: str) -> xr.DataArray:
             # Local helper: wrap each profile into the contract-compliant DataArray.
             return xr.DataArray(
@@ -627,7 +620,9 @@ class NbiFidasim(NbiOperator):
         components_ground = self._ground_state_neutral_components_for_plot(components)
 
         # Step 4: render the three neutral components on the selected plane.
-        fig_neutrals, axs2 = plt.subplots(1, 3, figsize=(14, 4), sharex=True, sharey=True)
+        fig_neutrals, axs2 = plt.subplots(
+            1, 3, figsize=(14, 4), sharex=True, sharey=True
+        )
         for ax, (arr, title) in zip(axs2, components_ground):
             im = ax.pcolormesh(x_m, y_m, arr[plane_index, :, :], shading="auto")
             ax.set_title(f"{title} @ z={z_m[plane_index]:.3f} m")
@@ -665,7 +660,9 @@ class NbiFidasim(NbiOperator):
                 return np.full_like(profile, np.nan, dtype=float)
             return profile / p0
 
-        centerline_norm = {name: _normalize(profile) for name, profile in centerline.items()}
+        centerline_norm = {
+            name: _normalize(profile) for name, profile in centerline.items()
+        }
         total_norm = _normalize(total)
 
         # Step 4: render absolute and normalized attenuation views.
@@ -688,7 +685,9 @@ class NbiFidasim(NbiOperator):
 
         for name in ["fdens (full)", "hdens (half)", "tdens (third)"]:
             ax_norm.plot(x_m, centerline_norm[name], label=name, color=colors[name])
-        ax_norm.plot(x_m, total_norm, label="total", color=colors["total"], linewidth=1.8)
+        ax_norm.plot(
+            x_m, total_norm, label="total", color=colors["total"], linewidth=1.8
+        )
         ax_norm.set_xlabel("Beam-Axis Distance x (m)")
         ax_norm.set_ylabel("Normalized n(x)/n(x0)")
         ax_norm.set_ylim(bottom=0.0)
@@ -766,9 +765,9 @@ class NbiFidasim(NbiOperator):
             "saved_paths": saved_paths,
         }
 
-#MARCO: This class had a bunch of references to self.equilibrium, should be self.transform.equilbirium.
-def create_grids(
 
+# MARCO: This class had a bunch of references to self.equilibrium, should be self.transform.equilbirium.
+def create_grids(
     transform: LineOfSightTransform,
     delta_src=0.0,
     delta_ang=0.0,
@@ -777,7 +776,7 @@ def create_grids(
     Starting from Indica transforms create Fidasim beam grid
     TODO: Indica transform currently has only 1 focal length
     """
-    #_axis = np.array()
+    # _axis = np.array()
     _axis = np.asarray(transform.direction[0], dtype=float)
 
     norm = np.linalg.norm(_axis)
@@ -792,13 +791,12 @@ def create_grids(
 
     beam_cfg = {
         "data_source": "",
-        "name":"testbeam",
+        "name": "testbeam",
         "shape": shape,
         "src": 100 * np.array(transform.origin[0]),
         "axis": axis,
         "widy": 100 * transform.spot_width,
         "widz": 100 * transform.spot_height,
-
         "divy": transform.div_width,
         "divz": transform.div_height,
         "focy": 100.0 * transform.focal_length,
@@ -826,7 +824,7 @@ def create_grids(
         beam_cfg["axis"] = beam_cfg["axis"] / np.linalg.norm(beam_cfg["axis"])
 
     # TODO: Check that these make sense!!!
-    rstart = transform._machine_dims[0][1]*100.0
+    rstart = transform._machine_dims[0][1] * 100.0
     bgrid = beam_grid(
         beam_cfg,
         rstart,

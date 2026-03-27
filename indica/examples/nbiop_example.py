@@ -43,7 +43,6 @@ def run_nbi_operator_example(
     )
     nbi_op.set_transform(nbi_transform)
 
-
     # Run one time point through prepare -> run -> refactor_output.
     # For fast reruns, set reuse_existing_outputs=True and overwrite=False.
     result = nbi_op(
@@ -87,5 +86,5 @@ if __name__ == "__main__":
         reuse_existing_outputs=False,
         overwrite=True,
         save_plots=True,
-        plot_dir="/home/jussi.hakosalo/Indica/indica/examples/fidasimtestplots"
+        plot_dir="/home/jussi.hakosalo/Indica/indica/examples/fidasimtestplots",
     )
