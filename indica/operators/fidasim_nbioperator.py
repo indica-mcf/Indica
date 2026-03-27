@@ -1,23 +1,5 @@
-import numpy as np
-
 import os
-from indica.converters import LineOfSightTransform
-from indica.operators import NbiOperator
-from indica.utilities import time_to_ms
-from indica.configs.operators.fidasim_configs import (
-    FIDASIM_OUTPUT_DIR,
-    PLASMA_INTERP_GRID_SETTINGS,
-    FIDASIM_FI_DIST_FILE,
-    FIDASIM_BASE_DIR,
-    SIMULATION_SWITCHES,
-    MC_SETTINGS_FINE,
-    WAVELENGTH_GRID_SETTINGS,
-    WEIGHT_FUNCTION_SETTINGS,
-    FIDASIM_BIN_PATH,
-)
 import shutil
-import xarray as xr
-
 import subprocess
 
 import fidasim
@@ -25,6 +7,23 @@ from fidasim.utils import beam_grid
 from fidasim.utils import rz_grid
 from fidasim.utils import uvw_to_xyz
 import h5py as h5
+import numpy as np
+import xarray as xr
+
+from indica.configs.operators.fidasim_configs import (
+    FIDASIM_BASE_DIR,
+    FIDASIM_BIN_PATH,
+    FIDASIM_FI_DIST_FILE,
+    FIDASIM_OUTPUT_DIR,
+    MC_SETTINGS_FINE,
+    PLASMA_INTERP_GRID_SETTINGS,
+    SIMULATION_SWITCHES,
+    WAVELENGTH_GRID_SETTINGS,
+    WEIGHT_FUNCTION_SETTINGS,
+)
+from indica.converters import LineOfSightTransform
+from indica.operators import NbiOperator
+from indica.utilities import time_to_ms
 
 SHAPE_MAP = {
     "rectangular": 1,
@@ -121,11 +120,12 @@ class NbiFidasim(NbiOperator):
         mask = xr.full_like(rhop_2d, 1)
         mask = xr.where(rhop_2d <= max_rhop_profiles, mask, 0)
 
-        map_masked = lambda profile, scale=1.0: xr.where(
-            mask > 0,
-            profile.interp(rhop=rhop_2d) * scale,
-            0,
-        ).T.data
+        def map_masked(profile, scale=1.0):
+            return xr.where(
+                mask > 0,
+                profile.interp(rhop=rhop_2d) * scale,
+                0,
+            ).T.data
 
         plasma = {
             "data_source": "Indica",
@@ -294,7 +294,7 @@ class NbiFidasim(NbiOperator):
         # Step 1: load target rhop bin centers.
         rhop = np.asarray(rhop_centers, dtype=float)
         if rhop.size == 1:
-            # Step 2a: degenerate one-bin case -> one weighted average over valid points.
+            # Step 2a: one-bin case -> weighted average over valid points.
             out = np.full(1, np.nan, dtype=float)
             mask = (
                 np.isfinite(values)
@@ -637,7 +637,7 @@ class NbiFidasim(NbiOperator):
         if not os.path.exists(self.neut_file):
             return None
 
-        # Step 1: read neutral components and axes, then choose plotting plane/centerline.
+        # Step 1: read components/axes and choose plane + centerline.
         components, x_m, y_m, z_m = self._read_neutral_plot_data_m3()
         plane_index = self._resolve_z_plane_index(z_m, z_index)
         y_index = int(np.argmin(np.abs(y_m)))
@@ -766,7 +766,8 @@ class NbiFidasim(NbiOperator):
         }
 
 
-# MARCO: This class had a bunch of references to self.equilibrium, should be self.transform.equilbirium.
+# MARCO: This helper historically referenced self.equilibrium;
+# use self.transform.equilibrium instead.
 def create_grids(
     transform: LineOfSightTransform,
     delta_src=0.0,

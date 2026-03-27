@@ -9,9 +9,8 @@ __all__ = [
 ]
 
 try:
-    import fidasim
     from .fidasim_nbioperator import NbiFidasim
 
-    __all__ += "NbiFidasim"
-except:
+    __all__.append(NbiFidasim.__name__)
+except ImportError:
     pass
