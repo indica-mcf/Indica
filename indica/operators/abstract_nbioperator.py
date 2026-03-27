@@ -110,7 +110,7 @@ class NbiOperator(ABC):
         self.Nn = Nn.interp(t=t)
         self.Vtor = Vtor.interp(t=t)
         self.Zeff = Zeff.sum("element").interp(t=t)
-        self.MeanZ = MeanZ.sum("element").interp(t=t)
+        self.MeanZ = MeanZ.mean("element").interp(t=t)
 
         """Prepare input data structure for NBI code"""
         self.prepare(**prepare_kwargs)
