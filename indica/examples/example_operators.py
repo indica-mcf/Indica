@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.configs.operators.fractional_abundance import AuroraConfig
+from indica.configs.operators.aurora import AuroraConfig
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ThomsonScattering
 from indica.operators import tomo_1D
@@ -382,5 +382,7 @@ def example_aurora_run(plot: bool = True):
         element="ar",
         aurora_config=AuroraConfig, equilibrium=EQUILIBRIUM, geqdsk_time_point=0.10)
     fz_t = operator(Ne=ne, Te=Te, Nh=Nh, D_z=D_z, V_z=V_z, plot=plot)
-    plt.show(block=True)
+    plt.show()
+
+    return fz_t
 
