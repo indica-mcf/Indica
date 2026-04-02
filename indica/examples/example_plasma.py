@@ -4,8 +4,11 @@ import numpy as np
 
 from indica import Plasma
 from indica import PlasmaProfiler
+from indica.defaults.load_defaults import load_default_objects
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
+from tests.unit.readers.test_model_reader import EQUILIBRIUM
 
+EQUILIBRIUM = load_default_objects("st40", "equilibrium", )
 
 def example_plasma(
     tstart=0.02,
@@ -23,6 +26,7 @@ def example_plasma(
         impurities=impurities,
         **kwargs,
     )
+    plasma.set_equilibrium(EQUILIBRIUM)
     plasma.build_atomic_data()
 
     profilers = initialise_gauss_profilers(
@@ -74,7 +78,11 @@ def example_plasma(
             "impurity_density:ar.y0": nimp_y0[i],
             "impurity_density:ar.wcenter": nimp_wcenter[i],
         }
-
         plasma_profiler(parameters=parameters, t=t)
 
+    # Assign diffusion and convection coefficients
+    D_coeff = np.linspace(0.2, 1, plasma.rhop.size)
+    V_coeff = np.linspace(-0.1, -2, plasma.rhop.size)
+    plasma.diffusion_coefficient[:, ] = D_coeff
+    plasma.convection_coefficient[:, ] = V_coeff
     return plasma
