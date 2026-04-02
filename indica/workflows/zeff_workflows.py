@@ -272,14 +272,22 @@ def plot_results(
     for i, t in enumerate(time.values):
         if i % nplot:
             continue
-        R = los_transform.impact_parameter.R
+        los_transform.calc_impact_parameter()
+        R = los_transform.impact_parameter["R"].mean("t")
         to_plot = (
             filter_data.sel(t=t)
             .assign_coords(R=("channel", R.data))
             .swap_dims({"channel": "R"})
         )
         to_plot_err = filter_data.error.sel(t=t)
-        to_plot.plot(color=cols[i], marker="o", label=f"t={int(t*1.e3)} ms", alpha=0.5)
+        plt.plot(
+            R,
+            to_plot,
+            color=cols[i],
+            marker="o",
+            label=f"t={int(t*1.e3)} ms",
+            alpha=0.5,
+        )
         plt.errorbar(
             R,
             to_plot,
@@ -315,5 +323,5 @@ def plot_results(
 
 if __name__ == "__main__":
     plt.ioff()
-    example_zeff_bremstrahlung()
+    _ = example_zeff_bremstrahlung()
     plt.show()

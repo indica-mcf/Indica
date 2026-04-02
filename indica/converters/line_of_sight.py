@@ -1,5 +1,4 @@
-"""Coordinate system representing a collection of lines of sight.
-"""
+"""Coordinate system representing a collection of lines of sight."""
 
 from typing import Any
 from typing import cast
@@ -124,7 +123,6 @@ class LineOfSightTransform(CoordinateTransform):
         # div_height: float = 0.0,
         **kwargs: Any,
     ):
-
         self.instrument_name: str = name
         self.name = f"{self.instrument_name}_line_of_sight_transform"
         self.x1_name = "channel"
@@ -225,10 +223,8 @@ class LineOfSightTransform(CoordinateTransform):
     def convert_from_Rz(
         self, R: LabeledArray, z: LabeledArray, t: LabeledArray
     ) -> Coordinates:
-
         raise NotImplementedError(
-            f"{self.__class__.__name__} does not implement a 'convert_from_Rz' "
-            "method."
+            f"{self.__class__.__name__} does not implement a 'convert_from_Rz' method."
         )
 
     def distance(
@@ -727,7 +723,6 @@ class LineOfSightTransform(CoordinateTransform):
         _x2 = np.linspace(0, 1, npts, dtype=float)
         x2 = DataArray(_x2, coords=[(self.x2_name, _x2)])
         for x1 in self.x1:
-
             _x, _y = self.convert_to_xy(x1, x2, 0)
             _R, _z = self.convert_to_Rz(x1, x2, 0)
             dist = self.distance(self.x2_name, x1, x2, 0)
@@ -741,7 +736,6 @@ class LineOfSightTransform(CoordinateTransform):
 
         # TODO: Loop over DataArray to NaN where los length > LOS distance
         for x1 in self.x1:
-
             for beamlet in self.beamlets:
                 dist = self.distance(self.x2_name, x1, x2, 0)
                 _x = x[x1].sel(beamlet=beamlet)
@@ -936,6 +930,63 @@ class LineOfSightTransform(CoordinateTransform):
         self.los_integral = los_integral
 
         return los_integral
+
+    def component_along_los(
+        self, vx: DataArray, vy: DataArray, vz: DataArray
+    ) -> tuple[DataArray, DataArray, DataArray, DataArray]:
+        """Compute longitudinal component of vector along line-of-sight
+
+        Calculate the component of vectors :py:`vx`, :py:`vy` and :py:`vz` longitudinal
+        to line-of-sight, return dot product of normalised components with LOS direction
+        and the individual component contributions
+
+        Parameters
+        ----------
+        vx : DataArray
+            X vector
+        vy : DataArray
+            Y vector
+        vz : DataArray
+            Z vector
+
+        Returns
+        -------
+        tuple[DataArray, DataArray, DataArray, DataArray]
+            Longitudinal component of vector (vx,vy,vz), component of vx along LOS,
+            component of vy along LOS, component of vz along LOS
+
+        """
+        x1 = np.array(self.x1, ndmin=1)  # Make the type checker happy
+        x2 = np.array(self.x2, ndmin=1)  # Make the type checker happy
+        vx_l = xr.zeros_like(vx).transpose(self.x1_name, "beamlet", self.x2_name)
+        vy_l = xr.zeros_like(vy).transpose(self.x1_name, "beamlet", self.x2_name)
+        vz_l = xr.zeros_like(vz).transpose(self.x1_name, "beamlet", self.x2_name)
+        vl = DataArray(
+            np.zeros((len(x1), len(self.beamlets), len(x2))),
+            dims=(self.x1_name, "beamlet", self.x2_name),
+            coords={
+                self.x1_name: (self.x1_name, x1),
+                "beamlet": ("beamlet", self.beamlets),
+                self.x2_name: (self.x2_name, x2),
+            },
+        )
+        for i, x1 in enumerate(vl.coords[self.x1_name]):
+            for j, beamlet in enumerate(vl.coords["beamlet"]):
+                _vx = vx.sel({self.x1_name: x1, "beamlet": beamlet})
+                _vy = vy.sel({self.x1_name: x1, "beamlet": beamlet})
+                _vz = vz.sel({self.x1_name: x1, "beamlet": beamlet})
+                dx = self.beamlet_direction_x[i, j]
+                dy = self.beamlet_direction_y[i, j]
+                dz = self.beamlet_direction_z[i, j]
+                uf = np.linalg.norm((dx, dy, dz))
+                dx /= uf
+                dy /= uf
+                dz /= uf
+                vx_l.loc[x1, beamlet, :] = dx.data * _vx.data
+                vy_l.loc[x1, beamlet, :] = dy.data * _vy.data
+                vz_l.loc[x1, beamlet, :] = dz.data * _vz.data
+                vl.loc[x1, beamlet, :] = np.dot((dx, dy, dz), (_vx, _vy, _vz))
+        return vl, vx_l, vy_l, vz_l
 
     def calc_impact_parameter(self):
         """Calculate the impact parameter in Cartesian and flux space"""

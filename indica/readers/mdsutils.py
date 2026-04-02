@@ -2,6 +2,7 @@ from typing import List
 from typing import Tuple
 
 from MDSplus import Connection
+from MDSplus.mdsExceptions import TreeNNF
 import numpy as np
 
 from indica import BaseIO
@@ -62,17 +63,24 @@ class MDSUtils(BaseIO):
         mds_path: str,
         ndims: int,
     ) -> Tuple[List[np.array], List[str]]:
-        """Gets the dimensions of a signal given the path to the signal
-        and the number of dimensions"""
+        """
+        Gets the dimensions of a signal given the path to the signal
+        and the number of dimensions
+        TODO: try/except is required if data not written to MDS+ with dimensions
+        """
 
         dimensions = []
         paths = []
         for dim in range(ndims):
             path = f"dim_of({mds_path},{dim})"
-            dim_tmp = self.conn.get(path).data()
+            try:
+                _dimension = np.array(self.conn.get(path).data())
+            except Exception as e:
+                _dimension = None
+                print(f"No dimensions for {mds_path}: {e}")
 
             paths.append(path)
-            dimensions.append(np.array(dim_tmp))
+            dimensions.append(_dimension)
         return dimensions, paths
 
     def get_signal_units(
@@ -98,10 +106,10 @@ class MDSUtils(BaseIO):
 
         return data, dims, unit, _path
 
-    def revision_name(self, revision: RevisionLike) -> str:
+    def revision_name(self, revision: RevisionLike) -> RevisionLike:
         """Return string defining RUN## or BEST if revision = 0"""
 
-        if type(revision) == int:
+        if isinstance(revision, int):
             _revision = int(revision)
             if _revision < 0:
                 rev_str = ""
@@ -116,22 +124,34 @@ class MDSUtils(BaseIO):
 
         return rev_str.upper()
 
-    def get_best_revision(self, uid: str, instrument: str):
+    def get_best_revision(
+        self,
+        uid: str,
+        instrument: str,
+        revision_name: str = "best",
+    ):
         """
         Return revision name to which BEST is pointing to
         """
-        best_revision, _ = self.get_signal(uid, instrument, ".best_run", "best")
+        best_revision, _ = self.get_signal(uid, instrument, ".best_run", revision_name)
         return best_revision
 
-    def get_revision(self, uid: str, instrument: str, revision: RevisionLike) -> str:
+    def get_revision(
+        self, uid: str, instrument: str, revision: RevisionLike
+    ) -> tuple[RevisionLike, bool]:
         """
         Return revision name given
         """
         revision_name = self.revision_name(revision)
-        if revision_name == "BEST":
-            revision_name = self.get_best_revision(uid, instrument)
+        is_best = False
+        if "BEST" in revision_name:
+            try:
+                revision_name = self.get_best_revision(uid, instrument, revision_name)
+                is_best = True
+            except TreeNNF:
+                is_best = False
 
-        return revision_name
+        return revision_name, is_best
 
     def get_mds_path(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike

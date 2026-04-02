@@ -1,4 +1,5 @@
 ADF15 = {
+    "h": {str(charge): dict(file_type="pju", year="12") for charge in range(0, 1)},
     "he": {
         "1": dict(
             file_type="bnd",
@@ -6,7 +7,7 @@ ADF15 = {
         ),
     },
     "ne": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 8)},
-    "c": {str(charge): dict(file_type="bnd", year="96") for charge in range(5, 6)},
+    "c": {str(charge): dict(file_type="pju", year="96") for charge in range(0, 6)},
     "b": {
         "1": dict(
             file_type="llu",
@@ -75,6 +76,16 @@ ADF11: dict = {
         "ccd": "89",
         "plt": "89",
         "prb": "89",
+        "prc": "89",
+        "pls": "15",
+        "prs": "15",
+    },
+    "o": {
+        "scd": "96",
+        "acd": "96",
+        "ccd": "89",
+        "plt": "96",
+        "prb": "96",
         "prc": "89",
         "pls": "15",
         "prs": "15",

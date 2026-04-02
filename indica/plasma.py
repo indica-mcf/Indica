@@ -30,7 +30,6 @@ class Plasma:
         dt: float = 0.01,
         machine: str = "st40",
         impurities: Tuple[str, ...] = ("c", "ar"),
-        impurity_concentration: Tuple[float, ...] = (0.02, 0.001),  # should be deleted!
         main_ion: str = "h",
         full_run: bool = False,
         aurora_run: bool = False,
@@ -44,7 +43,6 @@ class Plasma:
         - Completely independent of experimental data.
         - Assign an equilibrium object for remapping
         - Independent parameters can be set, dependent ones are properties
-        TODO: concentration should not be inputted in initialization!
 
         tstart
             Start time (s)
@@ -78,7 +76,6 @@ class Plasma:
         self.elements = elements
         self.main_ion = main_ion
         self.impurities = impurities
-        self.impurity_concentration = impurity_concentration
         self.rho_type = "rhop"
 
         # Machine attributes
@@ -501,6 +498,10 @@ class Plasma:
     @property
     def ion_concentration(self):
         return self.Ion_concentration()
+
+    @property
+    def impurity_concentration(self):
+        return self.impurity_density / self.electron_density
 
     def calc_ion_concentration(self):
         for elem in self.impurities:

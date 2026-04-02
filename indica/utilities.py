@@ -1,4 +1,5 @@
 """Various miscellanious helper functions."""
+
 from copy import deepcopy
 from getpass import getuser
 import hashlib
@@ -148,10 +149,10 @@ def get_slice_limits(low: float, high: float, data: OnlyArray) -> Tuple[int, int
     """
     start = np.argmax(data > low) - 1
     if start < 0:
-        raise ValueError("Low value {} not in range of provided " "data.".format(low))
+        raise ValueError("Low value {} not in range of provided data.".format(low))
     end = np.argmax(data >= high)
     if end < 1:
-        raise ValueError("High value {} not in range of provided " "data.".format(high))
+        raise ValueError("High value {} not in range of provided data.".format(high))
 
     return (start, end)  # type: ignore
 
@@ -244,6 +245,9 @@ def build_dataarrays(
 ) -> Dict[str, DataArray]:
     """Organizes data in DataArray format with coordinates, long_name & units"""
     data_arrays: dict = {}
+
+    data["transform"] = transform
+
     for quantity in available_quantities.keys():
         if quantity not in data.keys():
             continue
@@ -262,7 +266,12 @@ def build_dataarrays(
             coords[dim] = data[dim]
 
         # Build DataArray
-        _data = format_dataarray(data[quantity], datatype, coords)
+        try:
+            _data = format_dataarray(data[quantity], datatype, coords)
+        except Exception as e:
+            print(f"\n Error formatting {quantity} \n")
+            raise (e)
+
         if "t" in _data.dims and tstart is not None and tend is not None:
             _data = _data.sel(t=slice(tstart, tend))
             _data = _data.sortby([dim for dim in dims if dim != "t"])
@@ -284,12 +293,16 @@ def build_dataarrays(
                 _data = _data.isel(t=ind_unique)
 
         # Add attributes and assign to dictionary
-        if transform is not None:
-            _data.attrs["transform"] = transform
-        if "uid" in _data:
-            _data.attrs["uid"] = data["uid"]
-        if "revision" in _data:
-            _data.attrs["revision"] = data["revision"]
+        _attrs = ["transform", "uid", "instrument", "revision", "is_best"]
+
+        for key in _attrs:
+            _data.attrs[key] = ""
+            if key in data:
+                _data.attrs[key] = data[key]
+
+        _data.attrs["path"] = ""
+        if f"{quantity}_records" in data:
+            _data.attrs["path"] = data[f"{quantity}_records"]
 
         data_arrays[quantity] = _data
     return data_arrays
@@ -466,6 +479,14 @@ def check_time_present(t_desired: LabeledArray, t_array: LabeledArray):
         raise ValueError(f"Desired time {t_desired} not available in array {t_array}")
 
 
+def new_figure(new_fig: bool):
+    fig = None
+    if new_fig:
+        fig = plt.figure()
+
+    return fig
+
+
 def save_figure(
     path_name: str = "",
     fig_name: str = "",
@@ -501,7 +522,6 @@ def save_figure(
 def set_plot_colors(
     color_map: str = "gnuplot2",
 ):
-
     cmap = getattr(cm, color_map)
     colors = {
         "electron": cmap(0.1),
@@ -518,35 +538,39 @@ def set_plot_colors(
     return cmap, colors
 
 
-def set_plot_rcparams(option: str = "profiles"):
-    plot_params: dict = {
-        "profiles": {
-            "font.size": 12,
-            "legend.fontsize": 11,
-            "lines.markersize": 6,
-            "lines.linewidth": 2,
-        },
-        "multi": {
-            "font.size": 12,
-            "legend.fontsize": 13,
-            "lines.markersize": 6,
-            "lines.linewidth": 2,
-            "figure.figsize": [6.4, 3.8],
-            "figure.subplot.bottom": 0.15,
-        },
-        "time_evolution": {
-            "font.size": 12,
-            "legend.fontsize": 8,
-            "lines.markersize": 6,
-            "lines.linewidth": 2,
-            "font.weight": 600,
-        },
-    }
+def set_plot_rcparams(option: str = "profiles", rc_params: dict = None):
+    if rc_params is None:
+        plot_params: dict = {
+            "profiles": {
+                "font.size": 16,
+                "legend.fontsize": 14,
+                "lines.markersize": 6,
+                "lines.linewidth": 2,
+                "figure.figsize": (6.6, 5.6),
+            },
+            "multi": {
+                "font.size": 12,
+                "legend.fontsize": 13,
+                "lines.markersize": 6,
+                "lines.linewidth": 2,
+                "figure.figsize": [6.4, 3.8],
+                "figure.subplot.bottom": 0.15,
+            },
+            "time_evolution": {
+                "font.size": 12,
+                "legend.fontsize": 8,
+                "lines.markersize": 6,
+                "lines.linewidth": 2,
+                "font.weight": 600,
+            },
+        }
 
-    if option not in plot_params.keys():
-        return
+        if option not in plot_params.keys():
+            return
 
-    for key, value in plot_params[option].items():
+        rc_params = plot_params[option]
+
+    for key, value in rc_params.items():
         rcParams.update({key: value})
 
 
@@ -581,3 +605,26 @@ def hash_vals(**kwargs: Any) -> str:
         hash_result.update(bytes(str(val), encoding="utf-8"))
         hash_result.update(b",")
     return hash_result.hexdigest()
+
+
+def scale_dataarray(
+    dataarray: DataArray, scaling: float, new_unit: str, new_name: str = None
+):
+    _dataarray = deepcopy(dataarray)
+    _dataarray.attrs["units"] = new_unit
+
+    _dataarray.data = (dataarray * scaling).data
+    if "error" in dataarray.coords:
+        _error = dataarray.error * scaling
+        _dataarray = _dataarray.drop_vars("error")
+        _dataarray = _dataarray.assign_coords(error=(_dataarray.dims, _error.data))
+
+    if "stdev" in dataarray.coords:
+        _stdev = dataarray.stdev * scaling
+        _dataarray = _dataarray.drop_vars("stdev")
+        _dataarray = _dataarray.assign_coords(stdev=(_dataarray.dims, _stdev.data))
+
+    if new_name is not None:
+        _dataarray.attrs["long_name"] = new_name
+
+    return _dataarray
