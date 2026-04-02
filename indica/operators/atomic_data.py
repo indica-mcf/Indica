@@ -21,7 +21,7 @@ from indica.utilities import DATA_PATH
 from indica.utilities import set_plot_colors
 from .abstractoperator import Operator
 from indica import Equilibrium
-from indica.configs.operators.fractional_abundance import AuroraConfig
+from indica.configs.operators.aurora import AuroraConfig
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
@@ -355,13 +355,11 @@ class FractionalAbundance(Operator):
 
 class FractionalAbundanceAurora(Operator):
     """
-    Calculate fractional abundance for all ionisation states of a given element using Aurora
-    IF the atomic data is not given it will be inferred from Indica defaults in ADF11
+    Calculate fractional abundance for all ionisation states of a given element using Aurora.
+    If the atomic data is not given, it will be inferred from Indica defaults in ADF11
 
     equilibrium
         Equilibrium object to take the geqdsk from
-    t_point
-        time point at which to take the geqdsk from the equilibrium object
     element
         impurity element to calculate the fractional abundance for
     scd
@@ -371,13 +369,12 @@ class FractionalAbundanceAurora(Operator):
     ccd
         charge exchange recombination coefficients string: f"ccd{year}_{element}.dat"
     aurora_config
-        dictionary of Aurora namelist parameters, see configs/operators/fractional_abundance.py for defaults
+        dictionary of Aurora namelist parameters, see configs/operators/aurora.py for defaults
     """
 
     def __init__(
             self,
             equilibrium: Equilibrium,
-            t_point: float,
             element: str = "ar",
             scd: str = None,
             acd: str = None,
@@ -387,7 +384,7 @@ class FractionalAbundanceAurora(Operator):
 
         self.aurora_config = aurora_config
         self.equilibrium = equilibrium
-        self.geqdsk = self.set_geqdsk(t_point)
+        self.geqdsk = self.set_geqdsk()
 
         self.scd = scd
         self.acd = acd
@@ -399,13 +396,12 @@ class FractionalAbundanceAurora(Operator):
                 adas_key = f"{key}{year}_{element}.dat"
                 setattr(self, key, adas_key)
                 self.aurora_config[key] = adas_key
-
         self.aurora_config["kin_profs"]["imp"] = element.title()   # Aurora likes first letter capitalised
 
 
-    def set_geqdsk(self, t_point: float):
+    def set_geqdsk(self, ):
         assert isinstance(self.equilibrium, Equilibrium)
-        geqdsk_filepath = self.equilibrium.write_to_geqdsk(time_point=t_point)
+        geqdsk_filepath = self.equilibrium.write_to_geqdsk(t_point=self.aurora_config["geqdsk_t_point"])
         return omfit_eqdsk.OMFITgeqdsk(geqdsk_filepath)
 
 
@@ -415,26 +411,19 @@ class FractionalAbundanceAurora(Operator):
         kp["Te"]["rhop"] = Te.rhop.values
         kp["ne"]["rhop"] = Ne.rhop.values
         kp["n0"]["rhop"] = Nh.rhop.values
-        kp["Te"]["times"] = Te.t.values
-        kp["ne"]["times"] = Ne.t.values
-        kp["n0"]["times"] = Nh.t.values
+        kp["Te"]["times"] = np.atleast_1d(Te.t.values)
+        kp["ne"]["times"] = np.atleast_1d(Ne.t.values)
+        kp["n0"]["times"] = np.atleast_1d(Nh.t.values)
         kp["Te"]["vals"] = Te.values
         kp["ne"]["vals"] = Ne.values * 1e-6  # m^-3 -> cm^-3
         kp["n0"]["vals"] = Nh.values * 1e-6
 
-
-    def translate_coeff_to_aurora_grid(self, D_z: xr.DataArray, V_z: xr.DataArray):
-        # Cast the DataArrays to Aurora rhop grid whilst converting to cm^-2 and cm^-1 units
-        _D_z = (D_z.interp(rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"})).values * 1e4
-        _V_z = (V_z.interp(rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"})).values * 1e2
-        return _D_z, _V_z
-
-    def run_steady_state(self, D_z: np.ndarray, V_z: np.ndarray, plot: bool = False):
+    def run_steady_state(self, D_z: np.ndarray, V_z: np.ndarray, plot: bool = False, **kwargs):
         raise NotImplementedError
-        # return self.asim.run_aurora_steady(D_z, V_z, plot=plot)
+        # return self.asim.run_aurora_steady(D_z, V_z, plot=plot, **kwargs)
 
-    def run_time_evolution(self, D_z: np.ndarray, V_z: np.ndarray, plot: bool = False):
-        return self.asim.run_aurora(D_z, V_z, plot=plot)
+    def run_time_evolution(self, D_z: np.ndarray, V_z: np.ndarray, plot: bool = False, **kwargs):
+        return self.asim.run_aurora(D_z, V_z, plot=plot, **kwargs)
 
     def calc_fz(self, nz: np.ndarray, rhop: np.ndarray, time: np.ndarray, zimp: np.ndarray,
                 time_out: np.ndarray, rhop_out: np.ndarray) -> xr.DataArray:
@@ -465,21 +454,32 @@ class FractionalAbundanceAurora(Operator):
             V_z: xr.DataArray,
             plot: bool = False,
     ) -> xr.DataArray:
-
         """
         Current behaviour based on Aurora takes a geqdsk and runs the time evolution for that static equilibrium
 
         Returns
             fractional abundance of all ionisation states as a function of time, rhop and ion charge.
         """
+        if np.all(Nh.values==0) and self.aurora_config["cxr_flag"]:
+            raise Exception("Nh is zero but cxr_flag is True.")
 
-        assert self.geqdsk
+        if np.any(Nh.values!=0):
+            if not self.aurora_config["cxr_flag"]:
+                raise Warning("Nh is non-zero but cxr_flag is False, charge exchange will not be included in the calculation.")
 
         self.set_kinetic_profiles(Te, Ne, Nh, )
         self.asim = aurora.aurora_sim(namelist=self.aurora_config, geqdsk=self.geqdsk)
-        _D_z, _V_z = self.translate_coeff_to_aurora_grid(D_z, V_z)
 
-        out = self.run_time_evolution(D_z=_D_z, V_z=_V_z, plot=plot)
+        # Interp DataArrays to Aurora rhop while converting to cm^-2 and cm^-1 units
+        _D_z = D_z.interp(rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"}) * 1e4
+        _V_z = V_z.interp(rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"}) * 1e2
+        if D_z.ndim == 2:
+            _D_z = _D_z.transpose("rhop", "t").values
+            _V_z = _V_z.transpose("rhop", "t").values
+        elif D_z.ndim > 2:
+            raise Exception("D_z and V_z must be 1D or 2D.")
+
+        out = self.run_time_evolution(D_z=_D_z, V_z=_V_z, plot=plot, times_DV=D_z.t.values)
         self.F_z_t = self.calc_fz(out["nz"], rhop=self.asim.rhop_grid,
                                   time=self.asim.time_grid, zimp=np.arange(self.asim.Z_imp + 1),
                                   time_out=Te.t.values, rhop_out=Te.rhop.values)
