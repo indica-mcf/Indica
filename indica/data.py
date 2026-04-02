@@ -398,7 +398,9 @@ class InDiCAArrayAccessor:
         return interpolate_1d
 
     @staticmethod
-    def _get_unlabeled_interpolation_2d(assume_sorted: bool, degree: int) -> Callable[
+    def _get_unlabeled_interpolation_2d(
+        assume_sorted: bool, degree: int
+    ) -> Callable[
         [
             ArrayLike,
             ArrayLike,

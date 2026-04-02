@@ -110,12 +110,7 @@ class Polarimeter(AbstractDiagnostic):
             if t is None:
                 t = self.plasma.time_to_calculate
             Ne = self.plasma.electron_density.interp(t=t)
-            (
-                Br,
-                Bz,
-                Bt,
-                _,
-            ) = self.plasma.equilibrium.Bfield(
+            (Br, Bz, Bt, _,) = self.plasma.equilibrium.Bfield(
                 self.transform.R,
                 self.transform.z,
                 t=t,
@@ -166,7 +161,13 @@ class Polarimeter(AbstractDiagnostic):
         Dphi = (
             (
                 (elementary_charge**3)
-                / (2**3 * math.pi**2 * epsilon_0 * electron_mass**2 * speed_of_light**3)
+                / (
+                    2**3
+                    * math.pi**2
+                    * epsilon_0
+                    * electron_mass**2
+                    * speed_of_light**3
+                )
             )
             * (self.wavelength**2)
             * self.ne_remapped

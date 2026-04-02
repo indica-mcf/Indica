@@ -1,4 +1,5 @@
-from indica.examples.example_operators import example_fit_ts, example_aurora_run
+from indica.examples.example_operators import example_aurora_run
+from indica.examples.example_operators import example_fit_ts
 from indica.examples.example_operators import example_tomo_1D
 from indica.examples.example_operators import example_tomo_asymmetry
 

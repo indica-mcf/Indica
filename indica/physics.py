@@ -195,7 +195,9 @@ def conductivity_neo_sauter(el_dens, el_temp, zeff, min_r, a, R_mag, q):
         )
 
     def F33(x):
-        return 1 - (1 + 0.36 / zeff) * x + (0.59 / zeff) * x**2 - (0.23 / zeff) * x**3
+        return (
+            1 - (1 + 0.36 / zeff) * x + (0.59 / zeff) * x**2 - (0.23 / zeff) * x**3
+        )
 
     spitzer_cond = conductivity_spitzer_sauter(el_dens, el_temp, zeff)
 
@@ -893,7 +895,11 @@ def doppler_ev(sigma, centroid, mass: float, sigma_instr=0.0, fwhm=False):
 
     J2eV = constants.physical_constants["joule-electron volt relationship"][0]
     temperature = (
-        mass * constants.m_p * J2eV * constants.c**2 * (sigma_thermal / centroid) ** 2.0
+        mass
+        * constants.m_p
+        * J2eV
+        * constants.c**2
+        * (sigma_thermal / centroid) ** 2.0
     )
 
     if fwhm is True:

@@ -186,7 +186,9 @@ def coord_array(coord_vals: ArrayLike, coord_name: str):
                 else (
                     "norm_flux_pol"
                     if coord_name == "rhop"
-                    else "norm_flux_tor" if coord_name == "rhot" else coord_name
+                    else "norm_flux_tor"
+                    if coord_name == "rhot"
+                    else coord_name
                 )
             )
         ),

@@ -1,15 +1,16 @@
+from getpass import getuser
+from pathlib import Path
 from typing import Dict
 from typing import Optional
 from typing import Tuple
 
+from freeqdsk.geqdsk import GeqdskDataDict
+from freeqdsk.geqdsk import write
 import numpy as np
 import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
 from xarray import where
-from freeqdsk.geqdsk import GeqdskDataDict, write
-from getpass import getuser
-from pathlib import Path
 
 from indica.utilities import check_time_present
 from .numpy_typing import FloatOrDataArray
@@ -558,9 +559,17 @@ class Equilibrium:
             comment="equilibrium default",
             shot=-1,
             bcentr=0,  # Dummy values
-            pres=self.f[t_idx,].values * 0,  # Dummy values
-            qpsi=self.f[t_idx,].values * 0,  # Dummy values
-            fpol=self.f[t_idx,].values,
+            pres=self.f[
+                t_idx,
+            ].values
+            * 0,  # Dummy values
+            qpsi=self.f[
+                t_idx,
+            ].values
+            * 0,  # Dummy values
+            fpol=self.f[
+                t_idx,
+            ].values,
             rdim=self.Rmax.values - self.Rmin.values,
             rleft=self.Rmin.values,
             rcentr=self.Rmin.values + (self.Rmax.values - self.Rmin.values) / 2,
@@ -574,11 +583,17 @@ class Equilibrium:
             cpasma=self.ipla[t_idx].values,
             nx=self.psi.R.shape[0],
             ny=self.psi.z.shape[0],
-            psi=self.psi[t_idx,]
+            psi=self.psi[
+                t_idx,
+            ]
             .transpose("R", "z")
             .values,  # Must be shape (nr, nz) for freeqdsk
-            rbdry=self.rbnd[t_idx,].values,
-            zbdry=self.zbnd[t_idx,].values,
+            rbdry=self.rbnd[
+                t_idx,
+            ].values,
+            zbdry=self.zbnd[
+                t_idx,
+            ].values,
         )
         geqdsk_data_dict = GeqdskDataDict(geqdsk_inputs)
 

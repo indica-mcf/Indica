@@ -13,6 +13,8 @@ import scipy
 import xarray as xr
 from xarray import DataArray
 
+from indica import Equilibrium
+from indica.configs.operators.aurora import AuroraConfig
 from indica.configs.readers.adasconf import ADF11
 from indica.numpy_typing import LabeledArray
 from indica.profilers.profiler_gauss import ProfilerGauss
@@ -20,8 +22,6 @@ from indica.readers.adas import ADASReader
 from indica.utilities import DATA_PATH
 from indica.utilities import set_plot_colors
 from .abstractoperator import Operator
-from indica import Equilibrium
-from indica.configs.operators.aurora import AuroraConfig
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
@@ -355,7 +355,7 @@ class FractionalAbundance(Operator):
 
 class FractionalAbundanceAurora(Operator):
     """
-    Calculate fractional abundance for all ionisation states of a given element using Aurora.
+    Calculate fractional abundance for all ionisation states using Aurora.
     If the atomic data is not given, it will be inferred from Indica defaults in ADF11
 
     equilibrium
@@ -369,7 +369,7 @@ class FractionalAbundanceAurora(Operator):
     ccd
         charge exchange recombination coefficients string: f"ccd{year}_{element}.dat"
     aurora_config
-        dictionary of Aurora namelist parameters, see configs/operators/aurora.py for defaults
+        dictionary of Aurora namelist parameters, see configs/operators/aurora.py
     """
 
     def __init__(
@@ -484,10 +484,11 @@ class FractionalAbundanceAurora(Operator):
         plot: bool = False,
     ) -> xr.DataArray:
         """
-        Current behaviour based on Aurora takes a geqdsk and runs the time evolution for that static equilibrium
+        Current behaviour takes a geqdsk and runs the time evolution
+        for that static equilibrium
 
         Returns
-            fractional abundance of all ionisation states as a function of time, rhop and ion charge.
+            fractional abundance as a function of time, rhop and ion charge.
         """
         if np.all(Nh.values == 0) and self.aurora_config["cxr_flag"]:
             raise Exception("Nh is zero but cxr_flag is True.")
@@ -495,7 +496,8 @@ class FractionalAbundanceAurora(Operator):
         if np.any(Nh.values != 0):
             if not self.aurora_config["cxr_flag"]:
                 raise Warning(
-                    "Nh is non-zero but cxr_flag is False, charge exchange will not be included in the calculation."
+                    "Nh is non-zero but cxr_flag is False, "
+                    "charge exchange will not be included."
                 )
 
         self.set_kinetic_profiles(

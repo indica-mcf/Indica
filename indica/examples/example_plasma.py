@@ -85,6 +85,10 @@ def example_plasma(
     # Assign diffusion and convection coefficients
     D_coeff = np.linspace(0.2, 1, plasma.rhop.size)
     V_coeff = np.linspace(-0.1, -2, plasma.rhop.size)
-    plasma.diffusion_coefficient[:,] = D_coeff
-    plasma.convection_coefficient[:,] = V_coeff
+    plasma.diffusion_coefficient[
+        :,
+    ] = D_coeff
+    plasma.convection_coefficient[
+        :,
+    ] = V_coeff
     return plasma

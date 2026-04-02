@@ -14,7 +14,8 @@ from indica.configs import MACHINE_CONFS
 from indica.configs.operators.aurora import AuroraConfig
 from indica.converters.time import get_tlabels_dt
 from indica.numpy_typing import LabeledArray
-from indica.operators.atomic_data import default_atomic_data, FractionalAbundanceAurora
+from indica.operators.atomic_data import default_atomic_data
+from indica.operators.atomic_data import FractionalAbundanceAurora
 import indica.physics as ph
 from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
@@ -422,7 +423,7 @@ class Plasma:
     def calc_fz(self):
         if self.aurora_run:
             fz = self.aurora_fz(elements=self.impurities)
-            # Aurora doesn't handle main ion calculation, so use coronal approximation for this
+            # Aurora doesn't handle main ion calculation, so use coronal approximation
             fz[self.main_ion] = self.coronal_fz(elements=(self.main_ion,))[
                 self.main_ion
             ]
@@ -455,7 +456,8 @@ class Plasma:
         return self._fz
 
     def aurora_fz(self, elements: tuple):
-        # When using aurora, if either electron temperature or density are <= 0, skip calculation to avoid errors
+        # When using aurora, if either electron temperature or density are <= 0,
+        # skip calculation to avoid errors
         if (
             np.logical_not(
                 (self.electron_temperature.sel(t=self.time_to_calculate) > 0)
@@ -463,7 +465,8 @@ class Plasma:
             )
         ).any():
             print(
-                "Electron temperature and density must be > 0 for aurora calculation, skipping fz calculation"
+                "Electron temperature and density must be > 0 for aurora calculation, "
+                "skipping fz calculation"
             )
             return self._fz
 
@@ -664,7 +667,8 @@ class Plasma:
     ):
         """
         Assigns default atomic fractional abundance and radiated power operators.
-        If self.aurora_run is True, uses aurora for ionisation balance calculation, otherwise uses coronal approximation.
+        If self.aurora_run is True, uses aurora for ionisation balance calculation,
+        otherwise uses coronal approximation.
         """
         if self.aurora_run:
             assert (
@@ -795,9 +799,11 @@ class PlasmaProfiler:
         profilers
             dictionary of Profiler objects to generate profiles
         plasma_attribute_names
-            list of plasma attributes to be included in the phantom profiles, if None all attributes will be included
+            list of plasma attributes to be included in the phantom profiles,
+            if None all attributes will be included
         map_vtor
-            if True, maps toroidal rotation to ion temperature profile shape, otherwise uses toroidal rotation profile
+            if True, maps toroidal rotation to ion temperature profile shape,
+            otherwise uses toroidal rotation profile
         """
 
         if plasma_attribute_names is None:

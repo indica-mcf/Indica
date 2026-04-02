@@ -2,12 +2,13 @@ import numpy as np
 from xarray import DataArray
 
 from indica.configs.operators.aurora import AuroraConfig
+from indica.defaults.load_defaults import load_default_objects
 from indica.examples import example_plasma
-from indica.operators.atomic_data import FractionalAbundance, FractionalAbundanceAurora
+from indica.operators.atomic_data import FractionalAbundance
+from indica.operators.atomic_data import FractionalAbundanceAurora
 from indica.operators.atomic_data import PowerLoss
 from indica.readers import ADASReader
 from indica.utilities import get_element_info
-from indica.defaults.load_defaults import load_default_objects
 
 ELEMENT = "be"
 Z, A, NAME, SYMBOL = get_element_info(ELEMENT)
