@@ -1,5 +1,6 @@
 """Provides an abstract interface for coordinate conversion.
 """
+
 from abc import ABC
 from abc import abstractmethod
 import itertools

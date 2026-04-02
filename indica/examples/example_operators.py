@@ -375,7 +375,9 @@ def example_aurora_run(plot: bool = False):
     V_z = PLASMA.convection_coefficient
     operator = FractionalAbundanceAurora(
         element="ar",
-        aurora_config=AuroraConfig, equilibrium=EQUILIBRIUM, )
+        aurora_config=AuroraConfig,
+        equilibrium=EQUILIBRIUM,
+    )
     fz_t = operator(Ne=ne, Te=Te, Nh=Nh, D_z=D_z, V_z=V_z, plot=plot)
     plt.show()
     return fz_t

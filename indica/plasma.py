@@ -245,7 +245,7 @@ class Plasma:
                 self.neutral_density,
                 self.residence_time,
                 self.diffusion_coefficient,
-                self.convection_coefficient
+                self.convection_coefficient,
             ],
         )
 
@@ -289,7 +289,7 @@ class Plasma:
                 self.neutral_density,
                 self.residence_time,
                 self.diffusion_coefficient,
-                self.convection_coefficient
+                self.convection_coefficient,
             ],
         )
 
@@ -423,7 +423,9 @@ class Plasma:
         if self.aurora_run:
             fz = self.aurora_fz(elements=self.impurities)
             # Aurora doesn't handle main ion calculation, so use coronal approximation for this
-            fz[self.main_ion] = self.coronal_fz(elements=(self.main_ion,))[self.main_ion]
+            fz[self.main_ion] = self.coronal_fz(elements=(self.main_ion,))[
+                self.main_ion
+            ]
         else:
             fz = self.coronal_fz(elements=self.elements)
         return fz
@@ -440,7 +442,7 @@ class Plasma:
                 if np.any(self.neutral_density != 0):
                     neutral_density = self.neutral_density.sel(t=t)
                 if any(
-                        np.logical_not((electron_temperature > 0) * (electron_density > 0))
+                    np.logical_not((electron_temperature > 0) * (electron_density > 0))
                 ):
                     continue
                 fz_tmp = self.fract_abu[elem](
@@ -454,18 +456,25 @@ class Plasma:
 
     def aurora_fz(self, elements: tuple):
         # When using aurora, if either electron temperature or density are <= 0, skip calculation to avoid errors
-        if (np.logical_not((self.electron_temperature.sel(t=self.time_to_calculate) > 0) * (self.electron_density.sel(t=self.time_to_calculate) > 0))).any():
-            print("Electron temperature and density must be > 0 for aurora calculation, skipping fz calculation")
+        if (
+            np.logical_not(
+                (self.electron_temperature.sel(t=self.time_to_calculate) > 0)
+                * (self.electron_density.sel(t=self.time_to_calculate) > 0)
+            )
+        ).any():
+            print(
+                "Electron temperature and density must be > 0 for aurora calculation, skipping fz calculation"
+            )
             return self._fz
 
         for elem in elements:
             fz = self.fract_abu[elem](
-                Te = self.electron_temperature.sel(t=self.time_to_calculate),
-                Ne = self.electron_density.sel(t=self.time_to_calculate),
-                Nh = self.neutral_density.sel(t=self.time_to_calculate),
-                D_z = self.diffusion_coefficient.sel(t=self.time_to_calculate),
-                V_z = self.convection_coefficient.sel(t=self.time_to_calculate),
-                )
+                Te=self.electron_temperature.sel(t=self.time_to_calculate),
+                Ne=self.electron_density.sel(t=self.time_to_calculate),
+                Nh=self.neutral_density.sel(t=self.time_to_calculate),
+                D_z=self.diffusion_coefficient.sel(t=self.time_to_calculate),
+                V_z=self.convection_coefficient.sel(t=self.time_to_calculate),
+            )
             self._fz[elem].loc[dict(t=self.time_to_calculate)] = fz
         return self._fz
 
@@ -650,23 +659,30 @@ class Plasma:
     def set_adf11(self, adf11: dict):
         self.adf11 = adf11
 
-    def build_atomic_data(self, ):
+    def build_atomic_data(
+        self,
+    ):
         """
         Assigns default atomic fractional abundance and radiated power operators.
         If self.aurora_run is True, uses aurora for ionisation balance calculation, otherwise uses coronal approximation.
         """
         if self.aurora_run:
-            assert self.equilibrium, "Equilibrium must be set before building atomic data for aurora run"
+            assert (
+                self.equilibrium
+            ), "Equilibrium must be set before building atomic data for aurora run"
             fract_abu = {}
             for impurity in self.impurities:
                 fract_abu[impurity] = FractionalAbundanceAurora(
-                element=impurity,
-                aurora_config=AuroraConfig,
-                equilibrium=self.equilibrium)
+                    element=impurity,
+                    aurora_config=AuroraConfig,
+                    equilibrium=self.equilibrium,
+                )
             _fz, power_loss_tot = default_atomic_data(
                 self.elements, full_run=self.full_run
             )
-            fract_abu[self.main_ion] = _fz[self.main_ion] # Aurora doesn't handle main ion calculation
+            fract_abu[self.main_ion] = _fz[
+                self.main_ion
+            ]  # Aurora doesn't handle main ion calculation
 
         else:
             fract_abu, power_loss_tot = default_atomic_data(

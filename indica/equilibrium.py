@@ -19,6 +19,7 @@ from .numpy_typing import OnlyArray
 _FLUX_TYPES = ["poloidal", "toroidal"]
 GEQDSK_DIR = f"/home/{getuser()}/.indica/geqdsks/"
 
+
 class Equilibrium:
     """Class to hold and map equilibrium data.
 
@@ -345,14 +346,19 @@ class Equilibrium:
             reference_rhos = self.rhop
             t = self.rhop.coords["t"]
         minor_rad_max = apply_ufunc(
-            lambda angle, corner1, corner2, corner3, corner4, R0, z0: (self.Rmax - R0)
-            / np.cos(angle)
-            if angle > corner1 or angle <= corner2
-            else (self.zmax - z0) / np.sin(angle)
-            if corner2 < angle <= corner3
-            else (self.Rmin - R0) / np.cos(angle)
-            if corner3 < angle <= corner4
-            else (self.zmin - z0) / np.sin(angle),
+            lambda angle, corner1, corner2, corner3, corner4, R0, z0: (
+                (self.Rmax - R0) / np.cos(angle)
+                if angle > corner1 or angle <= corner2
+                else (
+                    (self.zmax - z0) / np.sin(angle)
+                    if corner2 < angle <= corner3
+                    else (
+                        (self.Rmin - R0) / np.cos(angle)
+                        if corner3 < angle <= corner4
+                        else (self.zmin - z0) / np.sin(angle)
+                    )
+                )
+            ),
             theta,
             corner_angles[0],
             corner_angles[1],
@@ -541,34 +547,39 @@ class Equilibrium:
         volume = self.area.interp(rhop=rhop).interp(t=t)
         return volume, t
 
-    def write_to_geqdsk(self, t_point:float, filename: str = None, ) -> str:
+    def write_to_geqdsk(
+        self,
+        t_point: float,
+        filename: str = None,
+    ) -> str:
 
-        t_idx = np.argmin(np.abs(self.t.values-t_point))
+        t_idx = np.argmin(np.abs(self.t.values - t_point))
         geqdsk_inputs = dict(
-                comment="equilibrium default",
-                shot=-1,
-                bcentr=0,  # Dummy values
-                pres=self.f[t_idx,].values * 0, # Dummy values
-                qpsi=self.f[t_idx,].values * 0, # Dummy values
-
-                fpol=self.f[t_idx,].values,
-                rdim=self.Rmax.values - self.Rmin.values,
-                rleft=self.Rmin.values,
-                rcentr=self.Rmin.values + (self.Rmax.values - self.Rmin.values) / 2,
-                zdim=self.zmax.values - self.zmin.values,
-                zmid=self.zmin.values + (self.zmax.values - self.zmin.values) / 2,
-                zmin=self.zmin.values,
-                rmagx=self.rmag[t_idx].values,
-                zmagx=self.zmag[t_idx].values,
-                simagx=self.psi_axis[t_idx].values,
-                sibdry=self.psi_boundary[t_idx].values,
-                cpasma=self.ipla[t_idx].values,
-                nx=self.psi.R.shape[0],
-                ny=self.psi.z.shape[0],
-                psi=self.psi[t_idx,].transpose("R", "z").values,  # Must be shape (nr, nz) for freeqdsk
-                rbdry=self.rbnd[t_idx,].values,
-                zbdry=self.zbnd[t_idx,].values,
-            )
+            comment="equilibrium default",
+            shot=-1,
+            bcentr=0,  # Dummy values
+            pres=self.f[t_idx,].values * 0,  # Dummy values
+            qpsi=self.f[t_idx,].values * 0,  # Dummy values
+            fpol=self.f[t_idx,].values,
+            rdim=self.Rmax.values - self.Rmin.values,
+            rleft=self.Rmin.values,
+            rcentr=self.Rmin.values + (self.Rmax.values - self.Rmin.values) / 2,
+            zdim=self.zmax.values - self.zmin.values,
+            zmid=self.zmin.values + (self.zmax.values - self.zmin.values) / 2,
+            zmin=self.zmin.values,
+            rmagx=self.rmag[t_idx].values,
+            zmagx=self.zmag[t_idx].values,
+            simagx=self.psi_axis[t_idx].values,
+            sibdry=self.psi_boundary[t_idx].values,
+            cpasma=self.ipla[t_idx].values,
+            nx=self.psi.R.shape[0],
+            ny=self.psi.z.shape[0],
+            psi=self.psi[t_idx,]
+            .transpose("R", "z")
+            .values,  # Must be shape (nr, nz) for freeqdsk
+            rbdry=self.rbnd[t_idx,].values,
+            zbdry=self.zbnd[t_idx,].values,
+        )
         geqdsk_data_dict = GeqdskDataDict(geqdsk_inputs)
 
         if filename is None:
@@ -580,4 +591,3 @@ class Equilibrium:
             write(geqdsk_data_dict, handle)
 
         return filepath
-

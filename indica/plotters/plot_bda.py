@@ -288,9 +288,7 @@ def plot_bda(
 
         if any(auto_corr):
             plot_autocorr(
-                auto_corr[
-                    t_idx,
-                ],
+                auto_corr[t_idx,],
                 param_names,
                 figheader,
                 filetype=filetype,
@@ -462,19 +460,13 @@ def plot_bda(
         )
 
         post_sample_filtered = post_sample[t_idx,][
-            ~np.isnan(
-                post_sample[
-                    t_idx,
-                ]
-            ).any(axis=1)
+            ~np.isnan(post_sample[t_idx,]).any(axis=1)
         ]
         corner.corner(post_sample_filtered, labels=param_names)
         plt.savefig(figheader + "posterior" + filetype)
 
         corner.corner(
-            prior_sample[
-                t_idx,
-            ],
+            prior_sample[t_idx,],
             labels=param_names,
         )
         plt.savefig(figheader + "prior" + filetype)

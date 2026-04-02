@@ -6,7 +6,11 @@ from indica.defaults.load_defaults import load_default_objects
 from indica.numpy_typing import Tuple
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
 
-EQUILIBRIUM = load_default_objects("st40", "equilibrium", )
+EQUILIBRIUM = load_default_objects(
+    "st40",
+    "equilibrium",
+)
+
 
 def example_plasma(
     tstart=0.02,
@@ -81,6 +85,6 @@ def example_plasma(
     # Assign diffusion and convection coefficients
     D_coeff = np.linspace(0.2, 1, plasma.rhop.size)
     V_coeff = np.linspace(-0.1, -2, plasma.rhop.size)
-    plasma.diffusion_coefficient[:, ] = D_coeff
-    plasma.convection_coefficient[:, ] = V_coeff
+    plasma.diffusion_coefficient[:,] = D_coeff
+    plasma.convection_coefficient[:,] = V_coeff
     return plasma

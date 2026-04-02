@@ -1,4 +1,5 @@
 """Plotting routines for Indica read/modelled data"""
+
 from copy import deepcopy
 from getpass import getuser
 import tkinter as tk

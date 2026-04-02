@@ -1,7 +1,7 @@
 import numpy as np
 
 AuroraConfig = dict(
-    geqdsk_t_point = 0.06,   # Time point in geqdsk to use for equilibrium data, in seconds
+    geqdsk_t_point=0.06,  # Time point in geqdsk to use for equilibrium data, in seconds
     imp="Ar",
     main_element="D",
     K=6.0,
@@ -49,48 +49,51 @@ AuroraConfig = dict(
     vol_pump=1000000.0,
     L_divpump=10000000.0,
     L_leak=0.0,
-    device='ST40',
+    device="ST40",
     shot=99999,
     time=1250,
-
     superstages=[],
-    full_PWI={'main_wall_material': 'W', 'div_wall_material': 'W', 'background_mode': 'manual',
-              'background_species': ['D'],
-              'background_main_wall_fluxes': [0], 'background_div_wall_fluxes': [0],
-              'background_files': ['file/location'],
-              'characteristic_impact_energy_main_wall': 200, 'characteristic_impact_energy_div_wall': 500,
-              'n_main_wall_sat': 1e+20, 'n_div_wall_sat': 1e+20, 'energetic_recycled_neutrals': False,
-              'Te_div': 30.0,
-              'Te_lim': 10.0, 'Ti_over_Te': 1.0, 'gammai': 2.0
-              },
+    full_PWI={
+        "main_wall_material": "W",
+        "div_wall_material": "W",
+        "background_mode": "manual",
+        "background_species": ["D"],
+        "background_main_wall_fluxes": [0],
+        "background_div_wall_fluxes": [0],
+        "background_files": ["file/location"],
+        "characteristic_impact_energy_main_wall": 200,
+        "characteristic_impact_energy_div_wall": 500,
+        "n_main_wall_sat": 1e20,
+        "n_div_wall_sat": 1e20,
+        "energetic_recycled_neutrals": False,
+        "Te_div": 30.0,
+        "Te_lim": 10.0,
+        "Ti_over_Te": 1.0,
+        "gammai": 2.0,
+    },
     saw_model={
-        'crash_width': 1.0, 'mixing_radius': 1000.0, 'saw_flag': False, 'times': [1.0]
+        "crash_width": 1.0,
+        "mixing_radius": 1000.0,
+        "saw_flag": False,
+        "times": [1.0],
     },
-    LBO={
-        'n_particles': 1e+18, 't_fall': 0.3, 't_rise': 0.05, 't_start': 0.01},
-    nbi_cxr={
-        "rhop": None, "vals": None
-    },
-
+    LBO={"n_particles": 1e18, "t_fall": 0.3, "t_rise": 0.05, "t_start": 0.01},
+    nbi_cxr={"rhop": None, "vals": None},
     timing={  # Be cautious changing these values can break the simulation easily
         "dt_increase": np.array([1.01, 1.0]),
         "dt_start": np.array([1e-4, 1e-3]),
         "steps_per_cycle": np.array([1, 1]),
-        "times": np.array([-0.1, 1.0, ]),
+        "times": np.array(
+            [
+                -0.1,
+                1.0,
+            ]
+        ),
     },
     kin_profs={
-        "Te": {
-            "decay": [1.0], "fun": "interpa", "times": [1.0]
-        },
-        "Ti": {
-            "decay": [1.0], "fun": "interpa", "times": [1.0]
-        },
-        "ne": {
-            "fun": "interpa", "times": [1.0]
-        },
-        "n0": {
-            "fun": "interpa", "times": [1.0]
-        },
-    }
+        "Te": {"decay": [1.0], "fun": "interpa", "times": [1.0]},
+        "Ti": {"decay": [1.0], "fun": "interpa", "times": [1.0]},
+        "ne": {"fun": "interpa", "times": [1.0]},
+        "n0": {"fun": "interpa", "times": [1.0]},
+    },
 )
-

@@ -80,9 +80,7 @@ def sample_with_moments(
             success_flag = False
         old_mean = new_mean
 
-    autocorr = autocorr[
-        : sampler.iteration,
-    ]
+    autocorr = autocorr[: sampler.iteration,]
     return autocorr
 
 
