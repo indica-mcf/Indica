@@ -1,6 +1,7 @@
 import numpy as np
 
 AuroraConfig = dict(
+    geqdsk_t_point = 0.06,   # Time point in geqdsk to use for equilibrium data, in seconds
     imp="Ar",
     main_element="D",
     K=6.0,
@@ -12,7 +13,7 @@ AuroraConfig = dict(
     acd=None,
     scd=None,
     ccd=None,
-    cxr_flag=True,
+    cxr_flag=False,
     nbi_cxr_flag=False,
     source_type="const",
     source_rate=1e20,
