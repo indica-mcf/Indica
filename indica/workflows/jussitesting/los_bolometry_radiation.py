@@ -31,7 +31,7 @@ from indica.defaults.load_defaults import load_default_objects
 from indica.models import PinholeCamera
 from indica.operators import tomo_1D
 from indica.operators.atomic_data import default_atomic_data
-from indica.workflows.los_bolometry_geometry import (
+from indica.workflows.jussitesting.los_bolometry_geometry import (
     assert_valid_impact_params,
     assert_valid_maximum_impact,
     direction_from_polar_and_dir_offset,

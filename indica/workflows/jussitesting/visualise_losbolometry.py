@@ -32,7 +32,11 @@ from indica.models import PinholeCamera
 from indica.operators import tomo_1D
 from indica.operators.atomic_data import default_atomic_data
 
-from los_bolometry_radiation import get_solution, interactive_solution_timeslice_plot_from_list, assert_valid_impact_params
+from indica.workflows.jussitesting.los_bolometry_radiation import (
+    assert_valid_impact_params,
+    get_solution,
+    interactive_solution_timeslice_plot_from_list,
+)
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
