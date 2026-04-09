@@ -14,6 +14,7 @@ from indica.equilibrium import Equilibrium
 from prefect import flow, task
 from indica.converters import CoordinateTransform
 from indica.workflows.jussiphd.components.data.data_generation import (
+    generate_and_save_dataset,
     generate_plasma_sample,
 )
 from indica.workflows.jussiphd.components.visualisations.sensor_geometry import (
@@ -55,6 +56,31 @@ def generate_plasma_sample_task(
     )
 
 
+@task(name="generate_and_save_dataset")
+def generate_and_save_dataset_task(
+    machine: str,
+    instrument: str,
+    transform: CoordinateTransform,
+    equilibrium: Equilibrium,
+    n_generations: int,
+    use_all_timepoints: bool,
+    output_dir: str,
+    b_filename: str,
+    eps_filename: str,
+) -> dict[str, Any]:
+    return generate_and_save_dataset(
+        machine=machine,
+        instrument=instrument,
+        transform=transform,
+        equilibrium=equilibrium,
+        n_generations=n_generations,
+        use_all_timepoints=use_all_timepoints,
+        output_dir=output_dir,
+        b_filename=b_filename,
+        eps_filename=eps_filename,
+    )
+
+
 @flow(name="bolometry_inversion")
 def bolometry_inversion(
     machine: str = "st40",
@@ -64,6 +90,12 @@ def bolometry_inversion(
     tend: float = 0.15,
     dt: float = 0.01,
     verbose: bool = False,
+    write_dataset: bool = True,
+    n_generations: int = 100,
+    use_all_timepoints: bool = False,
+    output_dir: str = ".",
+    b_filename: str = "b_slices.csv",
+    eps_filename: str = "eps_slices.csv",
 ) -> dict[str, Any]:
     """Run migrated notebook steps in sequence for iterative workflow development."""
     equilibrium = load_default_objects(machine, "equilibrium")
@@ -83,6 +115,26 @@ def bolometry_inversion(
         transform=transform,
         equilibrium=equilibrium,
     )
+
+    dataset_info = None
+    if write_dataset:
+        dataset_info = generate_and_save_dataset_task(
+            machine=machine,
+            instrument=instrument,
+            transform=transform,
+            equilibrium=equilibrium,
+            n_generations=n_generations,
+            use_all_timepoints=use_all_timepoints,
+            output_dir=output_dir,
+            b_filename=b_filename,
+            eps_filename=eps_filename,
+        )
+
+    return {
+        "preview_transform": transform,
+        "sample": sample,
+        "dataset": dataset_info,
+    }
 
 
 

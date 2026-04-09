@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Sequence
 
+import numpy as np
 from indica.models import PinholeCamera
 from indica.operators.atomic_data import default_atomic_data
 from indica.workflows.jussiphd.plasma_profiler_init import (
@@ -84,6 +86,9 @@ def generate_plasma_sample(
 ) -> dict[str, Any]:
     """Build model, sample plasma, run forward model, and return sample bundle."""
     _ = machine  # reserved for future machine-specific branching
+    transform.set_equilibrium(equilibrium)
+    transform.spot_shape = "square"
+    transform.focal_length = -1000.0
 
     _, power_loss = default_atomic_data(["h", "ar", "c", "he"])
     model = PinholeCamera(instrument, power_loss=power_loss)
@@ -104,4 +109,59 @@ def generate_plasma_sample(
         "transform": transform,
         "measurements": measurements,
         "emissivity": emissivity,
+    }
+
+
+def generate_and_save_dataset(
+    machine: str,
+    instrument: str,
+    transform: Any,
+    equilibrium: Any,
+    n_generations: int = 4000,
+    use_all_timepoints: bool = False,
+    output_dir: str = ".",
+    b_filename: str = "b_slices.csv",
+    eps_filename: str = "eps_slices.csv",
+) -> dict[str, Any]:
+    """Generate (brightness, emissivity) pairs and write them to CSV files."""
+    b_slices: list[np.ndarray] = []
+    eps_slices: list[np.ndarray] = []
+
+    for _ in range(n_generations):
+        sample = generate_plasma_sample(
+            machine=machine,
+            instrument=instrument,
+            transform=transform,
+            equilibrium=equilibrium,
+        )
+        measurements = sample["measurements"]
+        emissivity = sample["emissivity"]
+
+        if use_all_timepoints:
+            t_indices = range(measurements.sizes["t"])
+        else:
+            t_indices = [int(np.random.randint(measurements.sizes["t"]))]
+
+        for t_idx in t_indices:
+            channel_vector = measurements.isel(t=t_idx).values.astype(np.float32)
+            emissivity_slice = emissivity.isel(t=t_idx).values.astype(np.float32)
+            b_slices.append(channel_vector)
+            eps_slices.append(emissivity_slice)
+
+    b_arr = np.asarray(b_slices, dtype=np.float32)
+    eps_arr = np.asarray(eps_slices, dtype=np.float32)
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    b_path = output_path / b_filename
+    eps_path = output_path / eps_filename
+    np.savetxt(b_path, b_arr, delimiter=",")
+    np.savetxt(eps_path, eps_arr, delimiter=",")
+
+    return {
+        "b_path": str(b_path),
+        "eps_path": str(eps_path),
+        "num_pairs": int(len(b_arr)),
+        "b_shape": tuple(b_arr.shape),
+        "eps_shape": tuple(eps_arr.shape),
     }
