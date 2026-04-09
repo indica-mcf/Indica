@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
+from indica.models import PinholeCamera
+from indica.operators.atomic_data import default_atomic_data
 from indica.workflows.jussiphd.plasma_profiler_init import (
     build_plasma_profiler,
     load_bda_config,
@@ -54,3 +56,53 @@ class PlasmaGenerator:
         bckc, emissivity = self.model(return_emissivity=True)
         measurements = bckc["brightness"]
         return measurements, emissivity
+
+
+def sample_plasma(
+    model: Any,
+    transform: Any,
+    config_name: str = "ion_temperature_phantom_run_all_params",
+    overrides: Sequence[str] | None = None,
+) -> Any:
+    """Create a generator and return one sampled plasma instance."""
+    generator = PlasmaGenerator(
+        model=model,
+        transform=transform,
+        config_name=config_name,
+        overrides=overrides,
+    )
+    return generator.generate()
+
+
+def generate_plasma_sample(
+    machine: str,
+    instrument: str,
+    transform: Any,
+    equilibrium: Any,
+    config_name: str = "ion_temperature_phantom_run_all_params",
+    overrides: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Build model, sample plasma, run forward model, and return sample bundle."""
+    _ = machine  # reserved for future machine-specific branching
+    transform.set_equilibrium(equilibrium)
+
+    _, power_loss = default_atomic_data(["h", "ar", "c", "he"])
+    model = PinholeCamera(instrument, power_loss=power_loss)
+    model.set_transform(transform)
+
+    generated_plasma = sample_plasma(
+        model=model,
+        transform=transform,
+        config_name=config_name,
+        overrides=overrides,
+    )
+    model.set_plasma(generated_plasma)
+    bckc, emissivity = model(return_emissivity=True)
+    measurements = bckc["brightness"]
+
+    return {
+        "plasma": generated_plasma,
+        "transform": transform,
+        "measurements": measurements,
+        "emissivity": emissivity,
+    }
