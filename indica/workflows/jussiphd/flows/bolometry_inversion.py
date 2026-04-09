@@ -9,28 +9,18 @@ from __future__ import annotations
 
 from typing import Any
 
+
 from indica.defaults.load_defaults import load_default_objects
+from indica.equilibrium import Equilibrium
 from indica.models import PinholeCamera
 from indica.operators.atomic_data import default_atomic_data
+from prefect import flow, task
+from indica.converters.line_of_sight import LineOfSightTransform
+from indica.converters import CoordinateTransform
 from indica.workflows.jussiphd.components.data.data_generation import PlasmaGenerator
 from indica.workflows.jussiphd.components.visualisations.sensor_geometry import (
     preview_sensor_geometry,
 )
-
-try:
-    from prefect import flow, task
-except ImportError:  # pragma: no cover
-    def flow(*_args, **_kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
-
-    def task(*_args, **_kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
 
 
 @task(name="preview_sensor_geometry")
@@ -56,16 +46,17 @@ def preview_sensor_geometry_task(
 def generate_plasma_sample_task(
     machine: str,
     instrument: str,
+    transform: CoordinateTransform,
+    equilibrium: Equilibrium,
 ) -> dict[str, Any]:
-    transforms = load_default_objects(machine, "geometry")
-    equilibrium = load_default_objects(machine, "equilibrium")
+    
     plasma = load_default_objects(machine, "plasma")
 
     plasma.set_equilibrium(equilibrium)
-    transform = transforms[instrument]
     transform.set_equilibrium(equilibrium)
-    transform.spot_shape = "square"
-    transform.focal_length = -1000.0
+
+    #transform.spot_shape = "square"
+    #transform.focal_length = -1000.0
 
     _, power_loss = default_atomic_data(["h", "ar", "c", "he"])
     model = PinholeCamera(instrument, power_loss=power_loss)
@@ -94,8 +85,10 @@ def bolometry_inversion(
     dt: float = 0.01,
     verbose: bool = False,
 ) -> dict[str, Any]:
+    
+
     """Run migrated notebook steps in sequence for iterative workflow development."""
-    preview = preview_sensor_geometry_task(
+    transform = preview_sensor_geometry_task(
         pulse=preview_pulse,
         instrument=instrument,
         tstart=tstart,
@@ -104,13 +97,15 @@ def bolometry_inversion(
         verbose=verbose,
     )
 
+
+
     sample = generate_plasma_sample_task(
         machine=machine,
         instrument=instrument,
     )
 
     return {
-        "preview_transform": preview,
+        "preview_transform": transform,
         **sample,
     }
 
