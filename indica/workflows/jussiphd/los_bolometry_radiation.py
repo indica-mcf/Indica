@@ -31,7 +31,7 @@ from indica.defaults.load_defaults import load_default_objects
 from indica.models import PinholeCamera
 from indica.operators import tomo_1D
 from indica.operators.atomic_data import default_atomic_data
-from indica.workflows.jussitesting.los_bolometry_geometry import (
+from indica.workflows.jussiphd.los_bolometry_geometry import (
     assert_valid_impact_params,
     assert_valid_maximum_impact,
     direction_from_polar_and_dir_offset,
@@ -1143,16 +1143,16 @@ def run_example_diagnostic_model(
                                 
 
                 gens=len(bestPerGen)
-                with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_{los_count}los{gens}_gens_run{runs}.pkl', 'wb') as file:
+                with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussiphd/fullrunHOF_{los_count}los{gens}_gens_run{runs}.pkl', 'wb') as file:
                     # Dump data with highest protocol for best performance
                     pickle.dump(hof, file, protocol=pickle.HIGHEST_PROTOCOL)
 
-                with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunBESTOFGEN_{los_count}los_{gens}gens_run{runs}.pkl', 'wb') as file:
+                with open(f'/home/jussi.hakosalo/Indica/indica/workflows/jussiphd/fullrunBESTOFGEN_{los_count}los_{gens}gens_run{runs}.pkl', 'wb') as file:
                     # Dump data with highest protocol for best performance
                     pickle.dump(bestPerGen, file, protocol=pickle.HIGHEST_PROTOCOL) 
 
             else:
-                with open('/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/fullrunHOF_12_gens36.pkl','rb') as file:
+                with open('/home/jussi.hakosalo/Indica/indica/workflows/jussiphd/fullrunHOF_12_gens36.pkl','rb') as file:
                         hof=pickle.load(file)
             
 

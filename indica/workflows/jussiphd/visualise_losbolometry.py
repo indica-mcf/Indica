@@ -32,7 +32,7 @@ from indica.models import PinholeCamera
 from indica.operators import tomo_1D
 from indica.operators.atomic_data import default_atomic_data
 
-from indica.workflows.jussitesting.los_bolometry_radiation import (
+from indica.workflows.jussiphd.los_bolometry_radiation import (
     assert_valid_impact_params,
     get_solution,
     interactive_solution_timeslice_plot_from_list,
@@ -131,7 +131,7 @@ def run_example_diagnostic_model(
 
 
     #Get a grouped dict of all files that have the same los number
-    filelist_grouped=group_hof_files_by_los("/home/jussi.hakosalo/Indica/indica/workflows/jussitesting/")
+    filelist_grouped=group_hof_files_by_los("/home/jussi.hakosalo/Indica/indica/workflows/jussiphd/")
             
     hofs=[]
 
