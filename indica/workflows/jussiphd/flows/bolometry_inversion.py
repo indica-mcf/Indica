@@ -67,7 +67,7 @@ def bolometry_inversion(
 ) -> dict[str, Any]:
     """Run migrated notebook steps in sequence for iterative workflow development."""
     equilibrium = load_default_objects(machine, "equilibrium")
-    
+
     transform = preview_sensor_geometry_task(
         pulse=preview_pulse,
         instrument=instrument,
@@ -84,10 +84,6 @@ def bolometry_inversion(
         equilibrium=equilibrium,
     )
 
-    return {
-        "preview_transform": transform,
-        **sample,
-    }
 
 
 if __name__ == "__main__":

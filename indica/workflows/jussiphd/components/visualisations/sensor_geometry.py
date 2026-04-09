@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+import matplotlib.pyplot as plt
 from indica import Equilibrium
 from indica.readers import ST40Reader
 from indica.workflows.jussiphd.los_bolometry_geometry import update_los
@@ -35,6 +37,13 @@ def preview_sensor_geometry(
     transform.set_equilibrium(equilibrium, force=True)
 
     update_los(transform)
-    transform.plot()
+    _, figures = transform.plot(return_figures=True)
+    if not figures:
+        figures = [plt.gcf()]
+    for idx, fig in enumerate(figures, start=1):
+        output_path =f"/home/jussi.hakosalo/Indica/indica/workflows/jussiphd/components/visualisations/sensor_geometry_preview_{idx}.png"
+        fig.savefig(output_path, bbox_inches="tight", dpi=150)
+        plt.close(fig)
+        print(f"Saved geometry plot to {output_path}")
     print(f"Previewed LOS geometry for pulse {pulse} ({instrument})")
     return transform

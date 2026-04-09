@@ -84,7 +84,6 @@ def generate_plasma_sample(
 ) -> dict[str, Any]:
     """Build model, sample plasma, run forward model, and return sample bundle."""
     _ = machine  # reserved for future machine-specific branching
-    transform.set_equilibrium(equilibrium)
 
     _, power_loss = default_atomic_data(["h", "ar", "c", "he"])
     model = PinholeCamera(instrument, power_loss=power_loss)
