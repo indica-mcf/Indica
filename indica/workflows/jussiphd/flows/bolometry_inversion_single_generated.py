@@ -135,8 +135,7 @@ def compute_generated_vae_metrics_task(
     model_path: str,
     b_path: str,
     eps_path: str,
-    idx: int | None,
-    n_eval_samples: int | None,
+    idx: int,
     k_samples: int,
     seed: int | None,
 ) -> dict[str, Any]:
@@ -146,7 +145,6 @@ def compute_generated_vae_metrics_task(
         eps_path=eps_path,
         meta_path=None,
         idx=idx,
-        n_eval_samples=n_eval_samples,
         k_samples=k_samples,
         seed=seed,
     )
@@ -211,8 +209,7 @@ def bolometry_inversion_single_generated(
     vae_lr: float = 1e-3,
     run_vae_metrics: bool = True,
     vae_metrics_model_path: str | None = None,
-    metrics_idx: int | None = None,
-    metrics_n_eval_samples: int | None = 200,
+    metrics_idx: int = 10,
     metrics_k_samples: int = 100,
     run_visualisations: bool = True,
     visualisations_output_dir: str = DEFAULT_VIS_DIR,
@@ -290,7 +287,6 @@ def bolometry_inversion_single_generated(
             b_path=generated_dataset["b_path"],
             eps_path=generated_dataset["eps_path"],
             idx=metrics_idx,
-            n_eval_samples=metrics_n_eval_samples,
             k_samples=metrics_k_samples,
             seed=None,
         )
