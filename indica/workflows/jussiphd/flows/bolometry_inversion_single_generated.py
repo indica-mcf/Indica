@@ -215,6 +215,10 @@ def bolometry_inversion_single_generated(
     metrics_k_samples: int = 100,
     run_visualisations: bool = True,
     visualisations_output_dir: str = DEFAULT_VIS_DIR,
+    visualisations_use_fresh_generated_data: bool = True,
+    visualisations_n_generations: int = 50,
+    visualisations_b_filename: str = "b_slices_single_generated_vis_eval.csv",
+    visualisations_eps_filename: str = "eps_slices_single_generated_vis_eval.csv",
     visualisations_n_examples: int = 6,
     visualisations_k_samples: int = 20,
     visualisations_n_uncertainty_samples: int = 200,
@@ -302,10 +306,25 @@ def bolometry_inversion_single_generated(
                     "or explicit vae_metrics_model_path."
                 )
             model_path = vae_training["model_path"]
+
+        visualisation_dataset = generated_dataset
+        if visualisations_use_fresh_generated_data:
+            visualisation_dataset = generate_single_generated_dataset_task(
+                machine=machine,
+                instrument=instrument,
+                transform=transform,
+                equilibrium=equilibrium,
+                n_generations=visualisations_n_generations,
+                output_dir=output_dir,
+                b_filename=visualisations_b_filename,
+                eps_filename=visualisations_eps_filename,
+                generate_new_data=True,
+            )
+
         generated_visualisations = generate_generated_visualisations_task(
             model_path=model_path,
-            b_path=generated_dataset["b_path"],
-            eps_path=generated_dataset["eps_path"],
+            b_path=visualisation_dataset["b_path"],
+            eps_path=visualisation_dataset["eps_path"],
             transform=transform,
             output_dir=visualisations_output_dir,
             n_examples=visualisations_n_examples,
@@ -317,6 +336,7 @@ def bolometry_inversion_single_generated(
             output_dir=visualisations_output_dir,
         )
         visualisations = {
+            "visualisation_dataset": visualisation_dataset,
             "generated_dataset_visualisations": generated_visualisations,
             "training_progress_visualisation": training_progress_visualisation,
         }

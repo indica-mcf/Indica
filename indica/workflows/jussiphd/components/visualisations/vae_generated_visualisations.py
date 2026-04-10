@@ -34,6 +34,29 @@ def _pick_indices(n_total: int, n_pick: int) -> np.ndarray:
     return np.unique(np.round(pos).astype(int))
 
 
+def _equilibrium_midpoint_time(transform: Any) -> float:
+    """Return midpoint time from transform equilibrium; fallback to 0.0."""
+    try:
+        equilibrium = transform.equilibrium
+        if hasattr(equilibrium, "t"):
+            t_vals = equilibrium.t.values if hasattr(equilibrium.t, "values") else equilibrium.t
+        elif hasattr(equilibrium, "rhop") and hasattr(equilibrium.rhop, "t"):
+            t_vals = (
+                equilibrium.rhop.t.values
+                if hasattr(equilibrium.rhop.t, "values")
+                else equilibrium.rhop.t
+            )
+        else:
+            return 0.0
+        t_arr = np.asarray(t_vals, dtype=float)
+        t_arr = t_arr[np.isfinite(t_arr)]
+        if t_arr.size == 0:
+            return 0.0
+        return float(0.5 * (t_arr.min() + t_arr.max()))
+    except Exception:
+        return 0.0
+
+
 def generate_generated_dataset_visualisations(
     model_path: str,
     b_path: str,
@@ -50,6 +73,12 @@ def generate_generated_dataset_visualisations(
 
     dataset = PairDataset(b_path=b_path, eps_path=eps_path, meta_path=None)
     model = _load_vae(model_path)
+    eq_t_mid = _equilibrium_midpoint_time(transform)
+    tomo_success_count = 0
+    tomo_fail_count = 0
+    tomo_rmse_success_count = 0
+    tomo_rmse_fail_count = 0
+    rmse_invalid_count = 0
 
     indices = _pick_indices(len(dataset), n_examples)
     rhop = np.arange(dataset.eps_slices.shape[1], dtype=float)
@@ -136,7 +165,7 @@ def generate_generated_dataset_visualisations(
         b_true = b_norm * dataset.sigma_b + dataset.mu_b
         brightness_single = DataArray(
             np.asarray(b_true, dtype=np.float32)[None, :],
-            coords=[("t", np.asarray([0.0], dtype=np.float32)), ("channel", np.arange(b_true.shape[0]))],
+            coords=[("t", np.asarray([eq_t_mid], dtype=np.float32)), ("channel", np.arange(b_true.shape[0]))],
         )
         try:
             e_naive = (
@@ -148,7 +177,11 @@ def generate_generated_dataset_visualisations(
                 .isel(t=0)
                 .values.astype(np.float32)
             )
+            tomo_success_count += 1
+            tomo_rmse_success_count += 1
         except Exception:
+            tomo_fail_count += 1
+            tomo_rmse_fail_count += 1
             continue
 
         b_t_norm = torch.from_numpy(b_norm.astype(np.float32)).unsqueeze(0)
@@ -158,8 +191,12 @@ def generate_generated_dataset_visualisations(
             e_samps = model.decode(b_rep, z)
             e_samps_un = (e_samps * dataset.sigma_eps + dataset.mu_eps).cpu().numpy()
         e_vae_mean = e_samps_un.mean(axis=0)
-        vae_rmse_vals.append(float(np.sqrt(np.mean((e_vae_mean - e_true) ** 2))))
-        naive_rmse_vals.append(float(np.sqrt(np.mean((e_naive - e_true) ** 2))))
+        valid = np.isfinite(e_naive) & np.isfinite(e_true) & np.isfinite(e_vae_mean)
+        if not np.any(valid):
+            rmse_invalid_count += 1
+            continue
+        vae_rmse_vals.append(float(np.sqrt(np.mean((e_vae_mean[valid] - e_true[valid]) ** 2))))
+        naive_rmse_vals.append(float(np.sqrt(np.mean((e_naive[valid] - e_true[valid]) ** 2))))
 
     vae_rmse_vals = np.asarray(vae_rmse_vals, dtype=float)
     naive_rmse_vals = np.asarray(naive_rmse_vals, dtype=float)
@@ -189,6 +226,20 @@ def generate_generated_dataset_visualisations(
 
         fig.savefig(naive_vs_vae_path, dpi=150, bbox_inches="tight")
         plt.close(fig)
+    else:
+        fig, ax = plt.subplots(figsize=(5.5, 5))
+        ax.text(
+            0.5,
+            0.5,
+            "No valid naive inversion pairs\nfor RMSE scatter",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
+        ax.set_axis_off()
+        fig.tight_layout()
+        fig.savefig(naive_vs_vae_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
 
     # 4) Ground truth vs naive inversion vs VAE mean for selected slices
     n_show = len(indices)
@@ -212,7 +263,7 @@ def generate_generated_dataset_visualisations(
         b_true = b_norm * dataset.sigma_b + dataset.mu_b
         brightness_single = DataArray(
             np.asarray(b_true, dtype=np.float32)[None, :],
-            coords=[("t", np.asarray([0.0], dtype=np.float32)), ("channel", np.arange(b_true.shape[0]))],
+            coords=[("t", np.asarray([eq_t_mid], dtype=np.float32)), ("channel", np.arange(b_true.shape[0]))],
         )
         try:
             e_naive = (
@@ -224,7 +275,9 @@ def generate_generated_dataset_visualisations(
                 .isel(t=0)
                 .values.astype(np.float32)
             )
+            tomo_success_count += 1
         except Exception:
+            tomo_fail_count += 1
             continue
 
         b_t_norm = torch.from_numpy(b_norm.astype(np.float32)).unsqueeze(0)
@@ -234,10 +287,13 @@ def generate_generated_dataset_visualisations(
             e_samps = model.decode(b_rep, z)
             e_samps_un = (e_samps * dataset.sigma_eps + dataset.mu_eps).cpu().numpy()
         e_vae_mean = e_samps_un.mean(axis=0)
+        valid = np.isfinite(e_naive) & np.isfinite(e_true) & np.isfinite(e_vae_mean)
+        if not np.any(valid):
+            continue
 
-        ax.plot(rhop, e_true, color="k", linewidth=2.2, label="Ground truth")
-        ax.plot(rhop, e_naive, color="tab:blue", linewidth=2.0, label="Naive inversion")
-        ax.plot(rhop, e_vae_mean, color="tab:red", linewidth=2.0, label="VAE mean")
+        ax.plot(rhop[valid], e_true[valid], color="k", linewidth=2.2, label="Ground truth")
+        ax.plot(rhop[valid], e_naive[valid], color="tab:blue", linewidth=2.0, label="Naive inversion")
+        ax.plot(rhop[valid], e_vae_mean[valid], color="tab:red", linewidth=2.0, label="VAE mean")
         ax.set_title(f"sample idx = {int(idx)}")
         ax.set_xlabel("rhop-index")
         ax.grid(alpha=0.25)
@@ -280,6 +336,14 @@ def generate_generated_dataset_visualisations(
         },
         "num_samples": int(len(dataset)),
         "num_example_indices": int(len(indices)),
+        "baseline_method": "calculate_tomo_inversion",
+        "equilibrium_midpoint_time_used": float(eq_t_mid),
+        "num_tomo_success": int(tomo_success_count),
+        "num_tomo_fail": int(tomo_fail_count),
+        "num_tomo_rmse_success": int(tomo_rmse_success_count),
+        "num_tomo_rmse_fail": int(tomo_rmse_fail_count),
+        "num_rmse_pairs": int(len(vae_rmse_vals)),
+        "num_rmse_invalid": int(rmse_invalid_count),
     }
 
 
