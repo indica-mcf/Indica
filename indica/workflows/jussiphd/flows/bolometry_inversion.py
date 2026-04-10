@@ -11,6 +11,9 @@ from prefect import flow, task
 from indica.workflows.jussiphd.components.filtering.dataset_filters import (
     apply_zero_and_tomo_filters,
 )
+from indica.workflows.jussiphd.components.filtering.shared_slice_filter import (
+    build_shared_visualization_slice_pool,
+)
 from indica.workflows.jussiphd.components.evaluation.metrics import (
     compute_vae_diversity_and_forward_metrics,
 )
@@ -155,6 +158,33 @@ def compute_vae_metrics_task(
     )
 
 
+@task(name="build_shared_slice_pool")
+def build_shared_slice_pool_task(
+    b_path: str,
+    eps_path: str,
+    meta_path: str,
+    machine: str,
+    instrument: str,
+    tstart: float,
+    tend: float,
+    dt: float,
+    min_valid_channels_required: int,
+    max_samples: int | None,
+) -> dict[str, Any]:
+    return build_shared_visualization_slice_pool(
+        b_path=b_path,
+        eps_path=eps_path,
+        meta_path=meta_path,
+        machine=machine,
+        instrument=instrument,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        min_valid_channels_required=min_valid_channels_required,
+        max_samples=max_samples,
+    )
+
+
 @flow(name="bolometry_inversion")
 def bolometry_inversion(
     machine: str = "st40",
@@ -190,6 +220,9 @@ def bolometry_inversion(
     vae_metrics_model_path: str | None = None,
     metrics_idx: int = 10,
     metrics_k_samples: int = 100,
+    build_shared_slice_filter: bool = True,
+    shared_min_valid_channels_required: int = 3,
+    shared_max_samples: int | None = None,
 ) -> dict[str, Any]:
     """Use pre-saved multipulse data by default, or regenerate when pulses are given."""
     pulse_list = list(pulses) if pulses is not None else []
@@ -217,6 +250,7 @@ def bolometry_inversion(
     dataset_summary = None
     vae_training = None
     vae_metrics = None
+    shared_slice_filter = None
     if apply_dataset_filters:
         filtered_dataset_info = filter_multipulse_dataset_task(
             b_path=multipulse_dataset_info["b_path"],
@@ -229,10 +263,28 @@ def bolometry_inversion(
             output_dir=filters_output_dir,
         )
 
+    source = filtered_dataset_info if filtered_dataset_info is not None else multipulse_dataset_info
+    if build_shared_slice_filter:
+        meta_path = source.get("meta_path")
+        if meta_path is None:
+            raise ValueError(
+                "Shared slice filter requires meta_path in source dataset."
+            )
+        shared_slice_filter = build_shared_slice_pool_task(
+            b_path=source["b_path"],
+            eps_path=source["eps_path"],
+            meta_path=meta_path,
+            machine=machine,
+            instrument=instrument,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            min_valid_channels_required=shared_min_valid_channels_required,
+            max_samples=shared_max_samples,
+        )
 
 
     if create_training_dataset:
-        source = filtered_dataset_info if filtered_dataset_info is not None else multipulse_dataset_info
         dataset_summary = create_training_dataset_task(
             b_path=source["b_path"],
             eps_path=source["eps_path"],
@@ -244,7 +296,6 @@ def bolometry_inversion(
             seed=split_seed,
         )
 
-    source = filtered_dataset_info if filtered_dataset_info is not None else multipulse_dataset_info
     if run_vae_training:
         vae_training = train_vae_task(
             b_path=source["b_path"],
@@ -284,6 +335,7 @@ def bolometry_inversion(
         "multipulse_dataset": multipulse_dataset_info,
         "filtered_dataset": filtered_dataset_info,
         "dataset_summary": dataset_summary,
+        "shared_slice_filter": shared_slice_filter,
         "vae_training": vae_training,
         "vae_metrics": vae_metrics,
     }
