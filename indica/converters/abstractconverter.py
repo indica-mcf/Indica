@@ -467,6 +467,7 @@ class CoordinateTransform(ABC):
         fig_name: str = "",
         markersize: float = None,
         marker: str = "o",
+        return_figures: bool = False,
     ):
         Rlim = self._machine_dims[0]
         zlim = self._machine_dims[1]
@@ -502,6 +503,7 @@ class CoordinateTransform(ABC):
             title += f" @ {t:.3f} s"
 
         trans_name = str(self)
+        created_figures = []
 
         if orientation == "xy" or orientation == "all":
             if figure:
@@ -526,6 +528,8 @@ class CoordinateTransform(ABC):
             plt.axis("scaled")
             plt.title(title)
             save_figure(fig_path, f"{fig_name}{self.name}_xy", save_fig=save_fig)
+            if return_figures:
+                created_figures.append(plt.gcf())
 
         if orientation == "Rz" or orientation == "all":
             if figure:
@@ -571,6 +575,8 @@ class CoordinateTransform(ABC):
             plt.title(title)
             plt.axis("scaled")
             save_figure(fig_path, f"{fig_name}{self.name}_Rz", save_fig=save_fig)
+            if return_figures:
+                created_figures.append(plt.gcf())
 
         if hasattr(self, "equilibrium") and orientation == "all":
             if not hasattr(self, "rhop"):
@@ -598,7 +604,11 @@ class CoordinateTransform(ABC):
             plt.ylabel("Rhop")
             plt.title(title)
             save_figure(fig_path, f"{fig_name}{self.name}_rhop", save_fig=save_fig)
+            if return_figures:
+                created_figures.append(plt.gcf())
 
+        if return_figures:
+            return cols, created_figures
         return cols
 
 def plot_geometry(
