@@ -21,6 +21,7 @@ def _load_vae(model_path: str) -> CVAENetwork:
         b_dim=int(ckpt["b_dim"]),
         e_dim=int(ckpt["e_dim"]),
         latent_dim=int(ckpt["latent_dim"]),
+        hidden_scaling=int(ckpt.get("hidden_scaling", 1)),
     )
     model.load_state_dict(ckpt["state_dict"])
     model.eval()

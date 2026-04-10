@@ -16,23 +16,32 @@ from indica.workflows.jussiphd.components.preprocessing.dataset_creation import 
 class CVAENetwork(nn.Module):
     """Notebook-style conditional VAE for emissivity from bolometry."""
 
-    def __init__(self, b_dim: int, e_dim: int, latent_dim: int = 4):
+    def __init__(
+        self,
+        b_dim: int,
+        e_dim: int,
+        latent_dim: int = 4,
+        hidden_scaling: int = 1,
+    ):
         super().__init__()
         input_dim = b_dim + e_dim
         self.b_dim = b_dim
         self.e_dim = e_dim
         self.latent_dim = latent_dim
+        self.hidden_scaling = int(hidden_scaling)
+        if self.hidden_scaling < 1:
+            raise ValueError("hidden_scaling must be >= 1")
 
-        self.fc1m = nn.Linear(input_dim, 64)
-        self.fc1s = nn.Linear(input_dim, 64)
-        self.fc2m = nn.Linear(64, 32)
-        self.fc2s = nn.Linear(64, 32)
-        self.fc3m = nn.Linear(32, latent_dim)
-        self.fc3s = nn.Linear(32, latent_dim)
+        self.fc1m = nn.Linear(input_dim, 64 * self.hidden_scaling)
+        self.fc1s = nn.Linear(input_dim, 64 * self.hidden_scaling)
+        self.fc2m = nn.Linear(64 * self.hidden_scaling, 32 * self.hidden_scaling)
+        self.fc2s = nn.Linear(64 * self.hidden_scaling, 32 * self.hidden_scaling)
+        self.fc3m = nn.Linear(32 * self.hidden_scaling, latent_dim)
+        self.fc3s = nn.Linear(32 * self.hidden_scaling, latent_dim)
 
-        self.fc_dec1 = nn.Linear(latent_dim + b_dim, 32)
-        self.fc_dec2 = nn.Linear(32, 64)
-        self.fc_dec3 = nn.Linear(64, e_dim)
+        self.fc_dec1 = nn.Linear(latent_dim + b_dim, 32 * self.hidden_scaling)
+        self.fc_dec2 = nn.Linear(32 * self.hidden_scaling, 64 * self.hidden_scaling)
+        self.fc_dec3 = nn.Linear(64 * self.hidden_scaling, e_dim)
 
     def encode(self, emissivity: torch.Tensor, bolom: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         x = torch.cat((emissivity, bolom), dim=1)
@@ -91,6 +100,7 @@ def train_vae_from_csv(
     eps_path: str,
     meta_path: str | None = None,
     latent_dim: int = 4,
+    hidden_scaling: int = 1,
     n_epochs: int = 25,
     lr: float = 1e-3,
     train_fraction: float = 0.8,
@@ -119,7 +129,12 @@ def train_vae_from_csv(
     b_dim = int(dataset.b_slices.shape[1])
     e_dim = int(dataset.eps_slices.shape[1])
 
-    model = CVAENetwork(b_dim=b_dim, e_dim=e_dim, latent_dim=latent_dim)
+    model = CVAENetwork(
+        b_dim=b_dim,
+        e_dim=e_dim,
+        latent_dim=latent_dim,
+        hidden_scaling=hidden_scaling,
+    )
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     last_epoch_loss = None
@@ -171,6 +186,7 @@ def train_vae_from_csv(
         {
             "state_dict": model.state_dict(),
             "latent_dim": latent_dim,
+            "hidden_scaling": int(hidden_scaling),
             "b_dim": b_dim,
             "e_dim": e_dim,
             "n_epochs": n_epochs,
@@ -188,6 +204,7 @@ def train_vae_from_csv(
     return {
         "model_path": str(model_path),
         "latent_dim": latent_dim,
+        "hidden_scaling": int(hidden_scaling),
         "b_dim": b_dim,
         "e_dim": e_dim,
         "n_epochs": n_epochs,
