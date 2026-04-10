@@ -8,9 +8,11 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from xarray import DataArray
 
 from indica.workflows.jussiphd.components.ml.vae import CVAENetwork
 from indica.workflows.jussiphd.components.preprocessing.dataset_creation import PairDataset
+from indica.workflows.jussiphd.los_bolometry_radiation import calculate_tomo_inversion
 
 
 def _load_vae(model_path: str) -> CVAENetwork:
@@ -36,6 +38,7 @@ def generate_generated_dataset_visualisations(
     model_path: str,
     b_path: str,
     eps_path: str,
+    transform: Any,
     output_dir: str,
     n_examples: int = 6,
     k_samples: int = 20,
@@ -121,11 +124,8 @@ def generate_generated_dataset_visualisations(
     fig.savefig(uncertainty_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    # 3) VAE vs naive inversion RMSE (paired) + VAE RMSE distribution
-    b_all = np.asarray(dataset.b_slices, dtype=np.float32)
-    e_all = np.asarray(dataset.eps_slices, dtype=np.float32)
-    # Linear least-squares naive inversion: e_hat = b @ W
-    W = np.linalg.lstsq(b_all, e_all, rcond=None)[0]
+    # 3) VAE vs naive (tomographic) inversion RMSE (paired) + VAE RMSE distribution
+    rhop = np.linspace(0.0, 1.0, int(dataset.eps_slices.shape[1]), dtype=np.float32)
 
     vae_rmse_vals = []
     naive_rmse_vals = []
@@ -134,7 +134,22 @@ def generate_generated_dataset_visualisations(
         e_true = e_norm * dataset.sigma_eps + dataset.mu_eps
 
         b_true = b_norm * dataset.sigma_b + dataset.mu_b
-        e_naive = b_true @ W
+        brightness_single = DataArray(
+            np.asarray(b_true, dtype=np.float32)[None, :],
+            coords=[("t", np.asarray([0.0], dtype=np.float32)), ("channel", np.arange(b_true.shape[0]))],
+        )
+        try:
+            e_naive = (
+                calculate_tomo_inversion(
+                    brightness_single,
+                    transform,
+                    rhop,
+                )
+                .isel(t=0)
+                .values.astype(np.float32)
+            )
+        except Exception:
+            continue
 
         b_t_norm = torch.from_numpy(b_norm.astype(np.float32)).unsqueeze(0)
         with torch.no_grad():
@@ -149,30 +164,31 @@ def generate_generated_dataset_visualisations(
     vae_rmse_vals = np.asarray(vae_rmse_vals, dtype=float)
     naive_rmse_vals = np.asarray(naive_rmse_vals, dtype=float)
 
-    fig, ax = plt.subplots(figsize=(5.5, 5))
-    ax.scatter(naive_rmse_vals, vae_rmse_vals, alpha=0.7, s=30)
-    mn = float(min(naive_rmse_vals.min(), vae_rmse_vals.min()))
-    mx = float(max(naive_rmse_vals.max(), vae_rmse_vals.max()))
-    ax.plot([mn, mx], [mn, mx], "k--", linewidth=1, label="y = x")
-    ax.set_xlabel("Naive inversion RMSE")
-    ax.set_ylabel("VAE RMSE")
-    ax.set_title(f"Generated data RMSE comparison over {len(vae_rmse_vals)} samples")
-    ax.legend()
-    ax.grid(alpha=0.25)
-    fig.tight_layout()
-
-    delta = naive_rmse_vals - vae_rmse_vals
-    ax.text(
-        0.02,
-        0.98,
-        f"VAE wins: {100.0 * np.mean(delta > 0):.1f}%\nmedian Δ={np.median(delta):.4f}",
-        transform=ax.transAxes,
-        va="top",
-    )
-
     naive_vs_vae_path = out_dir / "generated_vae_vs_naive_rmse_scatter.png"
-    fig.savefig(naive_vs_vae_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    if len(vae_rmse_vals) > 0:
+        fig, ax = plt.subplots(figsize=(5.5, 5))
+        ax.scatter(naive_rmse_vals, vae_rmse_vals, alpha=0.7, s=30)
+        mn = float(min(naive_rmse_vals.min(), vae_rmse_vals.min()))
+        mx = float(max(naive_rmse_vals.max(), vae_rmse_vals.max()))
+        ax.plot([mn, mx], [mn, mx], "k--", linewidth=1, label="y = x")
+        ax.set_xlabel("Naive inversion RMSE")
+        ax.set_ylabel("VAE RMSE")
+        ax.set_title(f"Generated data RMSE comparison over {len(vae_rmse_vals)} samples")
+        ax.legend()
+        ax.grid(alpha=0.25)
+        fig.tight_layout()
+
+        delta = naive_rmse_vals - vae_rmse_vals
+        ax.text(
+            0.02,
+            0.98,
+            f"VAE wins: {100.0 * np.mean(delta > 0):.1f}%\nmedian Δ={np.median(delta):.4f}",
+            transform=ax.transAxes,
+            va="top",
+        )
+
+        fig.savefig(naive_vs_vae_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
 
     # 4) Ground truth vs naive inversion vs VAE mean for selected slices
     n_show = len(indices)
@@ -194,7 +210,22 @@ def generate_generated_dataset_visualisations(
         e_norm, b_norm = dataset[idx]
         e_true = e_norm * dataset.sigma_eps + dataset.mu_eps
         b_true = b_norm * dataset.sigma_b + dataset.mu_b
-        e_naive = b_true @ W
+        brightness_single = DataArray(
+            np.asarray(b_true, dtype=np.float32)[None, :],
+            coords=[("t", np.asarray([0.0], dtype=np.float32)), ("channel", np.arange(b_true.shape[0]))],
+        )
+        try:
+            e_naive = (
+                calculate_tomo_inversion(
+                    brightness_single,
+                    transform,
+                    rhop,
+                )
+                .isel(t=0)
+                .values.astype(np.float32)
+            )
+        except Exception:
+            continue
 
         b_t_norm = torch.from_numpy(b_norm.astype(np.float32)).unsqueeze(0)
         with torch.no_grad():
@@ -224,19 +255,20 @@ def generate_generated_dataset_visualisations(
 
     # 5) VAE RMSE distribution
     rmse_vals = vae_rmse_vals
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    ax.hist(rmse_vals, bins=30, alpha=0.8)
-    ax.axvline(rmse_vals.mean(), color="tab:red", linestyle="--", label=f"mean={rmse_vals.mean():.4f}")
-    ax.set_title("Generated data: VAE emissivity RMSE distribution")
-    ax.set_xlabel("RMSE")
-    ax.set_ylabel("count")
-    ax.grid(alpha=0.25)
-    ax.legend()
-    fig.tight_layout()
-
     rmse_path = out_dir / "generated_vae_rmse_distribution.png"
-    fig.savefig(rmse_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
+    if len(rmse_vals) > 0:
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        ax.hist(rmse_vals, bins=30, alpha=0.8)
+        ax.axvline(rmse_vals.mean(), color="tab:red", linestyle="--", label=f"mean={rmse_vals.mean():.4f}")
+        ax.set_title("Generated data: VAE emissivity RMSE distribution")
+        ax.set_xlabel("RMSE")
+        ax.set_ylabel("count")
+        ax.grid(alpha=0.25)
+        ax.legend()
+        fig.tight_layout()
+
+        fig.savefig(rmse_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
 
     return {
         "saved_files": {
