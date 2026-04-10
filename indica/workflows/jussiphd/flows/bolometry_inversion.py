@@ -17,6 +17,9 @@ from indica.workflows.jussiphd.components.filtering.shared_slice_filter import (
 from indica.workflows.jussiphd.components.evaluation.metrics import (
     compute_vae_diversity_and_forward_metrics,
 )
+from indica.workflows.jussiphd.components.visualisations.vae_tomo_visualisations import (
+    generate_vae_tomo_visualisations,
+)
 from indica.workflows.jussiphd.components.ml.vae import train_vae_from_csv
 from indica.workflows.jussiphd.components.preprocessing.dataset_creation import (
     create_dataset_and_dataloaders,
@@ -185,6 +188,43 @@ def build_shared_slice_pool_task(
     )
 
 
+@task(name="generate_vae_tomo_visualisations")
+def generate_vae_tomo_visualisations_task(
+    model_path: str,
+    b_path: str,
+    eps_path: str,
+    meta_path: str,
+    visualization_slice_pool: list[dict[str, Any]],
+    visualization_pulse_to_t_indices: dict[Any, list[int]],
+    machine: str,
+    instrument: str,
+    tstart: float,
+    tend: float,
+    dt: float,
+    output_dir: str,
+    max_pulses_to_plot: int,
+    max_test_samples: int,
+    n_times_per_pulse: int,
+) -> dict[str, Any]:
+    return generate_vae_tomo_visualisations(
+        model_path=model_path,
+        b_path=b_path,
+        eps_path=eps_path,
+        meta_path=meta_path,
+        visualization_slice_pool=visualization_slice_pool,
+        visualization_pulse_to_t_indices=visualization_pulse_to_t_indices,
+        machine=machine,
+        instrument=instrument,
+        tstart=tstart,
+        tend=tend,
+        dt=dt,
+        output_dir=output_dir,
+        max_pulses_to_plot=max_pulses_to_plot,
+        max_test_samples=max_test_samples,
+        n_times_per_pulse=n_times_per_pulse,
+    )
+
+
 @flow(name="bolometry_inversion")
 def bolometry_inversion(
     machine: str = "st40",
@@ -223,6 +263,13 @@ def bolometry_inversion(
     build_shared_slice_filter: bool = True,
     shared_min_valid_channels_required: int = 3,
     shared_max_samples: int | None = None,
+    run_visualisations: bool = True,
+    visualisations_output_dir: str = str(
+        Path(__file__).resolve().parents[1] / "components" / "visualisations" / "outputs"
+    ),
+    visualisations_max_pulses_to_plot: int = 3,
+    visualisations_max_test_samples: int = 50,
+    visualisations_n_times_per_pulse: int = 4,
 ) -> dict[str, Any]:
     """Use pre-saved multipulse data by default, or regenerate when pulses are given."""
     pulse_list = list(pulses) if pulses is not None else []
@@ -251,6 +298,7 @@ def bolometry_inversion(
     vae_training = None
     vae_metrics = None
     shared_slice_filter = None
+    visualisations = None
     if apply_dataset_filters:
         filtered_dataset_info = filter_multipulse_dataset_task(
             b_path=multipulse_dataset_info["b_path"],
@@ -331,6 +379,39 @@ def bolometry_inversion(
             seed=split_seed,
         )
 
+    if run_visualisations:
+        if shared_slice_filter is None:
+            raise ValueError(
+                "run_visualisations=True requires build_shared_slice_filter=True."
+            )
+        model_path = vae_metrics_model_path
+        if model_path is None:
+            if vae_training is None:
+                raise ValueError(
+                    "run_visualisations=True requires either run_vae_training=True "
+                    "or explicit vae_metrics_model_path."
+                )
+            model_path = vae_training["model_path"]
+        visualisations = generate_vae_tomo_visualisations_task(
+            model_path=model_path,
+            b_path=source["b_path"],
+            eps_path=source["eps_path"],
+            meta_path=source["meta_path"],
+            visualization_slice_pool=shared_slice_filter["visualization_slice_pool"],
+            visualization_pulse_to_t_indices=shared_slice_filter[
+                "visualization_pulse_to_t_indices"
+            ],
+            machine=machine,
+            instrument=instrument,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            output_dir=visualisations_output_dir,
+            max_pulses_to_plot=visualisations_max_pulses_to_plot,
+            max_test_samples=visualisations_max_test_samples,
+            n_times_per_pulse=visualisations_n_times_per_pulse,
+        )
+
     return {
         "multipulse_dataset": multipulse_dataset_info,
         "filtered_dataset": filtered_dataset_info,
@@ -338,6 +419,7 @@ def bolometry_inversion(
         "shared_slice_filter": shared_slice_filter,
         "vae_training": vae_training,
         "vae_metrics": vae_metrics,
+        "visualisations": visualisations,
     }
 
 
