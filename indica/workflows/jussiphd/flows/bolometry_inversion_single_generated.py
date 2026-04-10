@@ -216,7 +216,7 @@ def bolometry_inversion_single_generated(
     run_visualisations: bool = True,
     visualisations_output_dir: str = DEFAULT_VIS_DIR,
     visualisations_use_fresh_generated_data: bool = True,
-    visualisations_n_generations: int = 50,
+    visualisations_n_generations: int = 100,
     visualisations_b_filename: str = "b_slices_single_generated_vis_eval.csv",
     visualisations_eps_filename: str = "eps_slices_single_generated_vis_eval.csv",
     visualisations_n_examples: int = 6,
