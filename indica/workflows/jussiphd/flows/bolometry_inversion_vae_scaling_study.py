@@ -32,6 +32,23 @@ DEFAULT_VAE_DIR = str(Path(__file__).resolve().parents[1] / "components" / "ml" 
 DEFAULT_VIS_DIR = str(
     Path(__file__).resolve().parents[1] / "components" / "visualisations" / "outputs" / "scaling_study"
 )
+DEFAULT_SINGLE_GENERATED_DIR = str(
+    Path(__file__).resolve().parents[1] / "components" / "data" / "flow_data" / "single_generated"
+)
+
+
+def _load_csv_2d(path: str) -> np.ndarray:
+    arr = np.loadtxt(path, delimiter=",", dtype=np.float32)
+    if arr.ndim == 1:
+        arr = arr[None, :]
+    return arr
+
+
+def _save_csv_2d(path: str, arr: np.ndarray) -> str:
+    out_path = Path(path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savetxt(out_path, np.asarray(arr, dtype=np.float32), delimiter=",")
+    return str(out_path)
 
 
 @task(name="load_real_equilibrium")
@@ -211,8 +228,11 @@ def bolometry_inversion_vae_scaling_study(
     output_dir: str = DEFAULT_OUTPUT_DIR,
     vae_output_dir: str = DEFAULT_VAE_DIR,
     visualisations_output_dir: str = DEFAULT_VIS_DIR,
+    use_existing_single_generated_pool: bool = True,
+    pool_b_path: str = str(Path(DEFAULT_SINGLE_GENERATED_DIR) / "b_slices_single_generated.csv"),
+    pool_eps_path: str = str(Path(DEFAULT_SINGLE_GENERATED_DIR) / "eps_slices_single_generated.csv"),
     hidden_scalings: Sequence[int] = (1, 2, 4),
-    train_generations_grid: Sequence[int] = (50, 100, 200, 500, 1000),
+    train_generations_grid: Sequence[int] = (50, 100, 200, 500, 900),
     n_repeats: int = 10,
     eval_generations: int = 100,
     eval_b_filename: str = "b_slices_eval_fixed_100.csv",
@@ -240,32 +260,89 @@ def bolometry_inversion_vae_scaling_study(
         equilibrium = load_default_objects(machine, "equilibrium")
     transform = transforms[instrument]
 
-    eval_dataset = generate_scaling_dataset_task(
-        machine=machine,
-        instrument=instrument,
-        transform=transform,
-        equilibrium=equilibrium,
-        n_generations=int(eval_generations),
-        output_dir=output_dir,
-        b_filename=eval_b_filename,
-        eps_filename=eval_eps_filename,
-    )
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    b_pool: np.ndarray | None = None
+    eps_pool: np.ndarray | None = None
+
+    if use_existing_single_generated_pool:
+        b_pool = _load_csv_2d(pool_b_path)
+        eps_pool = _load_csv_2d(pool_eps_path)
+        if len(b_pool) != len(eps_pool):
+            raise ValueError("pool_b_path and pool_eps_path must have the same number of rows")
+        max_train = int(max(int(n) for n in train_generations_grid))
+        n_pool = int(len(b_pool))
+        if n_pool < int(eval_generations) + max_train:
+            raise ValueError(
+                "Existing pool is too small for fixed eval split + largest train size: "
+                f"pool={n_pool}, eval={int(eval_generations)}, max_train={max_train}"
+            )
+
+        perm = np.random.permutation(n_pool)
+        eval_indices = perm[: int(eval_generations)]
+        train_pool_indices = perm[int(eval_generations) :]
+
+        eval_b_path = _save_csv_2d(str(out_dir / eval_b_filename), b_pool[eval_indices])
+        eval_eps_path = _save_csv_2d(str(out_dir / eval_eps_filename), eps_pool[eval_indices])
+        eval_dataset = {
+            "b_path": eval_b_path,
+            "eps_path": eval_eps_path,
+            "num_pairs": int(len(eval_indices)),
+            "generated_new_data": False,
+            "source": "existing_single_generated_pool",
+            "pool_size": n_pool,
+        }
+    else:
+        eval_dataset = generate_scaling_dataset_task(
+            machine=machine,
+            instrument=instrument,
+            transform=transform,
+            equilibrium=equilibrium,
+            n_generations=int(eval_generations),
+            output_dir=output_dir,
+            b_filename=eval_b_filename,
+            eps_filename=eval_eps_filename,
+        )
+        train_pool_indices = None
 
     rows: list[dict[str, Any]] = []
     for hidden_scaling in hidden_scalings:
         for train_generations in train_generations_grid:
             for repeat_idx in range(int(n_repeats)):
                 tag = f"s{int(hidden_scaling)}_n{int(train_generations)}_r{int(repeat_idx)}"
-                train_dataset = generate_scaling_dataset_task(
-                    machine=machine,
-                    instrument=instrument,
-                    transform=transform,
-                    equilibrium=equilibrium,
-                    n_generations=int(train_generations),
-                    output_dir=output_dir,
-                    b_filename=f"train_sets/b_slices_{tag}.csv",
-                    eps_filename=f"train_sets/eps_slices_{tag}.csv",
-                )
+                if use_existing_single_generated_pool:
+                    assert b_pool is not None and eps_pool is not None and train_pool_indices is not None
+                    pick = np.random.choice(
+                        train_pool_indices,
+                        size=int(train_generations),
+                        replace=False,
+                    )
+                    train_b_path = _save_csv_2d(
+                        str(out_dir / f"train_sets/b_slices_{tag}.csv"),
+                        b_pool[pick],
+                    )
+                    train_eps_path = _save_csv_2d(
+                        str(out_dir / f"train_sets/eps_slices_{tag}.csv"),
+                        eps_pool[pick],
+                    )
+                    train_dataset = {
+                        "b_path": train_b_path,
+                        "eps_path": train_eps_path,
+                        "num_pairs": int(len(pick)),
+                        "generated_new_data": False,
+                    }
+                else:
+                    train_dataset = generate_scaling_dataset_task(
+                        machine=machine,
+                        instrument=instrument,
+                        transform=transform,
+                        equilibrium=equilibrium,
+                        n_generations=int(train_generations),
+                        output_dir=output_dir,
+                        b_filename=f"train_sets/b_slices_{tag}.csv",
+                        eps_filename=f"train_sets/eps_slices_{tag}.csv",
+                    )
 
                 vae_training = train_scaled_vae_task(
                     b_path=train_dataset["b_path"],
@@ -319,6 +396,9 @@ def bolometry_inversion_vae_scaling_study(
     return {
         "eval_dataset": eval_dataset,
         "n_rows": int(len(rows)),
+        "use_existing_single_generated_pool": bool(use_existing_single_generated_pool),
+        "pool_b_path": pool_b_path if use_existing_single_generated_pool else None,
+        "pool_eps_path": pool_eps_path if use_existing_single_generated_pool else None,
         "hidden_scalings": [int(x) for x in hidden_scalings],
         "train_generations_grid": [int(x) for x in train_generations_grid],
         "n_repeats": int(n_repeats),

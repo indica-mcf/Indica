@@ -113,8 +113,16 @@ def create_dataset_and_dataloaders(
         generator=generator,
     )
 
-    train_loader = DataLoader(train_split, batch_size=batch_size, shuffle=shuffle)
-    test_loader = DataLoader(test_split, batch_size=batch_size, shuffle=shuffle)
+    train_loader = DataLoader(
+        train_split,
+        batch_size=batch_size,
+        shuffle=(shuffle and len(train_split) > 0),
+    )
+    test_loader = DataLoader(
+        test_split,
+        batch_size=batch_size,
+        shuffle=(shuffle and len(test_split) > 0),
+    )
 
     return {
         "dataset": dataset,

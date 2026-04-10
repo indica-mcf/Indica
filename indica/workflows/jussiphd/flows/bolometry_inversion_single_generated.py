@@ -127,6 +127,7 @@ def train_generated_vae_task(
         seed=seed,
         output_dir=output_dir,
         model_filename=model_filename,
+        hidden_scaling=4
     )
 
 
