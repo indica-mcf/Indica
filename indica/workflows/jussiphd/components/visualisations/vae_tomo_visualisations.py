@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 from typing import Any
 
@@ -50,8 +51,6 @@ def generate_vae_tomo_visualisations(
     b_path: str,
     eps_path: str,
     meta_path: str,
-    visualization_slice_pool: list[dict[str, Any]],
-    visualization_pulse_to_t_indices: dict[Any, list[int]],
     machine: str = "st40",
     instrument: str = "blom_xy1",
     tstart: float = 0.04,
@@ -69,10 +68,10 @@ def generate_vae_tomo_visualisations(
     dataset = PairDataset(b_path=b_path, eps_path=eps_path, meta_path=meta_path)
     model = _load_vae(model_path)
 
-    pulse_to_t = {
-        int(k): [int(v) for v in vals]
-        for k, vals in visualization_pulse_to_t_indices.items()
-    }
+    with open(meta_path, newline="") as f:
+        rows = list(csv.reader(f))
+    has_header = bool(rows) and rows[0] == ["pulse", "time_s"]
+    meta_rows = rows[1:] if has_header else rows
 
     pulse_cache: dict[int, dict[str, Any]] = {}
 
@@ -100,6 +99,29 @@ def generate_vae_tomo_visualisations(
         "emissivity_sampling": [],
         "spatial_uncertainty": [],
     }
+
+    # Build records directly from dataset metadata (no shared slice pool dependency).
+    records: list[dict[str, Any]] = []
+    pulse_to_t: dict[int, list[int]] = {}
+    for idx, row in enumerate(meta_rows):
+        try:
+            pulse = int(float(row[0]))
+            t_target = float(row[1])
+        except Exception:
+            continue
+        try:
+            bundle = load_bundle(pulse)
+        except Exception:
+            continue
+        brightness = bundle["brightness"]
+        t_values = np.asarray(brightness.t.values, dtype=float)
+        if t_values.size == 0:
+            continue
+        t_idx = int(np.argmin(np.abs(t_values - t_target)))
+        records.append({"idx": idx, "pulse": pulse, "t_target": t_target, "t_idx": t_idx})
+        pulse_to_t.setdefault(pulse, []).append(t_idx)
+
+    pulse_to_t = {p: sorted(set(v)) for p, v in pulse_to_t.items()}
 
     # 1) Tomography inversion vs VAE across time slices
     pulse_candidates = list(pulse_to_t.keys())[:max_pulses_to_plot]
@@ -171,7 +193,7 @@ def generate_vae_tomo_visualisations(
     # 2) VAE vs tomography RMSE paired scatter
     vae_rmse = []
     tomo_rmse = []
-    test_records = visualization_slice_pool[: int(max_test_samples)]
+    test_records = records[: int(max_test_samples)]
 
     for rec in test_records:
         pulse = int(rec["pulse"])
@@ -335,5 +357,5 @@ def generate_vae_tomo_visualisations(
     return {
         "saved_files": saved_files,
         "num_cached_pulses": int(len(pulse_cache)),
-        "num_shared_records": int(len(visualization_slice_pool)),
+        "num_records": int(len(records)),
     }

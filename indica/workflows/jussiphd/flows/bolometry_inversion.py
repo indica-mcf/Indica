@@ -11,9 +11,6 @@ from prefect import flow, task
 from indica.workflows.jussiphd.components.filtering.dataset_filters import (
     apply_zero_and_tomo_filters,
 )
-from indica.workflows.jussiphd.components.filtering.shared_slice_filter import (
-    build_shared_visualization_slice_pool,
-)
 from indica.workflows.jussiphd.components.evaluation.metrics import (
     compute_vae_diversity_and_forward_metrics,
 )
@@ -161,41 +158,12 @@ def compute_vae_metrics_task(
     )
 
 
-@task(name="build_shared_slice_pool")
-def build_shared_slice_pool_task(
-    b_path: str,
-    eps_path: str,
-    meta_path: str,
-    machine: str,
-    instrument: str,
-    tstart: float,
-    tend: float,
-    dt: float,
-    min_valid_channels_required: int,
-    max_samples: int | None,
-) -> dict[str, Any]:
-    return build_shared_visualization_slice_pool(
-        b_path=b_path,
-        eps_path=eps_path,
-        meta_path=meta_path,
-        machine=machine,
-        instrument=instrument,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        min_valid_channels_required=min_valid_channels_required,
-        max_samples=max_samples,
-    )
-
-
 @task(name="generate_vae_tomo_visualisations")
 def generate_vae_tomo_visualisations_task(
     model_path: str,
     b_path: str,
     eps_path: str,
     meta_path: str,
-    visualization_slice_pool: list[dict[str, Any]],
-    visualization_pulse_to_t_indices: dict[Any, list[int]],
     machine: str,
     instrument: str,
     tstart: float,
@@ -211,8 +179,6 @@ def generate_vae_tomo_visualisations_task(
         b_path=b_path,
         eps_path=eps_path,
         meta_path=meta_path,
-        visualization_slice_pool=visualization_slice_pool,
-        visualization_pulse_to_t_indices=visualization_pulse_to_t_indices,
         machine=machine,
         instrument=instrument,
         tstart=tstart,
@@ -260,9 +226,6 @@ def bolometry_inversion(
     vae_metrics_model_path: str | None = None,
     metrics_idx: int = 10,
     metrics_k_samples: int = 100,
-    build_shared_slice_filter: bool = True,
-    shared_min_valid_channels_required: int = 3,
-    shared_max_samples: int | None = None,
     run_visualisations: bool = True,
     visualisations_output_dir: str = str(
         Path(__file__).resolve().parents[1] / "components" / "visualisations" / "outputs"
@@ -297,7 +260,6 @@ def bolometry_inversion(
     dataset_summary = None
     vae_training = None
     vae_metrics = None
-    shared_slice_filter = None
     visualisations = None
     if apply_dataset_filters:
         filtered_dataset_info = filter_multipulse_dataset_task(
@@ -311,32 +273,17 @@ def bolometry_inversion(
             output_dir=filters_output_dir,
         )
 
-    source = filtered_dataset_info if filtered_dataset_info is not None else multipulse_dataset_info
-    if build_shared_slice_filter:
-        meta_path = source.get("meta_path")
-        if meta_path is None:
-            raise ValueError(
-                "Shared slice filter requires meta_path in source dataset."
-            )
-        shared_slice_filter = build_shared_slice_pool_task(
-            b_path=source["b_path"],
-            eps_path=source["eps_path"],
-            meta_path=meta_path,
-            machine=machine,
-            instrument=instrument,
-            tstart=tstart,
-            tend=tend,
-            dt=dt,
-            min_valid_channels_required=shared_min_valid_channels_required,
-            max_samples=shared_max_samples,
-        )
+    training_source = (
+        filtered_dataset_info if filtered_dataset_info is not None else multipulse_dataset_info
+    )
+    evaluation_source = training_source
 
 
     if create_training_dataset:
         dataset_summary = create_training_dataset_task(
-            b_path=source["b_path"],
-            eps_path=source["eps_path"],
-            meta_path=source.get("meta_path"),
+            b_path=training_source["b_path"],
+            eps_path=training_source["eps_path"],
+            meta_path=training_source.get("meta_path"),
             zero_tol=zero_tol,
             train_fraction=train_fraction,
             batch_size=batch_size,
@@ -346,9 +293,9 @@ def bolometry_inversion(
 
     if run_vae_training:
         vae_training = train_vae_task(
-            b_path=source["b_path"],
-            eps_path=source["eps_path"],
-            meta_path=source.get("meta_path"),
+            b_path=training_source["b_path"],
+            eps_path=training_source["eps_path"],
+            meta_path=training_source.get("meta_path"),
             latent_dim=vae_latent_dim,
             n_epochs=vae_n_epochs,
             lr=vae_lr,
@@ -371,19 +318,18 @@ def bolometry_inversion(
             model_path = vae_training["model_path"]
         vae_metrics = compute_vae_metrics_task(
             model_path=model_path,
-            b_path=source["b_path"],
-            eps_path=source["eps_path"],
-            meta_path=source.get("meta_path"),
+            b_path=evaluation_source["b_path"],
+            eps_path=evaluation_source["eps_path"],
+            meta_path=evaluation_source.get("meta_path"),
             idx=metrics_idx,
             k_samples=metrics_k_samples,
             seed=split_seed,
         )
 
     if run_visualisations:
-        if shared_slice_filter is None:
-            raise ValueError(
-                "run_visualisations=True requires build_shared_slice_filter=True."
-            )
+        meta_path = evaluation_source.get("meta_path")
+        if meta_path is None:
+            raise ValueError("run_visualisations=True requires meta_path in evaluation source.")
         model_path = vae_metrics_model_path
         if model_path is None:
             if vae_training is None:
@@ -394,13 +340,9 @@ def bolometry_inversion(
             model_path = vae_training["model_path"]
         visualisations = generate_vae_tomo_visualisations_task(
             model_path=model_path,
-            b_path=source["b_path"],
-            eps_path=source["eps_path"],
-            meta_path=source["meta_path"],
-            visualization_slice_pool=shared_slice_filter["visualization_slice_pool"],
-            visualization_pulse_to_t_indices=shared_slice_filter[
-                "visualization_pulse_to_t_indices"
-            ],
+            b_path=evaluation_source["b_path"],
+            eps_path=evaluation_source["eps_path"],
+            meta_path=meta_path,
             machine=machine,
             instrument=instrument,
             tstart=tstart,
@@ -416,7 +358,6 @@ def bolometry_inversion(
         "multipulse_dataset": multipulse_dataset_info,
         "filtered_dataset": filtered_dataset_info,
         "dataset_summary": dataset_summary,
-        "shared_slice_filter": shared_slice_filter,
         "vae_training": vae_training,
         "vae_metrics": vae_metrics,
         "visualisations": visualisations,
@@ -425,4 +366,4 @@ def bolometry_inversion(
 
 if __name__ == "__main__":
     result = bolometry_inversion()
-    print(result.get("vae_training", {}))
+    print(result.get("dataset_summary", {}))
