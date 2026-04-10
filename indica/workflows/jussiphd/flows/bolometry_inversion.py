@@ -11,6 +11,13 @@ from prefect import flow, task
 from indica.workflows.jussiphd.components.filtering.dataset_filters import (
     apply_zero_and_tomo_filters,
 )
+from indica.workflows.jussiphd.components.evaluation.metrics import (
+    compute_vae_diversity_and_forward_metrics,
+)
+from indica.workflows.jussiphd.components.ml.vae import train_vae_from_csv
+from indica.workflows.jussiphd.components.preprocessing.dataset_creation import (
+    create_dataset_and_dataloaders,
+)
 from indica.workflows.jussiphd.components.data.data_generation import (
     generate_and_save_multipulse_real_dataset,
 )
@@ -72,6 +79,82 @@ def filter_multipulse_dataset_task(
     )
 
 
+@task(name="create_training_dataset")
+def create_training_dataset_task(
+    b_path: str,
+    eps_path: str,
+    meta_path: str | None,
+    zero_tol: float,
+    train_fraction: float,
+    batch_size: int,
+    shuffle: bool,
+    seed: int,
+) -> dict[str, Any]:
+    bundle = create_dataset_and_dataloaders(
+        b_path=b_path,
+        eps_path=eps_path,
+        meta_path=meta_path,
+        zero_tol=zero_tol,
+        train_fraction=train_fraction,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        seed=seed,
+    )
+    return bundle["summary"]
+
+
+@task(name="train_vae")
+def train_vae_task(
+    b_path: str,
+    eps_path: str,
+    meta_path: str | None,
+    latent_dim: int,
+    n_epochs: int,
+    lr: float,
+    train_fraction: float,
+    batch_size: int,
+    shuffle: bool,
+    seed: int,
+    output_dir: str,
+    model_filename: str,
+) -> dict[str, Any]:
+    return train_vae_from_csv(
+        b_path=b_path,
+        eps_path=eps_path,
+        meta_path=meta_path,
+        latent_dim=latent_dim,
+        n_epochs=n_epochs,
+        lr=lr,
+        train_fraction=train_fraction,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        seed=seed,
+        output_dir=output_dir,
+        model_filename=model_filename,
+    )
+
+
+@task(name="compute_vae_metrics")
+def compute_vae_metrics_task(
+    model_path: str,
+    b_path: str,
+    eps_path: str,
+    meta_path: str | None,
+    idx: int,
+    k_samples: int,
+    seed: int,
+) -> dict[str, Any]:
+    return compute_vae_diversity_and_forward_metrics(
+        model_path=model_path,
+        b_path=b_path,
+        eps_path=eps_path,
+        meta_path=meta_path,
+        idx=idx,
+        k_samples=k_samples,
+        seed=seed,
+    )
+
+
 @flow(name="bolometry_inversion")
 def bolometry_inversion(
     machine: str = "st40",
@@ -92,6 +175,21 @@ def bolometry_inversion(
     min_valid_channels_required: int = 1,
     filters_overwrite: bool = True,
     filters_output_dir: str | None = None,
+    create_training_dataset: bool = True,
+    train_fraction: float = 0.8,
+    batch_size: int = 8,
+    shuffle: bool = True,
+    split_seed: int = 0,
+    run_vae_training: bool = True,
+    vae_output_dir: str = str(Path(__file__).resolve().parents[1] / "components" / "ml"),
+    vae_model_filename: str = "vae_model.pt",
+    vae_latent_dim: int = 4,
+    vae_n_epochs: int = 25,
+    vae_lr: float = 1e-3,
+    run_vae_metrics: bool = True,
+    vae_metrics_model_path: str | None = None,
+    metrics_idx: int = 10,
+    metrics_k_samples: int = 100,
 ) -> dict[str, Any]:
     """Use pre-saved multipulse data by default, or regenerate when pulses are given."""
     pulse_list = list(pulses) if pulses is not None else []
@@ -116,6 +214,9 @@ def bolometry_inversion(
     )
 
     filtered_dataset_info = None
+    dataset_summary = None
+    vae_training = None
+    vae_metrics = None
     if apply_dataset_filters:
         filtered_dataset_info = filter_multipulse_dataset_task(
             b_path=multipulse_dataset_info["b_path"],
@@ -128,11 +229,66 @@ def bolometry_inversion(
             output_dir=filters_output_dir,
         )
 
+
+
+    if create_training_dataset:
+        source = filtered_dataset_info if filtered_dataset_info is not None else multipulse_dataset_info
+        dataset_summary = create_training_dataset_task(
+            b_path=source["b_path"],
+            eps_path=source["eps_path"],
+            meta_path=source.get("meta_path"),
+            zero_tol=zero_tol,
+            train_fraction=train_fraction,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            seed=split_seed,
+        )
+
+    source = filtered_dataset_info if filtered_dataset_info is not None else multipulse_dataset_info
+    if run_vae_training:
+        vae_training = train_vae_task(
+            b_path=source["b_path"],
+            eps_path=source["eps_path"],
+            meta_path=source.get("meta_path"),
+            latent_dim=vae_latent_dim,
+            n_epochs=vae_n_epochs,
+            lr=vae_lr,
+            train_fraction=train_fraction,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            seed=split_seed,
+            output_dir=vae_output_dir,
+            model_filename=vae_model_filename,
+        )
+
+    if run_vae_metrics:
+        model_path = vae_metrics_model_path
+        if model_path is None:
+            if vae_training is None:
+                raise ValueError(
+                    "run_vae_metrics=True requires either run_vae_training=True "
+                    "or explicit vae_metrics_model_path."
+                )
+            model_path = vae_training["model_path"]
+        vae_metrics = compute_vae_metrics_task(
+            model_path=model_path,
+            b_path=source["b_path"],
+            eps_path=source["eps_path"],
+            meta_path=source.get("meta_path"),
+            idx=metrics_idx,
+            k_samples=metrics_k_samples,
+            seed=split_seed,
+        )
+
     return {
         "multipulse_dataset": multipulse_dataset_info,
         "filtered_dataset": filtered_dataset_info,
+        "dataset_summary": dataset_summary,
+        "vae_training": vae_training,
+        "vae_metrics": vae_metrics,
     }
 
 
 if __name__ == "__main__":
-    bolometry_inversion()
+    result = bolometry_inversion()
+    print(result.get("vae_training", {}))
