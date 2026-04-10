@@ -18,11 +18,12 @@ def compute_vae_diversity_and_forward_metrics(
     meta_path: str | None = None,
     idx: int = 10,
     k_samples: int = 100,
-    seed: int = 0,
+    seed: int | None = None,
 ) -> dict[str, Any]:
     """Compute notebook-style conditional diversity and forward consistency metrics."""
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    if seed is not None:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
 
     dataset = PairDataset(b_path=b_path, eps_path=eps_path, meta_path=meta_path)
     n = len(dataset)

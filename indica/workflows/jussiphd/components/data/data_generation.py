@@ -125,6 +125,7 @@ def generate_and_save_dataset(
     equilibrium: Any,
     n_generations: int = 4000,
     use_all_timepoints: bool = False,
+    single_timepoint_mode: str = "random",
     output_dir: str = ".",
     b_filename: str = "vae_firstpass/b_slices.csv",
     eps_filename: str = "vae_firstpass/eps_slices.csv",
@@ -173,7 +174,14 @@ def generate_and_save_dataset(
         if use_all_timepoints:
             t_indices = range(measurements.sizes["t"])
         else:
-            t_indices = [int(np.random.randint(measurements.sizes["t"]))]
+            if single_timepoint_mode == "middle":
+                t_indices = [int(measurements.sizes["t"] // 2)]
+            elif single_timepoint_mode == "random":
+                t_indices = [int(np.random.randint(measurements.sizes["t"]))]
+            else:
+                raise ValueError(
+                    "single_timepoint_mode must be 'random' or 'middle'"
+                )
 
         for t_idx in t_indices:
             channel_vector = measurements.isel(t=t_idx).values.astype(np.float32)
@@ -194,6 +202,7 @@ def generate_and_save_dataset(
         "b_shape": tuple(b_arr.shape),
         "eps_shape": tuple(eps_arr.shape),
         "generated_new_data": True,
+        "single_timepoint_mode": single_timepoint_mode,
     }
 
 

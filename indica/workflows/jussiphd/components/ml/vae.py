@@ -96,12 +96,13 @@ def train_vae_from_csv(
     train_fraction: float = 0.8,
     batch_size: int = 8,
     shuffle: bool = True,
-    seed: int = 0,
+    seed: int | None = None,
     output_dir: str = ".",
     model_filename: str = "vae_model.pt",
 ) -> dict[str, Any]:
     """Train cVAE and save checkpoint for later evaluation."""
-    torch.manual_seed(seed)
+    if seed is not None:
+        torch.manual_seed(seed)
 
     bundle = create_dataset_and_dataloaders(
         b_path=b_path,
@@ -124,6 +125,10 @@ def train_vae_from_csv(
     last_epoch_loss = None
     last_recon_loss = None
     last_kl_loss = None
+    history_epochs: list[int] = []
+    history_total_loss: list[float] = []
+    history_recon_loss: list[float] = []
+    history_kl_loss: list[float] = []
 
     for epoch in range(1, n_epochs):
         model.train()
@@ -154,6 +159,10 @@ def train_vae_from_csv(
         last_epoch_loss = train_loss / denom
         last_recon_loss = recon_loss_total / denom
         last_kl_loss = kl_loss_total / denom
+        history_epochs.append(int(epoch))
+        history_total_loss.append(float(last_epoch_loss))
+        history_recon_loss.append(float(last_recon_loss))
+        history_kl_loss.append(float(last_kl_loss))
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -166,6 +175,12 @@ def train_vae_from_csv(
             "e_dim": e_dim,
             "n_epochs": n_epochs,
             "lr": lr,
+            "training_history": {
+                "epoch": history_epochs,
+                "total_loss": history_total_loss,
+                "recon_loss": history_recon_loss,
+                "kl_loss": history_kl_loss,
+            },
         },
         model_path,
     )
@@ -180,4 +195,10 @@ def train_vae_from_csv(
         "last_epoch_loss": last_epoch_loss,
         "last_recon_loss": last_recon_loss,
         "last_kl_loss": last_kl_loss,
+        "training_history": {
+            "epoch": history_epochs,
+            "total_loss": history_total_loss,
+            "recon_loss": history_recon_loss,
+            "kl_loss": history_kl_loss,
+        },
     }

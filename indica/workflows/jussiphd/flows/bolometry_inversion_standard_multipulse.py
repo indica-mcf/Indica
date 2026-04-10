@@ -91,7 +91,7 @@ def create_training_dataset_task(
     train_fraction: float,
     batch_size: int,
     shuffle: bool,
-    seed: int,
+    seed: int | None,
 ) -> dict[str, Any]:
     bundle = create_dataset_and_dataloaders(
         b_path=b_path,
@@ -117,7 +117,7 @@ def train_vae_task(
     train_fraction: float,
     batch_size: int,
     shuffle: bool,
-    seed: int,
+    seed: int | None,
     output_dir: str,
     model_filename: str,
 ) -> dict[str, Any]:
@@ -145,7 +145,7 @@ def compute_vae_metrics_task(
     meta_path: str | None,
     idx: int,
     k_samples: int,
-    seed: int,
+    seed: int | None,
 ) -> dict[str, Any]:
     return compute_vae_diversity_and_forward_metrics(
         model_path=model_path,
@@ -208,14 +208,14 @@ def bolometry_inversion(
     apply_dataset_filters: bool = True,
     zero_tol: float = 0.0,
     zero_slack: int = 30,
-    min_valid_channels_required: int = 1,
+    min_valid_channels_required: int = 2,
     filters_overwrite: bool = True,
     filters_output_dir: str | None = None,
     create_training_dataset: bool = True,
     train_fraction: float = 0.8,
     batch_size: int = 8,
     shuffle: bool = True,
-    split_seed: int = 0,
+    split_seed: int | None = None,
     run_vae_training: bool = True,
     vae_output_dir: str = str(Path(__file__).resolve().parents[1] / "components" / "ml"),
     vae_model_filename: str = "vae_model.pt",

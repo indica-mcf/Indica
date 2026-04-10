@@ -89,7 +89,7 @@ def create_dataset_and_dataloaders(
     train_fraction: float = 0.8,
     batch_size: int = 8,
     shuffle: bool = True,
-    seed: int = 0,
+    seed: int | None = None,
 ) -> dict[str, Any]:
     """Create PairDataset and train/test dataloaders from notebook defaults."""
     import torch
@@ -106,7 +106,7 @@ def create_dataset_and_dataloaders(
     n_train = int(train_fraction * n_total)
     n_test = n_total - n_train
 
-    generator = torch.Generator().manual_seed(seed)
+    generator = torch.Generator().manual_seed(seed) if seed is not None else None
     train_split, test_split = torch.utils.data.random_split(
         dataset,
         lengths=[n_train, n_test],
