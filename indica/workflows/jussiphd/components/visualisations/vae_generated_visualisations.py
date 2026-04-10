@@ -127,8 +127,9 @@ def generate_generated_dataset_visualisations(
     fig.savefig(emissivity_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    # 2) Spatial uncertainty map
+    # 2) Spatial uncertainty summed over all selected candidates
     fig, ax = plt.subplots(figsize=(8, 5))
+    e_var_sum = np.zeros_like(rhop, dtype=float)
     for idx in indices:
         _, b_norm = dataset[idx]
         b_t_norm = torch.from_numpy(b_norm.astype(np.float32)).unsqueeze(0)
@@ -140,14 +141,15 @@ def generate_generated_dataset_visualisations(
             e_samps_un = (e_samps * dataset.sigma_eps + dataset.mu_eps).cpu().numpy()
 
         e_var = e_samps_un.var(axis=0)
-        ax.plot(rhop, e_var, linewidth=2, label=f"idx={int(idx)}")
+        e_var_sum += e_var
 
     ax.set_xlabel("rhop-index")
-    ax.set_ylabel("variance")
-    ax.set_title("Generated data: spatial uncertainty (VAE posterior variance)")
+    ax.set_ylabel("summed variance")
+    ax.set_title("Generated data: summed spatial uncertainty (over selected candidates)")
     ax.grid(alpha=0.25)
+    ax.plot(rhop, e_var_sum, linewidth=2.5, color="tab:purple", label=f"sum over {len(indices)} candidates")
     if len(indices) > 0:
-        ax.legend(ncol=2)
+        ax.legend()
     fig.tight_layout()
 
     uncertainty_path = out_dir / "generated_spatial_uncertainty.png"
@@ -310,7 +312,41 @@ def generate_generated_dataset_visualisations(
     fig.savefig(comparison_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    # 5) VAE RMSE distribution
+    # 5) VAE sample gallery (sample draws as heatmaps)
+    gallery_indices = indices[: min(4, len(indices))]
+    if len(gallery_indices) > 0:
+        n_rows = len(gallery_indices)
+        fig, axes = plt.subplots(n_rows, 1, figsize=(9, 2.8 * n_rows), squeeze=False)
+        for ax, idx in zip(axes.ravel(), gallery_indices):
+            _, b_norm = dataset[idx]
+            b_t_norm = torch.from_numpy(b_norm.astype(np.float32)).unsqueeze(0)
+            with torch.no_grad():
+                z = torch.randn(k_samples, model.latent_dim)
+                b_rep = b_t_norm.expand(k_samples, -1)
+                e_samps = model.decode(b_rep, z)
+                e_samps_un = (e_samps * dataset.sigma_eps + dataset.mu_eps).cpu().numpy()
+            im = ax.imshow(
+                e_samps_un,
+                aspect="auto",
+                origin="lower",
+                interpolation="nearest",
+                cmap="viridis",
+            )
+            ax.set_title(f"VAE samples heatmap (idx={int(idx)})")
+            ax.set_ylabel("sample")
+            ax.set_xlabel("rhop-index")
+            fig.colorbar(im, ax=ax, fraction=0.03, pad=0.02)
+        fig.tight_layout()
+    else:
+        fig, ax = plt.subplots(figsize=(8, 3))
+        ax.text(0.5, 0.5, "No indices available for VAE sample gallery", ha="center", va="center")
+        ax.set_axis_off()
+        fig.tight_layout()
+    sample_gallery_path = out_dir / "generated_vae_samples_gallery.png"
+    fig.savefig(sample_gallery_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    # 6) VAE RMSE distribution
     rmse_vals = vae_rmse_vals
     rmse_path = out_dir / "generated_vae_rmse_distribution.png"
     if len(rmse_vals) > 0:
@@ -333,6 +369,7 @@ def generate_generated_dataset_visualisations(
             "spatial_uncertainty": str(uncertainty_path),
             "vae_vs_naive_rmse_scatter": str(naive_vs_vae_path),
             "truth_naive_vae_comparison": str(comparison_path),
+            "vae_samples_gallery": str(sample_gallery_path),
             "rmse_distribution": str(rmse_path),
         },
         "num_samples": int(len(dataset)),

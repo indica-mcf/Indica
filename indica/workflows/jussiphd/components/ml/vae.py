@@ -135,6 +135,7 @@ def train_vae_from_csv(
         latent_dim=latent_dim,
         hidden_scaling=hidden_scaling,
     )
+    num_parameters = int(sum(p.numel() for p in model.parameters() if p.requires_grad))
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     last_epoch_loss = None
@@ -205,6 +206,7 @@ def train_vae_from_csv(
         "model_path": str(model_path),
         "latent_dim": latent_dim,
         "hidden_scaling": int(hidden_scaling),
+        "num_parameters": num_parameters,
         "b_dim": b_dim,
         "e_dim": e_dim,
         "n_epochs": n_epochs,

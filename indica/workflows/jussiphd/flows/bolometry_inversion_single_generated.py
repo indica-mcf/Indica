@@ -105,6 +105,7 @@ def train_generated_vae_task(
     b_path: str,
     eps_path: str,
     latent_dim: int,
+    hidden_scaling: int,
     n_epochs: int,
     lr: float,
     train_fraction: float,
@@ -119,6 +120,7 @@ def train_generated_vae_task(
         eps_path=eps_path,
         meta_path=None,
         latent_dim=latent_dim,
+        hidden_scaling=hidden_scaling,
         n_epochs=n_epochs,
         lr=lr,
         train_fraction=train_fraction,
@@ -127,7 +129,6 @@ def train_generated_vae_task(
         seed=seed,
         output_dir=output_dir,
         model_filename=model_filename,
-        hidden_scaling=4
     )
 
 
@@ -198,7 +199,7 @@ def bolometry_inversion_single_generated(
     output_dir: str = DEFAULT_OUTPUT_DIR,
     b_filename: str = "b_slices_single_generated.csv",
     eps_filename: str = "eps_slices_single_generated.csv",
-    n_generations: int = 1000,
+    n_generations: int = 3000,
     generate_new_data: bool = False,
     create_training_dataset: bool = True,
     train_fraction: float = 0.8,
@@ -208,6 +209,7 @@ def bolometry_inversion_single_generated(
     vae_output_dir: str = DEFAULT_VAE_DIR,
     vae_model_filename: str = "vae_single_generated.pt",
     vae_latent_dim: int = 4,
+    vae_hidden_scaling: int = 8,
     vae_n_epochs: int = 25,
     vae_lr: float = 1e-3,
     run_vae_metrics: bool = True,
@@ -270,6 +272,7 @@ def bolometry_inversion_single_generated(
             b_path=generated_dataset["b_path"],
             eps_path=generated_dataset["eps_path"],
             latent_dim=vae_latent_dim,
+            hidden_scaling=vae_hidden_scaling,
             n_epochs=vae_n_epochs,
             lr=vae_lr,
             train_fraction=train_fraction,

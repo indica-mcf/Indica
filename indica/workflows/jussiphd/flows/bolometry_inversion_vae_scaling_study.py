@@ -154,6 +154,7 @@ def save_scaling_results_task(
 
     columns = [
         "hidden_scaling",
+        "num_parameters",
         "train_generations",
         "repeat_idx",
         "model_path",
@@ -182,8 +183,11 @@ def plot_scaling_results_task(
     out_path = out_dir / filename
 
     grouped: dict[int, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
+    params_by_scaling: dict[int, int] = {}
     for row in rows:
         s = int(row["hidden_scaling"])
+        if "num_parameters" in row and row["num_parameters"] not in (None, ""):
+            params_by_scaling[s] = int(row["num_parameters"])
         n = int(row["train_generations"])
         y = float(row["metric_l2_sample_mean_to_true_norm"])
         if np.isfinite(y):
@@ -201,7 +205,11 @@ def plot_scaling_results_task(
             marker="o",
             linewidth=2,
             capsize=4,
-            label=f"hidden_scaling={scaling}",
+            label=(
+                f"{params_by_scaling[scaling] / 1000.0:.0f}k params"
+                if scaling in params_by_scaling
+                else f"hidden_scaling={scaling}"
+            ),
         )
 
     ax.set_title("VAE Scaling Study: Accuracy vs Training Data Size")
@@ -231,8 +239,8 @@ def bolometry_inversion_vae_scaling_study(
     use_existing_single_generated_pool: bool = True,
     pool_b_path: str = str(Path(DEFAULT_SINGLE_GENERATED_DIR) / "b_slices_single_generated.csv"),
     pool_eps_path: str = str(Path(DEFAULT_SINGLE_GENERATED_DIR) / "eps_slices_single_generated.csv"),
-    hidden_scalings: Sequence[int] = (1, 2, 4),
-    train_generations_grid: Sequence[int] = (50, 100, 200, 500, 900),
+    hidden_scalings: Sequence[int] = (1, 2, 4, 8),
+    train_generations_grid: Sequence[int] = (50, 250, 500, 1300, 2900 ),
     n_repeats: int = 10,
     eval_generations: int = 100,
     eval_b_filename: str = "b_slices_eval_fixed_100.csv",
@@ -367,6 +375,7 @@ def bolometry_inversion_vae_scaling_study(
                 rows.append(
                     {
                         "hidden_scaling": int(hidden_scaling),
+                        "num_parameters": int(vae_training.get("num_parameters", 0)),
                         "train_generations": int(train_generations),
                         "repeat_idx": int(repeat_idx),
                         "model_path": str(vae_training["model_path"]),
@@ -409,3 +418,8 @@ def bolometry_inversion_vae_scaling_study(
 
 if __name__ == "__main__":
     result = bolometry_inversion_vae_scaling_study()
+    import pickle
+
+
+    with open('scaling_results.pickle', 'wb') as handle:
+        pickle.dump(result, handle, protocol=pickle.HIGHEST_PROTOCOL)

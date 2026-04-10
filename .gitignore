@@ -18,3 +18,7 @@ indica/git_version
 *.prof
 *.lprof
 .ropeproject/
+
+# Jussiphd workflow generated artifacts
+indica/workflows/jussiphd/components/**/flow_data/**/*.csv
+indica/workflows/jussiphd/components/**/flow_data/**/*.pt
