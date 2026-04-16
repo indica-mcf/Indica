@@ -18,27 +18,29 @@ from typing import Dict
 from typing import Tuple
 
 READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
-    "get_thomson_scattering": {
+    "thomson_scattering": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "x": ("x", []),
         "y": ("y", []),
         "z": ("z", []),
         "R": ("R", []),
+        "data_q": ("data_quality", ["t"]),
         "ne": ("electron_density", ["t", "channel"]),
         "te": ("electron_temperature", ["t", "channel"]),
         "chi2": ("chi_squared", ["t", "channel"]),
     },
-    "get_spectrometer": {
+    "spectrometer": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "location": ("location", []),
         "direction": ("direction", []),
         "wavelength": ("wavelength", []),
+        "data_q": ("data_quality", ["t"]),
         "spectra_raw": ("spectra_raw", ["t", "channel", "wavelength"]),
         "spectra": ("spectra", ["t", "channel", "wavelength"]),
     },
-    "get_charge_exchange": {
+    "charge_exchange": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "wavelength": ("wavelength", []),
@@ -48,6 +50,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "R": ("R", []),
         "location": ("location", []),
         "direction": ("direction", []),
+        "data_q": ("data_quality", ["t"]),
         "vtor": ("toroidal_rotation", ["t", "channel"]),
         "omegator": ("toroidal_angular_frequency", ["t", "channel"]),
         "ti": ("ion_temperature", ["t", "channel"]),
@@ -55,7 +58,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "spectra": ("spectra", ["t", "channel", "wavelength"]),
         "fit": ("spectra_fit", ["t", "channel", "wavelength"]),
     },
-    "get_helike_spectroscopy": {
+    "helike_spectroscopy": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "wavelength": ("wavelength", []),
@@ -69,17 +72,20 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "int_k": ("line_intensity", ["t"]),
         "int_tot": ("line_intensity", ["t"]),
         "int_n3": ("line_intensity", ["t"]),
+        "background": ("intensity", ["t"]),
+        "data_q": ("data_quality", ["t"]),
         "spectra_raw": ("spectra_raw", ["t", "wavelength"]),
         "spectra": ("spectra", ["t", "wavelength"]),
-        "background": ("intensity", ["t"]),
     },
-    "get_profile_fits": {
+    "profile_fits": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "rhop": ("rhop", []),
         "R": ("R_fit", []),
         "z": ("z_fit", []),
         "R_data": ("R", ["channel"]),
+        "R_shift": ("R_shift", ["t"]),
+        "data_q": ("data_quality", ["t"]),
         "rhop_data": ("rhop", ["t", "channel"]),
         "ne_rhop": ("electron_density", ["t", "rhop"]),
         "te_rhop": ("electron_temperature", ["t", "rhop"]),
@@ -93,43 +99,46 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "ne_data": ("electron_density", ["t", "channel"]),
         "te_data": ("electron_temperature", ["t", "channel"]),
         "pe_data": ("electron_pressure", ["t", "channel"]),
-        "R_shift": ("R_shift", ["t"]),
     },
-    "get_radiation_inversion": {
+    "radiation_inversion": {
         "t": ("t", ["t"]),
         "rhop": ("rhop", []),
         "channel": ("channel", []),
         "R": ("R", []),
         "z": ("z", []),
         "prad": ("total_radiation", ["t"]),
+        "data_q": ("data_quality", ["t"]),
         "emission_rhop": ("emissivity", ["t", "rhop"]),
         "emission_rz": ("emissivity", ["t", "R", "z"]),
         "brightness": ("brightness", ["t", "channel"]),
         "brightness_bckc": ("brightness", ["t", "channel"]),
     },
-    "get_diode_filters": {
+    "diode_filters": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "label": ("label", []),
         "location": ("location", []),
         "direction": ("direction", []),
+        "data_q": ("data_quality", ["t"]),
         "brightness": ("brightness", ["t", "channel"]),
     },
-    "get_interferometry": {
+    "interferometry": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "location": ("location", []),
         "direction": ("direction", []),
-        "ne": ("electron_density_integrated", ["t", "channel"]),
+        "data_q": ("data_quality", ["t"]),
+        "ne_int": ("electron_density_integrated", ["t", "channel"]),
     },
-    "get_polarimetry": {
+    "polarimetry": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "location": ("location", []),
         "direction": ("direction", []),
+        "data_q": ("data_quality", ["t"]),
         "dphi": ("faraday_rotation_integrated", ["t", "channel"]),
     },
-    "get_cyclotron_emissions": {
+    "cyclotron_emissions": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "freq": ("rf_frequency", []),
@@ -138,19 +147,21 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "y": ("y", []),
         "z": ("z", []),
         "R": ("R", []),
+        "data_q": ("data_quality", ["t"]),
         "te": ("electron_temperature", ["t", "channel"]),
         "btot": ("total_magnetic_field", ["channel"]),
     },
-    "get_density_reflectometer": {
+    "density_reflectometer": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
         "x": ("x", []),
         "y": ("y", []),
         "z": ("z", []),
         "R": ("R", []),
+        "data_q": ("data_quality", ["t"]),
         "ne": ("electron_density", ["t", "channel"]),
     },
-    "get_equilibrium": {
+    "equilibrium": {
         "t": ("t", ["t"]),
         "xpsin": ("xpsin", []),
         "index": ("index", []),
@@ -163,6 +174,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "psi_boundary": ("poloidal_flux_boundary", ["t"]),
         "ipla": ("plasma_current", ["t"]),
         "wp": ("equilibrium_stored_energy", ["t"]),
+        "data_q": ("data_quality", ["t"]),
         "rbnd": ("R_boundary", ["t", "index"]),
         "zbnd": ("z_boundary", ["t", "index"]),
         "f": ("equilibrium_f", ["t", "xpsin"]),
@@ -173,16 +185,17 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "ajac": ("area_jacobian", ["t", "xpsin"]),
         "psi": ("poloidal_flux", ["t", "z", "R"]),
     },
-    "get_radiation": {
+    "radiation": {
         "t": ("t", ["t"]),
         "channel": ("channel", []),
+        "data_q": ("data_quality", ["t"]),
         "bad_channel": ("bad_channel", ["channel"]),
         "label": ("label", ["channel"]),
         "location": ("location", []),
         "direction": ("direction", []),
         "brightness": ("brightness", ["t", "channel"]),
     },
-    "get_zeff": {
+    "zeff": {
         "t": ("t", ["t"]),
         "rhop": ("rhop", []),
         "bremss_avrg": ("brightness", ["t"]),
@@ -192,13 +205,14 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "zeff_avrg": ("effective_charge", ["t"]),
         "zeff_hi": ("effective_charge", ["t"]),
         "zeff_low": ("effective_charge", ["t"]),
+        "data_q": ("data_quality", ["t"]),
         "brightness": ("brightness", ["t", "channel"]),
         "zeff": ("effective_charge", ["t", "rhop"]),
         "bremss_emission": ("emissivity", ["t", "rhop"]),
         "te": ("electron_temperature", ["t", "rhop"]),
         "ne": ("electron_density", ["t", "rhop"]),
     },
-    "get_solps": {
+    "solps": {
         "R": ("R", []),
         "z": ("z", []),
         "element": ("element", []),
@@ -208,7 +222,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "ne": ("electron_density", ["z", "R"]),
         "nion": ("ion_density", ["element", "z", "R"]),
     },
-    "get_transp": {  # ASTRA, TRANSP, METIS
+    "transp": {  # ASTRA, TRANSP, METIS
         "t": ("t", ["t"]),
         "index": ("index", []),
         "R": ("R", []),
@@ -238,7 +252,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "omegator": ("toroidal_angular_frequency", ["t", "rhot"]),
         "ti": ("ion_temperature", ["t", "rhot"]),
     },
-    "get_astra": {  # ASTRA, TRANSP, METIS
+    "astra": {  # ASTRA, TRANSP, METIS
         "t": ("t", ["t"]),
         "index": ("index", []),
         "R": ("R", []),
@@ -269,7 +283,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "omegator": ("toroidal_angular_frequency", ["t", "rhot"]),
         "ti": ("ion_temperature", ["t", "rhot"]),
     },
-    "get_metis": {  # ASTRA, TRANSP, METIS
+    "metis": {  # ASTRA, TRANSP, METIS
         "t": ("t", ["t"]),
         "index": ("index", []),
         "R": ("R", []),

@@ -8,45 +8,45 @@ class ST40Conf(MachineConf):
     def __init__(self):
         self.MACHINE_DIMS = ((0.15, 0.85), (-0.8, 0.8))
         self.INSTRUMENT_METHODS = {
-            "efit": "get_equilibrium",
-            "xrcs": "get_helike_spectroscopy",
-            "pi": "get_spectrometer",
-            "tws_c": "get_spectrometer",
-            "cxff_pi": "get_charge_exchange",
-            "cxff_tws_c": "get_charge_exchange",
-            "cxff_tws_b": "get_charge_exchange",
-            "cxqf_tws_c": "get_charge_exchange",
-            "lines": "get_diode_filters",
-            "smmh": "get_interferometry",
-            "nirh": "get_interferometry",
-            "ts": "get_thomson_scattering",
-            "sxr_spd": "get_radiation",
-            "sxrc_xy1": "get_radiation",
-            "sxrc_xy2": "get_radiation",
-            "sxrc_rz1": "get_radiation",
-            "sxrc_rz2": "get_radiation",
-            "blom_xy1": "get_radiation",
-            "blom_rz1": "get_radiation",
-            "blom_dv1": "get_radiation",
-            "t1d_sxrc_xy1": "get_radiation_inversion",
-            "t2d_sxrc_xy1": "get_radiation_inversion",
-            "t1d_sxrc_xy2": "get_radiation_inversion",
-            "t2d_sxrc_xy2": "get_radiation_inversion",
-            "t1d_sxrc_rz1": "get_radiation_inversion",
-            "t1d_sxrc_rz2": "get_radiation_inversion",
-            "t1d_blom_xy1": "get_radiation_inversion",
-            "t2d_blom_xy1": "get_radiation_inversion",
-            "t1d_blom_rz1": "get_radiation_inversion",
-            "ppts": "get_profile_fits",
-            "bda": "get_profile_fits",
-            "zeff_brems": "get_zeff",
-            "transp_test": "get_transp",
-            "astra": "get_astra",
-            "metis": "get_metis",
-            "solps": "get_solps",
+            "efit": "equilibrium",
+            "xrcs": "helike_spectroscopy",
+            "pi": "spectrometer",
+            "tws_c": "spectrometer",
+            "cxff_pi": "charge_exchange",
+            "cxff_tws_c": "charge_exchange",
+            "cxff_tws_b": "charge_exchange",
+            "cxqf_tws_c": "charge_exchange",
+            "lines": "diode_filters",
+            "smmh": "interferometry",
+            "nirh": "interferometry",
+            "ts": "thomson_scattering",
+            "sxr_spd": "radiation",
+            "sxrc_xy1": "radiation",
+            "sxrc_xy2": "radiation",
+            "sxrc_rz1": "radiation",
+            "sxrc_rz2": "radiation",
+            "blom_xy1": "radiation",
+            "blom_rz1": "radiation",
+            "blom_dv1": "radiation",
+            "t1d_sxrc_xy1": "radiation_inversion",
+            "t2d_sxrc_xy1": "radiation_inversion",
+            "t1d_sxrc_xy2": "radiation_inversion",
+            "t2d_sxrc_xy2": "radiation_inversion",
+            "t1d_sxrc_rz1": "radiation_inversion",
+            "t1d_sxrc_rz2": "radiation_inversion",
+            "t1d_blom_xy1": "radiation_inversion",
+            "t2d_blom_xy1": "radiation_inversion",
+            "t1d_blom_rz1": "radiation_inversion",
+            "ppts": "profile_fits",
+            "bda": "profile_fits",
+            "zeff_brems": "zeff",
+            "transp_test": "transp",
+            "astra": "astra",
+            "metis": "metis",
+            "solps": "solps",
         }
         self.QUANTITIES_PATH = {
-            "get_equilibrium": {
+            "equilibrium": {
                 "t": ":time",
                 "xpsin": ".profiles.psi_norm:xpsn",
                 "R": ".psi2d:rgrid",
@@ -68,8 +68,9 @@ class ST40Conf(MachineConf):
                 "ipla": ".constraints.ip:cvalue",
                 "wp": ".virial:wp",
                 "df": ".constraints.df:cvalue",
+                "data_q": ".data_q.score_1d",
             },
-            "get_helike_spectroscopy": {
+            "helike_spectroscopy": {
                 "t": ":time",
                 "wavelength": ":wavelen",
                 "location": ".geometry:location",
@@ -85,28 +86,32 @@ class ST40Conf(MachineConf):
                 "int_tot": ".global:int_tot",
                 "int_n3": ".global:int_n3",
                 "background": ".global:back_avg",
+                "data_q": ".data_q.score_1d",
             },
-            "get_interferometry": {
+            "interferometry": {
                 "t": ":time",
                 "location": ".geometry:location",
                 "direction": ".geometry:direction",
-                "ne": ".global:ne_int_s",
+                "ne_int": ".global:ne_int",
+                "data_q": ".data_q.score_1d",
             },
-            "get_diode_filters": {
+            "diode_filters": {
                 "t": ":time",
                 "label": ":label",
                 "location": ".geometry:location",
                 "direction": ".geometry:direction",
                 "brightness": ":data",
+                "data_q": ".data_q.score_1d",
             },
-            "get_radiation": {
+            "radiation": {
                 "t": ":time",
                 "bad_channel": ":bad_channels",
                 "location": ".geometry:location",
                 "direction": ".geometry:direction",
                 "brightness": ".profiles:emission",
+                "data_q": ".data_q.score_1d",
             },
-            "get_radiation_inversion": {
+            "radiation_inversion": {
                 "t": ":time",
                 "channel": ":label",
                 "prad": ".global:prad",
@@ -115,8 +120,9 @@ class ST40Conf(MachineConf):
                 "z": ".profiles.rz_2d:z",
                 "emission_rhop": ".profiles.psi_norm:emis_loc",
                 "emission_rz": ".profiles.rz_2d:emis_loc",
+                "data_q": ".data_q.score_1d",
             },
-            "get_charge_exchange": {
+            "charge_exchange": {
                 "t": ":time",
                 "wavelength": ":wavelen",
                 "x": ":x",
@@ -128,16 +134,18 @@ class ST40Conf(MachineConf):
                 "vtor": ".profiles:vtor",
                 "spectra": ":spectra",
                 "fit": ":full_fit",
+                "data_q": ".data_q.score_1d",
             },
-            "get_spectrometer": {
+            "spectrometer": {
                 "t": ":time",
                 "location": ".geometry:location",
                 "direction": ".geometry:direction",
                 "wavelength": ":wavelen",
                 "spectra": ":emission",
                 "spectra_raw": ":intens",
+                "data_q": ".data_q.score_1d",
             },
-            "get_thomson_scattering": {
+            "thomson_scattering": {
                 "t": ":time",
                 "x": ":x",
                 "y": ":y",
@@ -147,8 +155,9 @@ class ST40Conf(MachineConf):
                 "te": ".profiles:te",
                 "pe": ".profiles:pe",
                 "chi2": ".profiles:chi2",
+                "data_q": ".data_q.score_1d",
             },
-            "get_profile_fits": {
+            "profile_fits": {
                 "t": ":time",
                 "rhop": ".profiles.psi_norm:rhop",
                 "R": ".profiles.r_midplane:rpos",
@@ -168,8 +177,9 @@ class ST40Conf(MachineConf):
                 "te_data": ".profiles.inputs:te",
                 "pe_data": ".profiles.inputs:pe",
                 "R_shift": ".global:rshift",
+                "data_q": ".data_q.score_1d",
             },
-            "get_zeff": {
+            "zeff": {
                 "t": ":time",
                 "channel": ".diag_data.pi:label",
                 "rhop": ".profiles.psi_norm:rhop",
@@ -185,8 +195,9 @@ class ST40Conf(MachineConf):
                 "bremss_emission": ".profiles.psi_norm:emis_loc",
                 "te": ".profiles.psi_norm:te",
                 "ne": ".profiles.psi_norm:ne",
+                "data_q": ".data_q.score_1d",
             },
-            "get_astra": {
+            "astra": {
                 "t": ":time",
                 "psi_axis": ".global:faxs",
                 "psi_boundary": ".global:fbnd",
@@ -218,7 +229,7 @@ class ST40Conf(MachineConf):
                 "z": ".psi2d:zgrid",
                 "psi": ".psi2d:psi",
             },
-            "get_transp": {
+            "transp": {
                 # "xpsin": ".profiles.psi_norm:xpsn", # Missing Equilibrium quantities
                 # "R": ".psi2d:rgrid",
                 # "z": ".psi2d:zgrid",
@@ -251,7 +262,7 @@ class ST40Conf(MachineConf):
                 "omegator": ".profiles.rhotor:omega_tor",
                 "vtor": ".profiles.rhotor:vtor",
             },
-            "get_metis": {
+            "metis": {
                 # "xpsin": ".profiles.psi_norm:xpsn", # Missing Equilibrium quantities
                 # "R": ".psi2d:rgrid",
                 # "z": ".psi2d:zgrid",

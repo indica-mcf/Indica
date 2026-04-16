@@ -47,7 +47,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
-        instrument_method="get_helike_spectroscopy",
+        instrument_method="helike_spectroscopy",
         calibration_factor: float = 1.5e-10,
         element: str = "ar",
         window_len: int = 1030,

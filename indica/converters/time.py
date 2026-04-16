@@ -11,6 +11,7 @@ def convert_in_time(
     frequency: float,
     data: DataArray,
     method: str = "linear",
+    check_bounds: bool = True,
 ) -> DataArray:
     """Interpolate or bin (as appropriate) the given data along the time
     axis, discarding data before or after the limits.
@@ -38,9 +39,11 @@ def convert_in_time(
     # TODO: Generate PROV information
     original_freq = 1 / (data.coords["t"][1] - data.coords["t"][0])
     if frequency / original_freq <= 0.2:
-        return bin_in_time(tstart, tend, frequency, data)
+        return bin_in_time(tstart, tend, frequency, data, check_bounds=check_bounds)
     else:
-        return interpolate_in_time(tstart, tend, frequency, data, method)
+        return interpolate_in_time(
+            tstart, tend, frequency, data, method, check_bounds=check_bounds
+        )
 
 
 def convert_in_time_dt(
@@ -49,6 +52,7 @@ def convert_in_time_dt(
     dt: float,
     data: DataArray,
     method: str = "linear",
+    check_bounds: bool = True,
 ) -> DataArray:
     """
     Interpolate or bin given data along the time axis, discarding data before
@@ -75,9 +79,11 @@ def convert_in_time_dt(
     tcoords = data.coords["t"]
     data_dt = tcoords[1] - tcoords[0]
     if data_dt <= dt / 2 and tstart != tend:
-        return bin_in_time_dt(tstart, tend, dt, data)
+        return bin_in_time_dt(tstart, tend, dt, data, check_bounds=check_bounds)
     else:
-        return interpolate_in_time_dt(tstart, tend, dt, data, method=method)
+        return interpolate_in_time_dt(
+            tstart, tend, dt, data, method=method, check_bounds=check_bounds
+        )
 
 
 def interpolate_to_time_labels(
@@ -163,6 +169,7 @@ def interpolate_in_time(
     frequency: float,
     data: DataArray,
     method: str = "linear",
+    check_bounds: bool = True,
 ) -> DataArray:
     """Interpolate the given data along the time axis, discarding data
     before or after the limits.
@@ -187,7 +194,8 @@ def interpolate_in_time(
         Array like the input, but interpolated along the time axis.
 
     """
-    check_bounds_interp(tstart, tend, data)
+    if check_bounds:
+        check_bounds_interp(tstart, tend, data)
 
     tlabels = get_tlabels(tstart, tend, frequency)
 
@@ -200,6 +208,7 @@ def interpolate_in_time_dt(
     dt: float,
     data: DataArray,
     method: str = "linear",
+    check_bounds: bool = True,
 ) -> DataArray:
     """Interpolate the given data along the time axis, discarding data
     before or after the limits.
@@ -225,14 +234,19 @@ def interpolate_in_time_dt(
 
     """
 
-    check_bounds_interp(tstart, tend, data)
+    if check_bounds:
+        check_bounds_interp(tstart, tend, data)
     tlabels = get_tlabels_dt(tstart, tend, dt)
 
     return interpolate_to_time_labels(tlabels, data, method=method)
 
 
 def bin_in_time(
-    tstart: float, tend: float, frequency: float, data: DataArray
+    tstart: float,
+    tend: float,
+    frequency: float,
+    data: DataArray,
+    check_bounds: bool = True,
 ) -> DataArray:
     """Bin given data along the time axis, discarding data before or after
     the limits.
@@ -254,13 +268,16 @@ def bin_in_time(
         Array like the input, but binned along the time axis.
 
     """
-    check_bounds_bin(tstart, tend, 1.0 / frequency, data)
+    if check_bounds:
+        check_bounds_bin(tstart, tend, 1.0 / frequency, data)
     tlabels = get_tlabels(tstart, tend, frequency)
 
     return bin_to_time_labels(tlabels, data)
 
 
-def bin_in_time_dt(tstart: float, tend: float, dt: float, data: DataArray) -> DataArray:
+def bin_in_time_dt(
+    tstart: float, tend: float, dt: float, data: DataArray, check_bounds: bool = True
+) -> DataArray:
     """Bin given data along the time axis, discarding data before or after
     the limits.
 
@@ -281,7 +298,8 @@ def bin_in_time_dt(tstart: float, tend: float, dt: float, data: DataArray) -> Da
         Array like the input, but binned along the time axis.
     TODO: add possibility of doing 50% overlap of time bins!
     """
-    check_bounds_bin(tstart, tend, dt, data)
+    if check_bounds:
+        check_bounds_bin(tstart, tend, dt, data)
     tlabels = get_tlabels_dt(tstart, tend, dt)
     return bin_to_time_labels(tlabels, data)
 

@@ -73,6 +73,7 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "index": ("Index", "none"),
     "label": ("Label", "none"),
     "conversion_factor": ("", "none"),
+    "data_quality": ("Data quality score", "none"),
     "t": ("Time", "time"),
     "time_to_calculate": ("Time", "time"),
     "channel": ("Channel", "number"),

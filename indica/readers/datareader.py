@@ -174,85 +174,85 @@ class DataReader(ABC):
 
     # Machine-specific instrument methods that must be implemented in the child reader
     # to refactor database data structures and assign a geometry transform
-    def _get_thomson_scattering(
+    def _thomson_scattering(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_profile_fits(
+    def _profile_fits(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_charge_exchange(
+    def _charge_exchange(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_spectrometer(
+    def _spectrometer(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_equilibrium(
+    def _equilibrium(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_radiation(
+    def _radiation(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_radiation_inversion(
+    def _radiation_inversion(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_helike_spectroscopy(
+    def _helike_spectroscopy(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_diode_filters(
+    def _diode_filters(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_interferometry(
+    def _interferometry(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_zeff(
+    def _zeff(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_transp(
+    def _transp(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_astra(
+    def _astra(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_metis(
+    def _metis(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -275,7 +275,9 @@ class DataReader(ABC):
 
         self.data = {}
         for instrument in instruments:
-            print(f"Reading {instrument}")
+            if debug:
+                print(f"Reading {instrument}")
+
             try:
                 self.data[instrument] = self.get(
                     "",
@@ -287,4 +289,5 @@ class DataReader(ABC):
                 print(f"error reading: {instrument} \nException: {e}")
                 if debug:
                     raise e
+
         return self.data

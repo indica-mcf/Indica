@@ -23,7 +23,7 @@ class PinholeCamera(AbstractDiagnostic):
         self,
         name: str,
         power_loss: dict[str, PowerLoss],
-        instrument_method: str = "get_radiation",
+        instrument_method: str = "radiation",
     ):
         self.transform: LineOfSightTransform
         self.name = name

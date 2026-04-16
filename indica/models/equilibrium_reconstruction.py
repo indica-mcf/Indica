@@ -10,7 +10,7 @@ class EquilibriumReconstruction(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
-        instrument_method="get_equilibrium",
+        instrument_method="equilibrium",
     ):
         self.name = name
         self.instrument_method = instrument_method

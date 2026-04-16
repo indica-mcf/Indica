@@ -9,7 +9,7 @@ def match_interferometer_los_int(
     plasma: Plasma,
     data: dict,
     t: float,
-    optimise_for: dict = {"smmh1": ["ne"]},
+    optimise_for: dict = {"smmh1": ["ne_int"]},
     guess: float = 5.0e19,
     bounds: tuple = (1.0e17, 1.0e21),
     bckc: dict = {},
