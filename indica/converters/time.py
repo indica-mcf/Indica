@@ -11,6 +11,7 @@ def convert_in_time(
     frequency: float,
     data: DataArray,
     method: str = "linear",
+    check_bounds: bool = True,
 ) -> DataArray:
     """Interpolate or bin (as appropriate) the given data along the time
     axis, discarding data before or after the limits.
@@ -38,9 +39,11 @@ def convert_in_time(
     # TODO: Generate PROV information
     original_freq = 1 / (data.coords["t"][1] - data.coords["t"][0])
     if frequency / original_freq <= 0.2:
-        return bin_in_time(tstart, tend, frequency, data)
+        return bin_in_time(tstart, tend, frequency, data, check_bounds=check_bounds)
     else:
-        return interpolate_in_time(tstart, tend, frequency, data, method)
+        return interpolate_in_time(
+            tstart, tend, frequency, data, method, check_bounds=check_bounds
+        )
 
 
 def convert_in_time_dt(
@@ -49,6 +52,7 @@ def convert_in_time_dt(
     dt: float,
     data: DataArray,
     method: str = "linear",
+    check_bounds: bool = True,
 ) -> DataArray:
     """
     Interpolate or bin given data along the time axis, discarding data before
@@ -75,9 +79,11 @@ def convert_in_time_dt(
     tcoords = data.coords["t"]
     data_dt = tcoords[1] - tcoords[0]
     if data_dt <= dt / 2 and tstart != tend:
-        return bin_in_time_dt(tstart, tend, dt, data)
+        return bin_in_time_dt(tstart, tend, dt, data, check_bounds=check_bounds)
     else:
-        return interpolate_in_time_dt(tstart, tend, dt, data, method=method)
+        return interpolate_in_time_dt(
+            tstart, tend, dt, data, method=method, check_bounds=check_bounds
+        )
 
 
 def interpolate_to_time_labels(

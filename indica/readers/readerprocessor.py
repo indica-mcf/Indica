@@ -35,6 +35,7 @@ class ReaderProcessor:
         tend: float = None,
         dt: float = None,
         verbose: bool = False,
+        check_bounds: bool = True,
     ):
 
         self.reset_data()
@@ -59,7 +60,11 @@ class ReaderProcessor:
         )
 
         self.processed_data = bin_data_in_time(
-            self.processed_data, tstart=tstart, tend=tend, dt=dt
+            self.processed_data,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            check_bounds=check_bounds,
         )
         return self.processed_data
 
@@ -69,6 +74,7 @@ def bin_data_in_time(
     tstart: float = 0.02,
     tend: float = 0.1,
     dt: float = 0.01,
+    check_bounds: bool = True,
     debug=False,
 ):
     binned_data = {}
@@ -82,11 +88,17 @@ def bin_data_in_time(
             data_quant = deepcopy(raw_data[instr][quant])
 
             if "t" in data_quant.coords:
-                data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
+                data_quant = convert_in_time_dt(
+                    tstart, tend, dt, data_quant, check_bounds=check_bounds
+                )
                 # Using groupedby_bins always removes error from coords so adding it
                 if "error" in raw_data[instr][quant].coords:
                     error = convert_in_time_dt(
-                        tstart, tend, dt, raw_data[instr][quant].error
+                        tstart,
+                        tend,
+                        dt,
+                        raw_data[instr][quant].error,
+                        check_bounds=check_bounds,
                     )
                     data_quant = data_quant.assign_coords(
                         error=(raw_data[instr][quant].dims, error.data)
