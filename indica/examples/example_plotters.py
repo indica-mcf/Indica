@@ -11,20 +11,12 @@ def example_dataplotter():
     plasma = MODEL_READER.plasma
     plotter = DataPlotter(0, plasma.t)
 
-    plotter.plot_thomson_scattering("ts", BCKC["ts"])
-    plotter.plot_radiation("sxrc_xy1", BCKC["sxrc_xy1"])
+    plotter.plot(BCKC, "ts", "ne")
+    plotter.plot(BCKC, "cxff_pi", "ti")
+    plotter.plot(BCKC, "sxrc_xy1", "brightness")
 
-    plotter.plot_plasma_attribute(
-        "electron_density", plasma, ylog=False, to_plot=("profiles",)
-    )
-
-    plotter.plot_plasma_attribute(
-        "zeff", plasma, ylog=False, sci=False, to_plot=("profiles",)
-    )
-
-    plotter.plot_plasma_attribute(
-        "fz", plasma, element="ar", ylog=False, sci=False, to_plot=("profiles",)
-    )
+    plotter.plot(plasma, "plasma", "electron_density", ylog=False)
+    plotter.plot(plasma, "plasma", "zeff", ylog=False, sci=False)
 
 
 def example_plot_solps():
