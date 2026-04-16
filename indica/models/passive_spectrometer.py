@@ -96,7 +96,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         name: str,
         pecs: dict,
         window: np.array,
-        instrument_method="get_spectrometer",
+        instrument_method="spectrometer",
     ):
 
         self.transform: LineOfSightTransform

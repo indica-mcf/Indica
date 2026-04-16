@@ -8,13 +8,13 @@ from indica.models.pinhole_camera import PinholeCamera
 from indica.models.thomson_scattering import ThomsonScattering
 
 MODELS_METHODS = {
-    "get_interferometry": Interferometer,
-    "get_charge_exchange": ChargeExchangeSpectrometer,
-    "get_spectrometer": PassiveSpectrometer,
-    "get_radiation": PinholeCamera,
-    "get_thomson_scattering": ThomsonScattering,
-    "get_helike_spectroscopy": HelikeSpectrometer,
-    "get_diode_filters": BremsstrahlungDiode,
+    "interferometry": Interferometer,
+    "charge_exchange": ChargeExchangeSpectrometer,
+    "spectrometer": PassiveSpectrometer,
+    "radiation": PinholeCamera,
+    "thomson_scattering": ThomsonScattering,
+    "helike_spectroscopy": HelikeSpectrometer,
+    "diode_filters": BremsstrahlungDiode,
 }
 
 __all__ = [

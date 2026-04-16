@@ -54,7 +54,7 @@ class JETReader(DataReader):
         )
         self.reader_utils = self.reader_utils(pulse, server)
 
-    def _get_equilibrium(
+    def _equilibrium(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -79,7 +79,7 @@ class JETReader(DataReader):
         transform = assign_trivial_transform()
         return data, transform
 
-    def _get_thomson_scattering(
+    def _thomson_scattering(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -91,9 +91,7 @@ class JETReader(DataReader):
         transform = assign_transect_transform(data)
         return data, transform
 
-    def _get_interferometry(
-        self, data: dict
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+    def _interferometry(self, data: dict) -> Tuple[Dict[str, Any], CoordinateTransform]:
         data = _interferometer_polarimeter_coords(data)
         data["t"] = data["LID3_dimensions"][0]
         data["ne"] = np.array(
@@ -106,9 +104,7 @@ class JETReader(DataReader):
         transform = assign_lineofsight_transform(data)
         return data, transform
 
-    def _get_polarimetry(
-        self, data: dict
-    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+    def _polarimetry(self, data: dict) -> Tuple[Dict[str, Any], CoordinateTransform]:
         data = _interferometer_polarimeter_coords(data)
         data["dphi"] = np.array(
             [
@@ -121,7 +117,7 @@ class JETReader(DataReader):
         transform = assign_lineofsight_transform(data)
         return data, transform
 
-    def _get_cyclotron_emissions(
+    def _cyclotron_emissions(
         self, data: dict
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         channel = np.argwhere(data["gen"][0, :] > 0)[:, 0]
@@ -137,7 +133,7 @@ class JETReader(DataReader):
         transform = assign_transect_transform(data)
         return data, transform
 
-    def _get_density_reflectometer(
+    def _density_reflectometer(
         self, data: dict
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         data["R"] = data["R"].mean(0)  # Time-varying R
@@ -149,7 +145,7 @@ class JETReader(DataReader):
         transform = assign_transect_transform(data)
         return data, transform
 
-    def _get_charge_exchange(
+    def _charge_exchange(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -164,7 +160,7 @@ class JETReader(DataReader):
         transform = assign_transect_transform(data)
         return data, transform
 
-    def _get_radiation(
+    def _radiation(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -216,7 +212,7 @@ class JETReader(DataReader):
         transform = assign_lineofsight_transform(data)
         return data, transform
 
-    def _get_zeff(
+    def _zeff(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -256,11 +252,9 @@ class JETReader(DataReader):
                 "cxh": "ks5e",
             }[instrument.lower()[:3]]
             trck, _ = self.reader_utils._get_signal(uid, instrument, "trck", revision)
-            data["location"], data["direction"] = _get_cxrs_los_geometry(
-                sav_file=_get_cxrs_los_savfile(pulse=self.pulse, spec=spec),
-                tracks=_get_cxrs_active_tracks(
-                    pulse=self.pulse, spec=spec, trck=trck.data
-                ),
+            data["location"], data["direction"] = _cxrs_los_geometry(
+                sav_file=_cxrs_los_savfile(pulse=self.pulse, spec=spec),
+                tracks=_cxrs_active_tracks(pulse=self.pulse, spec=spec, trck=trck.data),
             )
             data["t"] = data["zeff_avrg_dimensions"][0]
             data["channel"] = np.arange(len(data["zeff_avrg_dimensions"][1]))
@@ -319,7 +313,7 @@ def _interferometer_polarimeter_coords(data: dict) -> Dict[str, Any]:
     return data
 
 
-def _get_cxrs_los_geometry(sav_file: Path, tracks: ArrayLike) -> Any:
+def _cxrs_los_geometry(sav_file: Path, tracks: ArrayLike) -> Any:
     """Read IDL save file to get position and direction for KS5 tracks
 
     Parameters
@@ -400,7 +394,7 @@ def _setup_idl(pulse: int) -> Any:
     return idlb
 
 
-def _get_cxrs_los_savfile(pulse: int, spec: str) -> Path:
+def _cxrs_los_savfile(pulse: int, spec: str) -> Path:
     """Determine correct sav file for given pulse and spectrometer
 
     Parameters
@@ -426,7 +420,7 @@ def _get_cxrs_los_savfile(pulse: int, spec: str) -> Path:
     return savfile
 
 
-def _get_cxrs_active_tracks(pulse: int, spec: str, trck: ArrayLike) -> ArrayLike:
+def _cxrs_active_tracks(pulse: int, spec: str, trck: ArrayLike) -> ArrayLike:
     """Translate tracks used to track names as in geometry save file"""
     idlb = _setup_idl(pulse=pulse)
     idlb.execute(
