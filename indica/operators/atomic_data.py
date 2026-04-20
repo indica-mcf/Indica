@@ -1,8 +1,8 @@
 import copy
-import warnings
 from typing import cast
 from typing import List
 from typing import Tuple
+import warnings
 
 import aurora
 import matplotlib.pylab as plt
@@ -496,9 +496,10 @@ class FractionalAbundanceAurora(Operator):
 
         if np.any(Nh.values != 0):
             if not self.aurora_config["cxr_flag"]:
-                warnings.warn( "Nh is non-zero but cxr_flag is False,"
-                               "charge exchange will not be included.")
-
+                warnings.warn(
+                    "Nh is non-zero but cxr_flag is False,"
+                    "charge exchange will not be included."
+                )
 
         self.set_kinetic_profiles(
             Te,

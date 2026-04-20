@@ -290,7 +290,9 @@ class TestFractionalAbundance:
 class TestFractionalAbundanceAurora:
     """Test that the fractional abundance operator can be used in Aurora."""
 
-    def fractional_abundance_aurora_init(self, ):
+    def fractional_abundance_aurora_init(
+        self,
+    ):
         self.plasma = example_plasma(aurora_run=True)
         self.ne = self.plasma.electron_density
         self.Te = self.plasma.electron_temperature
@@ -329,7 +331,7 @@ class TestFractionalAbundanceAurora:
         self.fractional_abundance_aurora_init()
         self.config["cxr_flag"] = True
         with pytest.raises(ValueError):
-            fz_t = self.operator(
+            self.operator(
                 Ne=self.ne,
                 Te=self.Te,
                 Nh=self.Nh * 0.0,
@@ -348,7 +350,6 @@ class TestFractionalAbundanceAurora:
             V_z=self.V_z,
         )
         assert np.any(fz_t != 0)
-
 
 
 class TestPowerLoss:
