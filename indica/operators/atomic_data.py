@@ -1,4 +1,5 @@
 import copy
+import warnings
 from typing import cast
 from typing import List
 from typing import Tuple
@@ -491,14 +492,13 @@ class FractionalAbundanceAurora(Operator):
             fractional abundance as a function of time, rhop and ion charge.
         """
         if np.all(Nh.values == 0) and self.aurora_config["cxr_flag"]:
-            raise Exception("Nh is zero but cxr_flag is True.")
+            raise ValueError("Nh is zero but cxr_flag is True.")
 
         if np.any(Nh.values != 0):
             if not self.aurora_config["cxr_flag"]:
-                raise Warning(
-                    "Nh is non-zero but cxr_flag is False, "
-                    "charge exchange will not be included."
-                )
+                warnings.warn( "Nh is non-zero but cxr_flag is False,"
+                               "charge exchange will not be included.")
+
 
         self.set_kinetic_profiles(
             Te,
