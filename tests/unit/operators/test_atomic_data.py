@@ -287,15 +287,16 @@ class TestFractionalAbundance:
 class TestFractionalAbundanceAurora:
     """Test that the fractional abundance operator can be used in Aurora."""
 
-    def fractional_abundance_aurora_init(self):
+    def fractional_abundance_aurora_init(self, **kwargs):
         self.plasma = example_plasma(aurora_run=True)
         self.ne = self.plasma.electron_density
         self.Te = self.plasma.electron_temperature
         self.Nh = self.plasma.neutral_density
         self.D_z = self.plasma.diffusion_coefficient
         self.V_z = self.plasma.convection_coefficient
+        self.config = AuroraConfig.update(**kwargs)
         self.operator = FractionalAbundanceAurora(
-            aurora_config=AuroraConfig,
+            aurora_config=self.config,
             equilibrium=EQUILIBRIUM,
         )
 
@@ -320,6 +321,29 @@ class TestFractionalAbundanceAurora:
             V_z=self.V_z.isel({"t": 0}),
         )
         assert np.any(fz_t != 0)
+
+    def test_call_with_zero_nh_and_cxr_flag_true(self):
+        self.fractional_abundance_aurora_init(cxr_flag=True)
+        fz_t = self.operator(
+            Ne=self.ne,
+            Te=self.Te,
+            Nh=self.Nh * 0.0,
+            D_z=self.D_z,
+            V_z=self.V_z,
+        )
+        assert np.any(fz_t != 0)
+
+    def test_call_with_non_zero_nh_and_cxr_flag_false(self):
+        self.fractional_abundance_aurora_init(cxr_flag=False)
+        fz_t = self.operator(
+            Ne=self.ne,
+            Te=self.Te,
+            Nh=self.Nh + 1e13,  # add a small non-zero value to ensure the operator runs
+            D_z=self.D_z,
+            V_z=self.V_z,
+        )
+        assert np.any(fz_t != 0)
+
 
 
 class TestPowerLoss:
