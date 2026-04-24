@@ -62,6 +62,7 @@ class Plasma:
             If False: calculate default and interpolate
         aurora_run
             If True: use aurora for ionisation balance calculation
+            TODO: use a switch to specifiy which fractional abundance operator to use
         """
         self.equilibrium: Equilibrium
         self.machine_conf = MACHINE_CONFS[machine]()
@@ -677,7 +678,7 @@ class Plasma:
             fract_abu = {}
             for impurity in self.impurities:
                 fract_abu[impurity] = FractionalAbundanceAurora(
-                    element=impurity,
+                    impurity=impurity,
                     aurora_config=AuroraConfig,
                     equilibrium=self.equilibrium,
                 )

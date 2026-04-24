@@ -290,10 +290,14 @@ class TestFractionalAbundance:
 class TestFractionalAbundanceAurora:
     """Test that the fractional abundance operator can be used in Aurora."""
 
+    def setup_class(self):
+        self.plasma = example_plasma(aurora_run=True)
+        self.plasma.set_equilibrium(EQUILIBRIUM)
+        self.plasma.build_atomic_data()
+
     def fractional_abundance_aurora_init(
         self,
     ):
-        self.plasma = example_plasma(aurora_run=True)
         self.ne = self.plasma.electron_density
         self.Te = self.plasma.electron_temperature
         self.Nh = self.plasma.neutral_density

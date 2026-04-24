@@ -31,8 +31,6 @@ def example_plasma(
         full_run=True,
         **kwargs,
     )
-    plasma.set_equilibrium(EQUILIBRIUM)
-    plasma.build_atomic_data()
 
     profile_names = [
         "electron_density",
