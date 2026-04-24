@@ -379,6 +379,14 @@ def example_aurora_run(plot: bool = False):
         aurora_config=AuroraConfig,
         equilibrium=EQUILIBRIUM,
     )
-    fz_t = operator(Ne=ne, Te=Te, Nh=Nh, D_z=D_z, V_z=V_z, plot=plot)
+    fz_t = operator(
+        Ne=ne,
+        Te=Te,
+        Nh=Nh,
+        D_z=D_z,
+        V_z=V_z,
+    )
+    if plot:
+        operator.plot()
     plt.show()
     return fz_t

@@ -305,6 +305,8 @@ class TestFractionalAbundanceAurora:
         self.V_z = self.plasma.convection_coefficient
         self.config = deepcopy(AuroraConfig)
         self.operator = FractionalAbundanceAurora(
+            impurity="ar",
+            main_ion="d",
             aurora_config=self.config,
             equilibrium=EQUILIBRIUM,
         )

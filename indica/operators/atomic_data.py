@@ -378,6 +378,7 @@ class FractionalAbundanceAurora(Operator):
         self,
         equilibrium: Equilibrium,
         impurity: str = "ar",
+        main_ion: str = "d",
         scd: str = None,
         acd: str = None,
         ccd: str = None,
@@ -395,9 +396,10 @@ class FractionalAbundanceAurora(Operator):
                 adas_key = f"{key}{year}_{impurity}.dat"
                 setattr(self, key, adas_key)
                 self.aurora_config[key] = adas_key
-        self.aurora_config["kin_profs"][
+        self.aurora_config[
             "imp"
         ] = impurity.title()  # Aurora likes first letter capitalised
+        self.aurora_config["main_element"] = main_ion.title()
 
     def set_geqdsk(
         self,
@@ -467,16 +469,16 @@ class FractionalAbundanceAurora(Operator):
 
     def plot_fractional_abundance(
         self,
-        F_z_t,
     ):
+        assert self.F_z_t, "call the operator first to calculate F_z_t before plotting."
         aurora.plot_tools.slider_plot(
-            F_z_t.rhop,
-            F_z_t.t,
-            F_z_t.values.transpose(2, 1, 0),
+            self.F_z_t.rhop,
+            self.F_z_t.t,
+            self.F_z_t.values.transpose(2, 1, 0),
             xlabel=r"$\rho$ [-]",
             ylabel="time [s]",
             zlabel=r"fractional abundance$ [-]",
-            labels=map(str, range(F_z_t.ion_charge.values.shape[0])),
+            labels=map(str, range(self.F_z_t.ion_charge.values.shape[0])),
             plot_sum=True,
         )
 
@@ -547,8 +549,6 @@ class FractionalAbundanceAurora(Operator):
             Nimp.append(_Nimp.interp(rhop=Te.rhop))
         Nimp = xr.concat(Nimp, pd.Index(times, name="t"))
         self.F_z_t = self.calc_fz(Nimp)
-        if plot:
-            self.plot_fractional_abundance(self.F_z_t)
         return self.F_z_t
 
 

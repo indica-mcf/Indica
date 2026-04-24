@@ -679,6 +679,7 @@ class Plasma:
             for impurity in self.impurities:
                 fract_abu[impurity] = FractionalAbundanceAurora(
                     impurity=impurity,
+                    main_ion=self.main_ion,
                     aurora_config=AuroraConfig,
                     equilibrium=self.equilibrium,
                 )

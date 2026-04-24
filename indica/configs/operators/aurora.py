@@ -1,8 +1,8 @@
 import numpy as np
 
 AuroraConfig = dict(
-    imp="Ar",
-    main_element="D",
+    imp=None,
+    main_element=None,
     K=6.0,
     dr_0=0.3,
     dr_1=0.05,
