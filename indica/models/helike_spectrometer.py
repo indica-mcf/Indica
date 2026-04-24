@@ -27,47 +27,26 @@ LINE_RANGES = {
 
 class HelikeSpectrometer(AbstractDiagnostic):
     """
-    Data and methods to model XRCS spectrometer measurements
-
-    calibration factor accounts for all geometric and optical losses
-    between plasma source and detector (add ref).
-    N[counts/s] = 1/4pi * kappa * A_c * phy_y * R_c * sin(theta)\
-     * eta_lambda * integral(E_lambda dz)
-
-    kappa - illuminated percentage of crystal (=1)
-    A_c - area of crystal
-    phy_y - angle subtended by source perpendicular to dispersion plane
-    R_c - crystal integrated reflectivity
-    theta - angle between source and crystal
-    eta_lambda - detector and filter efficiency
-    E_lambda - plasma emissivity [photons/m^-3/s]
-    dz - distance along diagnostic line of sight
+    X-Ray crystal spectrometer model for Helium like ions
     """
 
     def __init__(
         self,
         name: str,
-        instrument_method="get_helike_spectroscopy",
-        calibration_factor: float = 1.5e-10,
         element: str = "ar",
+        calibration_factor: float = 6.98e-11,
         window_len: int = 1030,
         window_lim=None,
         window: np.array = None,
         window_masks=None,
         line_labels=None,
         background=0,
-        instrumental_broadening: float = 100,
+        instrumental_broadening: float = 100,  # eV
+        instrument_method="get_helike_spectroscopy",
     ):
         """
-        Read all atomic data and initialise objects
-
-        Parameters
-        ----------
-        name
-            String identifier for the spectrometer
-
+        Read all atomic data and filter based on window limits
         """
-        self.transform: LineOfSightTransform
         if window_lim is None:
             window_lim = [0.394, 0.401]
         if window_masks is None:
@@ -76,6 +55,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
             line_labels = ["w", "k", "n3", "n345", "z", "qra"]
 
         self.name = name
+        self.transform: LineOfSightTransform
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
         self.element: str = element
@@ -162,10 +142,11 @@ class HelikeSpectrometer(AbstractDiagnostic):
 
     def _calculate_intensity(
         self,
-    ):
+    ) -> DataArray:
         """
-        Returns DataArrays of emission type with co-ordinates of line label and
-        spatial co-ordinate
+        Calculate line intensity for each line in self.pecs, using the transition matrix
+        to convert PECs to emissivity, and summing over all types of transitions
+        (excitation, dielectronic recombination, etc.)
         """
         mult = self._transition_matrix(element=self.element, charge=self.ion_charge)
 
@@ -375,16 +356,15 @@ class HelikeSpectrometer(AbstractDiagnostic):
         Fz: dict = None,
         Nh: DataArray = None,
         t: LabeledArray = None,
-        calc_rho: bool = False,
         moment_analysis: bool = False,
         background: float = None,
         pixel_offset: int = None,
         norm_spectra: xr.DataArray = None,
         scale_spectra: float = 1.0,
         **kwargs,
-    ):
+    ) -> dict:
         """
-        Calculate diagnostic measured values
+        Calculate spectrometer measurements
 
         Parameters
         ----------
@@ -392,15 +372,18 @@ class HelikeSpectrometer(AbstractDiagnostic):
         Ti - ion temperature (eV)
         Ne - electron density (m**-3)
         Nimp - impurity density (m**-3)
-        fractional_abundance - fractional abundance
+        Fz - fractional abundance
         Nh - neutral density (m**-3)
         t - time (s)
-
-        Returns
-        -------
-
+        moment_analysis - determine position of emission and
+            expected Te and Ti based moment analysis
+        background - add background to spectra (counts/s/pixel)
+        pixel_offset - shift spectra by given number of pixels (positive or negative)
+        norm_spectra - if given, normalise spectra to this value (e.g. for comparison
+            with experimental spectra), should have same time coordinates as t
+        scale_spectra - scale spectra by this factor after normalisation e.g. for
+            error estimation when comparing with experimental spectra
         """
-        self.calc_rho = calc_rho
         self.moment_analysis = moment_analysis
 
         if self.moment_analysis and bool(self.window_masks):
@@ -452,7 +435,6 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.Ti = Ti
         self.Nimp = Nimp
 
-        # TODO: check that inputs have compatible dimensions/coordinates
         self._calculate_intensity()
         self._make_spectra()
 
