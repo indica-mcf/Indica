@@ -21,6 +21,7 @@ PLASMA = example_plasma()
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
 TRANSFORMS = load_default_objects("st40", "geometry")
 PLASMA.set_equilibrium(EQUILIBRIUM)
+PLASMA.build_atomic_data()
 
 NPLOT = 3
 CM, COLS = set_plot_colors()
