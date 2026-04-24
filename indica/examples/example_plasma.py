@@ -5,6 +5,7 @@ from indica import PlasmaProfiler
 from indica.numpy_typing import Tuple
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
 
+
 def example_plasma(
     tstart=0.02,
     tend=0.1,
