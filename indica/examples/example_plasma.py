@@ -2,15 +2,8 @@ import numpy as np
 
 from indica import Plasma
 from indica import PlasmaProfiler
-from indica.defaults.load_defaults import load_default_objects
 from indica.numpy_typing import Tuple
 from indica.profilers.profiler_gauss import initialise_gauss_profilers
-
-EQUILIBRIUM = load_default_objects(
-    "st40",
-    "equilibrium",
-)
-
 
 def example_plasma(
     tstart=0.02,
