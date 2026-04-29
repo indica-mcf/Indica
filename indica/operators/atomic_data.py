@@ -460,13 +460,6 @@ class FractionalAbundanceAurora(Operator):
     ):
         return self.asim.run_aurora(D_z, V_z, plot=plot, **kwargs)
 
-    def calc_fz(
-        self,
-        Nimp: xr.DataArray,
-    ) -> xr.DataArray:
-        F_z_t = Nimp / Nimp.sum("ion_charge")
-        return F_z_t
-
     def plot_fractional_abundance(
         self,
     ):
@@ -512,8 +505,8 @@ class FractionalAbundanceAurora(Operator):
         )
         times = np.atleast_1d(Te.t.values)  # same behaviour for 0D and 1D time inputs
         nz_init = None
-        Nimp = []
-        _Nimp = None
+        Nq = []  # density of ion charge states
+        _Nq = None
         for t_idx, time in enumerate(times):
             self.set_geqdsk(time)
             if t_idx == 0:  # burn in time to reach steady state before time evolution
@@ -528,7 +521,7 @@ class FractionalAbundanceAurora(Operator):
             if t_idx != 0:
                 # use previous results as initial conditions for next time step
                 # Interpolate to match new rhop grid each time step
-                nz_init = _Nimp.interp(
+                nz_init = _Nq.interp(
                     rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"}
                 ).values
 
@@ -537,18 +530,18 @@ class FractionalAbundanceAurora(Operator):
                 D_z=_D_z, V_z=_V_z, times_DV=D_z.t.values, nz_init=nz_init
             )
 
-            _Nimp = aurora_result["nz"][:, :, -1]
-            _Nimp[_Nimp < 0] = 0  # Set negative values to zero (numerical issues)
-            _Nimp = xr.DataArray(
-                data=_Nimp,
+            _Nq = aurora_result["nz"][:, :, -1]
+            _Nq[_Nq < 0] = 0  # Set negative values to zero (numerical issues)
+            _Nq = xr.DataArray(
+                data=_Nq,
                 coords={
                     "rhop": self.asim.rhop_grid,
                     "ion_charge": np.arange(self.asim.Z_imp + 1),
                 },
             )
-            Nimp.append(_Nimp.interp(rhop=Te.rhop))
-        Nimp = xr.concat(Nimp, pd.Index(times, name="t"))
-        self.F_z_t = self.calc_fz(Nimp)
+            Nq.append(_Nq.interp(rhop=Te.rhop))
+        Nq = xr.concat(Nq, pd.Index(times, name="t"))
+        self.F_z_t = Nq / Nq.sum("ion_charge")
         return self.F_z_t
 
 
