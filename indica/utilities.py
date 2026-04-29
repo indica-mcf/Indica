@@ -177,15 +177,21 @@ def coord_array(coord_vals: ArrayLike, coord_name: str):
         The name of the dimension.
     """
     datatype = (
-        "major_rad"
-        if coord_name == "R"
-        else "time"
-        if coord_name == "t"
-        else "norm_flux_pol"
-        if coord_name == "rhop"
-        else "norm_flux_tor"
-        if coord_name == "rhot"
-        else coord_name,
+        (
+            "major_rad"
+            if coord_name == "R"
+            else (
+                "time"
+                if coord_name == "t"
+                else (
+                    "norm_flux_pol"
+                    if coord_name == "rhop"
+                    else "norm_flux_tor"
+                    if coord_name == "rhot"
+                    else coord_name
+                )
+            )
+        ),
         "plasma",
     )
     return DataArray(
@@ -219,9 +225,9 @@ def broadcast_spline(
         ).assign_coords(__old_t=coord_array(spline_coords["t"].data, "__old_t"))
         result = time_outer_product.indica.interp2d(
             __old_t=interp_coord.coords["t"],
-            method="cubic"
-            if time_outer_product.coords["__old_t"].size > 3
-            else "linear",
+            method=(
+                "cubic" if time_outer_product.coords["__old_t"].size > 3 else "linear"
+            ),
         ).assign_coords({k: v for k, v in spline_coords.items() if k != "t"})
         del result.coords["__old_t"]
         return result

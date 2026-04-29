@@ -23,8 +23,8 @@ def example_plasma(
         main_ion=main_ion,
         impurities=impurities,
         full_run=True,
+        **kwargs,
     )
-    plasma.build_atomic_data()
 
     profile_names = [
         "electron_density",
@@ -72,7 +72,15 @@ def example_plasma(
             "impurity_density:ar.y0": nimp_y0[i],
             "impurity_density:ar.wcenter": nimp_wcenter[i],
         }
-
         plasma_profiler(parameters=parameters, t=t)
 
+    # Assign diffusion and convection coefficients
+    D_coeff = np.linspace(0.2, 1, plasma.rhop.size)
+    V_coeff = np.linspace(-0.1, -2, plasma.rhop.size)
+    plasma.diffusion_coefficient[
+        :,
+    ] = D_coeff
+    plasma.convection_coefficient[
+        :,
+    ] = V_coeff
     return plasma

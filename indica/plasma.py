@@ -11,9 +11,11 @@ import xarray as xr
 
 from indica import Equilibrium
 from indica.configs import MACHINE_CONFS
+from indica.configs.operators.aurora import AuroraConfig
 from indica.converters.time import get_tlabels_dt
 from indica.numpy_typing import LabeledArray
 from indica.operators.atomic_data import default_atomic_data
+from indica.operators.atomic_data import FractionalAbundanceAurora
 import indica.physics as ph
 from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
@@ -31,6 +33,7 @@ class Plasma:
         impurities: Tuple[str, ...] = ("c", "ar"),
         main_ion: str = "h",
         full_run: bool = False,
+        aurora_run: bool = False,
         n_rad: int = 41,
         n_R: int = 100,
         n_z: int = 100,
@@ -57,6 +60,9 @@ class Plasma:
         full_run
             If True: compute ionisation balance at every iteration
             If False: calculate default and interpolate
+        aurora_run
+            If True: use aurora for ionisation balance calculation
+            TODO: use a switch to specifiy which fractional abundance operator to use
         """
         self.equilibrium: Equilibrium
         self.machine_conf = MACHINE_CONFS[machine]()
@@ -64,6 +70,7 @@ class Plasma:
         self.tend = tend
         self.dt = dt
         self.full_run = full_run
+        self.aurora_run = aurora_run
         self.verbose = verbose
         elements: Tuple[str, ...] = (main_ion,)
         for elem in impurities:
@@ -145,6 +152,12 @@ class Plasma:
         )
         self.residence_time = format_dataarray(
             data2d, "residence_time", coords2d, make_copy=True
+        )
+        self.diffusion_coefficient = format_dataarray(
+            data2d, "diffusion_coefficient", coords2d, make_copy=True
+        )
+        self.convection_coefficient = format_dataarray(
+            data2d, "convection_coefficient", coords2d, make_copy=True
         )
         self.ion_temperature = format_dataarray(
             data2d, "ion_temperature", coords2d, make_copy=True
@@ -233,6 +246,8 @@ class Plasma:
                 self.electron_temperature,
                 self.neutral_density,
                 self.residence_time,
+                self.diffusion_coefficient,
+                self.convection_coefficient,
             ],
         )
 
@@ -243,6 +258,8 @@ class Plasma:
                 self.electron_temperature,
                 self.neutral_density,
                 self.residence_time,
+                self.diffusion_coefficient,
+                self.convection_coefficient,
             ],
         )
 
@@ -273,6 +290,8 @@ class Plasma:
                 self.fast_ion_density,
                 self.neutral_density,
                 self.residence_time,
+                self.diffusion_coefficient,
+                self.convection_coefficient,
             ],
         )
 
@@ -403,7 +422,18 @@ class Plasma:
         return self.Fz()
 
     def calc_fz(self):
-        for elem in self.elements:
+        if self.aurora_run:
+            fz = self.aurora_fz(elements=self.impurities)
+            # Aurora doesn't handle main ion calculation, so use coronal approximation
+            fz[self.main_ion] = self.coronal_fz(elements=(self.main_ion,))[
+                self.main_ion
+            ]
+        else:
+            fz = self.coronal_fz(elements=self.elements)
+        return fz
+
+    def coronal_fz(self, elements: tuple):
+        for elem in elements:
             for t in np.array(self.time_to_calculate, ndmin=1):
                 electron_temperature = self.electron_temperature.sel(t=t)
                 electron_density = self.electron_density.sel(t=t)
@@ -424,6 +454,32 @@ class Plasma:
                     tau=residence_time,
                 )
                 self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose()
+        return self._fz
+
+    def aurora_fz(self, elements: tuple):
+        # When using aurora, if either electron temperature or density are <= 0,
+        # skip calculation to avoid errors
+        if (
+            np.logical_not(
+                (self.electron_temperature.sel(t=self.time_to_calculate) > 0)
+                * (self.electron_density.sel(t=self.time_to_calculate) > 0)
+            )
+        ).any():
+            print(
+                "Electron temperature and density must be > 0 for aurora calculation, "
+                "skipping fz calculation"
+            )
+            return self._fz
+
+        for elem in elements:
+            fz = self.fract_abu[elem](
+                Te=self.electron_temperature.sel(t=self.time_to_calculate),
+                Ne=self.electron_density.sel(t=self.time_to_calculate),
+                Nh=self.neutral_density.sel(t=self.time_to_calculate),
+                D_z=self.diffusion_coefficient.sel(t=self.time_to_calculate),
+                V_z=self.convection_coefficient.sel(t=self.time_to_calculate),
+            )
+            self._fz[elem].loc[dict(t=self.time_to_calculate)] = fz
         return self._fz
 
     @property
@@ -607,13 +663,37 @@ class Plasma:
     def set_adf11(self, adf11: dict):
         self.adf11 = adf11
 
-    def build_atomic_data(self):
+    def build_atomic_data(
+        self,
+    ):
         """
-        Assigns default atomic fractional abundance and radiated power operators
+        Assigns default atomic fractional abundance and radiated power operators.
+        If self.aurora_run is True, uses aurora for ionisation balance calculation,
+        otherwise uses coronal approximation.
         """
-        fract_abu, power_loss_tot = default_atomic_data(
-            self.elements, full_run=self.full_run
-        )
+        if self.aurora_run:
+            assert (
+                self.equilibrium
+            ), "Equilibrium must be set before building atomic data for aurora run"
+            fract_abu = {}
+            for impurity in self.impurities:
+                fract_abu[impurity] = FractionalAbundanceAurora(
+                    impurity=impurity,
+                    main_ion=self.main_ion,
+                    aurora_config=AuroraConfig,
+                    equilibrium=self.equilibrium,
+                )
+            _fz, power_loss_tot = default_atomic_data(
+                self.elements, full_run=self.full_run
+            )
+            fract_abu[self.main_ion] = _fz[
+                self.main_ion
+            ]  # Aurora doesn't handle main ion calculation
+
+        else:
+            fract_abu, power_loss_tot = default_atomic_data(
+                self.elements, full_run=self.full_run
+            )
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
 
@@ -712,8 +792,7 @@ class PlasmaProfiler:
         map_vtor: bool = False,
     ):
         """
-        Interface Profiler objects with Plasma object to generate plasma profiles
-        and update them.
+        Interface Profilers with Plasma to generate plasma profiles and update them.
 
         Parameters
         ----------
@@ -721,6 +800,12 @@ class PlasmaProfiler:
             Plasma object
         profilers
             dictionary of Profiler objects to generate profiles
+        plasma_attribute_names
+            list of plasma attributes to be included in the phantom profiles,
+            if None all attributes will be included
+        map_vtor
+            if True, maps toroidal rotation to ion temperature profile shape,
+            otherwise uses toroidal rotation profile
         """
 
         if plasma_attribute_names is None:
@@ -733,6 +818,8 @@ class PlasmaProfiler:
                 "fast_ion_density",
                 "fast_ion_pressure",
                 "neutral_density",
+                "diffusion_coefficient",
+                "convection_coefficient",
                 "zeff",
                 "meanz",
                 "wp",

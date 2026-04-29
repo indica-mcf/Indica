@@ -3,9 +3,12 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
+from indica.configs.operators.aurora import AuroraConfig
 from indica.defaults.load_defaults import load_default_objects
+from indica.examples.example_plasma import example_plasma
 from indica.models import ThomsonScattering
 from indica.operators import tomo_1D
+from indica.operators.atomic_data import FractionalAbundanceAurora
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_2d_map
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
 from indica.operators.spline_fit_R_shift import fit_profile_and_R_shift
@@ -14,10 +17,11 @@ from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
 
-PLASMA = load_default_objects("st40", "plasma")
+PLASMA = example_plasma()
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
 TRANSFORMS = load_default_objects("st40", "geometry")
 PLASMA.set_equilibrium(EQUILIBRIUM)
+PLASMA.build_atomic_data()
 
 NPLOT = 3
 CM, COLS = set_plot_colors()
@@ -362,3 +366,27 @@ def example_fit_ts(
         plt.show()
 
     return te_data, ne_data, te_fit, ne_fit
+
+
+def example_aurora_run(plot: bool = False):
+    ne = PLASMA.electron_density
+    Te = PLASMA.electron_temperature
+    Nh = PLASMA.neutral_density
+    D_z = PLASMA.diffusion_coefficient
+    V_z = PLASMA.convection_coefficient
+    operator = FractionalAbundanceAurora(
+        impurity="ar",
+        aurora_config=AuroraConfig,
+        equilibrium=EQUILIBRIUM,
+    )
+    fz_t = operator(
+        Ne=ne,
+        Te=Te,
+        Nh=Nh,
+        D_z=D_z,
+        V_z=V_z,
+    )
+    if plot:
+        operator.plot()
+    plt.show()
+    return fz_t

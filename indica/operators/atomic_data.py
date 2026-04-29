@@ -2,15 +2,21 @@ import copy
 from typing import cast
 from typing import List
 from typing import Tuple
+import warnings
 
+import aurora
 import matplotlib.pylab as plt
 import numpy as np
 from numpy.core.numeric import zeros_like
+from omfit_classes import omfit_eqdsk
+import pandas as pd
 from pandas import DataFrame
 import scipy
 import xarray as xr
 from xarray import DataArray
 
+from indica import Equilibrium
+from indica.configs.operators.aurora import AuroraConfig
 from indica.configs.readers.adasconf import ADF11
 from indica.numpy_typing import LabeledArray
 from indica.profilers.profiler_gauss import ProfilerGauss
@@ -347,6 +353,196 @@ class FractionalAbundance(Operator):
             F_z_t = interpolate_results(self.F_z_t, self.Te, Te)
 
         return F_z_t
+
+
+class FractionalAbundanceAurora(Operator):
+    """
+    Calculate fractional abundance for all ionisation states using Aurora.
+    If the atomic data is not given, it will be inferred from Indica defaults in ADF11
+
+    equilibrium
+        Equilibrium object to take the geqdsk from
+    impurity
+        impurity to calculate the fractional abundance of
+    scd
+        effective ionisation rate coefficient string: f"scd{year}_{element}.dat"
+    acd
+        effective recombination rate coefficients string: f"acd{year}_{element}.dat"
+    ccd
+        charge exchange recombination coefficients string: f"ccd{year}_{element}.dat"
+    aurora_config
+        dictionary of Aurora namelist parameters, see configs/operators/aurora.py
+    """
+
+    def __init__(
+        self,
+        equilibrium: Equilibrium,
+        impurity: str = "ar",
+        main_ion: str = "d",
+        scd: str = None,
+        acd: str = None,
+        ccd: str = None,
+        aurora_config: dict = AuroraConfig,
+    ):
+
+        self.aurora_config = aurora_config
+        self.equilibrium = equilibrium
+        self.scd = scd
+        self.acd = acd
+        self.ccd = ccd
+        for key in ["acd", "scd", "ccd"]:
+            if getattr(self, key) is None:
+                year = ADF11[impurity][key]
+                adas_key = f"{key}{year}_{impurity}.dat"
+                setattr(self, key, adas_key)
+                self.aurora_config[key] = adas_key
+        self.aurora_config[
+            "imp"
+        ] = impurity.title()  # Aurora likes first letter capitalised
+        self.aurora_config["main_element"] = main_ion.title()
+
+    def set_geqdsk(
+        self,
+        t_point: float,
+    ):
+        assert isinstance(self.equilibrium, Equilibrium)
+        geqdsk_filepath = self.equilibrium.write_to_geqdsk(t_point=t_point)
+        self.geqdsk = omfit_eqdsk.OMFITgeqdsk(geqdsk_filepath)
+
+    def set_kinetic_profiles(
+        self,
+        Te: xr.DataArray,
+        Ne: xr.DataArray,
+        Nh: xr.DataArray,
+    ):
+        assert self.aurora_config
+        kp = self.aurora_config["kin_profs"]
+        kp["Te"]["rhop"] = Te.rhop.values
+        kp["ne"]["rhop"] = Ne.rhop.values
+        kp["n0"]["rhop"] = Nh.rhop.values
+        kp["Te"]["times"] = np.atleast_1d(Te.t.values)
+        kp["ne"]["times"] = np.atleast_1d(Ne.t.values)
+        kp["n0"]["times"] = np.atleast_1d(Nh.t.values)
+        kp["Te"]["vals"] = Te.values
+        kp["ne"]["vals"] = Ne.values * 1e-6  # m^-3 -> cm^-3
+        kp["n0"]["vals"] = Nh.values * 1e-6
+
+    def set_transport_profiles(
+        self,
+        D_z: xr.DataArray,
+        V_z: xr.DataArray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        # Interp DataArrays to Aurora rhop while converting to cm^-2 and cm^-1 units
+        assert self.asim
+        _D_z = (
+            D_z.interp(rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"})
+            * 1e4
+        )
+        _V_z = (
+            V_z.interp(rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"})
+            * 1e2
+        )
+        if D_z.ndim == 2:
+            _D_z = _D_z.transpose("rhop", "t").values
+            _V_z = _V_z.transpose("rhop", "t").values
+        elif D_z.ndim > 2:
+            raise Exception("D_z and V_z must be 1D or 2D.")
+        return _D_z, _V_z
+
+    def run_steady_state(
+        self, D_z: np.ndarray, V_z: np.ndarray, plot: bool = False, **kwargs
+    ):
+        # return self.asim.run_aurora_steady(D_z, V_z, plot=plot, **kwargs)
+        raise NotImplementedError
+
+    def run_time_evolution(
+        self, D_z: np.ndarray, V_z: np.ndarray, plot: bool = False, **kwargs
+    ):
+        return self.asim.run_aurora(D_z, V_z, plot=plot, **kwargs)
+
+    def plot_fractional_abundance(
+        self,
+    ):
+        assert self.F_z_t, "call the operator first to calculate F_z_t before plotting."
+        aurora.plot_tools.slider_plot(
+            self.F_z_t.rhop,
+            self.F_z_t.t,
+            self.F_z_t.values.transpose(2, 1, 0),
+            xlabel=r"$\rho$ [-]",
+            ylabel="time [s]",
+            zlabel=r"fractional abundance$ [-]",
+            labels=map(str, range(self.F_z_t.ion_charge.values.shape[0])),
+            plot_sum=True,
+        )
+
+    def __call__(
+        self,
+        Te: xr.DataArray,
+        Ne: xr.DataArray,
+        Nh: xr.DataArray,
+        D_z: xr.DataArray,
+        V_z: xr.DataArray,
+        plot: bool = False,
+    ) -> xr.DataArray:
+        """
+        Returns
+            fractional abundance as a function of time, rhop and ion charge.
+        """
+        if np.all(Nh.values == 0) and self.aurora_config["cxr_flag"]:
+            raise ValueError("Nh is zero but cxr_flag is True.")
+
+        if np.any(Nh.values != 0):
+            if not self.aurora_config["cxr_flag"]:
+                warnings.warn(
+                    "Nh is non-zero but cxr_flag is False,"
+                    "charge exchange will not be included."
+                )
+
+        self.set_kinetic_profiles(
+            Te,
+            Ne,
+            Nh,
+        )
+        times = np.atleast_1d(Te.t.values)  # same behaviour for 0D and 1D time inputs
+        nz_init = None
+        Nq = []  # density of ion charge states
+        _Nq = None
+        for t_idx, time in enumerate(times):
+            self.set_geqdsk(time)
+            if t_idx == 0:  # burn in time to reach steady state before time evolution
+                self.aurora_config["timing"]["times"] = np.array([-0.1, time])
+            else:
+                self.aurora_config["timing"]["times"] = np.array(
+                    [times[t_idx - 1], time]
+                )
+            self.asim = aurora.aurora_sim(
+                namelist=self.aurora_config, geqdsk=self.geqdsk
+            )
+            if t_idx != 0:
+                # use previous results as initial conditions for next time step
+                # Interpolate to match new rhop grid each time step
+                nz_init = _Nq.interp(
+                    rhop=self.asim.rhop_grid, kwargs={"fill_value": "extrapolate"}
+                ).values
+
+            _D_z, _V_z = self.set_transport_profiles(D_z, V_z)
+            aurora_result = self.run_time_evolution(
+                D_z=_D_z, V_z=_V_z, times_DV=D_z.t.values, nz_init=nz_init
+            )
+
+            _Nq = aurora_result["nz"][:, :, -1]
+            _Nq[_Nq < 0] = 0  # Set negative values to zero (numerical issues)
+            _Nq = xr.DataArray(
+                data=_Nq,
+                coords={
+                    "rhop": self.asim.rhop_grid,
+                    "ion_charge": np.arange(self.asim.Z_imp + 1),
+                },
+            )
+            Nq.append(_Nq.interp(rhop=Te.rhop))
+        Nq = xr.concat(Nq, pd.Index(times, name="t"))
+        self.F_z_t = Nq / Nq.sum("ion_charge")
+        return self.F_z_t
 
 
 class PowerLoss(Operator):

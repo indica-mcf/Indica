@@ -1,4 +1,5 @@
 """Refactoring of data read from the database to build DataArrays"""
+
 from typing import Any
 from typing import Dict
 from typing import Tuple

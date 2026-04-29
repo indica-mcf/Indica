@@ -62,6 +62,8 @@ UNITS: Dict[str, str] = {
     "conductivity": r"1/($\Ohm$ m)",
     "wavelength": "nm",
     "beam_energy": r"$eV/amu$",
+    "diffusion": "$m^2$/s",
+    "convection": "m/s",
 }
 
 # Dictionary of Indica datatypes
@@ -127,6 +129,8 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
         "Centrifugal asymmetry multiplier",
         "none",
     ),
+    "diffusion_coefficient": ("Diffusion coefficient", "diffusion"),
+    "convection_coefficient": ("Convection coefficient", "convection"),
     "faraday_rotation_integrated": ("Faraday rotation", "angle_radians"),
     "intensity": ("Intensity", "intensity"),
     "radiance": ("Radiance", "radiance"),
