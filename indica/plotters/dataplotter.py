@@ -36,6 +36,7 @@ class DataPlotter:
         t: LabeledArray,
         tstart: float = None,
         tend: float = None,
+        revision:str = None,
         machine: str = "st40",
         ttol: float = 0.005,
         nplot: int = 3,
@@ -47,7 +48,7 @@ class DataPlotter:
         tstart = Start of time range for which to plot
         tend = End of time range for which to plot
         ttol = tolerance for "nearest" timepoint selection
-        nplot = reduce number of plots by nplot times
+        nplot = number of time-points to be plotted
         """
 
         self.conf = MACHINE_CONFS[machine]()
@@ -67,8 +68,13 @@ class DataPlotter:
 
         _t = np.array(t, ndmin=1)
         self.times = _t[np.where((_t >= tstart) * (_t <= tend))[0]]
+        self._skip_plot = int(len(self.times)/self.nplot)
+
         self.title = f"{pulse} @ t=[{tstart:.3f}, {tend:.3f}] s"
-        self.fig_name = f"{pulse}_{tstart:.3f}_{tend:.3f}_s"
+        self.fig_name = f"{pulse}"
+        if revision is not None:
+            self.fig_name += f"_{revision.strip().upper()}"
+        self.fig_name += f"_{tstart:.3f}_{tend:.3f}_s"
         self.colors = CM(np.linspace(0.1, 0.75, np.size(self.times), dtype=float))
 
     # Profiles
@@ -83,7 +89,7 @@ class DataPlotter:
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
 
-            if _t is None or i % self.nplot:
+            if _t is None or i % self._skip_plot:
                 continue
 
             x, y, err = select_x_y_err(data, t=_t, xdim=xdim)
@@ -113,7 +119,7 @@ class DataPlotter:
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
 
-            if _t is None or i % self.nplot or not np.any(np.isfinite(data.sel(t=_t))):
+            if _t is None or i % self._skip_plot or not np.any(np.isfinite(data.sel(t=_t))):
                 continue
 
             x, y, err = select_x_y_err(data, _t, xdim=xdim)
@@ -123,7 +129,7 @@ class DataPlotter:
                 label = f"{_t:.3f} s"
 
             y.plot(label=label, color=self.colors[i], **_kwargs)
-            plt.errorbar(x, y, err, color=self.colors[i])
+            plt.errorbar(x, y, err, color=self.colors[i], **_kwargs)
 
     # Time evolution
     def _plot_time_evolution(

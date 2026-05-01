@@ -270,7 +270,7 @@ def build_dataarrays(
             _data = format_dataarray(data[quantity], datatype, coords)
         except Exception as e:
             print(f"\n Error formatting {quantity} \n")
-            raise (e)
+            continue
 
         if "t" in _data.dims and tstart is not None and tend is not None:
             _data = _data.sel(t=slice(tstart, tend))
