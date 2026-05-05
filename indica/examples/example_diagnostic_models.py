@@ -20,6 +20,7 @@ from indica.readers import SOLPSReader
 from indica.readers import ST40Reader
 
 
+
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
 ):
@@ -38,7 +39,13 @@ def run_example_diagnostic_model(
     bckc = model(
         sum_beamlets=False,
     )
+    print(type(bckc["brightness"]))
+    brightness = bckc["brightness"]
+    bckc["brightness_noised"] = model.add_poisson_noise(brightness)
+    corrcoef = np.corrcoef(bckc["brightness"].values.flatten(), bckc["brightness_noised"].values.flatten())
+    print(f"Correlation coefficient: {corrcoef[0, 1]}")
 
+    
     if plot and hasattr(model, "plot"):
         plt.ioff()
         model.plot()
@@ -234,4 +241,4 @@ def example_lyman_alpha_2d(
 
 
 if __name__ == "__main__":
-    example_passive_spectroscopy(plot=True)
+    plasma,model,bck=example_bolometer(plot=True)
