@@ -36,14 +36,16 @@ def run_example_diagnostic_model(
     model.set_transform(transform)
     model.set_plasma(plasma)
 
+
+
     bckc = model(
         sum_beamlets=False,
+        noise="poisson",
+        noise_config={"typical_counts": 50, "target_quantity": "brightness"},
     )
-    print(type(bckc["brightness"]))
+
+
     brightness = bckc["brightness"]
-    bckc["brightness_noised"] = model.add_poisson_noise(brightness)
-    corrcoef = np.corrcoef(bckc["brightness"].values.flatten(), bckc["brightness_noised"].values.flatten())
-    print(f"Correlation coefficient: {corrcoef[0, 1]}")
 
     
     if plot and hasattr(model, "plot"):

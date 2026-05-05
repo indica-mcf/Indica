@@ -3,8 +3,7 @@ from abc import abstractmethod
 
 from indica import Plasma
 from indica.converters import CoordinateTransform
-
-import numpy as np
+from indica.models.noise import get_noise_model
 
 class AbstractDiagnostic(ABC):
     name: str = ""
@@ -56,55 +55,36 @@ class AbstractDiagnostic(ABC):
         )
 
 
-    def add_poisson_noise(self, data, typical_counts=50, reference=None, rng=None):
-        """
-        Add signal-dependent Poisson noise to continuous positive data.
 
-        Parameters
-        ----------
-        data : np.ndarray or xarray.DataArray
-            Positive clean signal, e.g. shape (n_times, n_channels).
-        typical_counts : float
-            Effective counts at the reference signal level.
-            Smaller = noisier. Try 10, 100, 1000, 10000.
-        reference : float or None
-            Signal value corresponding to `typical_counts`.
-            If None, use mean(data).
-        rng : np.random.Generator or None
-            Optional random generator.
 
-        Returns
-        -------
-        noisy : np.ndarray or xarray.DataArray
-            Noisified data in original units. If `data` is an xarray.DataArray,
-            the output preserves its dimensions and coordinates.
-        """
-        if rng is None:
-            rng = np.random.default_rng()
+    def apply_noise(self, noise: str, noise_config: dict | None = None):
+        if noise_config is None:
+            noise_config = {}
+        if not isinstance(noise_config, dict):
+            raise TypeError("noise_config must be a dictionary.")
 
-        input_data = data
-        data = np.asarray(input_data)
+        noise_model = get_noise_model(noise)
+        config = dict(noise_config)
+        target_quantity = config.pop("target_quantity", None)
 
-        if np.any(data < 0):
-            raise ValueError("Poisson noise requires non-negative data.")
+        if target_quantity is None:
+            raise ValueError(
+                "noise_config must include 'target_quantity', e.g. "
+                "noise_config={'target_quantity': 'brightness', ...}."
+            )
+        if target_quantity not in self.bckc:
+            raise KeyError(
+                f"'{target_quantity}' not found in model output keys: "
+                f"{list(self.bckc.keys())}"
+            )
 
-        if reference is None:
-            reference = np.mean(data)
+        clean = self.bckc[target_quantity]
+        self.bckc[f"{target_quantity}_raw"] = clean
+        self.bckc[target_quantity] = noise_model(clean, **config)
 
-        if reference <= 0:
-            raise ValueError("reference must be positive.")
-
-        # Convert physical signal to effective Poisson counts
-        lam = typical_counts * data / reference
-
-        # Draw noisy counts
-        noisy_counts = rng.poisson(lam)
-
-        # Convert back to original units
-        noisy = noisy_counts * reference / typical_counts
-
-        # Preserve xarray metadata when available.
-        if hasattr(input_data, "dims") and hasattr(input_data, "coords") and hasattr(input_data, "copy"):
-            return input_data.copy(data=noisy)
-
-        return noisy
+    def finalize_bckc(self, **kwargs) -> dict:
+        noise = kwargs.get("noise")
+        noise_config = kwargs.get("noise_config")
+        if noise is not None:
+            self.apply_noise(noise=noise, noise_config=noise_config)
+        return self.bckc
