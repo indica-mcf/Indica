@@ -20,7 +20,6 @@ from indica.readers import SOLPSReader
 from indica.readers import ST40Reader
 
 
-
 def run_example_diagnostic_model(
     machine: str, instrument: str, model: Callable, plot: bool = False, **kwargs
 ):
@@ -36,18 +35,12 @@ def run_example_diagnostic_model(
     model.set_transform(transform)
     model.set_plasma(plasma)
 
-
-
     bckc = model(
         sum_beamlets=False,
         noise="poisson",
-        noise_config={"typical_counts": 50, "target_quantity": "brightness"},
+        noise_config={"typical_counts": 200, "target_quantity": "ne"},
     )
 
-
-    brightness = bckc["brightness"]
-
-    
     if plot and hasattr(model, "plot"):
         plt.ioff()
         model.plot()
@@ -243,4 +236,4 @@ def example_lyman_alpha_2d(
 
 
 if __name__ == "__main__":
-    plasma,model,bck=example_bolometer(plot=True)
+    plasma, model, bck = example_bolometer(plot=True)

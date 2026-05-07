@@ -3,7 +3,7 @@ from collections.abc import Callable
 import numpy as np
 
 
-def add_poisson_noise(data, typical_counts=50, reference=None, rng=None):
+def add_poisson_noise(data, typical_counts=100, reference=None, rng=None):
     """
     Add signal-dependent Poisson noise to continuous positive data.
 
@@ -12,7 +12,9 @@ def add_poisson_noise(data, typical_counts=50, reference=None, rng=None):
     data : np.ndarray or xarray.DataArray
         Positive clean signal.
     typical_counts : float
-        Effective counts at the reference signal level.
+        Effective counts at the reference signal level. Higher
+        values correspond to lower noise.
+        At 100, the noise is approximately 10% of the signal at the reference level.
     reference : float or None
         Signal value corresponding to ``typical_counts``.
         If None, use mean(data).
