@@ -471,7 +471,10 @@ class HelikeSpectrometer(AbstractDiagnostic):
         if "spectra_raw" in self.bckc.keys():
             spectra_raw = self.bckc["spectra_raw"]
             if "channel" in spectra_raw.dims:
-                spectra_raw = spectra_raw.sel(channel=np.median(channels))
+                # This was changed due to a type error in the
+                # more modern xarray versions. Same behavior.
+                spectra_raw = spectra_raw.isel(channel=len(channels) // 2)
+
             for i, t in enumerate(np.array(self.t, ndmin=1)):
                 plt.plot(
                     spectra_raw.wavelength,

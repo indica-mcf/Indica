@@ -51,7 +51,8 @@ class TestHelike:
         bckc = self.model(calc_spectra=True, moment_analysis=False)
         assert bckc
 
-wa=TestHelike()
+
+wa = TestHelike()
 wa.setup_class()
 wa.setup_method()
 wa.test_helike_spectra_with_multiple_LOS()
