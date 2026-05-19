@@ -23,6 +23,8 @@ class JETConf(MachineConf):
             "kb5v": "get_radiation",
             "ks3h": "get_zeff",
             "ks3v": "get_zeff",
+            "ks3h_bash": "get_spectrometer",
+            "ks3v_basv": "get_spectrometer",
             **{
                 "cx{}{}".format(val1, val2): "get_charge_exchange"
                 for val1 in ("s", "d", "f", "g", "h")
@@ -33,6 +35,12 @@ class JETConf(MachineConf):
                 for val1 in ("s", "d", "f", "g", "h")
                 for val2 in ("m", "w", "x", "4", "6", "8")
             },
+            **{
+                "cx{}{}_base".format(val1, val2): "get_spectrometer"
+                for val1 in ("s", "d", "f", "g", "h")
+                for val2 in ("m", "w", "x", "4", "6", "8")
+            },
+            **{f"t{i:>03}": "get_thomson_scattering" for i in range(1000)},
         }
         self.QUANTITIES_PATH = {
             "get_equilibrium": {
@@ -67,13 +75,17 @@ class JETConf(MachineConf):
             "get_density_reflectometer": {"R": "r", "z": "z", "ne": "ne"},
             "get_sxr_radiation": {},
             "get_radiation": {},
+            "get_spectrometer": {},
             "get_zeff": {"zeff_avrg": "zfbr"},
             "get_charge_exchange": {
                 "R": "rpos",
                 "z": "pos",
                 "ti": "ti",
-                "vtor": "angf",
+                "angf": "afcr",  # angf
+                "vtor": "afcr",  # angf -> vtor in reader step
                 "conc": "conc",
+                "dens": "dens",
+                "zeff_avrg": "zfbr",
             },
         }
         self._BREMSSTRAHLUNG_LOS = {
