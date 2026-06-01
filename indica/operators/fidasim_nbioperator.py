@@ -1,4 +1,5 @@
 import os
+import multiprocessing
 import shutil
 import subprocess
 
@@ -257,7 +258,7 @@ class NbiFidasim(NbiOperator):
         self._reuse_existing_outputs = False
         fidasim.prefida(inputs, grid, beam_cfg, plasma, equil, fi_dist)
 
-    def run(self, num_cores: int = 3, reuse_existing_outputs: bool = False):
+    def run(self, num_cores: int | None = None, reuse_existing_outputs: bool = False):
         """
         Run beam code
         """
@@ -268,6 +269,14 @@ class NbiFidasim(NbiOperator):
             return
 
         print("Running beam code")
+        if num_cores is None:
+            cpu_count = multiprocessing.cpu_count()
+            num_cores = max(1, cpu_count - 1)
+        if num_cores < 1:
+            raise ValueError(
+                f"num_cores must be >= 1, got {num_cores}. "
+                "Use None for automatic selection."
+            )
 
         fidasim_bin_path = getattr(self, "fidasim_bin_path", FIDASIM_BIN_PATH)
         if not fidasim_bin_path:
@@ -284,6 +293,12 @@ class NbiFidasim(NbiOperator):
             ]
         )
         if completed.returncode != 0:
+            if completed.returncode == -11:
+                raise RuntimeError(
+                    "FIDASIM crashed with return code -11 (segmentation fault). "
+                    "Try increasing stack size before running, e.g. "
+                    "`ulimit -s unlimited`, then retry."
+                )
             raise RuntimeError(
                 f"FIDASIM subprocess failed with return code {completed.returncode}. "
                 "Run with reuse_existing_outputs=True to process existing files."

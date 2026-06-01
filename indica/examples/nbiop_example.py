@@ -18,6 +18,7 @@ from indica.operators import NbiFidasim
 
 def run_nbi_operator_example(
     fi_dist_file: str,
+    num_cores: int | None = None,
     show_plots: bool = True,
     reuse_existing_outputs: bool = False,
     overwrite: bool = True,
@@ -65,7 +66,10 @@ def run_nbi_operator_example(
             "overwrite": overwrite,
             "reuse_existing_outputs": reuse_existing_outputs,
         },
-        run_kwargs={"reuse_existing_outputs": reuse_existing_outputs},
+        run_kwargs={
+            "num_cores": num_cores,
+            "reuse_existing_outputs": reuse_existing_outputs,
+        },
     )
 
     print("NBI result keys:", list(result.keys()))
@@ -93,6 +97,7 @@ if __name__ == "__main__":
         )
     run_nbi_operator_example(
         fi_dist_file=fi_dist_file,
+        num_cores=None,
         show_plots=False,
         reuse_existing_outputs=False,
         overwrite=True,
