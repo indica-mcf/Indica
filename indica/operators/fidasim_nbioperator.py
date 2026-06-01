@@ -50,6 +50,21 @@ class NbiFidasim(NbiOperator):
         Prepare NBI code input files translating Indica native
         quantities to what Fidasim expects
         """
+        if not fida_dir:
+            raise EnvironmentError(
+                "FIDASIM_DIR is not set. "
+                "Set FIDASIM_DIR or pass prepare_kwargs['fida_dir']."
+            )
+        fida_dir = os.path.expanduser(fida_dir)
+        save_dir = os.path.expanduser(save_dir)
+        fi_dist_file = os.path.expanduser(fi_dist_file)
+        if not os.path.isfile(fi_dist_file):
+            raise FileNotFoundError(
+                f"FIDASIM fast-ion distribution file not found: {fi_dist_file}. "
+                "Place it under ~/.indica/fidasim/dists/... or pass "
+                "prepare_kwargs['fi_dist_file']."
+            )
+        self.fidasim_bin_path = os.path.join(fida_dir, "fidasim")
 
         # File names and paths
         run_prefix = (
@@ -242,9 +257,16 @@ class NbiFidasim(NbiOperator):
 
         print("Running beam code")
 
+        fidasim_bin_path = getattr(self, "fidasim_bin_path", FIDASIM_BIN_PATH)
+        if not fidasim_bin_path:
+            raise EnvironmentError(
+                "FIDASIM executable path is not configured. "
+                "Set FIDASIM_DIR or pass prepare_kwargs['fida_dir']."
+            )
+
         completed = subprocess.run(
             [
-                FIDASIM_BIN_PATH,
+                fidasim_bin_path,
                 self.fidasim_out,
                 f"{num_cores}",
             ]

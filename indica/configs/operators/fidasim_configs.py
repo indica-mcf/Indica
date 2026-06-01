@@ -1,13 +1,15 @@
+import os
 from pathlib import Path
 
 # Paths & environment: file locations for FIDASIM install and output.
 # FOR FIDASIM INSTALLATION:
 # https://d3denergetic.github.io/FIDASIM/page/01_getting_started/01_install.html
-# And just make sure the installation is stored in .Indica folder
-FIDASIM_ROOT = Path.home() / ".Indica" / "fidasim"
-FIDASIM_BASE_DIR = str(FIDASIM_ROOT / "FIDASIM-2.0.0")
+# Keep all local FIDASIM inputs/outputs under lowercase ~/.indica.
+# FIDASIM installation path must be provided via FIDASIM_DIR.
+FIDASIM_ROOT = Path.home() / ".indica" / "fidasim"
+FIDASIM_BASE_DIR = os.environ.get("FIDASIM_DIR", "")
 FIDASIM_OUTPUT_DIR = str(FIDASIM_ROOT / "output")
-FIDASIM_BIN_PATH = str(Path(FIDASIM_BASE_DIR) / "fidasim")
+FIDASIM_BIN_PATH = str(Path(FIDASIM_BASE_DIR) / "fidasim") if FIDASIM_BASE_DIR else ""
 FIDASIM_FI_DIST_FILE = str(
     FIDASIM_ROOT / "dists" / "9188_150_rfx" / "a5fidasim_distribution.h5"
 )
