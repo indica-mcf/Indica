@@ -10,8 +10,10 @@ FIDASIM_ROOT = Path.home() / ".indica" / "fidasim"
 FIDASIM_BASE_DIR = os.environ.get("FIDASIM_DIR", "")
 FIDASIM_OUTPUT_DIR = str(FIDASIM_ROOT / "output")
 FIDASIM_BIN_PATH = str(Path(FIDASIM_BASE_DIR) / "fidasim") if FIDASIM_BASE_DIR else ""
-FIDASIM_FI_DIST_FILE = str(
-    FIDASIM_ROOT / "dists" / "9188_150_rfx" / "a5fidasim_distribution.h5"
+FIDASIM_TABLES_FILE = (
+    str(Path(FIDASIM_BASE_DIR) / "tables" / "atomic_tables.h5")
+    if FIDASIM_BASE_DIR
+    else ""
 )
 
 # Simulation switches: enable/disable individual fidasim capabilities

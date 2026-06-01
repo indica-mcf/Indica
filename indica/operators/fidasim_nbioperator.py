@@ -12,8 +12,8 @@ import xarray as xr
 
 from indica.configs.operators.fidasim_configs import FIDASIM_BASE_DIR
 from indica.configs.operators.fidasim_configs import FIDASIM_BIN_PATH
-from indica.configs.operators.fidasim_configs import FIDASIM_FI_DIST_FILE
 from indica.configs.operators.fidasim_configs import FIDASIM_OUTPUT_DIR
+from indica.configs.operators.fidasim_configs import FIDASIM_TABLES_FILE
 from indica.configs.operators.fidasim_configs import MC_SETTINGS_FINE
 from indica.configs.operators.fidasim_configs import PLASMA_INTERP_GRID_SETTINGS
 from indica.configs.operators.fidasim_configs import SIMULATION_SWITCHES
@@ -36,9 +36,10 @@ SHAPE_MAP_DEFAULT = 2
 class NbiFidasim(NbiOperator):
     def prepare(
         self,
-        fi_dist_file: str = FIDASIM_FI_DIST_FILE,
+        fi_dist_file: str | None = None,
         save_dir: str = FIDASIM_OUTPUT_DIR,
         fida_dir: str = FIDASIM_BASE_DIR,
+        tables_file: str = FIDASIM_TABLES_FILE,
         mc_settings: dict = MC_SETTINGS_FINE,
         wavelength_grid_settings: dict = WAVELENGTH_GRID_SETTINGS,
         weight_function_settings: dict = WEIGHT_FUNCTION_SETTINGS,
@@ -55,14 +56,25 @@ class NbiFidasim(NbiOperator):
                 "FIDASIM_DIR is not set. "
                 "Set FIDASIM_DIR or pass prepare_kwargs['fida_dir']."
             )
+        if not fi_dist_file:
+            raise ValueError(
+                "fi_dist_file is required. Pass prepare_kwargs['fi_dist_file']."
+            )
         fida_dir = os.path.expanduser(fida_dir)
         save_dir = os.path.expanduser(save_dir)
         fi_dist_file = os.path.expanduser(fi_dist_file)
+        tables_file = os.path.expanduser(tables_file) if tables_file else ""
+        if not tables_file:
+            tables_file = os.path.join(fida_dir, "tables", "atomic_tables.h5")
         if not os.path.isfile(fi_dist_file):
             raise FileNotFoundError(
                 f"FIDASIM fast-ion distribution file not found: {fi_dist_file}. "
-                "Place it under ~/.indica/fidasim/dists/... or pass "
-                "prepare_kwargs['fi_dist_file']."
+                "Set prepare_kwargs['fi_dist_file'] to a valid file path."
+            )
+        if not os.path.isfile(tables_file):
+            raise FileNotFoundError(
+                f"FIDASIM atomic tables file not found: {tables_file}. "
+                "Set prepare_kwargs['tables_file'] to a valid file path."
             )
         self.fidasim_bin_path = os.path.join(fida_dir, "fidasim")
 
@@ -211,7 +223,7 @@ class NbiFidasim(NbiOperator):
             "runid": run_prefix,
             "comment": "test",
             "result_dir": beam_save_dir,
-            "tables_file": fida_dir + "/tables/atomic_tables.h5",
+            "tables_file": tables_file,
         }
 
         nbi_settings = {

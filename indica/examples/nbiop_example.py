@@ -8,6 +8,8 @@ This example is intended as a smoke test for the new abstract-NBI interface:
 
 from __future__ import annotations
 
+import os
+
 from indica.configs.operators.nbi_configs import get_default_nbi_transform_config
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.defaults.load_defaults import load_default_objects
@@ -15,6 +17,7 @@ from indica.operators import NbiFidasim
 
 
 def run_nbi_operator_example(
+    fi_dist_file: str,
     show_plots: bool = True,
     reuse_existing_outputs: bool = False,
     overwrite: bool = True,
@@ -58,6 +61,7 @@ def run_nbi_operator_example(
         file_name="nbiop_example",
         machine=machine,
         prepare_kwargs={
+            "fi_dist_file": fi_dist_file,
             "overwrite": overwrite,
             "reuse_existing_outputs": reuse_existing_outputs,
         },
@@ -81,7 +85,14 @@ def run_nbi_operator_example(
 
 
 if __name__ == "__main__":
+    fi_dist_file = os.environ.get("FIDASIM_FI_DIST_FILE")
+    if not fi_dist_file:
+        raise EnvironmentError(
+            "Set FIDASIM_FI_DIST_FILE to run this example "
+            "(explicit fi_dist_file is required)."
+        )
     run_nbi_operator_example(
+        fi_dist_file=fi_dist_file,
         show_plots=False,
         reuse_existing_outputs=False,
         overwrite=True,
