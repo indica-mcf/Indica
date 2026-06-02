@@ -34,6 +34,10 @@ SHAPE_MAP = {
 SHAPE_MAP_DEFAULT = 2
 
 
+#Note that the dists files etc. have to be provided by the
+#user, e.g. via environment variables or direct kwargs in the operator call.
+
+
 class NbiFidasim(NbiOperator):
     def prepare(
         self,

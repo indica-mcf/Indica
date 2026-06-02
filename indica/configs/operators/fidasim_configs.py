@@ -16,6 +16,9 @@ FIDASIM_TABLES_FILE = (
     else ""
 )
 
+#Note that the dists files etc. have to be provided by the
+#user, e.g. via environment variables or direct kwargs in the operator call.
+
 # Simulation switches: enable/disable individual fidasim capabilities
 SIMULATION_SWITCHES = {
     "calc_npa": 0,
