@@ -1,5 +1,5 @@
-import os
 import multiprocessing
+import os
 import shutil
 import subprocess
 
@@ -236,7 +236,7 @@ class NbiFidasim(NbiOperator):
         }
         plasma_settings = {
             "ai": self.target_element_info["A"],
-            #"impurity_charge": int(np.mean(self.MeanZ)),
+            # "impurity_charge": int(np.mean(self.MeanZ)),
             "impurity_charge": self.impurity_charge,
         }
         inputs = dict(general_settings)
