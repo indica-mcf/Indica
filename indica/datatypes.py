@@ -62,6 +62,7 @@ UNITS: Dict[str, str] = {
     "conductivity": r"1/($\Ohm$ m)",
     "wavelength": "nm",
     "beam_energy": r"$eV/amu$",
+    "beam_power": "W",
     "diffusion": "$m^2$/s",
     "convection": "m/s",
 }
