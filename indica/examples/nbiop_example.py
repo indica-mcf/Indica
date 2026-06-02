@@ -13,7 +13,7 @@ import os
 from indica.configs.operators.nbi_configs import get_default_nbi_transform_config
 from indica.converters.line_of_sight import LineOfSightTransform
 from indica.defaults.load_defaults import load_default_objects
-from indica.operators import NbiFidasim
+from indica.operators.fidasim_nbioperator import NbiFidasim
 
 
 def run_nbi_operator_example(
