@@ -670,6 +670,7 @@ class Plasma:
         otherwise uses coronal approximation.
         """
         from indica.operators.atomic_data import default_atomic_data
+
         if self.aurora_run:
             assert (
                 self.equilibrium
