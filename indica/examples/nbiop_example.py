@@ -57,6 +57,7 @@ def run_nbi_operator_example(
         Vtor=plasma.toroidal_rotation,
         Zeff=plasma.zeff,
         MeanZ=plasma.meanz,
+        ImpurityCharge=5,
         target_element="d",
         t=float(plasma.t[5]),
         file_name="nbiop_example",

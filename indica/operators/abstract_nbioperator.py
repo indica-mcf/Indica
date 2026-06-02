@@ -69,6 +69,7 @@ class NbiOperator(ABC):
         Vtor: DataArray,
         Zeff: DataArray,
         MeanZ: DataArray,
+        ImpurityCharge: int,
         target_element: str,
         t: float,
         file_name: Optional[str] = "",
@@ -111,6 +112,7 @@ class NbiOperator(ABC):
         self.Vtor = Vtor.interp(t=t)
         self.Zeff = Zeff.sum("element").interp(t=t)
         self.MeanZ = MeanZ.mean("element").interp(t=t)
+        self.impurity_charge = ImpurityCharge
 
         """Prepare input data structure for NBI code"""
         self.prepare(**prepare_kwargs)

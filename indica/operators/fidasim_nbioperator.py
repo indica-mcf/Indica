@@ -236,9 +236,9 @@ class NbiFidasim(NbiOperator):
         }
         plasma_settings = {
             "ai": self.target_element_info["A"],
-            "impurity_charge": int(np.mean(self.MeanZ)),
+            #"impurity_charge": int(np.mean(self.MeanZ)),
+            "impurity_charge": self.impurity_charge,
         }
-
         inputs = dict(general_settings)
         inputs.update(simulation_switches)
         inputs.update(mc_settings)
