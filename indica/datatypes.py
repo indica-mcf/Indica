@@ -62,6 +62,7 @@ UNITS: Dict[str, str] = {
     "conductivity": r"1/($\Ohm$ m)",
     "wavelength": "nm",
     "beam_energy": r"$eV/amu$",
+    "beam_power": "W",
     "diffusion": "$m^2$/s",
     "convection": "m/s",
 }
@@ -105,6 +106,11 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "rhot": (r"$\rho_{tor}$", "none"),
     "location": ("Location", "length"),  # this is an array (x, y, z)
     "direction": ("Direction", "length"),  # this is an array (dx, dy, dz)
+    "divergence": ("Divergence", "angle_radians"),
+    "focal_length": ("Focal length", "length"),
+    "spot_height": ("Spot height", "length"),
+    "spot_width": ("Spot width", "length"),
+    "spot_shape": ("Spot shape", "none"),
     "element": ("Element", "none"),
     "impurity": ("Impurity", "none"),
     "residence_time": (r"Impurity residence time $\tau$", "time"),
@@ -216,5 +222,9 @@ DATATYPES: Dict[str, Tuple[str, str]] = {
     "parallel_conductivity": (r"$\sigma$", "conductivity"),
     "rf_frequency": (r"$\omega_{RF}$", "frequency"),
     "harmonic_number": ("Harmonic Number", "none"),
-    "beam_energy": (r"$E_{b}$", "beam_energy"),
+    "beam_energy_components": ("$E1/2/3$", "none"),
+    "beam_energy": (r"$E_{NBI}$", "beam_energy"),
+    "beam_power": (r"$P_{NBI}$", "beam_power"),
+    "beam_current_fraction": (r"$I_{fraction}$", "percent"),
+    "beam_power_fraction": (r"$P_{fraction}$", "percent"),
 }
