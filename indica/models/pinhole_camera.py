@@ -147,7 +147,7 @@ class PinholeCamera(AbstractDiagnostic):
 
         self._build_bckc_dictionary()
 
-        return self.bckc
+        return self.finalize_bckc(**kwargs)
 
     def plot(self, nplot: int = 1):
         if len(self.bckc) == 0:

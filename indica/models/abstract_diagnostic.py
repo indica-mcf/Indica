@@ -3,6 +3,7 @@ from abc import abstractmethod
 
 from indica import Plasma
 from indica.converters import CoordinateTransform
+from indica.models.noise import get_noise_model
 
 
 class AbstractDiagnostic(ABC):
@@ -53,3 +54,49 @@ class AbstractDiagnostic(ABC):
             "{} does not implement a "
             "'__call__' method.".format(self.__class__.__name__)
         )
+
+    def apply_noise(self, noise: str, noise_config: dict | None = None):
+        """
+        Apply noise to the back-calculated values.
+        The noise is applied to the quantity specified by
+        'target_quantity' in noise_config.
+        Preserves the original data in a new key with suffix
+          '_raw', e.g. 'brightness_raw' for 'brightness'.
+        """
+        if noise_config is None:
+            noise_config = {}
+        if not isinstance(noise_config, dict):
+            raise TypeError("noise_config must be a dictionary.")
+
+        noise_model = get_noise_model(noise)
+        config = dict(noise_config)
+        target_quantity = config.pop("target_quantity", None)
+
+        if target_quantity is None:
+            raise ValueError(
+                "noise_config must include 'target_quantity', e.g. "
+                "noise_config={'target_quantity': 'brightness', ...}."
+            )
+        if target_quantity not in self.bckc:
+            raise KeyError(
+                f"'{target_quantity}' not found in model output keys: "
+                f"{list(self.bckc.keys())}"
+            )
+
+        clean = self.bckc[target_quantity]
+        self.bckc[f"{target_quantity}_raw"] = clean
+        self.bckc[target_quantity] = noise_model(clean, **config)
+
+    def finalize_bckc(self, **kwargs) -> dict:
+        """
+        If this is called from the model subclass,
+        the back-calculated values the model has created
+        are stored in self.bckc.
+        This method can be used to apply noise or other
+        post-processing steps before returning the final bckc dictionary.
+        """
+        noise = kwargs.get("noise")
+        noise_config = kwargs.get("noise_config")
+        if noise is not None:
+            self.apply_noise(noise=noise, noise_config=noise_config)
+        return self.bckc

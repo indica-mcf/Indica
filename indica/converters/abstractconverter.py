@@ -547,11 +547,16 @@ class CoordinateTransform(ABC):
                 color="k",
             )
             if hasattr(self, "equilibrium"):
-                rhop_equil.plot.contour(
+                contour_kwargs = dict(
                     levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99],
-                    linestyle="dotted",
+                    linestyles="dotted",
                     alpha=0.8,
                 )
+                # Support both xarray plot accessor style and older function style.
+                if hasattr(rhop_equil.plot, "contour"):
+                    rhop_equil.plot.contour(**contour_kwargs)
+                else:
+                    xr.plot.contour(rhop_equil, **contour_kwargs)
 
             plot_geometry(
                 self.R,

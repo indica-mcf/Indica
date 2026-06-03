@@ -41,6 +41,7 @@ class TestHelike:
     ):
         self.model.set_transform(self.multiple_channel_los_transform)
         bckc = self.model(calc_spectra=True, moment_analysis=False)
+        self.model.plot()
         assert bckc
 
     def test_helike_spectra_with_single_LOS(
@@ -49,3 +50,9 @@ class TestHelike:
         self.model.set_transform(self.single_channel_los_transform)
         bckc = self.model(calc_spectra=True, moment_analysis=False)
         assert bckc
+
+
+wa = TestHelike()
+wa.setup_class()
+wa.setup_method()
+wa.test_helike_spectra_with_multiple_LOS()
