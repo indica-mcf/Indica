@@ -3,7 +3,7 @@ from abc import abstractmethod
 
 from indica import Plasma
 from indica.converters import CoordinateTransform
-from indica.models.noise import get_noise_model
+from indica.operators.noise import get_noise_model
 
 
 class AbstractDiagnostic(ABC):
