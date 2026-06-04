@@ -71,3 +71,37 @@ class TestModels:
 
         window = np.linspace(100, 200, 100)
         self.run_model("xrcs", PassiveSpectrometer, window=window, pecs=pec_database)
+
+    def test_bolometer_poisson_noise(self):
+        model = PinholeCamera("blom_xy1", self.power_loss)
+        transform = self.transforms["blom_xy1"]
+        if hasattr(transform, "set_equilibrium"):
+            transform.set_equilibrium(self.equilibrium)
+        model.set_transform(transform)
+        model.set_plasma(self.plasma)
+
+        clean_bckc = model(sum_beamlets=False)
+        noisy_bckc = model(
+            sum_beamlets=False,
+            noise="poisson",
+            noise_config={
+                "target_quantity": "brightness",
+                "typical_counts": 2500,
+                "rng": np.random.default_rng(12345),
+            },
+        )
+
+        clean = clean_bckc["brightness"].values
+        noisy = noisy_bckc["brightness"].values
+        raw = noisy_bckc["brightness_raw"].values
+
+        assert np.allclose(clean, raw, equal_nan=True)
+
+        finite_positive = np.isfinite(clean) & np.isfinite(noisy) & (clean > 0)
+        assert np.any(finite_positive)
+
+        rel_change = np.abs((noisy[finite_positive] - clean[finite_positive]) / clean[finite_positive])
+
+        assert np.any(~np.isclose(noisy[finite_positive], clean[finite_positive]))
+        assert rel_change.mean() > 1e-4
+        assert rel_change.mean() < 0.2
