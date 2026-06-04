@@ -57,7 +57,7 @@ class Polarimeter(AbstractDiagnostic):
 
     def _build_bckc_dictionary(
         self,
-        noise: str | None = None,
+        noise_model: str | None = None,
         noise_config: dict | None = None,
     ):
         bckc = {
@@ -68,8 +68,8 @@ class Polarimeter(AbstractDiagnostic):
             "dphi": self.los_integral_dphi,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
-        if noise is not None:
-            self.apply_noise(noise=noise, noise_config=noise_config)
+        if noise_model is not None:
+            self.apply_noise(noise_model=noise_model, noise_config=noise_config)
 
     def __call__(
         self,
@@ -190,7 +190,7 @@ class Polarimeter(AbstractDiagnostic):
         self.los_integral_dphi = los_integral_dphi
 
         self._build_bckc_dictionary(
-            noise=kwargs.get("noise"),
+            noise_model=kwargs.get("noise_model", kwargs.get("noise")),
             noise_config=kwargs.get("noise_config"),
         )
         return self.bckc

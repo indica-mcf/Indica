@@ -83,7 +83,7 @@ class TestModels:
         clean_bckc = model(sum_beamlets=False)
         noisy_bckc = model(
             sum_beamlets=False,
-            noise="poisson",
+            noise_model="poisson",
             noise_config={
                 "target_quantity": "brightness",
                 "typical_counts": 2500,
@@ -93,7 +93,7 @@ class TestModels:
 
         clean = clean_bckc["brightness"].values
         noisy = noisy_bckc["brightness"].values
-        raw = noisy_bckc["brightness_raw"].values
+        raw = noisy_bckc["brightness_clean"].values
 
         assert np.allclose(clean, raw, equal_nan=True)
 

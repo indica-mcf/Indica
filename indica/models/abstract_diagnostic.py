@@ -36,7 +36,7 @@ class AbstractDiagnostic(ABC):
     @abstractmethod
     def _build_bckc_dictionary(
         self,
-        noise: str | None = None,
+        noise_model: str | None = None,
         noise_config: dict | None = None,
     ):
         """
@@ -59,21 +59,21 @@ class AbstractDiagnostic(ABC):
             "'__call__' method.".format(self.__class__.__name__)
         )
 
-    def apply_noise(self, noise: str, noise_config: dict | None = None):
+    def apply_noise(self, noise_model: str, noise_config: dict | None = None):
         """
         Apply noise to the back-calculated values.
         The noise is applied to the quantity specified by
         'target_quantity' in noise_config.
         Noise models operate on DataArray values in self.bckc.
         Preserves the original data in a new key with suffix
-          '_raw', e.g. 'brightness_raw' for 'brightness'.
+          '_clean', e.g. 'brightness_clean' for 'brightness'.
         """
         if noise_config is None:
             noise_config = {}
         if not isinstance(noise_config, dict):
             raise TypeError("noise_config must be a dictionary.")
 
-        noise_model = get_noise_model(noise)
+        noise_operator = get_noise_model(noise_model)
         config = dict(noise_config)
         target_quantity = config.pop("target_quantity", None)
 
@@ -89,5 +89,5 @@ class AbstractDiagnostic(ABC):
             )
 
         clean = self.bckc[target_quantity]
-        self.bckc[f"{target_quantity}_raw"] = clean
-        self.bckc[target_quantity] = noise_model(clean, **config)
+        self.bckc[f"{target_quantity}_clean"] = clean
+        self.bckc[target_quantity] = noise_operator(clean, **config)

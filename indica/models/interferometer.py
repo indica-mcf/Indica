@@ -31,7 +31,7 @@ class Interferometer(AbstractDiagnostic):
 
     def _build_bckc_dictionary(
         self,
-        noise: str | None = None,
+        noise_model: str | None = None,
         noise_config: dict | None = None,
     ):
         bckc = {
@@ -42,8 +42,8 @@ class Interferometer(AbstractDiagnostic):
             "ne": self.los_integral_ne,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
-        if noise is not None:
-            self.apply_noise(noise=noise, noise_config=noise_config)
+        if noise_model is not None:
+            self.apply_noise(noise_model=noise_model, noise_config=noise_config)
 
     def __call__(
         self, Ne: DataArray = None, t: LabeledArray = None, calc_rho=False, **kwargs
@@ -80,7 +80,7 @@ class Interferometer(AbstractDiagnostic):
         self.los_integral_ne = los_integral_ne
 
         self._build_bckc_dictionary(
-            noise=kwargs.get("noise"),
+            noise_model=kwargs.get("noise_model", kwargs.get("noise")),
             noise_config=kwargs.get("noise_config"),
         )
         return self.bckc
