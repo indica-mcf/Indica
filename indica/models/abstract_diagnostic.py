@@ -64,6 +64,7 @@ class AbstractDiagnostic(ABC):
         Apply noise to the back-calculated values.
         The noise is applied to the quantity specified by
         'target_quantity' in noise_config.
+        Noise models operate on DataArray values in self.bckc.
         Preserves the original data in a new key with suffix
           '_raw', e.g. 'brightness_raw' for 'brightness'.
         """
