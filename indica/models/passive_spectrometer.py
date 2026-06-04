@@ -185,7 +185,11 @@ class PassiveSpectrometer(AbstractDiagnostic):
         self.spectra_los = self.transform.along_los
         return self.measured_spectra
 
-    def _build_bckc_dictionary(self):
+    def _build_bckc_dictionary(
+        self,
+        noise: str | None = None,
+        noise_config: dict | None = None,
+    ):
         bckc = {
             "t": self.t,
             "channel": np.arange(len(self.transform.x1)),
@@ -195,6 +199,8 @@ class PassiveSpectrometer(AbstractDiagnostic):
             "spectra": self.measured_spectra,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
+        if noise is not None:
+            self.apply_noise(noise=noise, noise_config=noise_config)
 
     def __call__(
         self,
@@ -265,7 +271,10 @@ class PassiveSpectrometer(AbstractDiagnostic):
 
         self.calculate_intensity()
         self.make_spectra()
-        self._build_bckc_dictionary()
+        self._build_bckc_dictionary(
+            noise=kwargs.get("noise"),
+            noise_config=kwargs.get("noise_config"),
+        )
         return self.bckc
 
     def plot(self):

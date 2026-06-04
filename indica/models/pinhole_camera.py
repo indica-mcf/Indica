@@ -39,7 +39,11 @@ class PinholeCamera(AbstractDiagnostic):
         self.Lz: dict
         self.fz: dict
 
-    def _build_bckc_dictionary(self):
+    def _build_bckc_dictionary(
+        self,
+        noise: str | None = None,
+        noise_config: dict | None = None,
+    ):
         bckc = {
             "t": self.t,
             "channel": np.arange(len(self.transform.x1)),
@@ -51,6 +55,8 @@ class PinholeCamera(AbstractDiagnostic):
             bckc["beamlet"] = self.los_integral.beamlet
 
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
+        if noise is not None:
+            self.apply_noise(noise=noise, noise_config=noise_config)
 
     def __call__(
         self,
@@ -145,9 +151,12 @@ class PinholeCamera(AbstractDiagnostic):
             sum_beamlets=sum_beamlets,
         )
 
-        self._build_bckc_dictionary()
+        self._build_bckc_dictionary(
+            noise=kwargs.get("noise"),
+            noise_config=kwargs.get("noise_config"),
+        )
 
-        return self.finalize_bckc(**kwargs)
+        return self.bckc
 
     def plot(self, nplot: int = 1):
         if len(self.bckc) == 0:

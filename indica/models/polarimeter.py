@@ -55,7 +55,11 @@ class Polarimeter(AbstractDiagnostic):
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
 
-    def _build_bckc_dictionary(self):
+    def _build_bckc_dictionary(
+        self,
+        noise: str | None = None,
+        noise_config: dict | None = None,
+    ):
         bckc = {
             "t": self.t,
             "channel": np.arange(len(self.transform.x1)),
@@ -64,6 +68,8 @@ class Polarimeter(AbstractDiagnostic):
             "dphi": self.los_integral_dphi,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
+        if noise is not None:
+            self.apply_noise(noise=noise, noise_config=noise_config)
 
     def __call__(
         self,
@@ -183,7 +189,10 @@ class Polarimeter(AbstractDiagnostic):
         los_integral_dphi.name = "Faraday Rotation Integrated (rad)"
         self.los_integral_dphi = los_integral_dphi
 
-        self._build_bckc_dictionary()
+        self._build_bckc_dictionary(
+            noise=kwargs.get("noise"),
+            noise_config=kwargs.get("noise_config"),
+        )
         return self.bckc
 
     def plot(self, nplot: int = 1):

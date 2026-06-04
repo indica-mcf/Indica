@@ -322,7 +322,11 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.measured_Ti = measured_Ti
         self.measured_Nimp = measured_Nimp
 
-    def _build_bckc_dictionary(self):
+    def _build_bckc_dictionary(
+        self,
+        noise: str | None = None,
+        noise_config: dict | None = None,
+    ):
         bckc = {
             "t": self.t,
             "channel": np.arange(len(self.transform.x1)),
@@ -346,6 +350,8 @@ class HelikeSpectrometer(AbstractDiagnostic):
             self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
 
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
+        if noise is not None:
+            self.apply_noise(noise=noise, noise_config=noise_config)
 
     def __call__(
         self,
@@ -457,7 +463,10 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 wavelength=round(pixel_offset), fill_value=np.nan
             )
 
-        self._build_bckc_dictionary()
+        self._build_bckc_dictionary(
+            noise=kwargs.get("noise"),
+            noise_config=kwargs.get("noise_config"),
+        )
         return self.bckc
 
     def plot(self):

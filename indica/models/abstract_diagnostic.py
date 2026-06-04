@@ -34,7 +34,11 @@ class AbstractDiagnostic(ABC):
                 setattr(self, key, value)
 
     @abstractmethod
-    def _build_bckc_dictionary(self):
+    def _build_bckc_dictionary(
+        self,
+        noise: str | None = None,
+        noise_config: dict | None = None,
+    ):
         """
         Calculate back-calculated expected values that the diagnostic will
         be measuring. This can be directly compared to the data read in by
@@ -86,17 +90,3 @@ class AbstractDiagnostic(ABC):
         clean = self.bckc[target_quantity]
         self.bckc[f"{target_quantity}_raw"] = clean
         self.bckc[target_quantity] = noise_model(clean, **config)
-
-    def finalize_bckc(self, **kwargs) -> dict:
-        """
-        If this is called from the model subclass,
-        the back-calculated values the model has created
-        are stored in self.bckc.
-        This method can be used to apply noise or other
-        post-processing steps before returning the final bckc dictionary.
-        """
-        noise = kwargs.get("noise")
-        noise_config = kwargs.get("noise_config")
-        if noise is not None:
-            self.apply_noise(noise=noise, noise_config=noise_config)
-        return self.bckc
