@@ -12,12 +12,12 @@ def add_poisson_noise(
     rng: np.random.Generator | None = None,
 ) -> DataArray:
     """
-    Add signal-dependent Poisson noise to non-negative DataArray data.
+    Add signal-dependent Poisson noise to positive DataArray values.
 
     Parameters
     ----------
     data : xarray.DataArray
-        Non-negative clean signal.
+        Clean signal. Noise is applied only where ``data > 0``.
     typical_counts : float
         Effective counts at the reference signal level. Higher
         values correspond to lower noise.
@@ -40,22 +40,33 @@ def add_poisson_noise(
     if typical_counts <= 0:
         raise ValueError("typical_counts must be positive.")
 
-    if bool((data < 0).fillna(False).any().item()):
-        raise ValueError("Poisson noise requires non-negative data.")
+    positive_mask = (data > 0).fillna(False)
+    if not bool(positive_mask.any().item()):
+        unchanged = data.copy()
+        unchanged = unchanged.assign_attrs(data.attrs)
+        unchanged.name = data.name
+        return unchanged
 
     if reference is None:
-        reference = float(data.mean(skipna=True).item())
+        reference = float(data.where(positive_mask).mean(skipna=True).item())
 
     if isinstance(reference, DataArray):
-        if bool((reference <= 0).fillna(False).any().item()):
-            raise ValueError("reference must be positive.")
+        invalid_reference = ((reference <= 0) | ~np.isfinite(reference)).fillna(False)
+        if bool((invalid_reference & positive_mask).any().item()):
+            raise ValueError("reference must be positive where data > 0.")
+        safe_reference = xr.where(positive_mask, reference, 1.0)
     else:
         if not np.isfinite(reference) or reference <= 0:
             raise ValueError("reference must be positive.")
+        safe_reference = reference
 
-    lam = typical_counts * data / reference
+    lam = xr.where(positive_mask, typical_counts * data / safe_reference, 0.0)
     noisy_counts = xr.apply_ufunc(rng.poisson, lam, keep_attrs=True)
-    noisy = noisy_counts * reference / typical_counts
+    noisy = xr.where(
+        positive_mask,
+        noisy_counts * safe_reference / typical_counts,
+        data,
+    )
 
     # Explicitly preserve data variable attrs/name.
     noisy = noisy.assign_attrs(data.attrs)
