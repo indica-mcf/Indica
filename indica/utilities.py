@@ -240,8 +240,7 @@ def build_dataarrays(
     tstart: float = None,
     tend: float = None,
     transform=None,
-    include_error: bool = True,
-    verbose: bool = False,
+    debug: bool = False,
 ) -> Dict[str, DataArray]:
     """Organizes data in DataArray format with coordinates, long_name & units"""
     data_arrays: dict = {}
@@ -254,7 +253,7 @@ def build_dataarrays(
 
         # Build coordinate dictionary
         datatype, dims = available_quantities[quantity]
-        if verbose:
+        if debug:
             print(f"  {quantity} - {datatype}")
 
         coords: dict = {}
@@ -269,7 +268,8 @@ def build_dataarrays(
         try:
             _data = format_dataarray(data[quantity], datatype, coords)
         except Exception as e:
-            print(f"\n Error formatting {quantity} \n")
+            if debug:
+                print(f"\n Error formatting {quantity}:{e} \n")
             continue
 
         if "t" in _data.dims and tstart is not None and tend is not None:
@@ -277,14 +277,13 @@ def build_dataarrays(
             _data = _data.sortby([dim for dim in dims if dim != "t"])
 
         # Build error DataArray, filter negative values, assign as coordinate
-        if include_error and len(dims) != 0:
-            _error = xr.zeros_like(_data)
-            if quantity + "_error" in data:
-                _error = format_dataarray(data[quantity + "_error"], datatype, coords)
-                if "t" in _error.dims and tstart is not None and tend is not None:
-                    _error = _error.sel(t=slice(tstart, tend))
-                _error = xr.where((_error >= 0) * (_error / _data < 1), _error, np.nan)
-            _data = _data.assign_coords(error=(_data.dims, _error.data))
+        _error = xr.zeros_like(_data)
+        if len(dims) != 0 and f"{quantity}_error" in data:
+            _error = format_dataarray(data[quantity + "_error"], datatype, coords)
+            if "t" in _error.dims and tstart is not None and tend is not None:
+                _error = _error.sel(t=slice(tstart, tend))
+            _error = xr.where((_error >= 0) * (_error / _data < 1), _error, np.nan)
+        _data = _data.assign_coords(error=(_data.dims, _error.data))
 
         # Check that times are unique
         if "t" in _data:
