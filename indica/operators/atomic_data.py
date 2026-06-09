@@ -515,9 +515,6 @@ class PowerLoss(Operator):
             fractional abundance of all ionisation charges of given element
         """
 
-        if len(np.shape(Te)) > 1:
-            raise ValueError("PowerLoss currently works only with 1D inputs!")
-
         if self.full_run or not hasattr(self, "cooling_factor"):
             self.interpolate_power(Ne, Te)
             cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nh)  # type: ignore
@@ -589,8 +586,8 @@ def default_profiles(n_rad: int = 20):
     rho_end = 1.01
     rho = np.abs(np.linspace(rho_end, 0, n_rad) ** 1.8 - rho_end - 0.01)
     rho_coord = xr.DataArray(rho, coords={"rhop": rho}, dims="rhop").coords
-    Te = xr.DataArray(np.linspace(50, 10e3, n_rad), coords=rho_coord)
-    Ne = xr.DataArray(np.logspace(18, 21, n_rad), coords=rho_coord)
+    Te = xr.DataArray(np.linspace(10, 10e3, n_rad), coords=rho_coord)
+    Ne = xr.DataArray(np.logspace(16, 21, n_rad), coords=rho_coord)
 
     # TODO: fix FractionalAbundance so that it does 2d interp of Nh and Te
     params = {
