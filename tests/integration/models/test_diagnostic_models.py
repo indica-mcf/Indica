@@ -80,7 +80,7 @@ class TestModels:
         model.set_transform(transform)
         model.set_plasma(self.plasma)
 
-        clean_bckc = model(sum_beamlets=False)
+        clean_bckc = model(sum_beamlets=False, noise_model=None)
         noisy_bckc = model(
             sum_beamlets=False,
             noise_model="poisson",

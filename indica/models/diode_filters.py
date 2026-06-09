@@ -37,7 +37,7 @@ class BremsstrahlungDiode(AbstractDiagnostic):
         calibration: float = 1,
         instrument_method="get_diode_filters",
         channel_mask: slice = None,
-        noise_model: str | None = None,
+        noise_model: str | None = "poisson",
         noise_config: dict | None = None,
     ):
         """
@@ -71,8 +71,14 @@ class BremsstrahlungDiode(AbstractDiagnostic):
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
         self.channel_mask = channel_mask
+        if noise_config is None:
+            noise_config = {
+                "target_quantity": "brightness",
+                "typical_counts": 400,
+                "background": 0,
+            }
         self.noise_model = noise_model
-        self.noise_config = {} if noise_config is None else dict(noise_config)
+        self.noise_config = dict(noise_config)
         self._call_noise_model = self.noise_model
         self._call_noise_config = self.noise_config
 

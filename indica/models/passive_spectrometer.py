@@ -97,7 +97,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         pecs: dict,
         window: np.array,
         instrument_method="get_spectrometer",
-        noise_model: str | None = None,
+        noise_model: str | None = "poisson",
         noise_config: dict | None = None,
     ):
 
@@ -107,8 +107,14 @@ class PassiveSpectrometer(AbstractDiagnostic):
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
         self.window = xr.DataArray(window, {"window": window})
+        if noise_config is None:
+            noise_config = {
+                "target_quantity": "spectra",
+                "typical_counts": 400,
+                "background": 0,
+            }
         self.noise_model = noise_model
-        self.noise_config = {} if noise_config is None else dict(noise_config)
+        self.noise_config = dict(noise_config)
         self._call_noise_model = self.noise_model
         self._call_noise_config = self.noise_config
 

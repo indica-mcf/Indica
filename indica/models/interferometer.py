@@ -23,15 +23,21 @@ class Interferometer(AbstractDiagnostic):
         self,
         name: str,
         instrument_method="get_interferometry",
-        noise_model: str | None = None,
+        noise_model: str | None = "poisson",
         noise_config: dict | None = None,
     ):
         self.transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
+        if noise_config is None:
+            noise_config = {
+                "target_quantity": "ne",
+                "typical_counts": 400,
+                "background": 0,
+            }
         self.noise_model = noise_model
-        self.noise_config = {} if noise_config is None else dict(noise_config)
+        self.noise_config = dict(noise_config)
         self._call_noise_model = self.noise_model
         self._call_noise_config = self.noise_config
 
