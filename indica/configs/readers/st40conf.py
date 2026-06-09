@@ -9,6 +9,7 @@ class ST40Conf(MachineConf):
         self.MACHINE_DIMS = ((0.15, 0.85), (-0.8, 0.8))
         self.INSTRUMENT_METHODS = {
             "efit": "equilibrium",
+            "gsfit": "equilibrium",
             "xrcs": "helike_spectroscopy",
             "pi": "spectrometer",
             "tws_c": "spectrometer",
@@ -46,7 +47,7 @@ class ST40Conf(MachineConf):
             "solps": "solps",
         }
         self.QUANTITIES_PATH = {
-            "equilibrium": {
+            "equilibrium": {  # EFIT
                 "t": ":time",
                 "xpsin": ".profiles.psi_norm:xpsn",
                 "R": ".psi2d:rgrid",
@@ -70,6 +71,30 @@ class ST40Conf(MachineConf):
                 "df": ".constraints.df:cvalue",
                 "data_q": ".data_q.score_1d",
             },
+            # "equilibrium": { # GSFIT
+            #     "t": ":time",
+            #     "xpsin": ".profiles.rho:psi_n",
+            #     "R": ".two_d:rgrid",
+            #     "z": ".two_d:zgrid",
+            #     "f": ".profiles.rho:f",
+            #     "psi_axis": ".global:psi_a",
+            #     "psi_boundary": ".global:psi_b",
+            #     "ftor": ".profiles.rho:flux_tor",
+            #     "rmji": ".profiles.rho:rmji",
+            #     "rmjo": ".profiles.rho:rmjo",
+            #     "psi": ".two_d:psi",
+            #     "volume": ".profiles.rho:vol",
+            #     "area": ".profiles.rho:area",
+            #     "rmag": ".global:rmag",
+            #     "rgeo": ".global:rgeo",
+            #     "zmag": ".global:zmag",
+            #     "rbnd": ".p_boundary:rbnd",
+            #     "zbnd": ".p_boundary:zbnd",
+            #     "ipla": ".global:ip",
+            #     "wp": ".global:wmhd",
+            #     "df": ".constraints.df:cvalue",
+            #     "data_q": ".data_q.score_1d",
+            # },
             "helike_spectroscopy": {
                 "t": ":time",
                 "wavelength": ":wavelen",
