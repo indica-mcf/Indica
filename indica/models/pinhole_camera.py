@@ -1,4 +1,5 @@
 import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
@@ -149,13 +150,25 @@ class PinholeCamera(AbstractDiagnostic):
 
         return self.bckc
 
-    def plot(self, nplot: int = 1):
+    def plot(
+        self,
+        nplot: int = 1,
+        orientation: str = "all",
+        linestyle: str = "solid",
+        alpha: float = 0.5,
+    ):
         if len(self.bckc) == 0:
             print("No model results to plot")
             return
 
         # Line-of-sight information
-        self.transform.plot(np.mean(self.t))
+        if orientation is not None:
+            self.transform.plot(
+                np.mean(self.t),
+                orientation=orientation,
+                linestyle=linestyle,
+                alpha=alpha,
+            )
 
         # Back-calculated profiles
         cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
@@ -177,6 +190,10 @@ class PinholeCamera(AbstractDiagnostic):
             else:
                 brightness = _brightness
             brightness.plot(label=f"t={t:1.2f} s", color=cols_time[i])
+
+        plt.ylim(
+            0,
+        )
         set_axis_sci()
         plt.title(self.name.upper())
         plt.legend()
@@ -194,10 +211,20 @@ class PinholeCamera(AbstractDiagnostic):
                     label=f"t={t:1.2f} s",
                 )
             else:
-                self.emissivity.sel(t=t).plot(
+                data = self.emissivity.sel(t=t)
+                vmin = np.nanmin(data.values[data.values > 0])
+                vmax = np.nanmax(data.values)
+                data.plot(
                     label=f"t={t:1.2f} s",
+                    norm=mcolors.LogNorm(vmin=vmin, vmax=vmax),
                 )
-                self.transform.plot(orientation="Rz", figure=False, t=t)
+                self.transform.plot(
+                    orientation="Rz",
+                    new_fig=False,
+                    t=t,
+                    linestyle=linestyle,
+                    alpha=alpha,
+                )
                 break
 
         set_axis_sci()

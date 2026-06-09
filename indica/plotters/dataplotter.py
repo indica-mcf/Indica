@@ -36,7 +36,7 @@ class DataPlotter:
         t: LabeledArray,
         tstart: float = None,
         tend: float = None,
-        revision:str = None,
+        revision: str = None,
         machine: str = "st40",
         ttol: float = 0.005,
         nplot: int = 3,
@@ -68,7 +68,7 @@ class DataPlotter:
 
         _t = np.array(t, ndmin=1)
         self.times = _t[np.where((_t >= tstart) * (_t <= tend))[0]]
-        self._skip_plot = int(len(self.times)/self.nplot)
+        self._skip_plot = np.ceil(len(self.times) / self.nplot)
 
         self.title = f"{pulse} @ t=[{tstart:.3f}, {tend:.3f}] s"
         self.fig_name = f"{pulse}"
@@ -98,11 +98,10 @@ class DataPlotter:
             if use_label:
                 label = f"{_t:.3f} s"
 
-            # Plot data
-            y.plot(label=label, color=self.colors[i], **_kwargs)
-
             # Plot uncertainty band
             plt.fill_between(x, y - err, y + err, color=self.colors[i], alpha=0.5)
+            # Plot data
+            y.plot(label=label, color=self.colors[i], **_kwargs)
 
     # Experimental profile data
     def _plot_profile_data(
@@ -119,7 +118,11 @@ class DataPlotter:
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
 
-            if _t is None or i % self._skip_plot or not np.any(np.isfinite(data.sel(t=_t))):
+            if (
+                _t is None
+                or i % self._skip_plot
+                or not np.any(np.isfinite(data.sel(t=_t)))
+            ):
                 continue
 
             x, y, err = select_x_y_err(data, _t, xdim=xdim)
@@ -128,8 +131,8 @@ class DataPlotter:
             if use_label:
                 label = f"{_t:.3f} s"
 
-            y.plot(label=label, color=self.colors[i], **_kwargs)
             plt.errorbar(x, y, err, color=self.colors[i], **_kwargs)
+            y.plot(label=label, color=self.colors[i], **_kwargs)
 
     # Time evolution
     def _plot_time_evolution(
@@ -258,7 +261,7 @@ class DataPlotter:
         **kwargs,
     ):
         xdim = "rhop"
-        y_fit = xr.where(data[quantity] > 0, data[quantity], np.nan)
+        y_fit = data[quantity]  # xr.where(data[quantity] > 0, data[quantity], np.nan)
         try:
             _y_exp = xr.where(
                 y_fit.mean(xdim) > 0,
