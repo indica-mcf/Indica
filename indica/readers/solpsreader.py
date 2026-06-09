@@ -40,7 +40,7 @@ class SOLPSReader:
         t
             time (ms)
         """
-        self.available_quantities = READER_QUANTITIES["get_solps"]
+        self.available_quantities = READER_QUANTITIES["solps"]
         path = Path(path)
         if path == DEFAULT_PATH:
             self.path = Path.home() / CACHE_DIR / "solps" / f"{pulse}_{int(t*1.e3)}"
@@ -167,7 +167,6 @@ class SOLPSReader:
         data = build_dataarrays(
             database_results,
             self.available_quantities,
-            include_error=False,
             verbose=verbose,
         )
         for k in data.keys():
