@@ -101,8 +101,8 @@ class Equilibrium:
         if np.any(np.abs(R_offset) > 0) or np.any(np.abs(z_offset) > 0):
             R_new = self.psi.R + self.R_offset
             z_new = self.psi.z + self.z_offset
-            R_range = slice(R_new.min("R"), R_new.max("R"))
-            z_range = slice(z_new.min("z"), z_new.max("z"))
+            R_range = slice(np.min(R_new), np.max(R_new))
+            z_range = slice(np.min(z_new), np.max(z_new))
             self.psi = self.psi.interp(R=R_new, z=z_new).sel(R=R_range, z=z_range)
             self.rhop = self.rhop.interp(R=R_new, z=z_new).sel(R=R_range, z=z_range)
             self.rmag -= self.R_offset
