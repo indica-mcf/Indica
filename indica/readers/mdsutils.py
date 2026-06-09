@@ -51,10 +51,12 @@ class MDSUtils(BaseIO):
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
+        _data = self.conn.get(path)
+
         if quantity.lower() == ":best_run":
-            data = str(self.conn.get(path))
+            data = str(_data)
         else:
-            data = np.array(self.conn.get(path))
+            data = np.array(_data)
 
         return data, path
 
