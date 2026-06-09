@@ -34,11 +34,7 @@ class AbstractDiagnostic(ABC):
                 setattr(self, key, value)
 
     @abstractmethod
-    def _build_bckc_dictionary(
-        self,
-        noise_model: str | None = None,
-        noise_config: dict | None = None,
-    ):
+    def _build_bckc_dictionary(self):
         """
         Calculate back-calculated expected values that the diagnostic will
         be measuring. This can be directly compared to the data read in by

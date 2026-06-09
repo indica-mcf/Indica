@@ -19,17 +19,19 @@ class ThomsonScattering(AbstractDiagnostic):
         self,
         name: str,
         instrument_method="get_thomson_scattering",
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
         self.transform: TransectCoordinates
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
+        self.noise_model = noise_model
+        self.noise_config = {} if noise_config is None else dict(noise_config)
+        self._call_noise_model = self.noise_model
+        self._call_noise_config = self.noise_config
 
-    def _build_bckc_dictionary(
-        self,
-        noise_model: str | None = None,
-        noise_config: dict | None = None,
-    ):
+    def _build_bckc_dictionary(self):
         bckc = {
             "t": self.t,
             "channel": np.arange(len(self.transform.x1)),
@@ -41,8 +43,11 @@ class ThomsonScattering(AbstractDiagnostic):
             "R": self.transform.R,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
-        if noise_model is not None:
-            self.apply_noise(noise_model=noise_model, noise_config=noise_config)
+        if self._call_noise_model is not None:
+            self.apply_noise(
+                noise_model=self._call_noise_model,
+                noise_config=self._call_noise_config,
+            )
 
     def __call__(
         self,
@@ -50,7 +55,8 @@ class ThomsonScattering(AbstractDiagnostic):
         Te: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
-        **kwargs,
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
         """
         Calculate diagnostic measured values
@@ -106,10 +112,13 @@ class ThomsonScattering(AbstractDiagnostic):
         self.Ne_at_channels = Ne_at_channels
         self.Te_at_channels = Te_at_channels
 
-        self._build_bckc_dictionary(
-            noise_model=kwargs.get("noise_model", kwargs.get("noise")),
-            noise_config=kwargs.get("noise_config"),
+        self._call_noise_model = (
+            self.noise_model if noise_model is None else noise_model
         )
+        self._call_noise_config = (
+            self.noise_config if noise_config is None else noise_config
+        )
+        self._build_bckc_dictionary()
 
         return self.bckc
 

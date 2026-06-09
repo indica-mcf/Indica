@@ -100,7 +100,9 @@ class TestModels:
         finite_positive = np.isfinite(clean) & np.isfinite(noisy) & (clean > 0)
         assert np.any(finite_positive)
 
-        rel_change = np.abs((noisy[finite_positive] - clean[finite_positive]) / clean[finite_positive])
+        rel_change = np.abs(
+            (noisy[finite_positive] - clean[finite_positive]) / clean[finite_positive]
+        )
 
         assert np.any(~np.isclose(noisy[finite_positive], clean[finite_positive]))
         assert rel_change.mean() > 1e-4

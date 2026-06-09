@@ -97,6 +97,8 @@ class PassiveSpectrometer(AbstractDiagnostic):
         pecs: dict,
         window: np.array,
         instrument_method="get_spectrometer",
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
 
         self.transform: LineOfSightTransform
@@ -105,6 +107,10 @@ class PassiveSpectrometer(AbstractDiagnostic):
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
         self.window = xr.DataArray(window, {"window": window})
+        self.noise_model = noise_model
+        self.noise_config = {} if noise_config is None else dict(noise_config)
+        self._call_noise_model = self.noise_model
+        self._call_noise_config = self.noise_config
 
         self.intensity: dict[str, xr.DataArray] = None
 
@@ -185,11 +191,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         self.spectra_los = self.transform.along_los
         return self.measured_spectra
 
-    def _build_bckc_dictionary(
-        self,
-        noise_model: str | None = None,
-        noise_config: dict | None = None,
-    ):
+    def _build_bckc_dictionary(self):
         bckc = {
             "t": self.t,
             "channel": np.arange(len(self.transform.x1)),
@@ -199,8 +201,11 @@ class PassiveSpectrometer(AbstractDiagnostic):
             "spectra": self.measured_spectra,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
-        if noise_model is not None:
-            self.apply_noise(noise_model=noise_model, noise_config=noise_config)
+        if self._call_noise_model is not None:
+            self.apply_noise(
+                noise_model=self._call_noise_model,
+                noise_config=self._call_noise_config,
+            )
 
     def __call__(
         self,
@@ -211,7 +216,8 @@ class PassiveSpectrometer(AbstractDiagnostic):
         Fz: dict = None,
         Nh: DataArray = None,
         t: LabeledArray = None,
-        **kwargs,
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
         """
         Calculate diagnostic measured values
@@ -271,10 +277,13 @@ class PassiveSpectrometer(AbstractDiagnostic):
 
         self.calculate_intensity()
         self.make_spectra()
-        self._build_bckc_dictionary(
-            noise_model=kwargs.get("noise_model", kwargs.get("noise")),
-            noise_config=kwargs.get("noise_config"),
+        self._call_noise_model = (
+            self.noise_model if noise_model is None else noise_model
         )
+        self._call_noise_config = (
+            self.noise_config if noise_config is None else noise_config
+        )
+        self._build_bckc_dictionary()
         return self.bckc
 
     def plot(self):

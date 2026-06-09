@@ -35,8 +35,7 @@ def add_poisson_noise(
     """
     if not isinstance(data, DataArray):
         raise TypeError(
-            "add_poisson_noise requires xarray.DataArray input. "
-            f"Got {type(data)!r}."
+            "add_poisson_noise requires xarray.DataArray input. " f"Got {type(data)!r}."
         )
 
     if typical_counts <= 0:

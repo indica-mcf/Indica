@@ -11,29 +11,32 @@ class EquilibriumReconstruction(AbstractDiagnostic):
         self,
         name: str,
         instrument_method="get_equilibrium",
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
+        self.noise_model = noise_model
+        self.noise_config = {} if noise_config is None else dict(noise_config)
+        self._call_noise_model = self.noise_model
+        self._call_noise_config = self.noise_config
 
-    def _build_bckc_dictionary(
-        self,
-        noise_model: str | None = None,
-        noise_config: dict | None = None,
-    ):
+    def _build_bckc_dictionary(self):
         self.bckc = {}
         bckc = {
             "t": self.t,
             "wp": self.wp,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
-        if noise_model is not None:
-            self.apply_noise(noise_model=noise_model, noise_config=noise_config)
+        if self._call_noise_model is not None:
+            self.apply_noise(
+                noise_model=self._call_noise_model,
+                noise_config=self._call_noise_config,
+            )
 
     def __call__(
-        self,
-        t=None,
-        **kwargs,
+        self, t=None, noise_model: str | None = None, noise_config: dict | None = None
     ):
         """Add docs"""
         if self.plasma is None:
@@ -46,8 +49,11 @@ class EquilibriumReconstruction(AbstractDiagnostic):
 
         self.t = t
         self.wp = self.plasma.wp.sel(t=t)
-        self._build_bckc_dictionary(
-            noise_model=kwargs.get("noise_model", kwargs.get("noise")),
-            noise_config=kwargs.get("noise_config"),
+        self._call_noise_model = (
+            self.noise_model if noise_model is None else noise_model
         )
+        self._call_noise_config = (
+            self.noise_config if noise_config is None else noise_config
+        )
+        self._build_bckc_dictionary()
         return self.bckc

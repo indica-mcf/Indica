@@ -43,6 +43,8 @@ class HelikeSpectrometer(AbstractDiagnostic):
         background=0,
         instrumental_broadening: float = 100,  # eV
         instrument_method="get_helike_spectroscopy",
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
         """
         Read all atomic data and filter based on window limits
@@ -68,6 +70,10 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.line_labels = line_labels
         self.background = background
         self.instrumental_broadening = instrumental_broadening
+        self.noise_model = noise_model
+        self.noise_config = {} if noise_config is None else dict(noise_config)
+        self._call_noise_model = self.noise_model
+        self._call_noise_config = self.noise_config
 
         if window is None:
             window = np.linspace(window_lim[0], window_lim[1], window_len)
@@ -322,11 +328,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.measured_Ti = measured_Ti
         self.measured_Nimp = measured_Nimp
 
-    def _build_bckc_dictionary(
-        self,
-        noise_model: str | None = None,
-        noise_config: dict | None = None,
-    ):
+    def _build_bckc_dictionary(self):
         bckc = {
             "t": self.t,
             "channel": np.arange(len(self.transform.x1)),
@@ -350,8 +352,11 @@ class HelikeSpectrometer(AbstractDiagnostic):
             self.bckc["int_n3/int_tot"] = self.bckc["int_n3"] / self.bckc["int_tot"]
 
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
-        if noise_model is not None:
-            self.apply_noise(noise_model=noise_model, noise_config=noise_config)
+        if self._call_noise_model is not None:
+            self.apply_noise(
+                noise_model=self._call_noise_model,
+                noise_config=self._call_noise_config,
+            )
 
     def __call__(
         self,
@@ -367,7 +372,8 @@ class HelikeSpectrometer(AbstractDiagnostic):
         pixel_offset: int = None,
         norm_spectra: xr.DataArray = None,
         scale_spectra: float = 1.0,
-        **kwargs,
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ) -> dict:
         """
         Calculate spectrometer measurements
@@ -463,10 +469,13 @@ class HelikeSpectrometer(AbstractDiagnostic):
                 wavelength=round(pixel_offset), fill_value=np.nan
             )
 
-        self._build_bckc_dictionary(
-            noise_model=kwargs.get("noise_model", kwargs.get("noise")),
-            noise_config=kwargs.get("noise_config"),
+        self._call_noise_model = (
+            self.noise_model if noise_model is None else noise_model
         )
+        self._call_noise_config = (
+            self.noise_config if noise_config is None else noise_config
+        )
+        self._build_bckc_dictionary()
         return self.bckc
 
     def plot(self):
