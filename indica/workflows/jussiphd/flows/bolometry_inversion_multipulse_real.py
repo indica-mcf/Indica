@@ -8,6 +8,7 @@ from typing import Sequence
 
 from prefect import flow, task
 
+from indica.defaults.load_defaults import load_default_objects
 from indica.workflows.jussiphd.components.data.real_dataset_generation import (
     generate_and_save_real_multipulse_dataset,
     load_real_transform_from_pulse,
@@ -55,6 +56,7 @@ def build_multipulse_real_dataset_task(
     use_all_timepoints: bool,
     verbose: bool,
     generate_new_data: bool,
+    static_transform: Any | None,
 ) -> dict[str, Any]:
     return generate_and_save_real_multipulse_dataset(
         pulses=pulses,
@@ -72,6 +74,7 @@ def build_multipulse_real_dataset_task(
         revision=revision,
         generate_new_data=generate_new_data,
         verbose=verbose,
+        static_transform=static_transform,
     )
 
 
@@ -231,6 +234,9 @@ def bolometry_inversion_multipulse_real(
     tstart: float = 0.04,
     tend: float = 0.15,
     dt: float = 0.01,
+    use_real_equilibrium: bool = True,
+    real_equilibrium_pulse: int = 13622,
+    real_equilibrium_verbose: bool = False,
     revision: int = 0,
     node: str | None = None,
     read_verbose: bool = False,
@@ -271,23 +277,29 @@ def bolometry_inversion_multipulse_real(
 
     vis_pulse = int(pulse_list[0])
 
-    equilibrium = load_real_equilibrium_task(
-        pulse=vis_pulse,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        verbose=read_verbose,
-    )
-    transform = load_real_transform_task(
-        instrument=instrument,
-        pulse=vis_pulse,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        revision=revision,
-        equilibrium=equilibrium,
-        verbose=read_verbose,
-    )
+    if use_real_equilibrium:
+        equilibrium = load_real_equilibrium_task(
+            pulse=real_equilibrium_pulse,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            verbose=real_equilibrium_verbose,
+        )
+        transform = load_real_transform_task(
+            instrument=instrument,
+            pulse=real_equilibrium_pulse,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            revision=revision,
+            equilibrium=equilibrium,
+            verbose=real_equilibrium_verbose,
+        )
+    else:
+        equilibrium = load_default_objects(machine, "equilibrium")
+        transforms = load_default_objects(machine, "geometry")
+        transform = transforms[instrument]
+        transform.set_equilibrium(equilibrium)
 
     real_dataset = build_multipulse_real_dataset_task(
         pulses=pulse_list,
@@ -305,6 +317,7 @@ def bolometry_inversion_multipulse_real(
         use_all_timepoints=use_all_timepoints,
         verbose=read_verbose,
         generate_new_data=generate_new_data,
+        static_transform=transform,
     )
 
     dataset_summary = None

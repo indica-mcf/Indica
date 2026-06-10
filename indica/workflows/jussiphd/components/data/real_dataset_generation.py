@@ -203,6 +203,7 @@ def generate_and_save_real_multipulse_dataset(
     revision: int = 0,
     generate_new_data: bool = True,
     verbose: bool = False,
+    static_transform: Any | None = None,
 ) -> dict[str, Any]:
     """Build multi-pulse (brightness, emissivity) pairs from real ST40 data."""
     _ = machine
@@ -253,23 +254,26 @@ def generate_and_save_real_multipulse_dataset(
 
     for pulse in pulse_list:
         try:
-            equilibrium = load_real_equilibrium_from_pulse(
-                pulse=pulse,
-                tstart=tstart,
-                tend=tend,
-                dt=dt,
-                verbose=verbose,
-            )
-            transform = load_real_transform_from_pulse(
-                instrument=instrument,
-                pulse=pulse,
-                tstart=tstart,
-                tend=tend,
-                dt=dt,
-                equilibrium=equilibrium,
-                revision=revision,
-                verbose=verbose,
-            )
+            if static_transform is not None:
+                transform = static_transform
+            else:
+                equilibrium = load_real_equilibrium_from_pulse(
+                    pulse=pulse,
+                    tstart=tstart,
+                    tend=tend,
+                    dt=dt,
+                    verbose=verbose,
+                )
+                transform = load_real_transform_from_pulse(
+                    instrument=instrument,
+                    pulse=pulse,
+                    tstart=tstart,
+                    tend=tend,
+                    dt=dt,
+                    equilibrium=equilibrium,
+                    revision=revision,
+                    verbose=verbose,
+                )
             signal = read_st40_emission_signal(
                 instrument=emissivity_instrument,
                 pulse=pulse,
