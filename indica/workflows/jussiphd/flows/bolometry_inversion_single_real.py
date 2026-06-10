@@ -1,14 +1,15 @@
-"""Prefect flow for single-pulse real ST40 bolometry inversion pipeline."""
+"""Prefect flow for multi-pulse real ST40 bolometry inversion pipeline."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from typing import Sequence
 
 from prefect import flow, task
 
 from indica.workflows.jussiphd.components.data.real_dataset_generation import (
-    generate_and_save_real_dataset,
+    generate_and_save_real_multipulse_dataset,
     load_real_transform_from_pulse,
 )
 from indica.workflows.jussiphd.components.data.real_equilibrium import (
@@ -27,22 +28,22 @@ from indica.workflows.jussiphd.components.visualisations.vae_generated_visualisa
 )
 
 DEFAULT_OUTPUT_DIR = str(
-    Path(__file__).resolve().parents[1] / "components" / "data" / "flow_data" / "single_real"
+    Path(__file__).resolve().parents[1] / "components" / "data" / "flow_data" / "multipulse_real"
 )
-DEFAULT_VAE_DIR = str(Path(__file__).resolve().parents[1] / "components" / "ml" / "flow_data" / "single_real")
+DEFAULT_VAE_DIR = str(
+    Path(__file__).resolve().parents[1] / "components" / "ml" / "flow_data" / "multipulse_real"
+)
 DEFAULT_VIS_DIR = str(
-    Path(__file__).resolve().parents[1] / "components" / "visualisations" / "outputs" / "single_real"
+    Path(__file__).resolve().parents[1] / "components" / "visualisations" / "outputs" / "multipulse_real_demo"
 )
 
 
-@task(name="generate_single_real_dataset")
-def build_single_real_dataset_task(
+@task(name="generate_multipulse_real_dataset")
+def build_multipulse_real_dataset_task(
+    pulses: list[int],
     machine: str,
     instrument: str,
     emissivity_instrument: str,
-    transform: Any,
-    equilibrium: Any,
-    pulse: int,
     tstart: float,
     tend: float,
     dt: float,
@@ -55,13 +56,11 @@ def build_single_real_dataset_task(
     verbose: bool,
     generate_new_data: bool,
 ) -> dict[str, Any]:
-    return generate_and_save_real_dataset(
+    return generate_and_save_real_multipulse_dataset(
+        pulses=pulses,
         machine=machine,
         instrument=instrument,
         emissivity_instrument=emissivity_instrument,
-        transform=transform,
-        equilibrium=equilibrium,
-        pulse=pulse,
         tstart=tstart,
         tend=tend,
         dt=dt,
@@ -223,12 +222,12 @@ def generate_real_vae_training_progress_visualisation_task(
     )
 
 
-@flow(name="bolometry_inversion_single_real")
-def bolometry_inversion_single_real(
+@flow(name="bolometry_inversion_multipulse_real")
+def bolometry_inversion_multipulse_real(
     machine: str = "st40",
     instrument: str = "blom_xy1",
     emissivity_instrument: str = "blom_rz1",
-    pulse: int = 13622,
+    pulses: Sequence[int] | None = None,
     tstart: float = 0.04,
     tend: float = 0.15,
     dt: float = 0.01,
@@ -236,8 +235,8 @@ def bolometry_inversion_single_real(
     node: str | None = None,
     read_verbose: bool = False,
     output_dir: str = DEFAULT_OUTPUT_DIR,
-    b_filename: str = "b_slices_single_real.csv",
-    eps_filename: str = "eps_slices_single_real.csv",
+    b_filename: str = "b_slices_multipulse_real.csv",
+    eps_filename: str = "eps_slices_multipulse_real.csv",
     generate_new_data: bool = True,
     use_all_timepoints: bool = True,
     create_training_dataset: bool = True,
@@ -246,7 +245,7 @@ def bolometry_inversion_single_real(
     shuffle: bool = True,
     run_vae_training: bool = True,
     vae_output_dir: str = DEFAULT_VAE_DIR,
-    vae_model_filename: str = "vae_single_real.pt",
+    vae_model_filename: str = "vae_multipulse_real.pt",
     vae_latent_dim: int = 4,
     vae_hidden_scaling: int = 8,
     vae_n_epochs: int = 25,
@@ -261,9 +260,19 @@ def bolometry_inversion_single_real(
     visualisations_k_samples: int = 20,
     visualisations_n_uncertainty_samples: int = 200,
 ) -> dict[str, Any]:
-    """Run single-real-data workflow: read -> dataset -> VAE -> metrics -> visus."""
+    """Run multi-pulse-real-data workflow: read -> dataset -> VAE -> metrics -> visus."""
+    pulse_list = [int(p) for p in (pulses or [])]
+    if generate_new_data and not pulse_list:
+        raise ValueError(
+            "generate_new_data=True requires explicit `pulses`."
+        )
+    if not pulse_list:
+        pulse_list = [13622]
+
+    vis_pulse = int(pulse_list[0])
+
     equilibrium = load_real_equilibrium_task(
-        pulse=pulse,
+        pulse=vis_pulse,
         tstart=tstart,
         tend=tend,
         dt=dt,
@@ -271,7 +280,7 @@ def bolometry_inversion_single_real(
     )
     transform = load_real_transform_task(
         instrument=instrument,
-        pulse=pulse,
+        pulse=vis_pulse,
         tstart=tstart,
         tend=tend,
         dt=dt,
@@ -280,13 +289,11 @@ def bolometry_inversion_single_real(
         verbose=read_verbose,
     )
 
-    real_dataset = build_single_real_dataset_task(
+    real_dataset = build_multipulse_real_dataset_task(
+        pulses=pulse_list,
         machine=machine,
         instrument=instrument,
         emissivity_instrument=emissivity_instrument,
-        transform=transform,
-        equilibrium=equilibrium,
-        pulse=pulse,
         tstart=tstart,
         tend=tend,
         dt=dt,
@@ -380,6 +387,8 @@ def bolometry_inversion_single_real(
 
     return {
         "real_dataset": real_dataset,
+        "pulses_used_for_dataset": pulse_list,
+        "visualisation_reference_pulse": vis_pulse,
         "dataset_summary": dataset_summary,
         "vae_training": vae_training,
         "vae_metrics": vae_metrics,
@@ -387,5 +396,10 @@ def bolometry_inversion_single_real(
     }
 
 
+def bolometry_inversion_single_real(**kwargs) -> dict[str, Any]:
+    """Backward-compatible alias to the multipulse real flow."""
+    return bolometry_inversion_multipulse_real(**kwargs)
+
+
 if __name__ == "__main__":
-    result = bolometry_inversion_single_real()
+    result = bolometry_inversion_multipulse_real()

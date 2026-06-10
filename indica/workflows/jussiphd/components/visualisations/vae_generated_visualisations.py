@@ -15,6 +15,21 @@ from indica.workflows.jussiphd.components.preprocessing.dataset_creation import 
 from indica.workflows.jussiphd.los_bolometry_radiation import calculate_tomo_inversion
 
 
+def _next_available_path(path: Path) -> Path:
+    """Return a non-existing path by appending _N when needed."""
+    if not path.exists():
+        return path
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+    idx = 1
+    while True:
+        candidate = parent / f"{stem}_{idx}{suffix}"
+        if not candidate.exists():
+            return candidate
+        idx += 1
+
+
 def _load_vae(model_path: str) -> CVAENetwork:
     ckpt = torch.load(model_path, map_location="cpu")
     model = CVAENetwork(
@@ -123,7 +138,7 @@ def generate_generated_dataset_visualisations(
     fig.suptitle("Generated data: emissivity comparison with VAE samples", y=1.02)
     fig.tight_layout()
 
-    emissivity_path = out_dir / "generated_emissivity_sampling.png"
+    emissivity_path = _next_available_path(out_dir / "generated_emissivity_sampling.png")
     fig.savefig(emissivity_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -152,7 +167,7 @@ def generate_generated_dataset_visualisations(
         ax.legend()
     fig.tight_layout()
 
-    uncertainty_path = out_dir / "generated_spatial_uncertainty.png"
+    uncertainty_path = _next_available_path(out_dir / "generated_spatial_uncertainty.png")
     fig.savefig(uncertainty_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -204,7 +219,7 @@ def generate_generated_dataset_visualisations(
     vae_rmse_vals = np.asarray(vae_rmse_vals, dtype=float)
     naive_rmse_vals = np.asarray(naive_rmse_vals, dtype=float)
 
-    naive_vs_vae_path = out_dir / "generated_vae_vs_naive_rmse_scatter.png"
+    naive_vs_vae_path = _next_available_path(out_dir / "generated_vae_vs_naive_rmse_scatter.png")
     if len(vae_rmse_vals) > 0:
         fig, ax = plt.subplots(figsize=(5.5, 5))
         ax.scatter(naive_rmse_vals, vae_rmse_vals, alpha=0.7, s=30)
@@ -308,7 +323,7 @@ def generate_generated_dataset_visualisations(
     fig.suptitle("Generated data: ground truth vs naive inversion vs VAE", y=1.02)
     fig.tight_layout()
 
-    comparison_path = out_dir / "generated_truth_naive_vae_comparison.png"
+    comparison_path = _next_available_path(out_dir / "generated_truth_naive_vae_comparison.png")
     fig.savefig(comparison_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -342,13 +357,13 @@ def generate_generated_dataset_visualisations(
         ax.text(0.5, 0.5, "No indices available for VAE sample gallery", ha="center", va="center")
         ax.set_axis_off()
         fig.tight_layout()
-    sample_gallery_path = out_dir / "generated_vae_samples_gallery.png"
+    sample_gallery_path = _next_available_path(out_dir / "generated_vae_samples_gallery.png")
     fig.savefig(sample_gallery_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
     # 6) VAE RMSE distribution
     rmse_vals = vae_rmse_vals
-    rmse_path = out_dir / "generated_vae_rmse_distribution.png"
+    rmse_path = _next_available_path(out_dir / "generated_vae_rmse_distribution.png")
     if len(rmse_vals) > 0:
         fig, ax = plt.subplots(figsize=(7, 4.5))
         ax.hist(rmse_vals, bins=30, alpha=0.8)
@@ -420,7 +435,7 @@ def generate_vae_training_progress_visualisation(
     ax.legend()
     fig.tight_layout()
 
-    progress_path = out_dir / "generated_vae_training_progress.png"
+    progress_path = _next_available_path(out_dir / "generated_vae_training_progress.png")
     fig.savefig(progress_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
