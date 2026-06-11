@@ -1,17 +1,18 @@
-"""Prefect flow for multi-pulse real ST40 bolometry inversion pipeline."""
+"""Prefect flow: multipulse synthetic with Poisson-noised emissivity CSV."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from typing import Sequence
 
 from prefect import flow, task
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.workflows.jussiphd.components.data.real_dataset_generation import (
-    generate_and_save_real_multipulse_dataset,
-    load_real_transform_from_pulse,
+from indica.workflows.jussiphd.components.data.data_generation import (
+    generate_and_save_dataset,
+)
+from indica.workflows.jussiphd.components.data.noise_injection import (
+    add_poisson_noise_to_eps_csv,
 )
 from indica.workflows.jussiphd.components.data.real_equilibrium import (
     load_real_equilibrium_from_pulse,
@@ -29,50 +30,39 @@ from indica.workflows.jussiphd.components.visualisations.vae_generated_visualisa
 )
 
 DEFAULT_OUTPUT_DIR = str(
-    Path(__file__).resolve().parents[2] / "components" / "data" / "flow_data" / "multipulse_real"
+    Path(__file__).resolve().parents[2] / "components" / "data" / "flow_data" / "multipulse_synthetic_poisson_eps"
 )
 DEFAULT_VAE_DIR = str(
-    Path(__file__).resolve().parents[2] / "components" / "ml" / "flow_data" / "multipulse_real"
+    Path(__file__).resolve().parents[2] / "components" / "ml" / "flow_data" / "multipulse_synthetic_poisson_eps"
 )
 DEFAULT_VIS_DIR = str(Path(__file__).resolve().parent / "outputs")
 
 
-@task(name="generate_multipulse_real_dataset")
-def build_multipulse_real_dataset_task(
-    pulses: list[int],
+@task(name="generate_multipulse_synthetic_dataset")
+def generate_multipulse_synthetic_dataset_task(
     machine: str,
     instrument: str,
-    emissivity_instrument: str,
-    tstart: float,
-    tend: float,
-    dt: float,
-    revision: int,
-    node: str | None,
+    transform: Any,
+    equilibrium: Any,
+    n_generations: int,
+    use_all_timepoints: bool,
     output_dir: str,
     b_filename: str,
     eps_filename: str,
-    use_all_timepoints: bool,
-    verbose: bool,
     generate_new_data: bool,
-    static_transform: Any | None,
 ) -> dict[str, Any]:
-    return generate_and_save_real_multipulse_dataset(
-        pulses=pulses,
+    return generate_and_save_dataset(
         machine=machine,
         instrument=instrument,
-        emissivity_instrument=emissivity_instrument,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
+        transform=transform,
+        equilibrium=equilibrium,
+        n_generations=n_generations,
+        use_all_timepoints=use_all_timepoints,
+        single_timepoint_mode="middle",
         output_dir=output_dir,
         b_filename=b_filename,
         eps_filename=eps_filename,
-        use_all_timepoints=use_all_timepoints,
-        node=node,
-        revision=revision,
         generate_new_data=generate_new_data,
-        verbose=verbose,
-        static_transform=static_transform,
     )
 
 
@@ -93,31 +83,24 @@ def load_real_equilibrium_task(
     )
 
 
-@task(name="load_real_transform")
-def load_real_transform_task(
-    instrument: str,
-    pulse: int,
-    tstart: float,
-    tend: float,
-    dt: float,
-    revision: int,
-    equilibrium: Any,
-    verbose: bool,
-) -> Any:
-    return load_real_transform_from_pulse(
-        instrument=instrument,
-        pulse=pulse,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        equilibrium=equilibrium,
-        revision=revision,
-        verbose=verbose,
+@task(name="poisson_noise_eps")
+def poisson_noise_eps_task(
+    eps_path: str,
+    count_level: float,
+    scale_percentile: float,
+    seed: int,
+) -> dict[str, Any]:
+    return add_poisson_noise_to_eps_csv(
+        eps_path=eps_path,
+        count_level=count_level,
+        output_path=None,
+        scale_percentile=scale_percentile,
+        seed=seed,
     )
 
 
-@task(name="create_real_training_dataset")
-def create_real_training_dataset_task(
+@task(name="create_synthetic_training_dataset")
+def create_synthetic_training_dataset_task(
     b_path: str,
     eps_path: str,
     train_fraction: float,
@@ -137,8 +120,8 @@ def create_real_training_dataset_task(
     return bundle["summary"]
 
 
-@task(name="train_real_vae")
-def train_real_vae_task(
+@task(name="train_synthetic_vae")
+def train_synthetic_vae_task(
     b_path: str,
     eps_path: str,
     latent_dim: int,
@@ -169,8 +152,8 @@ def train_real_vae_task(
     )
 
 
-@task(name="compute_real_vae_metrics")
-def compute_real_vae_metrics_task(
+@task(name="compute_synthetic_vae_metrics")
+def compute_synthetic_vae_metrics_task(
     model_path: str,
     b_path: str,
     eps_path: str,
@@ -189,8 +172,8 @@ def compute_real_vae_metrics_task(
     )
 
 
-@task(name="generate_real_visualisations")
-def generate_real_visualisations_task(
+@task(name="generate_synthetic_visualisations")
+def generate_synthetic_visualisations_task(
     model_path: str,
     b_path: str,
     eps_path: str,
@@ -212,8 +195,8 @@ def generate_real_visualisations_task(
     )
 
 
-@task(name="generate_real_vae_training_progress_visualisation")
-def generate_real_vae_training_progress_visualisation_task(
+@task(name="generate_synthetic_vae_training_progress_visualisation")
+def generate_synthetic_vae_training_progress_visualisation_task(
     model_path: str,
     output_dir: str,
 ) -> dict[str, Any]:
@@ -223,33 +206,32 @@ def generate_real_vae_training_progress_visualisation_task(
     )
 
 
-@flow(name="bolometry_inversion_multipulse_real")
-def bolometry_inversion_multipulse_real(
+@flow(name="bolometry_inversion_multipulse_synthetic_poisson_eps")
+def bolometry_inversion_multipulse_synthetic_poisson_eps(
     machine: str = "st40",
     instrument: str = "blom_xy1",
-    emissivity_instrument: str = "blom_rz1",
-    pulses: Sequence[int] | None = None,
     tstart: float = 0.04,
-    tend: float = 0.1,
+    tend: float = 0.15,
     dt: float = 0.01,
     use_real_equilibrium: bool = True,
     real_equilibrium_pulse: int = 13622,
     real_equilibrium_verbose: bool = False,
-    revision: int = 0,
-    node: str | None = None,
-    read_verbose: bool = False,
     output_dir: str = DEFAULT_OUTPUT_DIR,
-    b_filename: str = "b_slices_multipulse_real.csv",
-    eps_filename: str = "eps_slices_multipulse_real.csv",
-    generate_new_data: bool = True,
+    b_filename: str = "b_slices_multipulse_synthetic.csv",
+    eps_filename: str = "eps_slices_multipulse_synthetic.csv",
+    n_generations: int = 3000,
+    generate_new_data: bool = False,
     use_all_timepoints: bool = True,
+    eps_poisson_count_level: float = 200.0,
+    eps_poisson_scale_percentile: float = 99.0,
+    eps_poisson_seed: int = 0,
     create_training_dataset: bool = True,
     train_fraction: float = 0.8,
     batch_size: int = 8,
     shuffle: bool = True,
     run_vae_training: bool = True,
     vae_output_dir: str = DEFAULT_VAE_DIR,
-    vae_model_filename: str = "vae_multipulse_real.pt",
+    vae_model_filename: str = "vae_multipulse_synthetic_poisson_eps.pt",
     vae_latent_dim: int = 4,
     vae_hidden_scaling: int = 8,
     vae_n_epochs: int = 25,
@@ -264,17 +246,8 @@ def bolometry_inversion_multipulse_real(
     visualisations_k_samples: int = 20,
     visualisations_n_uncertainty_samples: int = 200,
 ) -> dict[str, Any]:
-    """Run multi-pulse-real-data workflow: read -> dataset -> VAE -> metrics -> visus."""
-    pulse_list = [int(p) for p in (pulses or [])]
-    if generate_new_data and not pulse_list:
-        raise ValueError(
-            "generate_new_data=True requires explicit `pulses`."
-        )
-    if not pulse_list:
-        pulse_list = [13622]
-
-    vis_pulse = int(pulse_list[0])
-
+    """Run multipulse synthetic workflow with Poisson noise injected into emissivity."""
+    transforms = load_default_objects(machine, "geometry")
     if use_real_equilibrium:
         equilibrium = load_real_equilibrium_task(
             pulse=real_equilibrium_pulse,
@@ -283,40 +256,29 @@ def bolometry_inversion_multipulse_real(
             dt=dt,
             verbose=real_equilibrium_verbose,
         )
-        transform = load_real_transform_task(
-            instrument=instrument,
-            pulse=real_equilibrium_pulse,
-            tstart=tstart,
-            tend=tend,
-            dt=dt,
-            revision=revision,
-            equilibrium=equilibrium,
-            verbose=real_equilibrium_verbose,
-        )
     else:
         equilibrium = load_default_objects(machine, "equilibrium")
-        transforms = load_default_objects(machine, "geometry")
-        transform = transforms[instrument]
-        transform.set_equilibrium(equilibrium)
+    transform = transforms[instrument]
 
-    real_dataset = build_multipulse_real_dataset_task(
-        pulses=pulse_list,
+    synthetic_dataset = generate_multipulse_synthetic_dataset_task(
         machine=machine,
         instrument=instrument,
-        emissivity_instrument=emissivity_instrument,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        revision=revision,
-        node=node,
+        transform=transform,
+        equilibrium=equilibrium,
+        n_generations=n_generations,
+        use_all_timepoints=use_all_timepoints,
         output_dir=output_dir,
         b_filename=b_filename,
         eps_filename=eps_filename,
-        use_all_timepoints=use_all_timepoints,
-        verbose=read_verbose,
         generate_new_data=generate_new_data,
-        static_transform=transform,
     )
+    noisy_eps = poisson_noise_eps_task(
+        eps_path=synthetic_dataset["eps_path"],
+        count_level=eps_poisson_count_level,
+        scale_percentile=eps_poisson_scale_percentile,
+        seed=eps_poisson_seed,
+    )
+    model_eps_path = noisy_eps["output_eps_path"]
 
     dataset_summary = None
     vae_training = None
@@ -324,9 +286,9 @@ def bolometry_inversion_multipulse_real(
     visualisations = None
 
     if create_training_dataset:
-        dataset_summary = create_real_training_dataset_task(
-            b_path=real_dataset["b_path"],
-            eps_path=real_dataset["eps_path"],
+        dataset_summary = create_synthetic_training_dataset_task(
+            b_path=synthetic_dataset["b_path"],
+            eps_path=model_eps_path,
             train_fraction=train_fraction,
             batch_size=batch_size,
             shuffle=shuffle,
@@ -334,9 +296,9 @@ def bolometry_inversion_multipulse_real(
         )
 
     if run_vae_training:
-        vae_training = train_real_vae_task(
-            b_path=real_dataset["b_path"],
-            eps_path=real_dataset["eps_path"],
+        vae_training = train_synthetic_vae_task(
+            b_path=synthetic_dataset["b_path"],
+            eps_path=model_eps_path,
             latent_dim=vae_latent_dim,
             hidden_scaling=vae_hidden_scaling,
             n_epochs=vae_n_epochs,
@@ -358,10 +320,10 @@ def bolometry_inversion_multipulse_real(
                     "or explicit vae_metrics_model_path."
                 )
             model_path = vae_training["model_path"]
-        vae_metrics = compute_real_vae_metrics_task(
+        vae_metrics = compute_synthetic_vae_metrics_task(
             model_path=model_path,
-            b_path=real_dataset["b_path"],
-            eps_path=real_dataset["eps_path"],
+            b_path=synthetic_dataset["b_path"],
+            eps_path=model_eps_path,
             idx=metrics_idx,
             k_samples=metrics_k_samples,
             seed=None,
@@ -377,29 +339,29 @@ def bolometry_inversion_multipulse_real(
                 )
             model_path = vae_training["model_path"]
 
-        real_visualisations = generate_real_visualisations_task(
+        generated_visualisations = generate_synthetic_visualisations_task(
             model_path=model_path,
-            b_path=real_dataset["b_path"],
-            eps_path=real_dataset["eps_path"],
+            b_path=synthetic_dataset["b_path"],
+            eps_path=model_eps_path,
             transform=transform,
             output_dir=visualisations_output_dir,
             n_examples=visualisations_n_examples,
             k_samples=visualisations_k_samples,
             n_uncertainty_samples=visualisations_n_uncertainty_samples,
         )
-        training_progress_visualisation = generate_real_vae_training_progress_visualisation_task(
+        training_progress_visualisation = generate_synthetic_vae_training_progress_visualisation_task(
             model_path=model_path,
             output_dir=visualisations_output_dir,
         )
         visualisations = {
-            "real_dataset_visualisations": real_visualisations,
+            "generated_dataset_visualisations": generated_visualisations,
             "training_progress_visualisation": training_progress_visualisation,
         }
 
     return {
-        "real_dataset": real_dataset,
-        "pulses_used_for_dataset": pulse_list,
-        "visualisation_reference_pulse": vis_pulse,
+        "synthetic_dataset": synthetic_dataset,
+        "noisy_eps": noisy_eps,
+        "model_eps_path": model_eps_path,
         "dataset_summary": dataset_summary,
         "vae_training": vae_training,
         "vae_metrics": vae_metrics,
@@ -407,10 +369,5 @@ def bolometry_inversion_multipulse_real(
     }
 
 
-def bolometry_inversion_single_real(**kwargs) -> dict[str, Any]:
-    """Backward-compatible alias to the multipulse real flow."""
-    return bolometry_inversion_multipulse_real(**kwargs)
-
-
 if __name__ == "__main__":
-    result = bolometry_inversion_multipulse_real(pulses=list(range(12800, 12850)))
+    result = bolometry_inversion_multipulse_synthetic_poisson_eps()
