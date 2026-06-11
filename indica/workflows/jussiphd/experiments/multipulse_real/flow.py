@@ -9,6 +9,9 @@ from typing import Sequence
 from prefect import flow, task
 
 from indica.defaults.load_defaults import load_default_objects
+from indica.workflows.jussiphd.components.data.quality_filtering import (
+    filter_dataset_csv_slices,
+)
 from indica.workflows.jussiphd.components.data.real_dataset_generation import (
     generate_and_save_real_multipulse_dataset,
     load_real_transform_from_pulse,
@@ -55,10 +58,6 @@ def build_multipulse_real_dataset_task(
     verbose: bool,
     generate_new_data: bool,
     static_transform: Any | None,
-    apply_basic_quality_filter: bool,
-    min_finite_fraction: float,
-    min_nonzero_fraction: float,
-    nonzero_threshold: float,
 ) -> dict[str, Any]:
     return generate_and_save_real_multipulse_dataset(
         pulses=pulses,
@@ -77,10 +76,7 @@ def build_multipulse_real_dataset_task(
         generate_new_data=generate_new_data,
         verbose=verbose,
         static_transform=static_transform,
-        apply_basic_quality_filter=apply_basic_quality_filter,
-        min_finite_fraction=min_finite_fraction,
-        min_nonzero_fraction=min_nonzero_fraction,
-        nonzero_threshold=nonzero_threshold,
+        apply_basic_quality_filter=False,
     )
 
 
@@ -121,6 +117,29 @@ def load_real_transform_task(
         equilibrium=equilibrium,
         revision=revision,
         verbose=verbose,
+    )
+
+
+@task(name="filter_real_dataset_quality")
+def filter_real_dataset_quality_task(
+    b_path: str,
+    eps_path: str,
+    meta_path: str | None,
+    min_finite_fraction: float,
+    min_nonzero_fraction: float,
+    nonzero_threshold: float,
+    output_suffix: str = "quality_filtered",
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    return filter_dataset_csv_slices(
+        b_path=b_path,
+        eps_path=eps_path,
+        meta_path=meta_path,
+        min_finite_fraction=min_finite_fraction,
+        min_nonzero_fraction=min_nonzero_fraction,
+        nonzero_threshold=nonzero_threshold,
+        output_suffix=output_suffix,
+        overwrite=overwrite,
     )
 
 
@@ -250,6 +269,8 @@ def bolometry_inversion_multipulse_real(
     min_finite_fraction: float = 0.95,
     min_nonzero_fraction: float = 0.01,
     nonzero_threshold: float = 0.0,
+    quality_filter_suffix: str = "quality_filtered",
+    overwrite_quality_filtered_data: bool = False,
     output_dir: str = DEFAULT_OUTPUT_DIR,
     b_filename: str = "b_slices_multipulse_real.csv",
     eps_filename: str = "eps_slices_multipulse_real.csv",
@@ -328,11 +349,23 @@ def bolometry_inversion_multipulse_real(
         verbose=read_verbose,
         generate_new_data=generate_new_data,
         static_transform=transform,
-        apply_basic_quality_filter=apply_basic_quality_filter,
-        min_finite_fraction=min_finite_fraction,
-        min_nonzero_fraction=min_nonzero_fraction,
-        nonzero_threshold=nonzero_threshold,
     )
+    quality_filter = None
+    if apply_basic_quality_filter:
+        quality_filter = filter_real_dataset_quality_task(
+            b_path=real_dataset["b_path"],
+            eps_path=real_dataset["eps_path"],
+            meta_path=real_dataset.get("meta_path"),
+            min_finite_fraction=min_finite_fraction,
+            min_nonzero_fraction=min_nonzero_fraction,
+            nonzero_threshold=nonzero_threshold,
+            output_suffix=quality_filter_suffix,
+            overwrite=overwrite_quality_filtered_data,
+        )
+        real_dataset["b_path"] = quality_filter["b_path"]
+        real_dataset["eps_path"] = quality_filter["eps_path"]
+        real_dataset["meta_path"] = quality_filter["meta_path"]
+        real_dataset["num_pairs"] = quality_filter["num_rows_kept"]
 
     dataset_summary = None
     vae_training = None
@@ -416,6 +449,7 @@ def bolometry_inversion_multipulse_real(
         "real_dataset": real_dataset,
         "pulses_used_for_dataset": pulse_list,
         "visualisation_reference_pulse": vis_pulse,
+        "quality_filter": quality_filter,
         "dataset_summary": dataset_summary,
         "vae_training": vae_training,
         "vae_metrics": vae_metrics,
