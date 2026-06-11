@@ -58,6 +58,8 @@ def build_multipulse_real_dataset_task(
     verbose: bool,
     generate_new_data: bool,
     static_transform: Any | None,
+    allow_nearest_time_fallback: bool,
+    max_nearest_fallback_gap_s: float | None,
 ) -> dict[str, Any]:
     return generate_and_save_real_multipulse_dataset(
         pulses=pulses,
@@ -77,6 +79,8 @@ def build_multipulse_real_dataset_task(
         verbose=verbose,
         static_transform=static_transform,
         apply_basic_quality_filter=False,
+        allow_nearest_time_fallback=allow_nearest_time_fallback,
+        max_nearest_fallback_gap_s=max_nearest_fallback_gap_s,
     )
 
 
@@ -265,6 +269,8 @@ def bolometry_inversion_multipulse_real(
     revision: int = 0,
     node: str | None = None,
     read_verbose: bool = False,
+    allow_nearest_time_fallback: bool = False,
+    max_nearest_fallback_gap_s: float | None = None,
     apply_basic_quality_filter: bool = True,
     min_finite_fraction: float = 0.95,
     min_nonzero_fraction: float = 0.01,
@@ -349,6 +355,8 @@ def bolometry_inversion_multipulse_real(
         verbose=read_verbose,
         generate_new_data=generate_new_data,
         static_transform=transform,
+        allow_nearest_time_fallback=allow_nearest_time_fallback,
+        max_nearest_fallback_gap_s=max_nearest_fallback_gap_s,
     )
     quality_filter = None
     if apply_basic_quality_filter:
@@ -463,4 +471,4 @@ def bolometry_inversion_single_real(**kwargs) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    result = bolometry_inversion_multipulse_real(pulses=list(range(12800, 13000)))
+    result = bolometry_inversion_multipulse_real(pulses=list(range(12800, 12850)))

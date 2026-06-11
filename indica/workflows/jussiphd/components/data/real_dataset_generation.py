@@ -73,6 +73,8 @@ def _align_emissivity_to_equilibrium_timebase(
     emissivity: DataArray,
     transform: Any,
     use_all_timepoints: bool,
+    allow_nearest_fallback: bool = False,
+    max_nearest_fallback_gap_s: float | None = None,
 ) -> DataArray:
     """Align emissivity time coordinates to the transform equilibrium time base."""
     if "t" not in emissivity.dims:
@@ -102,10 +104,22 @@ def _align_emissivity_to_equilibrium_timebase(
     # Keep only equilibrium times covered by signal data.
     target_t = eq_t[(eq_t >= sig_t.min()) & (eq_t <= sig_t.max())]
 
-    # If there is no overlap, pick the nearest equilibrium time to the signal midpoint.
+    # If there is no overlap, only allow explicit nearest-time fallback.
     if target_t.size == 0:
+        if not allow_nearest_fallback:
+            raise ValueError(
+                "No overlap between emissivity time grid and equilibrium time grid: "
+                f"signal=[{sig_t.min():.6f}, {sig_t.max():.6f}] "
+                f"equilibrium=[{eq_t.min():.6f}, {eq_t.max():.6f}]"
+            )
         midpoint = float(0.5 * (sig_t.min() + sig_t.max()))
         nearest = eq_t[int(np.argmin(np.abs(eq_t - midpoint)))]
+        gap = float(np.abs(nearest - midpoint))
+        if max_nearest_fallback_gap_s is not None and gap > float(max_nearest_fallback_gap_s):
+            raise ValueError(
+                "Nearest-time fallback exceeded max allowed gap: "
+                f"gap={gap:.6f}s > max_nearest_fallback_gap_s={float(max_nearest_fallback_gap_s):.6f}s"
+            )
         target_t = np.asarray([nearest], dtype=float)
 
     if not use_all_timepoints and target_t.size > 1:
@@ -186,6 +200,8 @@ def generate_and_save_real_dataset(
     revision: int = 0,
     generate_new_data: bool = True,
     verbose: bool = False,
+    allow_nearest_time_fallback: bool = False,
+    max_nearest_fallback_gap_s: float | None = None,
 ) -> dict[str, Any]:
     """Build (brightness, emissivity) pairs from real emissivity + forward projection."""
     _ = machine, instrument, equilibrium
@@ -237,6 +253,8 @@ def generate_and_save_real_dataset(
         emissivity=emissivity,
         transform=transform,
         use_all_timepoints=use_all_timepoints,
+        allow_nearest_fallback=allow_nearest_time_fallback,
+        max_nearest_fallback_gap_s=max_nearest_fallback_gap_s,
     )
     brightness = transform.integrate_on_los(emissivity, t=emissivity.t)
     if "t" in brightness.dims:
@@ -286,6 +304,8 @@ def generate_and_save_real_multipulse_dataset(
     min_finite_fraction: float = 0.95,
     min_nonzero_fraction: float = 0.01,
     nonzero_threshold: float = 0.0,
+    allow_nearest_time_fallback: bool = False,
+    max_nearest_fallback_gap_s: float | None = None,
 ) -> dict[str, Any]:
     """Build multi-pulse (brightness, emissivity) pairs from real ST40 data."""
     _ = machine
@@ -378,6 +398,8 @@ def generate_and_save_real_multipulse_dataset(
                 emissivity=emissivity,
                 transform=transform,
                 use_all_timepoints=use_all_timepoints,
+                allow_nearest_fallback=allow_nearest_time_fallback,
+                max_nearest_fallback_gap_s=max_nearest_fallback_gap_s,
             )
             brightness = transform.integrate_on_los(emissivity, t=emissivity.t)
             if "t" in brightness.dims:
