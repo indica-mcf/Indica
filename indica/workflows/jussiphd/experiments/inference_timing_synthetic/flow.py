@@ -208,22 +208,55 @@ def save_timing_results_task(
 
     plot_path = out_dir / plot_filename
     rows = benchmark["rows"]
-    x = np.arange(len(rows))
-    naive_t = np.asarray([r["naive_time_s"] for r in rows], dtype=float)
-    vae_t = np.asarray([r["vae_time_s"] for r in rows], dtype=float)
     safe_floor = 1e-8
+    naive_t = np.asarray([r["naive_time_s"] for r in rows if r["naive_ok"]], dtype=float)
+    vae_t = np.asarray([r["vae_time_s"] for r in rows if r["vae_ok"]], dtype=float)
     naive_t = np.clip(naive_t, safe_floor, None)
     vae_t = np.clip(vae_t, safe_floor, None)
 
-    fig, ax = plt.subplots(figsize=(8.5, 5))
-    ax.plot(x, naive_t, marker="o", linewidth=1.8, label="Naive inversion")
-    ax.plot(x, vae_t, marker="o", linewidth=1.8, label="VAE inference")
+    fig, ax = plt.subplots(figsize=(8.5, 5.5))
+    data = [naive_t, vae_t]
+    labels = ["Naive inversion", "VAE inference"]
+    ax.boxplot(
+        data,
+        labels=labels,
+        patch_artist=True,
+        showfliers=True,
+        medianprops={"color": "black", "linewidth": 1.8},
+    )
+
+    # Overlay mean and 95% CI of the mean for each method.
+    for x_pos, arr in enumerate(data, start=1):
+        if arr.size == 0:
+            continue
+        mean = float(np.mean(arr))
+        sem = float(np.std(arr, ddof=1) / np.sqrt(arr.size)) if arr.size > 1 else 0.0
+        ci95 = 1.96 * sem
+        ax.errorbar(
+            [x_pos],
+            [mean],
+            yerr=[[ci95], [ci95]],
+            fmt="o",
+            color="tab:red",
+            capsize=5,
+            linewidth=1.8,
+            label="Mean ±95% CI" if x_pos == 1 else None,
+            zorder=5,
+        )
+        ax.text(
+            x_pos + 0.06,
+            mean,
+            f"mean={mean:.3e}s",
+            va="center",
+            fontsize=9,
+            color="tab:red",
+        )
+
     ax.set_yscale("log")
-    ax.set_xlabel("Sample index (benchmark subset)")
     ax.set_ylabel("Runtime [s] (log scale)")
-    ax.set_title("Inference Time Comparison: Naive vs VAE")
+    ax.set_title("Inference Time Comparison: Naive vs VAE (Boxplot + 95% CI)")
     ax.grid(alpha=0.25, which="both")
-    ax.legend()
+    ax.legend(loc="upper right")
     fig.tight_layout()
     fig.savefig(plot_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
