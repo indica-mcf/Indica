@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from prefect import flow, task
+from matplotlib.patches import Patch
 from xarray import DataArray
 
 from indica.defaults.load_defaults import load_default_objects
@@ -217,57 +218,56 @@ def save_timing_results_task(
     fig, ax = plt.subplots(figsize=(8.5, 5.5))
     data = [naive_t, vae_t]
     labels = ["Naive inversion", "VAE inference"]
-    ax.boxplot(
+    bp = ax.boxplot(
         data,
         labels=labels,
         patch_artist=True,
         showfliers=True,
-        medianprops={"color": "black", "linewidth": 1.8},
+        medianprops={"color": "black", "linewidth": 0.0},
     )
+    box_colors = ["#4C78A8", "#F58518"]  # naive, vae
+    for box, color in zip(bp["boxes"], box_colors):
+        box.set_facecolor(color)
+        box.set_alpha(0.55)
 
-    # Overlay median and 95% CI of the mean for each method.
+    # Keep summary consistent with boxplot: report median and IQR only.
     stats_lines: list[str] = []
     for x_pos, arr in enumerate(data, start=1):
         if arr.size == 0:
             continue
-        mean = float(np.mean(arr))
         median = float(np.median(arr))
-        sem = float(np.std(arr, ddof=1) / np.sqrt(arr.size)) if arr.size > 1 else 0.0
-        ci95 = 1.96 * sem
-        max_v = float(np.max(arr))
-        ax.errorbar(
-            [x_pos],
-            [median],
-            yerr=[[ci95], [ci95]],
-            fmt="o",
-            color="tab:red",
-            capsize=5,
-            linewidth=1.8,
-            label="Median with ±95% CI(mean)" if x_pos == 1 else None,
-            zorder=5,
-        )
-        # Show max runtime point explicitly for each method.
-        ax.scatter([x_pos], [max_v], marker="^", color="tab:blue", s=55, zorder=6)
+        q1 = float(np.percentile(arr, 25))
+        q3 = float(np.percentile(arr, 75))
         stats_lines.append(
             f"{labels[x_pos-1]}\n"
             f"  median={median:.3e}s\n"
-            f"  95%CI(mean)=+/-{ci95:.3e}s\n"
-            f"  max={max_v:.3e}s"
+            f"  IQR=[{q1:.3e}, {q3:.3e}]s"
         )
 
     ax.set_yscale("log")
     ax.set_ylabel("Runtime [s] (log scale)")
-    ax.set_title("Inference Time Comparison: Naive vs VAE (Boxplot + Median)")
+    ax.set_title("Inference Time Comparison (Left=Naive, Right=VAE)")
     ax.grid(alpha=0.25, which="both")
-    ax.legend(loc="upper right")
+    ax.legend(
+        handles=[
+            Patch(facecolor=box_colors[0], alpha=0.55, label="Naive inversion (left)"),
+            Patch(facecolor=box_colors[1], alpha=0.55, label="VAE inference (right)"),
+        ],
+        loc="upper right",
+    )
+    if len(naive_t) > 0 and len(vae_t) > 0:
+        y_min = max(safe_floor, float(min(np.min(naive_t), np.min(vae_t))) * 0.6)
+        y_max = float(max(np.max(naive_t), np.max(vae_t))) * 1.4
+        if y_max > y_min:
+            ax.set_ylim(y_min, y_max)
     if stats_lines:
         # Put numeric summary inside axes to avoid expanding figure width.
         ax.text(
             0.02,
-            0.98,
+            0.02,
             "\n\n".join(stats_lines),
             transform=ax.transAxes,
-            va="top",
+            va="bottom",
             ha="left",
             fontsize=8.5,
             bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9, "edgecolor": "0.8"},
