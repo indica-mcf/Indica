@@ -232,7 +232,7 @@ def bolometry_inversion_multipulse_real(
     tstart: float = 0.04,
     tend: float = 0.15,
     dt: float = 0.01,
-    use_real_equilibrium: bool = False,
+    use_real_equilibrium: bool = True,
     real_equilibrium_pulse: int = 13622,
     real_equilibrium_verbose: bool = False,
     revision: int = 0,
@@ -413,4 +413,4 @@ def bolometry_inversion_single_real(**kwargs) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    result = bolometry_inversion_multipulse_real()
+    result = bolometry_inversion_multipulse_real(pulses=list(range(13603, 13610)))

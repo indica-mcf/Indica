@@ -79,10 +79,16 @@ def read_st40_emission_signal(
         revision=revision,
         verbose=verbose,
     )
-    if "brightness" not in instrument_data:
-        available = ", ".join(sorted(instrument_data.keys()))
-        raise KeyError(
-            f"Expected 'brightness' in ST40Reader output for instrument '{instrument}', "
-            f"available keys: {available}"
-        )
-    return instrument_data["brightness"]
+    # Prefer emissivity-like signal names, but fall back gracefully for legacy mappings.
+    if "emission" in instrument_data:
+        return instrument_data["emission"]
+    if "brightness" in instrument_data:
+        return instrument_data["brightness"]
+    if len(instrument_data) == 1:
+        return next(iter(instrument_data.values()))
+
+    available = ", ".join(sorted(instrument_data.keys()))
+    raise KeyError(
+        f"Expected 'emission' (or fallback 'brightness') in ST40Reader output for "
+        f"instrument '{instrument}', available keys: {available}"
+    )
