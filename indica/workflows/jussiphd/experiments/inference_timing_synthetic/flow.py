@@ -225,38 +225,53 @@ def save_timing_results_task(
         medianprops={"color": "black", "linewidth": 1.8},
     )
 
-    # Overlay mean and 95% CI of the mean for each method.
+    # Overlay median and 95% CI of the mean for each method.
+    stats_lines: list[str] = []
     for x_pos, arr in enumerate(data, start=1):
         if arr.size == 0:
             continue
         mean = float(np.mean(arr))
+        median = float(np.median(arr))
         sem = float(np.std(arr, ddof=1) / np.sqrt(arr.size)) if arr.size > 1 else 0.0
         ci95 = 1.96 * sem
+        max_v = float(np.max(arr))
         ax.errorbar(
             [x_pos],
-            [mean],
+            [median],
             yerr=[[ci95], [ci95]],
             fmt="o",
             color="tab:red",
             capsize=5,
             linewidth=1.8,
-            label="Mean ±95% CI" if x_pos == 1 else None,
+            label="Median with ±95% CI(mean)" if x_pos == 1 else None,
             zorder=5,
         )
-        ax.text(
-            x_pos + 0.06,
-            mean,
-            f"mean={mean:.3e}s",
-            va="center",
-            fontsize=9,
-            color="tab:red",
+        # Show max runtime point explicitly for each method.
+        ax.scatter([x_pos], [max_v], marker="^", color="tab:blue", s=55, zorder=6)
+        stats_lines.append(
+            f"{labels[x_pos-1]}\n"
+            f"  median={median:.3e}s\n"
+            f"  95%CI(mean)=+/-{ci95:.3e}s\n"
+            f"  max={max_v:.3e}s"
         )
 
     ax.set_yscale("log")
     ax.set_ylabel("Runtime [s] (log scale)")
-    ax.set_title("Inference Time Comparison: Naive vs VAE (Boxplot + 95% CI)")
+    ax.set_title("Inference Time Comparison: Naive vs VAE (Boxplot + Median)")
     ax.grid(alpha=0.25, which="both")
     ax.legend(loc="upper right")
+    if stats_lines:
+        # Put numeric summary inside axes to avoid expanding figure width.
+        ax.text(
+            0.02,
+            0.98,
+            "\n\n".join(stats_lines),
+            transform=ax.transAxes,
+            va="top",
+            ha="left",
+            fontsize=8.5,
+            bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9, "edgecolor": "0.8"},
+        )
     fig.tight_layout()
     fig.savefig(plot_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -290,7 +305,7 @@ def benchmark_synthetic_inference_time(
     output_dir: str = DEFAULT_OUTPUT_DIR,
     n_samples: int = 100,
     vae_k_samples: int = 20,
-    warmup_samples: int = 5,
+    warmup_samples: int = 20,
     seed: int = 0,
     csv_filename: str = "timing_naive_vs_vae.csv",
     plot_filename: str = "timing_naive_vs_vae_log.png",
