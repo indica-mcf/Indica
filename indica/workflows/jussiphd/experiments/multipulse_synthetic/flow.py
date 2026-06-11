@@ -194,7 +194,7 @@ def bolometry_inversion_multipulse_synthetic(
     tstart: float = 0.04,
     tend: float = 0.15,
     dt: float = 0.01,
-    use_real_equilibrium: bool = True,
+    use_real_equilibrium: bool = False,
     real_equilibrium_pulse: int = 13622,
     real_equilibrium_verbose: bool = False,
     output_dir: str = DEFAULT_OUTPUT_DIR,
