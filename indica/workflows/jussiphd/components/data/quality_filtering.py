@@ -125,6 +125,8 @@ def filter_dataset_csv_slices(
                 writer.writerows(kept_meta)
             meta_out = str(out_meta)
 
+    print(f"Filter results: total={n_total}, kept={n_kept}, filtered={n_filtered}")
+
     return {
         "b_path": str(b_out),
         "eps_path": str(eps_out),
