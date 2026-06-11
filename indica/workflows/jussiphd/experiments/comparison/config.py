@@ -18,9 +18,9 @@ class ComparisonConfig:
     machine: str = "st40"
     instrument: str = "blom_xy1"
     tstart: float = 0.04
-    tend: float = 0.15
+    tend: float = 0.14
     dt: float = 0.01
-    use_real_equilibrium: bool = False
+    use_real_equilibrium: bool = True
     real_equilibrium_pulse: int = 13622
     real_equilibrium_verbose: bool = False
     train_fraction: float = 0.8

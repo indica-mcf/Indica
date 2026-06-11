@@ -29,6 +29,19 @@ DEFAULT_BDA_OVERRIDES: tuple[str, ...] = (
 )
 
 
+def _normalise_transform_beamlets(transform: Any) -> None:
+    """Ensure LOS transform has scalar beamlet metadata."""
+    beamlets = getattr(transform, "beamlets", None)
+    if isinstance(beamlets, (list, tuple, np.ndarray)):
+        if hasattr(transform, "distribute_beamlets"):
+            transform.distribute_beamlets(False)
+            return
+        flat = np.asarray(beamlets).reshape(-1)
+        if flat.size == 0:
+            raise ValueError("Transform beamlets are empty and cannot be normalised.")
+        transform.beamlets = int(flat[0])
+
+
 class PlasmaGenerator:
     """Generate random plasma states and run the bolometry forward model."""
 
@@ -95,6 +108,7 @@ def generate_plasma_sample(
     transform.set_equilibrium(equilibrium)
     transform.spot_shape = "square"
     transform.focal_length = -1000.0
+    _normalise_transform_beamlets(transform)
 
     _, power_loss = default_atomic_data(["h", "ar", "c", "he"])
     model = PinholeCamera(instrument, power_loss=power_loss)
@@ -130,12 +144,19 @@ def generate_and_save_dataset(
     b_filename: str = "vae_firstpass/b_slices.csv",
     eps_filename: str = "vae_firstpass/eps_slices.csv",
     generate_new_data: bool = True,
+    show_progress: bool = True,
+    progress_every: int | None = None,
 ) -> dict[str, Any]:
     """Generate (brightness, emissivity) pairs and write them to CSV files."""
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     b_path = output_path / b_filename
     eps_path = output_path / eps_filename
+    # Keep transform state consistent even when reusing existing CSV files.
+    transform.set_equilibrium(equilibrium)
+    transform.spot_shape = "square"
+    transform.focal_length = -1000.0
+    _normalise_transform_beamlets(transform)
 
     if not generate_new_data:
         if not b_path.exists() or not eps_path.exists():
@@ -161,7 +182,15 @@ def generate_and_save_dataset(
     b_slices: list[np.ndarray] = []
     eps_slices: list[np.ndarray] = []
 
-    for _ in range(n_generations):
+    if show_progress:
+        step = (
+            int(progress_every)
+            if progress_every is not None and int(progress_every) > 0
+            else max(1, n_generations // 10)
+        )
+        print(f"[data_generation] Starting generation: 0/{n_generations}")
+
+    for i in range(n_generations):
         sample = generate_plasma_sample(
             machine=machine,
             instrument=instrument,
@@ -188,6 +217,11 @@ def generate_and_save_dataset(
             emissivity_slice = emissivity.isel(t=t_idx).values.astype(np.float32)
             b_slices.append(channel_vector)
             eps_slices.append(emissivity_slice)
+
+        if show_progress:
+            n_done = i + 1
+            if n_done % step == 0 or n_done == n_generations:
+                print(f"[data_generation] Generated {n_done}/{n_generations}")
 
     b_arr = np.asarray(b_slices, dtype=np.float32)
     eps_arr = np.asarray(eps_slices, dtype=np.float32)
@@ -288,6 +322,7 @@ def build_real_model_for_pulse(
     transform.set_equilibrium(equilibrium, force=True)
     transform.spot_shape = "square"
     transform.focal_length = -1000.0
+    _normalise_transform_beamlets(transform)
 
     _, power_loss = default_atomic_data(["h", "ar", "c", "he"])
     model = PinholeCamera(instrument, power_loss=power_loss)
