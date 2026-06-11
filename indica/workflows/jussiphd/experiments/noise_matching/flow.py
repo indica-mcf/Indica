@@ -17,6 +17,7 @@ from indica.workflows.jussiphd.experiments.multipulse_real.flow import (
     bolometry_inversion_multipulse_real,
 )
 from indica.workflows.jussiphd.experiments.multipulse_synthetic.flow import (
+    DEFAULT_OUTPUT_DIR as DEFAULT_SYNTHETIC_DATA_OUTPUT_DIR,
     bolometry_inversion_multipulse_synthetic,
 )
 
@@ -30,6 +31,16 @@ def _parse_int_csv(values_csv: str) -> list[int]:
 
 def _parse_float_csv(values_csv: str) -> list[float]:
     return [float(v.strip()) for v in values_csv.split(",") if v.strip()]
+
+
+def _resolve_existing_file(dir_path: Path, candidates: Sequence[str], kind: str) -> str:
+    for name in candidates:
+        p = dir_path / name
+        if p.exists():
+            return name
+    raise FileNotFoundError(
+        f"Could not find existing {kind} file in {dir_path}. Tried: {list(candidates)}"
+    )
 
 
 @task(name="run_real_dataset_only")
@@ -101,6 +112,8 @@ def calibrate_synthetic_noise_against_real(
     synthetic_n_generations: int = 3000,
     real_generate_new_data: bool = True,
     synthetic_generate_new_data: bool = False,
+    real_existing_output_dir: str | None = None,
+    synthetic_existing_output_dir: str | None = None,
     seed: int = 0,
     bins: int = 256,
     b_scale_percentile: float = 99.0,
@@ -124,8 +137,50 @@ def calibrate_synthetic_noise_against_real(
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     run_root = out_dir / run_id
-    real_output_dir = str(run_root / "real_data")
-    synthetic_output_dir = str(run_root / "synthetic_data")
+    real_output_dir = (
+        str(Path(real_existing_output_dir))
+        if (not real_generate_new_data and real_existing_output_dir)
+        else str(run_root / "real_data")
+    )
+    synthetic_output_dir = (
+        str(Path(synthetic_existing_output_dir))
+        if (not synthetic_generate_new_data and synthetic_existing_output_dir)
+        else (
+            DEFAULT_SYNTHETIC_DATA_OUTPUT_DIR
+            if not synthetic_generate_new_data
+            else str(run_root / "synthetic_data")
+        )
+    )
+
+    synthetic_dir_path = Path(synthetic_output_dir)
+    real_dir_path = Path(real_output_dir)
+    synthetic_b_filename = "b_slices.csv"
+    synthetic_eps_filename = "eps_slices.csv"
+    if not synthetic_generate_new_data:
+        synthetic_b_filename = _resolve_existing_file(
+            synthetic_dir_path,
+            ["b_slices.csv", "b_slices_multipulse_synthetic.csv"],
+            "synthetic brightness",
+        )
+        synthetic_eps_filename = _resolve_existing_file(
+            synthetic_dir_path,
+            ["eps_slices.csv", "eps_slices_multipulse_synthetic.csv"],
+            "synthetic emissivity",
+        )
+
+    real_b_filename = "b_slices.csv"
+    real_eps_filename = "eps_slices.csv"
+    if not real_generate_new_data:
+        real_b_filename = _resolve_existing_file(
+            real_dir_path,
+            ["b_slices.csv", "b_slices_multipulse_real.csv"],
+            "real brightness",
+        )
+        real_eps_filename = _resolve_existing_file(
+            real_dir_path,
+            ["eps_slices.csv", "eps_slices_multipulse_real.csv"],
+            "real emissivity",
+        )
 
     real_kwargs = {
         "machine": machine,
@@ -141,8 +196,8 @@ def calibrate_synthetic_noise_against_real(
         "revision": revision,
         "node": node,
         "output_dir": real_output_dir,
-        "b_filename": "b_slices.csv",
-        "eps_filename": "eps_slices.csv",
+        "b_filename": real_b_filename,
+        "eps_filename": real_eps_filename,
         "generate_new_data": real_generate_new_data,
         "use_all_timepoints": True,
         "create_training_dataset": False,
@@ -160,8 +215,8 @@ def calibrate_synthetic_noise_against_real(
         "real_equilibrium_pulse": real_equilibrium_pulse,
         "real_equilibrium_verbose": real_equilibrium_verbose,
         "output_dir": synthetic_output_dir,
-        "b_filename": "b_slices.csv",
-        "eps_filename": "eps_slices.csv",
+        "b_filename": synthetic_b_filename,
+        "eps_filename": synthetic_eps_filename,
         "n_generations": synthetic_n_generations,
         "generate_new_data": synthetic_generate_new_data,
         "use_all_timepoints": True,
@@ -206,7 +261,7 @@ def calibrate_synthetic_noise_against_real(
 
 
 if __name__ == "__main__":
-    result = calibrate_synthetic_noise_against_real(pulses=list(range(12800,12820)))
+    result = calibrate_synthetic_noise_against_real(pulses=list(range(12800,13000)))
     print("Noise calibration complete")
     print(f"Best count level: {result['best_count_level']}")
     print(f"Plot: {result['outputs']['plot_path']}")
