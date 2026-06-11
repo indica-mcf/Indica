@@ -69,6 +69,51 @@ def _to_emissivity_profile(
     return emissivity
 
 
+def _align_emissivity_to_equilibrium_timebase(
+    emissivity: DataArray,
+    transform: Any,
+    use_all_timepoints: bool,
+) -> DataArray:
+    """Align emissivity time coordinates to the transform equilibrium time base."""
+    if "t" not in emissivity.dims:
+        return emissivity
+
+    equilibrium = getattr(transform, "equilibrium", None)
+    if equilibrium is None:
+        return emissivity
+
+    eq_t_raw = getattr(equilibrium, "t", None)
+    if eq_t_raw is None and hasattr(equilibrium, "rhop") and hasattr(equilibrium.rhop, "t"):
+        eq_t_raw = equilibrium.rhop.t
+    if eq_t_raw is None:
+        return emissivity
+
+    eq_t = eq_t_raw.values if hasattr(eq_t_raw, "values") else eq_t_raw
+    eq_t = np.asarray(eq_t, dtype=float).reshape(-1)
+    eq_t = eq_t[np.isfinite(eq_t)]
+    if eq_t.size == 0:
+        return emissivity
+
+    sig_t = np.asarray(emissivity.t.values, dtype=float).reshape(-1)
+    sig_t = sig_t[np.isfinite(sig_t)]
+    if sig_t.size == 0:
+        raise ValueError("Emissivity has no finite time coordinates.")
+
+    # Keep only equilibrium times covered by signal data.
+    target_t = eq_t[(eq_t >= sig_t.min()) & (eq_t <= sig_t.max())]
+
+    # If there is no overlap, pick the nearest equilibrium time to the signal midpoint.
+    if target_t.size == 0:
+        midpoint = float(0.5 * (sig_t.min() + sig_t.max()))
+        nearest = eq_t[int(np.argmin(np.abs(eq_t - midpoint)))]
+        target_t = np.asarray([nearest], dtype=float)
+
+    if not use_all_timepoints and target_t.size > 1:
+        target_t = np.asarray([target_t[target_t.size // 2]], dtype=float)
+
+    return emissivity.interp(t=target_t)
+
+
 def load_real_transform_from_pulse(
     instrument: str,
     pulse: int,
@@ -159,6 +204,11 @@ def generate_and_save_real_dataset(
         use_all_timepoints=use_all_timepoints,
         tstart=tstart,
         tend=tend,
+    )
+    emissivity = _align_emissivity_to_equilibrium_timebase(
+        emissivity=emissivity,
+        transform=transform,
+        use_all_timepoints=use_all_timepoints,
     )
     brightness = transform.integrate_on_los(emissivity, t=emissivity.t)
     if "t" in brightness.dims:
@@ -289,6 +339,11 @@ def generate_and_save_real_multipulse_dataset(
                 use_all_timepoints=use_all_timepoints,
                 tstart=tstart,
                 tend=tend,
+            )
+            emissivity = _align_emissivity_to_equilibrium_timebase(
+                emissivity=emissivity,
+                transform=transform,
+                use_all_timepoints=use_all_timepoints,
             )
             brightness = transform.integrate_on_los(emissivity, t=emissivity.t)
             if "t" in brightness.dims:
