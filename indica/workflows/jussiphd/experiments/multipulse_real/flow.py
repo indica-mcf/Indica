@@ -471,4 +471,4 @@ def bolometry_inversion_single_real(**kwargs) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    result = bolometry_inversion_multipulse_real(pulses=list(range(12800, 12850)))
+    result = bolometry_inversion_multipulse_real(pulses=list(range(12900, 13000)))

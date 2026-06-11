@@ -85,7 +85,7 @@ def evaluate_noise_levels_against_real(
     b_scale_percentile: float = 99.0,
     eps_scale_percentile: float = 99.0,
 ) -> dict[str, Any]:
-    """Sweep Poisson noise levels and score synthetic-vs-real likelihoods."""
+    """Sweep Poisson noise levels and score synthetic-vs-real likelihoods (emissivity only)."""
     syn_b = _load_csv_array(synthetic_b_path)
     syn_eps = _load_csv_array(synthetic_eps_path)
     real_b = _load_csv_array(real_b_path)
@@ -101,12 +101,12 @@ def evaluate_noise_levels_against_real(
     rows: list[dict[str, float]] = []
     for count in count_levels:
         c = float(count)
-        noisy_b = add_poisson_noise_with_counts(syn_b, c, b_scale, rng)
         noisy_eps = add_poisson_noise_with_counts(syn_eps, c, eps_scale, rng)
 
-        ll_b = _histogram_log_likelihood(noisy_b, real_b, bins=bins)
+        # We calibrate against emissivity only; brightness is intentionally not noised/scored here.
+        ll_b = float("nan")
         ll_eps = _histogram_log_likelihood(noisy_eps, real_eps, bins=bins)
-        ll_total = ll_b + ll_eps
+        ll_total = ll_eps
 
         rows.append(
             {
@@ -166,14 +166,12 @@ def save_noise_likelihood_outputs(
     best_idx = int(np.argmax(ll_tot))
 
     fig, ax = plt.subplots(figsize=(7, 4.5))
-    ax.plot(counts, ll_tot, marker="o", linewidth=2.0, label="total log-likelihood")
-    ax.plot(counts, ll_b, marker="o", linewidth=1.5, alpha=0.8, label="brightness")
-    ax.plot(counts, ll_eps, marker="o", linewidth=1.5, alpha=0.8, label="emissivity")
-    ax.scatter([counts[best_idx]], [ll_tot[best_idx]], color="black", zorder=5, label="best")
+    ax.plot(counts, ll_eps, marker="o", linewidth=2.0, label="emissivity log-likelihood")
+    ax.scatter([counts[best_idx]], [ll_eps[best_idx]], color="black", zorder=5, label="best")
     ax.set_xscale("log")
     ax.set_xlabel("Poisson count level (effective)")
     ax.set_ylabel("Average log-likelihood")
-    ax.set_title("Synthetic (noisy) vs real likelihood across noise levels")
+    ax.set_title("Emissivity-only likelihood across Poisson noise levels")
     ax.grid(alpha=0.25)
     ax.legend()
     fig.tight_layout()

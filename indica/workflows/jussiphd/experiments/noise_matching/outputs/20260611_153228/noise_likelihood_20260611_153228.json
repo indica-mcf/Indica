@@ -1,0 +1,106 @@
+{
+  "synthetic_shapes": {
+    "b": [
+      1217,
+      8
+    ],
+    "eps": [
+      1217,
+      41
+    ]
+  },
+  "real_shapes": {
+    "b": [
+      40260,
+      8
+    ],
+    "eps": [
+      40260,
+      12
+    ]
+  },
+  "count_levels": [
+    1.0,
+    2.0,
+    5.0,
+    10.0,
+    20.0,
+    50.0,
+    100.0,
+    200.0,
+    500.0,
+    1000.0
+  ],
+  "scale_values": {
+    "b_scale": 4053929.612499998,
+    "eps_scale": 6268767.760000001
+  },
+  "rows": [
+    {
+      "count_level": 1.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -10.894447019944012,
+      "loglik_total": -10.894447019944012
+    },
+    {
+      "count_level": 2.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -14.370085993269996,
+      "loglik_total": -14.370085993269996
+    },
+    {
+      "count_level": 5.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -11.16131852885508,
+      "loglik_total": -11.16131852885508
+    },
+    {
+      "count_level": 10.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -14.345243785437631,
+      "loglik_total": -14.345243785437631
+    },
+    {
+      "count_level": 20.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -14.30905222354814,
+      "loglik_total": -14.30905222354814
+    },
+    {
+      "count_level": 50.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -9.211267605348077,
+      "loglik_total": -9.211267605348077
+    },
+    {
+      "count_level": 100.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -3.2145030457501202,
+      "loglik_total": -3.2145030457501202
+    },
+    {
+      "count_level": 200.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -3.3372949373950265,
+      "loglik_total": -3.3372949373950265
+    },
+    {
+      "count_level": 500.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -3.4893522517051228,
+      "loglik_total": -3.4893522517051228
+    },
+    {
+      "count_level": 1000.0,
+      "loglik_brightness": NaN,
+      "loglik_emissivity": -3.4977725380273843,
+      "loglik_total": -3.4977725380273843
+    }
+  ],
+  "best": {
+    "count_level": 100.0,
+    "loglik_brightness": NaN,
+    "loglik_emissivity": -3.2145030457501202,
+    "loglik_total": -3.2145030457501202
+  }
+}
