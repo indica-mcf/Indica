@@ -114,6 +114,34 @@ def _align_emissivity_to_equilibrium_timebase(
     return emissivity.interp(t=target_t)
 
 
+def _slice_passes_basic_quality(
+    b_slice: np.ndarray,
+    eps_slice: np.ndarray,
+    min_finite_fraction: float,
+    min_nonzero_fraction: float,
+    nonzero_threshold: float,
+) -> tuple[bool, str]:
+    """Check finite/nonzero quality for one (brightness, emissivity) slice pair."""
+    b = np.asarray(b_slice, dtype=np.float32).reshape(-1)
+    eps = np.asarray(eps_slice, dtype=np.float32).reshape(-1)
+
+    b_finite = float(np.isfinite(b).mean())
+    eps_finite = float(np.isfinite(eps).mean())
+    if b_finite < float(min_finite_fraction):
+        return False, f"brightness finite_fraction={b_finite:.3f} < {min_finite_fraction:.3f}"
+    if eps_finite < float(min_finite_fraction):
+        return False, f"emissivity finite_fraction={eps_finite:.3f} < {min_finite_fraction:.3f}"
+
+    b_nonzero = float(np.mean(np.abs(np.nan_to_num(b, nan=0.0)) > float(nonzero_threshold)))
+    eps_nonzero = float(np.mean(np.abs(np.nan_to_num(eps, nan=0.0)) > float(nonzero_threshold)))
+    if b_nonzero < float(min_nonzero_fraction):
+        return False, f"brightness nonzero_fraction={b_nonzero:.3f} < {min_nonzero_fraction:.3f}"
+    if eps_nonzero < float(min_nonzero_fraction):
+        return False, f"emissivity nonzero_fraction={eps_nonzero:.3f} < {min_nonzero_fraction:.3f}"
+
+    return True, "ok"
+
+
 def load_real_transform_from_pulse(
     instrument: str,
     pulse: int,
@@ -254,6 +282,10 @@ def generate_and_save_real_multipulse_dataset(
     generate_new_data: bool = True,
     verbose: bool = False,
     static_transform: Any | None = None,
+    apply_basic_quality_filter: bool = True,
+    min_finite_fraction: float = 0.95,
+    min_nonzero_fraction: float = 0.01,
+    nonzero_threshold: float = 0.0,
 ) -> dict[str, Any]:
     """Build multi-pulse (brightness, emissivity) pairs from real ST40 data."""
     _ = machine
@@ -293,6 +325,7 @@ def generate_and_save_real_multipulse_dataset(
             "num_pulses_input": int(len(pulse_list)),
             "num_pulses_skipped": None,
             "skipped": None,
+            "num_slices_filtered": None,
             "generated_new_data": False,
             "source_signal": node if node is not None else f"instrument={emissivity_instrument}",
         }
@@ -301,6 +334,7 @@ def generate_and_save_real_multipulse_dataset(
     eps_slices: list[np.ndarray] = []
     sample_meta: list[tuple[int, float]] = []
     skipped: list[tuple[int, str]] = []
+    num_slices_filtered = 0
 
     for pulse in pulse_list:
         try:
@@ -377,11 +411,38 @@ def generate_and_save_real_multipulse_dataset(
                     f"{eps_arr.shape[1]} vs {eps_slices[0].shape[0]}"
                 )
 
+            pulse_kept = 0
+            pulse_filtered = 0
+            last_filter_reason = "unknown"
             for t_idx in range(b_arr.shape[0]):
-                b_slices.append(b_arr[t_idx].astype(np.float32))
-                eps_slices.append(eps_arr[t_idx].astype(np.float32))
+                b_slice = b_arr[t_idx].astype(np.float32)
+                eps_slice = eps_arr[t_idx].astype(np.float32)
+                if apply_basic_quality_filter:
+                    ok, reason = _slice_passes_basic_quality(
+                        b_slice=b_slice,
+                        eps_slice=eps_slice,
+                        min_finite_fraction=min_finite_fraction,
+                        min_nonzero_fraction=min_nonzero_fraction,
+                        nonzero_threshold=nonzero_threshold,
+                    )
+                    if not ok:
+                        pulse_filtered += 1
+                        last_filter_reason = reason
+                        continue
+                b_slices.append(b_slice)
+                eps_slices.append(eps_slice)
                 t_val = float(t_values[min(t_idx, len(t_values) - 1)])
                 sample_meta.append((int(pulse), t_val))
+                pulse_kept += 1
+            num_slices_filtered += pulse_filtered
+            if pulse_kept == 0:
+                skipped.append(
+                    (
+                        int(pulse),
+                        "All slices failed quality filter "
+                        f"(filtered={pulse_filtered}, last_reason={last_filter_reason})",
+                    )
+                )
         except Exception as exc:  # pragma: no cover
             skipped.append((int(pulse), str(exc)))
 
@@ -411,6 +472,7 @@ def generate_and_save_real_multipulse_dataset(
         "num_pulses_input": int(len(pulse_list)),
         "num_pulses_skipped": int(len(skipped)),
         "skipped": skipped,
+        "num_slices_filtered": int(num_slices_filtered),
         "generated_new_data": True,
         "source_signal": node if node is not None else f"instrument={emissivity_instrument}",
     }

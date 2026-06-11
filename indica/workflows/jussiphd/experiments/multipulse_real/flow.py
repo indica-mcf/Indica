@@ -55,6 +55,10 @@ def build_multipulse_real_dataset_task(
     verbose: bool,
     generate_new_data: bool,
     static_transform: Any | None,
+    apply_basic_quality_filter: bool,
+    min_finite_fraction: float,
+    min_nonzero_fraction: float,
+    nonzero_threshold: float,
 ) -> dict[str, Any]:
     return generate_and_save_real_multipulse_dataset(
         pulses=pulses,
@@ -73,6 +77,10 @@ def build_multipulse_real_dataset_task(
         generate_new_data=generate_new_data,
         verbose=verbose,
         static_transform=static_transform,
+        apply_basic_quality_filter=apply_basic_quality_filter,
+        min_finite_fraction=min_finite_fraction,
+        min_nonzero_fraction=min_nonzero_fraction,
+        nonzero_threshold=nonzero_threshold,
     )
 
 
@@ -238,6 +246,10 @@ def bolometry_inversion_multipulse_real(
     revision: int = 0,
     node: str | None = None,
     read_verbose: bool = False,
+    apply_basic_quality_filter: bool = True,
+    min_finite_fraction: float = 0.95,
+    min_nonzero_fraction: float = 0.01,
+    nonzero_threshold: float = 0.0,
     output_dir: str = DEFAULT_OUTPUT_DIR,
     b_filename: str = "b_slices_multipulse_real.csv",
     eps_filename: str = "eps_slices_multipulse_real.csv",
@@ -316,6 +328,10 @@ def bolometry_inversion_multipulse_real(
         verbose=read_verbose,
         generate_new_data=generate_new_data,
         static_transform=transform,
+        apply_basic_quality_filter=apply_basic_quality_filter,
+        min_finite_fraction=min_finite_fraction,
+        min_nonzero_fraction=min_nonzero_fraction,
+        nonzero_threshold=nonzero_threshold,
     )
 
     dataset_summary = None
