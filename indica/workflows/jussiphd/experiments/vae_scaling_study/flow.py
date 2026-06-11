@@ -22,6 +22,9 @@ from indica.workflows.jussiphd.components.data.real_equilibrium import (
 from indica.workflows.jussiphd.components.evaluation.metrics import (
     compute_vae_diversity_and_forward_metrics,
 )
+from indica.workflows.jussiphd.components.evaluation.noise_likelihood import (
+    add_poisson_noise_with_counts,
+)
 from indica.workflows.jussiphd.components.ml.vae import train_vae_from_csv
 
 
@@ -47,6 +50,27 @@ def _save_csv_2d(path: str, arr: np.ndarray) -> str:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     np.savetxt(out_path, np.asarray(arr, dtype=np.float32), delimiter=",")
     return str(out_path)
+
+
+def _poisson_noise_eps_array(
+    eps: np.ndarray,
+    count_level: float,
+    scale_percentile: float,
+    seed: int,
+) -> np.ndarray:
+    arr = np.asarray(eps, dtype=np.float32)
+    if arr.ndim == 1:
+        arr = arr[None, :]
+    scale_value = float(np.percentile(np.clip(arr, a_min=0.0, a_max=None), float(scale_percentile)))
+    if scale_value <= 0:
+        scale_value = 1.0
+    rng = np.random.default_rng(int(seed))
+    return add_poisson_noise_with_counts(
+        values=arr,
+        count_level=float(count_level),
+        scale_value=scale_value,
+        rng=rng,
+    ).astype(np.float32)
 
 
 @task(name="load_real_equilibrium")
@@ -237,6 +261,10 @@ def bolometry_inversion_vae_scaling_study(
     use_existing_single_generated_pool: bool = True,
     pool_b_path: str = str(Path(DEFAULT_SINGLE_GENERATED_DIR) / "b_slices_single_generated.csv"),
     pool_eps_path: str = str(Path(DEFAULT_SINGLE_GENERATED_DIR) / "eps_slices_single_generated.csv"),
+    apply_eps_poisson_noise: bool = True,
+    eps_poisson_count_level: float = 200.0,
+    eps_poisson_scale_percentile: float = 99.0,
+    eps_poisson_seed: int = 0,
     hidden_scalings: Sequence[int] = (1, 2, 4, 8),
     train_generations_grid: Sequence[int] = (50, 250, 500, 1300, 2900 ),
     n_repeats: int = 10,
@@ -275,6 +303,13 @@ def bolometry_inversion_vae_scaling_study(
     if use_existing_single_generated_pool:
         b_pool = _load_csv_2d(pool_b_path)
         eps_pool = _load_csv_2d(pool_eps_path)
+        if apply_eps_poisson_noise:
+            eps_pool = _poisson_noise_eps_array(
+                eps=eps_pool,
+                count_level=eps_poisson_count_level,
+                scale_percentile=eps_poisson_scale_percentile,
+                seed=eps_poisson_seed,
+            )
         if len(b_pool) != len(eps_pool):
             raise ValueError("pool_b_path and pool_eps_path must have the same number of rows")
         max_train = int(max(int(n) for n in train_generations_grid))
@@ -290,7 +325,8 @@ def bolometry_inversion_vae_scaling_study(
         train_pool_indices = perm[int(eval_generations) :]
 
         eval_b_path = _save_csv_2d(str(out_dir / eval_b_filename), b_pool[eval_indices])
-        eval_eps_path = _save_csv_2d(str(out_dir / eval_eps_filename), eps_pool[eval_indices])
+        eval_eps_values = eps_pool[eval_indices]
+        eval_eps_path = _save_csv_2d(str(out_dir / eval_eps_filename), eval_eps_values)
         eval_dataset = {
             "b_path": eval_b_path,
             "eps_path": eval_eps_path,
@@ -310,6 +346,20 @@ def bolometry_inversion_vae_scaling_study(
             b_filename=eval_b_filename,
             eps_filename=eval_eps_filename,
         )
+        if apply_eps_poisson_noise:
+            eval_eps = _load_csv_2d(eval_dataset["eps_path"])
+            eval_eps_noisy = _poisson_noise_eps_array(
+                eps=eval_eps,
+                count_level=eps_poisson_count_level,
+                scale_percentile=eps_poisson_scale_percentile,
+                seed=eps_poisson_seed,
+            )
+            eval_dataset["eps_path"] = _save_csv_2d(
+                str(Path(eval_dataset["eps_path"]).with_name(
+                    f"{Path(eval_dataset['eps_path']).stem}_poisson{int(eps_poisson_count_level)}.csv"
+                )),
+                eval_eps_noisy,
+            )
         train_pool_indices = None
 
     rows: list[dict[str, Any]] = []
@@ -349,6 +399,20 @@ def bolometry_inversion_vae_scaling_study(
                         b_filename=f"train_sets/b_slices_{tag}.csv",
                         eps_filename=f"train_sets/eps_slices_{tag}.csv",
                     )
+                    if apply_eps_poisson_noise:
+                        train_eps = _load_csv_2d(train_dataset["eps_path"])
+                        train_eps_noisy = _poisson_noise_eps_array(
+                            eps=train_eps,
+                            count_level=eps_poisson_count_level,
+                            scale_percentile=eps_poisson_scale_percentile,
+                            seed=eps_poisson_seed + int(repeat_idx) + int(hidden_scaling) + int(train_generations),
+                        )
+                        train_dataset["eps_path"] = _save_csv_2d(
+                            str(Path(train_dataset["eps_path"]).with_name(
+                                f"{Path(train_dataset['eps_path']).stem}_poisson{int(eps_poisson_count_level)}.csv"
+                            )),
+                            train_eps_noisy,
+                        )
 
                 vae_training = train_scaled_vae_task(
                     b_path=train_dataset["b_path"],
@@ -404,6 +468,8 @@ def bolometry_inversion_vae_scaling_study(
         "eval_dataset": eval_dataset,
         "n_rows": int(len(rows)),
         "use_existing_single_generated_pool": bool(use_existing_single_generated_pool),
+        "apply_eps_poisson_noise": bool(apply_eps_poisson_noise),
+        "eps_poisson_count_level": float(eps_poisson_count_level),
         "pool_b_path": pool_b_path if use_existing_single_generated_pool else None,
         "pool_eps_path": pool_eps_path if use_existing_single_generated_pool else None,
         "hidden_scalings": [int(x) for x in hidden_scalings],
