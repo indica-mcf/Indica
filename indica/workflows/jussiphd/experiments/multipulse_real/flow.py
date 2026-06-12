@@ -60,8 +60,6 @@ def build_multipulse_real_dataset_task(
     static_transform: Any | None,
     allow_nearest_time_fallback: bool,
     max_nearest_fallback_gap_s: float | None,
-    allow_channel_based_emissivity: bool,
-    min_rhop_points: int,
 ) -> dict[str, Any]:
     return generate_and_save_real_multipulse_dataset(
         pulses=pulses,
@@ -83,8 +81,6 @@ def build_multipulse_real_dataset_task(
         apply_basic_quality_filter=False,
         allow_nearest_time_fallback=allow_nearest_time_fallback,
         max_nearest_fallback_gap_s=max_nearest_fallback_gap_s,
-        allow_channel_based_emissivity=allow_channel_based_emissivity,
-        min_rhop_points=min_rhop_points,
     )
 
 
@@ -275,8 +271,6 @@ def bolometry_inversion_multipulse_real(
     read_verbose: bool = False,
     allow_nearest_time_fallback: bool = False,
     max_nearest_fallback_gap_s: float | None = None,
-    allow_channel_based_emissivity: bool = False,
-    min_rhop_points: int = 20,
     apply_basic_quality_filter: bool = True,
     min_finite_fraction: float = 0.95,
     min_nonzero_fraction: float = 0.01,
@@ -363,8 +357,6 @@ def bolometry_inversion_multipulse_real(
         static_transform=transform,
         allow_nearest_time_fallback=allow_nearest_time_fallback,
         max_nearest_fallback_gap_s=max_nearest_fallback_gap_s,
-        allow_channel_based_emissivity=allow_channel_based_emissivity,
-        min_rhop_points=min_rhop_points,
     )
     quality_filter = None
     if apply_basic_quality_filter:
@@ -479,4 +471,4 @@ def bolometry_inversion_single_real(**kwargs) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    result = bolometry_inversion_multipulse_real(pulses=list(range(12900, 13000)))
+    result = bolometry_inversion_multipulse_real(pulses=list(range(12800, 13000)))

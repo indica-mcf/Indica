@@ -23,8 +23,6 @@ def _to_emissivity_profile(
     use_all_timepoints: bool,
     tstart: float,
     tend: float,
-    allow_channel_based_emissivity: bool = False,
-    min_rhop_points: int = 20,
 ) -> DataArray:
     """Convert raw/ST40 data into emissivity DataArray with dims ('t', 'rhop')."""
     if hasattr(signal, "dims") and hasattr(signal, "values"):
@@ -35,12 +33,6 @@ def _to_emissivity_profile(
         if "rhop" in emissivity.dims:
             spatial_dim = "rhop"
         elif "channel" in emissivity.dims:
-            if not allow_channel_based_emissivity:
-                raise ValueError(
-                    "Signal appears channel-based (dim='channel') without explicit rhop. "
-                    "Refusing to treat it as emissivity profile. "
-                    "Set allow_channel_based_emissivity=True to override."
-                )
             spatial_dim = "channel"
         else:
             spatial_dim = next(dim for dim in emissivity.dims if dim != "t")
@@ -71,12 +63,6 @@ def _to_emissivity_profile(
         )
         rhop_coords = np.linspace(0.0, 1.0, n_rhop, dtype=np.float32)
         emissivity = DataArray(arr, coords=[("t", t_coords), ("rhop", rhop_coords)])
-
-    if int(emissivity.sizes["rhop"]) < int(min_rhop_points):
-        raise ValueError(
-            "Emissivity profile has too few spatial points: "
-            f"n_rhop={int(emissivity.sizes['rhop'])} < min_rhop_points={int(min_rhop_points)}"
-        )
 
     if not use_all_timepoints:
         emissivity = emissivity.isel(t=[int(emissivity.sizes["t"] // 2)])
@@ -216,8 +202,6 @@ def generate_and_save_real_dataset(
     verbose: bool = False,
     allow_nearest_time_fallback: bool = False,
     max_nearest_fallback_gap_s: float | None = None,
-    allow_channel_based_emissivity: bool = False,
-    min_rhop_points: int = 20,
 ) -> dict[str, Any]:
     """Build (brightness, emissivity) pairs from real emissivity + forward projection."""
     _ = machine, instrument, equilibrium
@@ -264,8 +248,6 @@ def generate_and_save_real_dataset(
         use_all_timepoints=use_all_timepoints,
         tstart=tstart,
         tend=tend,
-        allow_channel_based_emissivity=allow_channel_based_emissivity,
-        min_rhop_points=min_rhop_points,
     )
     emissivity = _align_emissivity_to_equilibrium_timebase(
         emissivity=emissivity,
@@ -324,8 +306,6 @@ def generate_and_save_real_multipulse_dataset(
     nonzero_threshold: float = 0.0,
     allow_nearest_time_fallback: bool = False,
     max_nearest_fallback_gap_s: float | None = None,
-    allow_channel_based_emissivity: bool = False,
-    min_rhop_points: int = 20,
 ) -> dict[str, Any]:
     """Build multi-pulse (brightness, emissivity) pairs from real ST40 data."""
     _ = machine
@@ -413,8 +393,6 @@ def generate_and_save_real_multipulse_dataset(
                 use_all_timepoints=use_all_timepoints,
                 tstart=tstart,
                 tend=tend,
-                allow_channel_based_emissivity=allow_channel_based_emissivity,
-                min_rhop_points=min_rhop_points,
             )
             emissivity = _align_emissivity_to_equilibrium_timebase(
                 emissivity=emissivity,
