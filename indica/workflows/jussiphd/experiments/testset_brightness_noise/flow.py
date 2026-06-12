@@ -357,50 +357,6 @@ def visualise_noisy_b_only_task(
     return {"plot_path": str(plot_path), "num_examples": int(len(idx))}
 
 
-@task(name="visualise_clean_vs_noisy_b")
-def visualise_clean_vs_noisy_b_task(
-    clean_b_path: str,
-    noisy_b_path: str,
-    output_dir: str,
-    n_examples: int,
-) -> dict[str, Any]:
-    b_clean = _load_csv_2d(clean_b_path)
-    b_noisy = _load_csv_2d(noisy_b_path)
-    if b_clean.shape != b_noisy.shape:
-        raise ValueError(f"Shape mismatch clean/noisy b: {b_clean.shape} vs {b_noisy.shape}")
-    n = len(b_clean)
-    if n == 0:
-        raise ValueError("No test-b samples to compare.")
-    idx = np.unique(np.round(np.linspace(0, n - 1, min(max(1, n_examples), n))).astype(int))
-
-    n_cols = 2
-    n_rows = int(np.ceil(len(idx) / n_cols))
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 3.8 * n_rows), sharex=True)
-    axes = np.atleast_1d(axes).ravel()
-    channels = np.arange(b_clean.shape[1], dtype=int)
-
-    for ax in axes[len(idx):]:
-        ax.axis("off")
-    for ax, i in zip(axes[: len(idx)], idx):
-        ax.plot(channels, b_clean[int(i)], linewidth=2.0, color="black", label="ground truth clean b")
-        ax.plot(channels, b_noisy[int(i)], linewidth=1.6, color="tab:orange", alpha=0.9, label="noisy b")
-        ax.set_title(f"Test-b clean vs noisy idx={int(i)}")
-        ax.set_xlabel("channel")
-        ax.set_ylabel("brightness")
-        ax.grid(alpha=0.25)
-
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper right")
-    fig.suptitle("Ground truth (clean) vs noisy test-set brightness", y=1.02)
-    fig.tight_layout()
-    out_dir = Path(output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    plot_path = out_dir / "test_b_clean_vs_noisy_overlay.png"
-    fig.savefig(plot_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    return {"plot_path": str(plot_path), "num_examples": int(len(idx))}
-
-
 @task(name="visualise_noisy_b_vs_true_e")
 def visualise_noisy_b_vs_true_e_task(
     noisy_b_path: str,
@@ -562,12 +518,6 @@ def synthetic_testset_brightness_noise(
             output_dir=visualisations_output_dir,
             n_examples=visualisations_n_examples,
         )
-        clean_vs_noisy_b_visualisation = visualise_clean_vs_noisy_b_task(
-            clean_b_path=split["test_b_path"],
-            noisy_b_path=noisy_b["output_b_path"],
-            output_dir=visualisations_output_dir,
-            n_examples=visualisations_n_examples,
-        )
         noisy_b_vs_true_e_visualisation = visualise_noisy_b_vs_true_e_task(
             noisy_b_path=noisy_b["output_b_path"],
             true_eps_path=split["test_eps_path"],
@@ -590,7 +540,6 @@ def synthetic_testset_brightness_noise(
         )
         visualisations = {
             "noisy_b_only_visualisation": noisy_b_only_visualisation,
-            "clean_vs_noisy_b_visualisation": clean_vs_noisy_b_visualisation,
             "noisy_b_vs_true_e_visualisation": noisy_b_vs_true_e_visualisation,
             "generated_dataset_visualisations": generated_visualisations,
             "training_progress_visualisation": training_progress_visualisation,
