@@ -132,6 +132,50 @@ def evaluate_noise_levels_against_real(
     }
 
 
+def evaluate_brightness_noise_levels_against_real(
+    synthetic_b_path: str,
+    real_b_path: str,
+    count_levels: Sequence[float],
+    seed: int | None = 0,
+    bins: int = 256,
+    b_scale_percentile: float = 99.0,
+) -> dict[str, Any]:
+    """Sweep Poisson noise levels and score synthetic-vs-real likelihoods (brightness only)."""
+    syn_b = _load_csv_array(synthetic_b_path)
+    real_b = _load_csv_array(real_b_path)
+
+    rng = np.random.default_rng(seed)
+    b_scale = float(np.percentile(np.clip(syn_b, a_min=0.0, a_max=None), b_scale_percentile))
+    b_scale = b_scale if b_scale > 0 else 1.0
+
+    rows: list[dict[str, float]] = []
+    for count in count_levels:
+        c = float(count)
+        noisy_b = add_poisson_noise_with_counts(syn_b, c, b_scale, rng)
+        ll_b = _histogram_log_likelihood(noisy_b, real_b, bins=bins)
+        rows.append(
+            {
+                "count_level": c,
+                "loglik_brightness": ll_b,
+                "loglik_emissivity": float("nan"),
+                "loglik_total": ll_b,
+            }
+        )
+
+    if not rows:
+        raise ValueError("No count levels provided.")
+
+    best = max(rows, key=lambda r: r["loglik_total"])
+    return {
+        "synthetic_shapes": {"b": tuple(syn_b.shape)},
+        "real_shapes": {"b": tuple(real_b.shape)},
+        "count_levels": [float(c) for c in count_levels],
+        "scale_values": {"b_scale": b_scale},
+        "rows": rows,
+        "best": best,
+    }
+
+
 def save_noise_likelihood_outputs(
     output_dir: str,
     run_id: str,
@@ -177,6 +221,59 @@ def save_noise_likelihood_outputs(
     fig.tight_layout()
 
     plot_path = out_dir / f"noise_likelihood_{run_id}.png"
+    fig.savefig(plot_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    return {
+        "csv_path": str(csv_path),
+        "json_path": str(json_path),
+        "plot_path": str(plot_path),
+    }
+
+
+def save_brightness_noise_likelihood_outputs(
+    output_dir: str,
+    run_id: str,
+    result: dict[str, Any],
+) -> dict[str, str]:
+    """Write CSV/JSON summaries and a brightness-only likelihood-vs-noise plot."""
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    rows = result.get("rows", [])
+    if not rows:
+        raise ValueError("Result has no rows to write.")
+
+    csv_path = out_dir / f"noise_likelihood_brightness_{run_id}.csv"
+    with csv_path.open("w", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["count_level", "loglik_brightness", "loglik_emissivity", "loglik_total"],
+        )
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+    json_path = out_dir / f"noise_likelihood_brightness_{run_id}.json"
+    with json_path.open("w") as f:
+        json.dump(result, f, indent=2)
+
+    counts = np.asarray([row["count_level"] for row in rows], dtype=float)
+    ll_b = np.asarray([row["loglik_brightness"] for row in rows], dtype=float)
+    best_idx = int(np.argmax(ll_b))
+
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    ax.plot(counts, ll_b, marker="o", linewidth=2.0, label="brightness log-likelihood")
+    ax.scatter([counts[best_idx]], [ll_b[best_idx]], color="black", zorder=5, label="best")
+    ax.set_xscale("log")
+    ax.set_xlabel("Poisson count level (effective)")
+    ax.set_ylabel("Average log-likelihood")
+    ax.set_title("Brightness-only likelihood across Poisson noise levels")
+    ax.grid(alpha=0.25)
+    ax.legend()
+    fig.tight_layout()
+
+    plot_path = out_dir / f"noise_likelihood_brightness_{run_id}.png"
     fig.savefig(plot_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 

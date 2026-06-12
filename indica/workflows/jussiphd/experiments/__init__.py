@@ -11,6 +11,9 @@ from .multipulse_synthetic_poisson_eps import (
 from .inference_timing_synthetic import benchmark_synthetic_inference_time
 from .comparison import ComparisonConfig
 from .comparison import compare_real_vs_synthetic
+from .noise_matching_brightness import (
+    calibrate_synthetic_brightness_noise_against_real,
+)
 from .noise_matching import calibrate_synthetic_noise_against_real
 
 __all__ = [
@@ -21,5 +24,6 @@ __all__ = [
     "benchmark_synthetic_inference_time",
     "ComparisonConfig",
     "compare_real_vs_synthetic",
+    "calibrate_synthetic_brightness_noise_against_real",
     "calibrate_synthetic_noise_against_real",
 ]

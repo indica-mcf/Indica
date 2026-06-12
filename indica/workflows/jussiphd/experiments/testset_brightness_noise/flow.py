@@ -428,7 +428,7 @@ def visualise_noisy_b_vs_vae_forward_b_by_channel_task(
     n_examples: int,
     k_samples: int,
 ) -> dict[str, Any]:
-    """Compare noisy b input vs forward-projected b from VAE-predicted emissivity, channel-wise."""
+    """Compare noisy input b vs VAE->forward b as profile plots per selected sample."""
     model = _load_vae(model_path)
     train_b = _load_csv_2d(train_b_path)
     train_eps = _load_csv_2d(train_eps_path)
@@ -481,34 +481,36 @@ def visualise_noisy_b_vs_vae_forward_b_by_channel_task(
         )
 
     n_channels = int(b_noisy_pick.shape[1])
-    n_cols = 4
-    n_rows = int(np.ceil(n_channels / n_cols))
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(14, 2.8 * n_rows), sharex=True)
+    n_cols = 2
+    n_rows = int(np.ceil(len(idx) / n_cols))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 3.8 * n_rows), sharex=True)
     axes = np.atleast_1d(axes).ravel()
-    x = np.arange(len(idx))
+    channels = np.arange(n_channels, dtype=int)
 
-    for ch in range(n_channels):
-        ax = axes[ch]
-        ax.plot(x, b_noisy_pick[:, ch], marker="o", linewidth=1.6, label="noisy b")
-        ax.plot(x, b_forward[:, ch], marker="o", linewidth=1.6, label="VAE->forward b")
-        ax.set_title(f"Channel {ch}")
-        ax.grid(alpha=0.25)
-        if ch % n_cols == 0:
-            ax.set_ylabel("brightness")
-        if ch >= n_channels - n_cols:
-            ax.set_xlabel("sample index (subset)")
-
-    for ax in axes[n_channels:]:
+    for ax in axes[len(idx):]:
         ax.axis("off")
+
+    for ax, i, b_noisy_sample, b_forward_sample in zip(
+        axes[: len(idx)],
+        idx,
+        b_noisy_pick,
+        b_forward,
+    ):
+        ax.plot(channels, b_noisy_sample, linewidth=1.8, color="tab:orange", label="noisy b")
+        ax.plot(channels, b_forward_sample, linewidth=1.8, color="tab:blue", label="VAE->forward b")
+        ax.set_title(f"Sample idx={int(i)}")
+        ax.set_xlabel("channel")
+        ax.set_ylabel("brightness")
+        ax.grid(alpha=0.25)
 
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper right")
-    fig.suptitle("Channel-wise: noisy input b vs VAE emissivity forward-projected b", y=1.01)
+    fig.suptitle("Profile comparison per sample: noisy input b vs VAE->forward b", y=1.01)
     fig.tight_layout()
 
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    plot_path = out_dir / "test_b_noisy_vs_vae_forward_by_channel.png"
+    plot_path = out_dir / "test_b_noisy_vs_vae_forward_by_sample.png"
     fig.savefig(plot_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
