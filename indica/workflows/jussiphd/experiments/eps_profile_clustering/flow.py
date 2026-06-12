@@ -68,7 +68,7 @@ def save_eps_cluster_outputs_task(
 def cluster_synthetic_eps_profiles(
     eps_path: str = DEFAULT_EPS_PATH,
     output_dir: str = DEFAULT_OUTPUT_DIR,
-    n_clusters: int = 6,
+    n_clusters: int = 20,
     max_iter: int = 100,
     tol: float = 1e-4,
     seed: int = 0,

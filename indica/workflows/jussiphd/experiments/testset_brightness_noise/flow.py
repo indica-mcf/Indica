@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from prefect import flow, task
+from xarray import DataArray
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.workflows.jussiphd.components.data.data_generation import (
@@ -416,6 +417,104 @@ def visualise_noisy_b_vs_true_e_task(
     return {"plot_path": str(plot_path), "num_examples": int(len(idx))}
 
 
+@task(name="visualise_noisy_b_vs_vae_forward_b_by_channel")
+def visualise_noisy_b_vs_vae_forward_b_by_channel_task(
+    model_path: str,
+    train_b_path: str,
+    train_eps_path: str,
+    noisy_b_path: str,
+    transform: Any,
+    output_dir: str,
+    n_examples: int,
+    k_samples: int,
+) -> dict[str, Any]:
+    """Compare noisy b input vs forward-projected b from VAE-predicted emissivity, channel-wise."""
+    model = _load_vae(model_path)
+    train_b = _load_csv_2d(train_b_path)
+    train_eps = _load_csv_2d(train_eps_path)
+    noisy_b = _load_csv_2d(noisy_b_path)
+
+    mu_b = float(np.mean(train_b))
+    sigma_b = float(np.std(train_b))
+    mu_eps = float(np.mean(train_eps))
+    sigma_eps = float(np.std(train_eps))
+    sigma_b = sigma_b if sigma_b > 0 else 1.0
+    sigma_eps = sigma_eps if sigma_eps > 0 else 1.0
+
+    n = len(noisy_b)
+    if n == 0:
+        raise ValueError("No noisy-b samples for VAE/forward comparison.")
+    idx = np.unique(np.round(np.linspace(0, n - 1, min(max(1, n_examples), n))).astype(int))
+
+    eq_t_mid = 0.0
+    try:
+        if hasattr(transform, "equilibrium") and hasattr(transform.equilibrium, "t"):
+            t_arr = np.asarray(transform.equilibrium.t, dtype=float).reshape(-1)
+            t_arr = t_arr[np.isfinite(t_arr)]
+            if t_arr.size > 0:
+                eq_t_mid = float(0.5 * (t_arr.min() + t_arr.max()))
+    except Exception:
+        eq_t_mid = 0.0
+
+    b_forward = []
+    for i in idx:
+        b_noisy_n = ((noisy_b[int(i)].astype(np.float32) - mu_b) / sigma_b)[None, :]
+        with torch.no_grad():
+            z = torch.randn(int(k_samples), model.latent_dim)
+            b_rep = torch.from_numpy(b_noisy_n).expand(int(k_samples), -1)
+            e_pred_n = model.decode(b_rep, z).mean(dim=0).cpu().numpy().astype(np.float32)
+        e_pred = e_pred_n * sigma_eps + mu_eps
+
+        e_da = DataArray(
+            np.asarray(e_pred, dtype=np.float32)[None, :],
+            coords=[("t", np.asarray([eq_t_mid], dtype=np.float32)), ("rhop", np.linspace(0.0, 1.0, e_pred.shape[0]))],
+        )
+        b_fw_da = transform.integrate_on_los(e_da, t=e_da.t)
+        b_fw = np.asarray(b_fw_da.values, dtype=np.float32).reshape(-1)
+        b_forward.append(b_fw)
+
+    b_forward = np.asarray(b_forward, dtype=np.float32)  # [n_examples, n_channels]
+    b_noisy_pick = np.asarray([noisy_b[int(i)] for i in idx], dtype=np.float32)
+    if b_noisy_pick.shape != b_forward.shape:
+        raise ValueError(
+            f"Noisy-vs-forward shape mismatch: noisy={b_noisy_pick.shape}, forward={b_forward.shape}"
+        )
+
+    n_channels = int(b_noisy_pick.shape[1])
+    n_cols = 4
+    n_rows = int(np.ceil(n_channels / n_cols))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(14, 2.8 * n_rows), sharex=True)
+    axes = np.atleast_1d(axes).ravel()
+    x = np.arange(len(idx))
+
+    for ch in range(n_channels):
+        ax = axes[ch]
+        ax.plot(x, b_noisy_pick[:, ch], marker="o", linewidth=1.6, label="noisy b")
+        ax.plot(x, b_forward[:, ch], marker="o", linewidth=1.6, label="VAE->forward b")
+        ax.set_title(f"Channel {ch}")
+        ax.grid(alpha=0.25)
+        if ch % n_cols == 0:
+            ax.set_ylabel("brightness")
+        if ch >= n_channels - n_cols:
+            ax.set_xlabel("sample index (subset)")
+
+    for ax in axes[n_channels:]:
+        ax.axis("off")
+
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper right")
+    fig.suptitle("Channel-wise: noisy input b vs VAE emissivity forward-projected b", y=1.01)
+    fig.tight_layout()
+
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    plot_path = out_dir / "test_b_noisy_vs_vae_forward_by_channel.png"
+    fig.savefig(plot_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    return {"plot_path": str(plot_path), "num_examples": int(len(idx)), "n_channels": n_channels}
+
+
 @flow(name="synthetic_testset_brightness_noise")
 def synthetic_testset_brightness_noise(
     machine: str = "st40",
@@ -524,6 +623,16 @@ def synthetic_testset_brightness_noise(
             output_dir=visualisations_output_dir,
             n_examples=visualisations_n_examples,
         )
+        noisy_b_vs_vae_forward_b_visualisation = visualise_noisy_b_vs_vae_forward_b_by_channel_task(
+            model_path=train["model_path"],
+            train_b_path=split["train_b_path"],
+            train_eps_path=split["train_eps_path"],
+            noisy_b_path=noisy_b["output_b_path"],
+            transform=transform,
+            output_dir=visualisations_output_dir,
+            n_examples=visualisations_n_examples,
+            k_samples=visualisations_k_samples,
+        )
         generated_visualisations = generate_noisy_test_generated_visualisations_task(
             model_path=train["model_path"],
             b_path=noisy_b["output_b_path"],
@@ -541,6 +650,7 @@ def synthetic_testset_brightness_noise(
         visualisations = {
             "noisy_b_only_visualisation": noisy_b_only_visualisation,
             "noisy_b_vs_true_e_visualisation": noisy_b_vs_true_e_visualisation,
+            "noisy_b_vs_vae_forward_b_visualisation": noisy_b_vs_vae_forward_b_visualisation,
             "generated_dataset_visualisations": generated_visualisations,
             "training_progress_visualisation": training_progress_visualisation,
         }
