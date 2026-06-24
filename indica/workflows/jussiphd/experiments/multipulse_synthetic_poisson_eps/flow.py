@@ -28,10 +28,11 @@ from indica.workflows.jussiphd.components.visualisations.vae_generated_visualisa
     generate_generated_dataset_visualisations,
     generate_vae_training_progress_visualisation,
 )
-
-DEFAULT_OUTPUT_DIR = str(
-    Path(__file__).resolve().parents[2] / "components" / "data" / "flow_data" / "multipulse_synthetic_poisson_eps"
+from indica.workflows.jussiphd.datasets.paths import (
+    MULTIPULSE_SYNTHETIC_DATA_DIR_STR,
 )
+
+DEFAULT_OUTPUT_DIR = MULTIPULSE_SYNTHETIC_DATA_DIR_STR
 DEFAULT_VAE_DIR = str(
     Path(__file__).resolve().parents[2] / "components" / "ml" / "flow_data" / "multipulse_synthetic_poisson_eps"
 )

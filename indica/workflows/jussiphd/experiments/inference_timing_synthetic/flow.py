@@ -17,13 +17,14 @@ from xarray import DataArray
 from indica.defaults.load_defaults import load_default_objects
 from indica.workflows.jussiphd.components.ml.vae import CVAENetwork
 from indica.workflows.jussiphd.components.preprocessing.dataset_creation import PairDataset
+from indica.workflows.jussiphd.datasets.paths import (
+    MULTIPULSE_SYNTHETIC_DATA_DIR_STR,
+)
 from indica.workflows.jussiphd.los_bolometry_radiation import calculate_tomo_inversion
 
 
 DEFAULT_OUTPUT_DIR = str(Path(__file__).resolve().parent / "outputs")
-DEFAULT_DATA_DIR = str(
-    Path(__file__).resolve().parents[2] / "components" / "data" / "flow_data" / "multipulse_synthetic"
-)
+DEFAULT_DATA_DIR = MULTIPULSE_SYNTHETIC_DATA_DIR_STR
 DEFAULT_MODEL_DIR = str(
     Path(__file__).resolve().parents[2] / "components" / "ml" / "flow_data" / "multipulse_synthetic"
 )

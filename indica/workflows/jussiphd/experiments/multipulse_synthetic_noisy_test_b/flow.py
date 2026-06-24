@@ -29,14 +29,15 @@ from indica.workflows.jussiphd.components.visualisations.vae_generated_visualisa
     generate_generated_dataset_visualisations,
     generate_vae_training_progress_visualisation,
 )
+from indica.workflows.jussiphd.datasets.paths import (
+    MULTIPULSE_SYNTHETIC_DATA_DIR_STR,
+)
 from indica.workflows.jussiphd.experiments.inference_timing_synthetic.flow import (
     run_timing_benchmark_task,
     save_timing_results_task,
 )
 
-DEFAULT_OUTPUT_DIR = str(
-    Path(__file__).resolve().parents[2] / "components" / "data" / "flow_data" / "multipulse_synthetic_noisy_test_b"
-)
+DEFAULT_OUTPUT_DIR = MULTIPULSE_SYNTHETIC_DATA_DIR_STR
 DEFAULT_VAE_DIR = str(
     Path(__file__).resolve().parents[2] / "components" / "ml" / "flow_data" / "multipulse_synthetic_noisy_test_b"
 )
