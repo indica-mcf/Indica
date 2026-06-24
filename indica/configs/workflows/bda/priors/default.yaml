@@ -10,7 +10,7 @@ basic_prior_info:
   ion_temperature.shape3: ["get_uniform", 0.4, 0.95]
   ion_temperature.shape4: ["get_uniform", 0.3, 0.95]
 
-
+  #Just these matter for bolom
   electron_density.y0: ["get_uniform", 1e19, 2e20]
   electron_density.y1: ["get_uniform", 1e18, 1e19]
   electron_density.wped: ["loguniform", 2, 20]
@@ -28,6 +28,7 @@ basic_prior_info:
   impurity_density:ar.wped: ["get_uniform", 1, 2]
   impurity_density:ar.wcenter: ["get_uniform", 0.2, 0.4]
   impurity_density:ar.peaking: ["get_uniform", 1.5, 2.5]
+  #Just these matter for bolom
 
   neutral_density.y0: ["loguniform", 1e13, 1e15]
   neutral_density.y1: ["loguniform", 1e13, 1e16]

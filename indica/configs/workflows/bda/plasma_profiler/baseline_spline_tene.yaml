@@ -1,0 +1,74 @@
+profilers:
+  electron_temperature: "mono_spline"
+  electron_density: "mono_spline"
+  ion_temperature: "cubic_spline"
+  neutral_density: "gauss"
+  impurity_density:ar: "gauss"
+  impurity_density:c: "gauss"
+  impurity_density:he: "gauss"
+  toroidal_rotation: "gauss"
+
+params:
+  electron_density:
+    xknots: [0.00, 0.2, 0.4, 0.6, 0.8, 1.0]
+    y0: 5.0e+19
+    y1: 3.6e+19
+    y2: 2.4e+19
+    y3: 1.4e+19
+    y4: 7.0e+18
+    y5: 2.0e+18
+  electron_temperature:
+    xknots: [0.00, 0.2, 0.4, 0.6, 0.8, 1.0]
+    y0: 2000
+    y1: 1700
+    y2: 1200
+    y3: 750
+    y4: 320
+    y5: 100
+
+  ion_temperature:
+    xknots: [0.00, 0.2, 0.4, 0.6, 0.8, 1.0]
+    y0: 5.0e+3
+    shape1: 0.9 # 0.7-1.05
+    shape2: 0.8 # 0.5-0.9
+    shape3: 0.6 # 0.5-0.9
+    shape4: 0.5 # 0.5-0.9
+    y1: 100
+
+  neutral_density:
+    y0: 1.0e+13
+    y1: 5.0e+15
+    yend: 5.0e+15
+    wcenter: 0.01
+    wped: 18
+    peaking: 1
+
+  impurity_density:ar:
+    y0: 1.0e+17
+    y1: 1.0e+15
+    yend: 1.0e+15
+    wcenter: 0.3
+    wped: 3
+    peaking: 2
+  impurity_density:c:
+    y0: 5.0e+17
+    y1: 2.0e+17
+    yend: 2.0e+17
+    wcenter: 0.3
+    wped: 3
+    peaking: 2
+  impurity_density:he:
+    y0: 5.0e+17
+    y1: 2.0e+17
+    yend: 2.0e+17
+    wcenter: 0.3
+    wped: 3
+    peaking: 2
+
+  toroidal_rotation:
+    y0: 500.0e+3
+    y1: 1.0e+3
+    yend: 1.0e+3
+    peaking: 0.4
+    wcenter: 2
+    wped: 3
