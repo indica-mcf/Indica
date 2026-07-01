@@ -61,7 +61,7 @@ class DataReader(ABC):
         equilibrium: Equilibrium = None,
     ) -> Dict[str, DataArray]:
         """General method that reads data for a requested instrument."""
-        if instrument not in self.instrument_methods.keys():
+        if instrument.lower() not in self.instrument_methods.keys():
             raise ValueError(
                 "{} does not support reading for instrument {}".format(
                     self.__class__.__name__, instrument
@@ -74,7 +74,7 @@ class DataReader(ABC):
         _database_results["passes"] = passes
 
         # Re-arrange data (machine-specific) and get instrument geometry transform
-        method = self.instrument_methods[instrument]
+        method = self.instrument_methods[instrument.lower()]
         database_results, transform = getattr(self, f"_{method}")(_database_results)
         if not return_dataarrays:
             return database_results
@@ -107,7 +107,7 @@ class DataReader(ABC):
         TODO: move error/dimensions/units/records to sub-dictionary within results e.g.
               results = {..., "error":{}, "dimensions":{}, "units":{}, "records":{}}
         """
-        method = self.instrument_methods[instrument]
+        method = self.instrument_methods[instrument.lower()]
         quantities_paths = self.quantities_path[method]
         revision, is_best = self.reader_utils.get_revision(uid, instrument, revision)
         results: Dict[str, Any] = {
