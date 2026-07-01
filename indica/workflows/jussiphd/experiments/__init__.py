@@ -1,6 +1,7 @@
 """Experiment entrypoints for jussiphd workflows."""
 
 from .multipulse_synthetic import bolometry_inversion_multipulse_synthetic
+from .generate_synth_multipulse_splined import bolometry_inversion_multipulse_synthetic_splined
 from .eps_profile_clustering import cluster_synthetic_eps_profiles
 from .multipulse_synthetic_noisy_test_b import (
     bolometry_inversion_multipulse_synthetic_noisy_test_b,
@@ -18,6 +19,7 @@ from .noise_matching import calibrate_synthetic_noise_against_real
 
 __all__ = [
     "bolometry_inversion_multipulse_synthetic",
+    "bolometry_inversion_multipulse_synthetic_splined",
     "cluster_synthetic_eps_profiles",
     "bolometry_inversion_multipulse_synthetic_noisy_test_b",
     "bolometry_inversion_multipulse_synthetic_poisson_eps",

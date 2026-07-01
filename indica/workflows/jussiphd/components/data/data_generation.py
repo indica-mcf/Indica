@@ -146,6 +146,7 @@ def generate_and_save_dataset(
     generate_new_data: bool = True,
     show_progress: bool = True,
     progress_every: int | None = None,
+    config_name: str = "ion_temperature_phantom_run_all_params",
 ) -> dict[str, Any]:
     """Generate (brightness, emissivity) pairs and write them to CSV files."""
     output_path = Path(output_dir)
@@ -196,6 +197,7 @@ def generate_and_save_dataset(
             instrument=instrument,
             transform=transform,
             equilibrium=equilibrium,
+            config_name=config_name,
         )
         measurements = sample["measurements"]
         emissivity = sample["emissivity"]
