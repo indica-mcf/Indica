@@ -1,5 +1,6 @@
 import argparse
 import logging
+import re
 from typing import Iterable
 
 from hydra import compose
@@ -89,6 +90,105 @@ def _prior_param_names(prior_manager: PriorManager) -> list[str]:
     return param_names
 
 
+def _sample_monospline_parameters(
+    cfg: DictConfig,
+    sampled_params: dict[str, float] | dict[str, np.ndarray],
+    *,
+    size: int,
+) -> dict[str, float] | dict[str, np.ndarray]:
+    """
+    For mono_spline profiles, remap endpoint priors and sample interior y-knots.
+
+    Existing Gaussian priors provide profile.y0 and profile.y1 endpoint ranges.
+    For mono_spline profiles with y0..yN parameters, we interpret:
+      - y0 as core endpoint
+      - y1 prior as edge endpoint yN
+    and generate interior y1..y(N-1) values monotonically between them.
+    """
+    if not hasattr(cfg, "plasma_profiler"):
+        return sampled_params
+
+    profilers = OmegaConf.to_container(cfg.plasma_profiler.profilers)
+    profile_params = OmegaConf.to_container(cfg.plasma_profiler.params)
+
+    for profile_name, profiler_type in profilers.items():
+        if profiler_type != "mono_spline":
+            continue
+
+        params = profile_params.get(profile_name, {})
+        y_indices: list[int] = []
+        for param_name in params:
+            match = re.fullmatch(r"y(\d+)", str(param_name))
+            if match is not None:
+                y_indices.append(int(match.group(1)))
+        if len(y_indices) < 2:
+            continue
+
+        y_indices = sorted(set(y_indices))
+        first_idx = y_indices[0]
+        last_idx = y_indices[-1]
+        interior_indices = y_indices[1:-1]
+
+        first_param = f"{profile_name}.y{first_idx}"
+        last_param = f"{profile_name}.y{last_idx}"
+        legacy_edge_param = f"{profile_name}.y1"
+
+        first_default = float(params[f"y{first_idx}"])
+        last_default = float(params[f"y{last_idx}"])
+
+        if size == 1:
+            first_value = float(sampled_params.get(first_param, first_default))
+            last_value = float(
+                sampled_params.get(
+                    last_param,
+                    sampled_params.get(legacy_edge_param, last_default),
+                )
+            )
+            sampled_params[first_param] = first_value
+            sampled_params[last_param] = last_value
+            if legacy_edge_param != last_param and legacy_edge_param in sampled_params:
+                sampled_params.pop(legacy_edge_param)
+
+            if not interior_indices:
+                continue
+            interior_fractions = np.sort(np.random.uniform(0.0, 1.0, len(interior_indices)))
+            if first_value >= last_value:
+                interior_values = first_value - interior_fractions * (first_value - last_value)
+            else:
+                interior_values = first_value + interior_fractions * (last_value - first_value)
+            for idx, value in zip(interior_indices, interior_values):
+                sampled_params[f"{profile_name}.y{idx}"] = float(value)
+            continue
+
+        # size > 1 branch
+        first_value = np.asarray(
+            sampled_params.get(first_param, np.full(size, first_default, dtype=float)),
+            dtype=float,
+        )
+        last_value = np.asarray(
+            sampled_params.get(
+                last_param,
+                sampled_params.get(legacy_edge_param, np.full(size, last_default, dtype=float)),
+            ),
+            dtype=float,
+        )
+        sampled_params[first_param] = first_value
+        sampled_params[last_param] = last_value
+        if legacy_edge_param != last_param and legacy_edge_param in sampled_params:
+            sampled_params.pop(legacy_edge_param)
+
+        if not interior_indices:
+            continue
+        n_interiors = len(interior_indices)
+        interior_fractions = np.sort(np.random.uniform(0.0, 1.0, (size, n_interiors)), axis=1)
+        deltas = last_value - first_value
+        interior_values = first_value[:, None] + interior_fractions * deltas[:, None]
+        for col_idx, y_idx in enumerate(interior_indices):
+            sampled_params[f"{profile_name}.y{y_idx}"] = interior_values[:, col_idx]
+
+    return sampled_params
+
+
 def sample_prior_parameters(
     cfg: DictConfig,
     names: Iterable[str] | str | None = None,
@@ -143,8 +243,12 @@ def sample_prior_parameters(
 
     samples = sample_from_priors(param_names, prior_manager.priors, size=size)
     if size == 1:
-        return {name: float(samples[0, idx]) for idx, name in enumerate(param_names)}
-    return {name: samples[:, idx] for idx, name in enumerate(param_names)}
+        sampled_params = {
+            name: float(samples[0, idx]) for idx, name in enumerate(param_names)
+        }
+    else:
+        sampled_params = {name: samples[:, idx] for idx, name in enumerate(param_names)}
+    return _sample_monospline_parameters(cfg, sampled_params, size=size)
 
 
 def main() -> None:
