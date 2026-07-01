@@ -10,6 +10,7 @@ class ST40Conf(MachineConf):
         self.INSTRUMENT_METHODS = {
             "efit": "equilibrium",
             "gsfit": "equilibrium",
+            "pfit": "equilibrium",
             "xrcs": "helike_spectroscopy",
             "pi": "spectrometer",
             "tws_c": "spectrometer",
