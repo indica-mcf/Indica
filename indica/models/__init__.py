@@ -3,6 +3,7 @@ from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
 from indica.models.helike_spectrometer import HelikeSpectrometer
 from indica.models.interferometer import Interferometer
+from indica.models.nbi_operator_model import NbiOperatorModel
 from indica.models.passive_spectrometer import PassiveSpectrometer
 from indica.models.pinhole_camera import PinholeCamera
 from indica.models.thomson_scattering import ThomsonScattering
@@ -25,5 +26,6 @@ __all__ = [
     "EquilibriumReconstruction",
     "HelikeSpectrometer",
     "Interferometer",
+    "NbiOperatorModel",
     "ThomsonScattering",
 ]

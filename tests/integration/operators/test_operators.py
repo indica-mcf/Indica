@@ -1,3 +1,4 @@
+from indica.examples.example_operators import example_aurora_run
 from indica.examples.example_operators import example_fit_ts
 from indica.examples.example_operators import example_tomo_1D
 from indica.examples.example_operators import example_tomo_asymmetry
@@ -27,3 +28,8 @@ def test_tomo_asymmetry_with_symmetry():
 def test_fit_ts():
 
     _ = example_fit_ts(plot=False)
+
+
+def test_aurora():
+
+    _ = example_aurora_run()

@@ -948,7 +948,6 @@ def centrifugal_asymmetry(
     toroidal_rotation=None,
     asymmetry_parameter=None,
 ):
-
     """
     Calculate toroidal rotation or asymmetry parameter for given plasma parameters
 

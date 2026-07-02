@@ -4,6 +4,7 @@ from indica.examples import example_plasma
 class TestPlasmaCaching:
     def setup_method(self):
         self.plasma = example_plasma()
+        self.plasma.build_atomic_data()
         self.property_getters = [
             "Fz",
             "Ion_density",

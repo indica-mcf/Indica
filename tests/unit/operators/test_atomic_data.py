@@ -1,7 +1,14 @@
+from copy import deepcopy
+
 import numpy as np
+import pytest
 from xarray import DataArray
 
+from indica.configs.operators.aurora import AuroraConfig
+from indica.defaults.load_defaults import load_default_objects
+from indica.examples import example_plasma
 from indica.operators.atomic_data import FractionalAbundance
+from indica.operators.atomic_data import FractionalAbundanceAurora
 from indica.operators.atomic_data import PowerLoss
 from indica.readers import ADASReader
 from indica.utilities import get_element_info
@@ -23,6 +30,11 @@ INPUT_NE = DataArray(data=np.logspace(19.0, 16.0, 10), coords={"rhop": RHOP})
 INPUT_NH = DataArray(np.logspace(14.0, 16.0, 10), coords={"rhop": RHOP})
 INPUT_TE = DataArray(data=np.logspace(4.6, 2, 10), coords={"rhop": RHOP})
 INPUT_TAU = DataArray(data=np.logspace(0, -3, 10), coords={"rhop": RHOP})
+
+EQUILIBRIUM = load_default_objects(
+    "st40",
+    "equilibrium",
+)
 
 
 def fractional_abundance_init():
@@ -273,6 +285,77 @@ class TestFractionalAbundance:
         for icoord in range(self.fract_abu_full_run.coord.size):
             test_normalization = np.sum(F_z_t[:, icoord])
             assert np.abs(test_normalization - 1.0) <= 2e-2
+
+
+class TestFractionalAbundanceAurora:
+    """Test that the fractional abundance operator can be used in Aurora."""
+
+    def setup_class(self):
+        self.plasma = example_plasma(aurora_run=True)
+        self.plasma.set_equilibrium(EQUILIBRIUM)
+        self.plasma.build_atomic_data()
+
+    def fractional_abundance_aurora_init(
+        self,
+    ):
+        self.ne = self.plasma.electron_density
+        self.Te = self.plasma.electron_temperature
+        self.Nh = self.plasma.neutral_density
+        self.D_z = self.plasma.diffusion_coefficient
+        self.V_z = self.plasma.convection_coefficient
+        self.config = deepcopy(AuroraConfig)
+        self.operator = FractionalAbundanceAurora(
+            impurity="ar",
+            main_ion="d",
+            aurora_config=self.config,
+            equilibrium=EQUILIBRIUM,
+        )
+
+    def test_call_returns_non_zero_values(self):
+        self.fractional_abundance_aurora_init()
+        fz_t = self.operator(
+            Ne=self.ne,
+            Te=self.Te,
+            Nh=self.Nh,
+            D_z=self.D_z,
+            V_z=self.V_z,
+        )
+        assert np.any(fz_t != 0)
+
+    def test_call_with_one_timepoint_returns_non_zero_values(self):
+        self.fractional_abundance_aurora_init()
+        fz_t = self.operator(
+            Ne=self.ne.isel({"t": 0}),
+            Te=self.Te.isel({"t": 0}),
+            Nh=self.Nh.isel({"t": 0}),
+            D_z=self.D_z.isel({"t": 0}),
+            V_z=self.V_z.isel({"t": 0}),
+        )
+        assert np.any(fz_t != 0)
+
+    def test_call_with_zero_nh_and_cxr_flag_true(self):
+        self.fractional_abundance_aurora_init()
+        self.config["cxr_flag"] = True
+        with pytest.raises(ValueError):
+            self.operator(
+                Ne=self.ne,
+                Te=self.Te,
+                Nh=self.Nh * 0.0,
+                D_z=self.D_z,
+                V_z=self.V_z,
+            )
+
+    def test_call_with_non_zero_nh_and_cxr_flag_false(self):
+        self.fractional_abundance_aurora_init()
+        self.config["cxr_flag"] = False
+        fz_t = self.operator(
+            Ne=self.ne,
+            Te=self.Te,
+            Nh=self.Nh + 1e13,  # add a small non-zero value to ensure the operator runs
+            D_z=self.D_z,
+            V_z=self.V_z,
+        )
+        assert np.any(fz_t != 0)
 
 
 class TestPowerLoss:

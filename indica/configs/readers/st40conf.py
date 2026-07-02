@@ -6,7 +6,7 @@ from indica.configs.readers.machineconf import MachineConf
 
 class ST40Conf(MachineConf):
     def __init__(self):
-        self.MACHINE_DIMS = ((0.15, 0.85), (-0.8, 0.8))
+        self.MACHINE_DIMS = ((0.15, 1.00), (-0.8, 0.8))
         self.INSTRUMENT_METHODS = {
             "efit": "equilibrium",
             "gsfit": "equilibrium",
@@ -42,6 +42,8 @@ class ST40Conf(MachineConf):
             "ppts": "profile_fits",
             "bda": "profile_fits",
             "zeff_brems": "zeff",
+            "hnbi1": "nbi",
+            "rfx": "nbi",
             "transp_test": "transp",
             "astra": "astra",
             "metis": "metis",
@@ -222,6 +224,26 @@ class ST40Conf(MachineConf):
                 "te": ".profiles.psi_norm:te",
                 "ne": ".profiles.psi_norm:ne",
                 "data_q": ".data_q.score_1d",
+            },
+            "nbi": {
+                "t": ":time",
+                "atomic_weight": ":anum",
+                "atomic_number": ":znum",
+                "location": ".geometry:location",
+                "direction": ".geometry:direction",
+                "focus_width": ".geometry:focus_h",
+                "focus_height": ".geometry:focus_v",
+                "div_width": ".geometry:divergence_h",
+                "div_height": ".geometry:divergence_v",
+                "spot_width": ".geometry:grid_width",
+                "spot_height": ".geometry:grid_height",
+                "spot_shape": ".geometry:grid_shape",
+                "current_fraction1": ":current_frc1",
+                "current_fraction2": ":current_frc2",
+                "current_fraction3": ":current_frc3",
+                "power_fraction1": ":power_frac1",
+                "power_fraction2": ":power_frac2",
+                "power_fraction3": ":power_frac3",
             },
             "astra": {
                 "t": ":time",

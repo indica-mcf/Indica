@@ -1,12 +1,16 @@
+from copy import deepcopy
+from getpass import getuser
+from pathlib import Path
 from typing import Dict
 from typing import Optional
 from typing import Tuple
 
+from freeqdsk.geqdsk import GeqdskDataDict
+from freeqdsk.geqdsk import write
 import numpy as np
 import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
-from xarray import where
 
 from indica.utilities import check_time_present
 from .numpy_typing import FloatOrDataArray
@@ -14,6 +18,7 @@ from .numpy_typing import LabeledArray
 from .numpy_typing import OnlyArray
 
 _FLUX_TYPES = ["poloidal", "toroidal"]
+GEQDSK_DIR = f"/home/{getuser()}/.indica/geqdsks/"
 
 
 class Equilibrium:
@@ -142,43 +147,51 @@ class Equilibrium:
         R - Major radius position (m).
         z - The vertical position (m).
         t - Times (s).
+
+        full_Rz - set to True if you want a 2D map on input R and z
         """
 
         if t is not None:
             check_time_present(t, self.t)
-            psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
-            f = self.f.interp(t=t, method="nearest", assume_sorted=True)
-            _rhop, _, _ = self.flux_coords(R, z, t)
         else:
             t = self.rhop.coords["t"]
-            psi = self.psi
-            f = self.f
-            _rhop, _, _ = self.flux_coords(R, z)
 
-        dpsi_dR = psi.differentiate("R").interp(R=R, z=z)
-        dpsi_dz = psi.differentiate("z").interp(
-            R=R,
-            z=z,
+        _psi = self.psi.interp(t=t, method="nearest", assume_sorted=True)
+        _f = self.f.interp(t=t, method="nearest", assume_sorted=True)
+        _rmag = self.rmag.interp(t=t, method="nearest", assume_sorted=True)
+        _rhop, _, _ = self.flux_coords(R, z, t)
+
+        _R = deepcopy(R)
+        _z = deepcopy(z)
+        if full_Rz:
+            # To return Bfield on a 2D (R, z) grid
+            _R = DataArray(np.array(_R), coords={"R": np.array(R)})
+            _z = DataArray(np.array(_z), coords={"z": np.array(z)})
+
+        dpsi_dR = _psi.differentiate("R").interp(R=_R, z=_z)
+        dpsi_dz = _psi.differentiate("z").interp(
+            R=_R,
+            z=_z,
         )
 
-        b_R = -(np.float64(1.0) / R) * dpsi_dz  # type: ignore
+        b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
         b_R.name = "Radial magnetic field"
         b_R = b_R.T
 
-        b_z = (np.float64(1.0) / R) * dpsi_dR  # type: ignore
+        b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
         b_z.name = "Vertical Magnetic Field (T)"
         b_z = b_z.T
-        _rhop = where(_rhop > np.float64(0.0), _rhop, np.float64(-1.0) * _rhop)
+        _rhop = xr.where(_rhop > np.float64(0.0), _rhop, np.float64(-1.0) * _rhop)
 
-        f = f.interp(rhop=_rhop)
+        # Calculate Bt on magnetic axis,
+        # then over R and expand to (R, z) grid,
+        # and finally interpolate on desired R and z
+        f = _f.interp(rhop=0).drop_vars("rhop")
         f.name = self.f.name
-        b_T = f / R
+        b_T_rmag = f / _rmag
+        _b_T = b_T_rmag * _rmag / self.rhop.R
+        b_T = _b_T.expand_dims(dim={"z": self.rhop.z}).interp(R=_R, z=_z)
         b_T.name = "Toroidal Magnetic Field (T)"
-
-        if full_Rz:
-            _b_T = b_T.interp(R=self.rmag, z=self.zmag) * self.rmag / self.rhop.R
-            _b_T = _b_T.drop(["z", "rhop"]).expand_dims(dim={"z": self.rhop.z})
-            b_T = _b_T.interp(R=R, z=z)
 
         return b_R, b_z, b_T, t
 
@@ -342,14 +355,19 @@ class Equilibrium:
             reference_rhos = self.rhop
             t = self.rhop.coords["t"]
         minor_rad_max = apply_ufunc(
-            lambda angle, corner1, corner2, corner3, corner4, R0, z0: (self.Rmax - R0)
-            / np.cos(angle)
-            if angle > corner1 or angle <= corner2
-            else (self.zmax - z0) / np.sin(angle)
-            if corner2 < angle <= corner3
-            else (self.Rmin - R0) / np.cos(angle)
-            if corner3 < angle <= corner4
-            else (self.zmin - z0) / np.sin(angle),
+            lambda angle, corner1, corner2, corner3, corner4, R0, z0: (
+                (self.Rmax - R0) / np.cos(angle)
+                if angle > corner1 or angle <= corner2
+                else (
+                    (self.zmax - z0) / np.sin(angle)
+                    if corner2 < angle <= corner3
+                    else (
+                        (self.Rmin - R0) / np.cos(angle)
+                        if corner3 < angle <= corner4
+                        else (self.zmin - z0) / np.sin(angle)
+                    )
+                )
+            ),
             theta,
             corner_angles[0],
             corner_angles[1],
@@ -538,6 +556,61 @@ class Equilibrium:
         volume = self.area.interp(rhop=rhop).interp(t=t)
         return volume, t
 
-    def write_to_geqdsk(self):
-        # TODO: Implement writing to geqdsk
-        raise NotImplementedError("Method not yet implemented")
+    def write_to_geqdsk(
+        self,
+        t_point: float,
+        filename: str = None,
+    ) -> str:
+
+        t_idx = np.argmin(np.abs(self.t.values - t_point))
+        geqdsk_inputs = dict(
+            comment="equilibrium default",
+            shot=-1,
+            bcentr=0,  # Dummy values
+            pres=self.f[
+                t_idx,
+            ].values
+            * 0,  # Dummy values
+            qpsi=self.f[
+                t_idx,
+            ].values
+            * 0,  # Dummy values
+            fpol=self.f[
+                t_idx,
+            ].values,
+            rdim=self.Rmax.values - self.Rmin.values,
+            rleft=self.Rmin.values,
+            rcentr=self.Rmin.values + (self.Rmax.values - self.Rmin.values) / 2,
+            zdim=self.zmax.values - self.zmin.values,
+            zmid=self.zmin.values + (self.zmax.values - self.zmin.values) / 2,
+            zmin=self.zmin.values,
+            rmagx=self.rmag[t_idx].values,
+            zmagx=self.zmag[t_idx].values,
+            simagx=self.psi_axis[t_idx].values,
+            sibdry=self.psi_boundary[t_idx].values,
+            cpasma=self.ipla[t_idx].values,
+            nx=self.psi.R.shape[0],
+            ny=self.psi.z.shape[0],
+            psi=self.psi[
+                t_idx,
+            ]
+            .transpose("R", "z")
+            .values,  # Must be shape (nr, nz) for freeqdsk
+            rbdry=self.rbnd[
+                t_idx,
+            ].values,
+            zbdry=self.zbnd[
+                t_idx,
+            ].values,
+        )
+        geqdsk_data_dict = GeqdskDataDict(geqdsk_inputs)
+
+        if filename is None:
+            filename = f"default_equilibrium_{int(t_point*1000)}ms.txt"
+        filepath = f"{GEQDSK_DIR}{filename}"
+        Path(GEQDSK_DIR).mkdir(parents=True, exist_ok=True)
+
+        with open(filepath, "w") as handle:
+            write(geqdsk_data_dict, handle)
+
+        return filepath
