@@ -287,6 +287,7 @@ class TestFractionalAbundance:
             assert np.abs(test_normalization - 1.0) <= 2e-2
 
 
+@pytest.mark.skip("Issues with Aurora installation")
 class TestFractionalAbundanceAurora:
     """Test that the fractional abundance operator can be used in Aurora."""
 

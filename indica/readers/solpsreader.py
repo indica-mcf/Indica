@@ -104,7 +104,6 @@ class SOLPSReader:
     def get(
         self,
         file_type: str = "txt",
-        verbose: bool = False,
     ) -> Dict[str, DataArray]:
         """
         Temporary get method, similar to indica/readers/datareader
@@ -167,7 +166,6 @@ class SOLPSReader:
         data = build_dataarrays(
             database_results,
             self.available_quantities,
-            verbose=verbose,
         )
         for k in data.keys():
             data[k] = data[k].expand_dims(dim={"t": t})

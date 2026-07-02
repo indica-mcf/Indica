@@ -4,11 +4,9 @@ from typing import List
 from typing import Tuple
 import warnings
 
-import aurora
 import matplotlib.pylab as plt
 import numpy as np
 from numpy.core.numeric import zeros_like
-from omfit_classes import omfit_eqdsk
 import pandas as pd
 from pandas import DataFrame
 import scipy
@@ -24,6 +22,12 @@ from indica.readers.adas import ADASReader
 from indica.utilities import DATA_PATH
 from indica.utilities import set_plot_colors
 from .abstractoperator import Operator
+
+try:
+    import aurora
+    from omfit_classes import omfit_eqdsk
+except ImportError:
+    pass
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 
