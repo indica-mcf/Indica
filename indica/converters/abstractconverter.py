@@ -555,11 +555,17 @@ class CoordinateTransform(ABC):
                 color="k",
             )
             if hasattr(self, "equilibrium"):
-                rhop_equil.plot.contour(
+                xr.plot.contour(
+                    rhop_equil,
                     levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99],
                     linestyle="dotted",
                     alpha=0.8,
                 )
+                # rhop_equil.plot.contour(
+                #     levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99],
+                #     linestyle="dotted",
+                #     alpha=0.8,
+                # )
 
             plot_geometry(
                 self.R,
