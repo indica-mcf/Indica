@@ -4,7 +4,6 @@ from pathlib import Path
 import pickle
 import re
 import stat
-from time import sleep
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -13,7 +12,6 @@ import warnings
 import numpy as np
 from sal.client import SALClient
 from sal.core.exception import AuthenticationFailed
-from sal.core.exception import InvalidResponse
 from sal.dataclass import Signal
 
 from indica.abstractio import BaseIO
