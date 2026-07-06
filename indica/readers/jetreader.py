@@ -299,11 +299,9 @@ class JETReader(DataReader):
             )
             wcx0, _ = self.reader_utils._get_signal(uid, instrument, "wcx0", revision)
             trck, _ = self.reader_utils._get_signal(uid, instrument, "trck", revision)
-            sav_file = _get_cxrs_los_savfile(pulse=self.pulse, spec=spec)
-            tracks = _get_cxrs_active_tracks(
-                pulse=self.pulse, spec=spec, trck=trck.data
-            )
-            data["location"], data["direction"] = _get_cxrs_los_geometry(
+            sav_file = _cxrs_los_savfile(pulse=self.pulse, spec=spec)
+            tracks = _cxrs_active_tracks(pulse=self.pulse, spec=spec, trck=trck.data)
+            data["location"], data["direction"] = _cxrs_los_geometry(
                 sav_file=sav_file, tracks=tracks
             )
             data["spectra"] = np.expand_dims(qval, -1)
