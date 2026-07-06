@@ -23,7 +23,7 @@ class MDSUtils(BaseIO):
         self.conn.openTree(self.tree, self.pulse)
 
     def close(self) -> None:
-        del self.conn
+        self.conn.disconnect()
 
     @property
     def requires_authentication(self) -> bool:

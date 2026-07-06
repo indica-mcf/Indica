@@ -49,6 +49,9 @@ class DataReader(ABC):
         self.quantities_path = self.machine_conf.QUANTITIES_PATH
         self.kwargs = kwargs
 
+    def close(self):
+        self.reader_utils.close()
+
     def get(
         self,
         uid: str,

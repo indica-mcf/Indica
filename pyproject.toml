@@ -17,6 +17,7 @@ maintainers = [
 readme = 'README.md'
 requires-python = ">=3.10"
 dependencies = [
+    "mdsthin",
     "aurorafusion==3.0.6",
     "corner>=1.0",
     "pandas==2.2.1",
