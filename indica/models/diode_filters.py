@@ -35,7 +35,7 @@ class BremsstrahlungDiode(AbstractDiagnostic):
         filter_type: str = "boxcar",
         etendue: float = 1.0,
         calibration: float = 1,
-        instrument_method="get_diode_filters",
+        instrument_method="diode_filters",
         channel_mask: slice = None,
     ):
         """

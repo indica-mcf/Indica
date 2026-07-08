@@ -96,7 +96,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         name: str,
         pecs: dict,
         window: np.array,
-        instrument_method="get_spectrometer",
+        instrument_method="spectrometer",
     ):
 
         self.transform: LineOfSightTransform
@@ -288,24 +288,6 @@ class PassiveSpectrometer(AbstractDiagnostic):
                     label=f"t={t:1.2f} s",
                 )
             plt.ylabel("Emissivity (photon/m^2/nm/s)")
-            plt.xlabel("Wavelength (nm)")
-            plt.legend()
-            set_axis_sci()
-
-            plt.figure()
-            for element, intensity in self.measured_intensity.items():
-                if "channel" in intensity.dims:
-                    intensity = intensity.sel(channel=int(np.median(channels)))
-                for i, t in enumerate(np.array(self.t, ndmin=1)):
-                    plt.plot(
-                        intensity.wavelength,
-                        intensity.sel(t=t),
-                        color=cols_time[i],
-                        label=f"t={t:1.2f} s",
-                        marker="^",
-                        linestyle="",
-                    )
-            plt.ylabel("Emissivity (photon/m^2/s)")
             plt.xlabel("Wavelength (nm)")
             plt.legend()
             set_axis_sci()

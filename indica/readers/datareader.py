@@ -27,7 +27,6 @@ class DataReader(ABC):
         tend: float,
         machine_conf: MachineConf,
         reader_utils: BaseIO,
-        verbose: bool = False,
         **kwargs: Any,
     ):
         """
@@ -40,7 +39,6 @@ class DataReader(ABC):
         kwargs
             Any other arguments which should be recorded for the reader.
         """
-        self.verbose = verbose
         self.pulse = pulse
         self.tstart = tstart
         self.tend = tend
@@ -49,8 +47,10 @@ class DataReader(ABC):
         self.instrument_methods = self.machine_conf.INSTRUMENT_METHODS
         self.machine_dims = self.machine_conf.MACHINE_DIMS
         self.quantities_path = self.machine_conf.QUANTITIES_PATH
-        self.verbose = verbose
         self.kwargs = kwargs
+
+    def close(self):
+        self.reader_utils.close()
 
     def get(
         self,
@@ -59,13 +59,12 @@ class DataReader(ABC):
         revision: RevisionLike = 0,
         dl: float = 0.005,
         passes: int = 1,
-        include_error: bool = True,
         return_dataarrays: bool = True,
-        verbose: bool = False,
+        debug: bool = False,
         equilibrium: Equilibrium = None,
     ) -> Dict[str, DataArray]:
         """General method that reads data for a requested instrument."""
-        if instrument not in self.instrument_methods.keys():
+        if instrument.lower() not in self.instrument_methods.keys():
             raise ValueError(
                 "{} does not support reading for instrument {}".format(
                     self.__class__.__name__, instrument
@@ -73,12 +72,12 @@ class DataReader(ABC):
             )
 
         # Read data from database
-        _database_results = self._read_database(uid, instrument, revision)
+        _database_results = self._read_database(uid, instrument, revision, debug=debug)
         _database_results["dl"] = dl
         _database_results["passes"] = passes
 
         # Re-arrange data (machine-specific) and get instrument geometry transform
-        method = self.instrument_methods[instrument]
+        method = self.instrument_methods[instrument.lower()]
         database_results, transform = getattr(self, f"_{method}")(_database_results)
         if not return_dataarrays:
             return database_results
@@ -95,16 +94,12 @@ class DataReader(ABC):
             self.tstart,
             self.tend,
             transform,
-            include_error,
-            verbose=verbose,
+            debug=debug,
         )
         return data_arrays
 
     def _read_database(
-        self,
-        uid: str,
-        instrument: str,
-        revision: RevisionLike,
+        self, uid: str, instrument: str, revision: RevisionLike, debug: bool = False
     ) -> dict:
         """Read and return all raw database quantities and errors
         Exception handling is non-specific to guarantee generality across readers.
@@ -115,7 +110,7 @@ class DataReader(ABC):
         TODO: move error/dimensions/units/records to sub-dictionary within results e.g.
               results = {..., "error":{}, "dimensions":{}, "units":{}, "records":{}}
         """
-        method = self.instrument_methods[instrument]
+        method = self.instrument_methods[instrument.lower()]
         quantities_paths = self.quantities_path[method]
         revision, is_best = self.reader_utils.get_revision(uid, instrument, revision)
         results: Dict[str, Any] = {
@@ -138,9 +133,8 @@ class DataReader(ABC):
                     revision,
                 )
             except Exception as e:
-                if self.verbose:
-                    print(f"Error reading {_path}: {e}")
-                    raise e
+                if debug:
+                    print(f"get_data error: {_path} ({e})")
                 continue
             results[_key + "_records"] = q_path
             results[_key + "_dimensions"] = q_dimensions
@@ -161,6 +155,8 @@ class DataReader(ABC):
                     revision,
                 )
             except Exception as e:
+                if debug:
+                    print(f"get_data error: {_path_err} ({e})")
                 q_err = np.full_like(results[_key], 0.0)
                 q_err_dimensions = []
                 q_err_units = ""
@@ -174,91 +170,91 @@ class DataReader(ABC):
 
     # Machine-specific instrument methods that must be implemented in the child reader
     # to refactor database data structures and assign a geometry transform
-    def _get_thomson_scattering(
+    def _thomson_scattering(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_profile_fits(
+    def _profile_fits(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_charge_exchange(
+    def _charge_exchange(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_spectrometer(
+    def _spectrometer(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_equilibrium(
+    def _equilibrium(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_radiation(
+    def _radiation(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_radiation_inversion(
+    def _radiation_inversion(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_helike_spectroscopy(
+    def _helike_spectroscopy(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_diode_filters(
+    def _diode_filters(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_interferometry(
+    def _interferometry(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_zeff(
+    def _zeff(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_nbi(
+    def _nbi(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_transp(
+    def _transp(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_astra(
+    def _astra(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
-    def _get_metis(
+    def _metis(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -281,16 +277,12 @@ class DataReader(ABC):
 
         self.data = {}
         for instrument in instruments:
-            print(f"Reading {instrument}")
-            try:
-                self.data[instrument] = self.get(
-                    "",
-                    instrument,
-                    revisions[instrument],
-                    equilibrium=equilibrium,
-                )
-            except Exception as e:
-                print(f"error reading: {instrument} \nException: {e}")
-                if debug:
-                    raise e
+            self.data[instrument] = self.get(
+                "",
+                instrument,
+                revisions[instrument],
+                equilibrium=equilibrium,
+                debug=debug,
+            )
+
         return self.data

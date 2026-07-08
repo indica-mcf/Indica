@@ -32,7 +32,7 @@ class Polarimeter(AbstractDiagnostic):
         self,
         name: str,
         wavelength: Union[int, float],
-        instrument_method="get_polarimetry",
+        instrument_method="polarimetry",
     ):
         """Instantiate polarimeter diagnostic model
 

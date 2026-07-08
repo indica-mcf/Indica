@@ -37,6 +37,7 @@ class DataPlotter:
         t: LabeledArray,
         tstart: float = None,
         tend: float = None,
+        revision: str = None,
         machine: str = "st40",
         ttol: float = 0.005,
         nplot: int = 3,
@@ -48,7 +49,7 @@ class DataPlotter:
         tstart = Start of time range for which to plot
         tend = End of time range for which to plot
         ttol = tolerance for "nearest" timepoint selection
-        nplot = reduce number of plots by nplot times
+        nplot = number of time-points to be plotted
         """
 
         self.conf = MACHINE_CONFS[machine]()
@@ -68,8 +69,13 @@ class DataPlotter:
 
         _t = np.array(t, ndmin=1)
         self.times = _t[np.where((_t >= tstart) * (_t <= tend))[0]]
+        self._skip_plot = np.ceil(len(self.times) / self.nplot)
+
         self.title = f"{pulse} @ t=[{tstart:.3f}, {tend:.3f}] s"
-        self.fig_name = f"{pulse}_{tstart:.3f}_{tend:.3f}_s"
+        self.fig_name = f"{pulse}"
+        if revision is not None:
+            self.fig_name += f"_{revision.strip().upper()}"
+        self.fig_name += f"_{tstart:.3f}_{tend:.3f}_s"
         self.colors = CM(np.linspace(0.1, 0.75, np.size(self.times), dtype=float))
 
     # Profiles
@@ -84,7 +90,7 @@ class DataPlotter:
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
 
-            if _t is None or i % self.nplot:
+            if _t is None or i % self._skip_plot:
                 continue
 
             x, y, err = select_x_y_err(data, t=_t, xdim=xdim)
@@ -93,11 +99,10 @@ class DataPlotter:
             if use_label:
                 label = f"{_t:.3f} s"
 
-            # Plot data
-            y.plot(label=label, color=self.colors[i], **_kwargs)
-
             # Plot uncertainty band
             plt.fill_between(x, y - err, y + err, color=self.colors[i], alpha=0.5)
+            # Plot data
+            y.plot(label=label, color=self.colors[i], **_kwargs)
 
     # Experimental profile data
     def _plot_profile_data(
@@ -114,7 +119,11 @@ class DataPlotter:
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
 
-            if _t is None or i % self.nplot or not np.any(np.isfinite(data.sel(t=_t))):
+            if (
+                _t is None
+                or i % self._skip_plot
+                or not np.any(np.isfinite(data.sel(t=_t)))
+            ):
                 continue
 
             x, y, err = select_x_y_err(data, _t, xdim=xdim)
@@ -123,8 +132,8 @@ class DataPlotter:
             if use_label:
                 label = f"{_t:.3f} s"
 
+            plt.errorbar(x, y, err, color=self.colors[i], **_kwargs)
             y.plot(label=label, color=self.colors[i], **_kwargs)
-            plt.errorbar(x, y, err, color=self.colors[i])
 
     # Time evolution
     def _plot_time_evolution(
@@ -148,7 +157,7 @@ class DataPlotter:
         plt.legend()
 
     # Instrument geometry
-    def plot_transform(
+    def transform(
         self,
         data: Union[Dict[str, Dict[str, DataArray]], Plasma],
         instrument: str,
@@ -203,14 +212,12 @@ class DataPlotter:
         -------
 
         """
-        if instrument == "plasma":
-            plot_method = "plot_plasma"
-            _data = data
-        else:
-            plot_method = self.conf.INSTRUMENT_METHODS[instrument].replace(
-                "get_", "plot_"
-            )
+        try:
+            plot_method = self.conf.INSTRUMENT_METHODS[instrument]
             _data = data[instrument]
+        except KeyError:
+            plot_method = instrument
+            _data = data
 
         if title is None:
             title = f"{instrument.upper()} for {self.title}"
@@ -225,7 +232,7 @@ class DataPlotter:
         save_figure(FIG_PATH, fig_name, save_fig=save_fig)
 
     # Instrument specific methods
-    def plot_thomson_scattering(
+    def thomson_scattering(
         self,
         data: dict,
         quantity: str = "ne",
@@ -244,7 +251,7 @@ class DataPlotter:
         assign_datatype(y.coords[xdim], xdim)
         self._plot_profile_data(y, xdim, marker=marker, linestyle=linestyle, **kwargs)
 
-    def plot_profile_fits(
+    def profile_fits(
         self,
         data: dict,
         quantity: str = "ne_rhop",
@@ -255,7 +262,7 @@ class DataPlotter:
         **kwargs,
     ):
         xdim = "rhop"
-        y_fit = xr.where(data[quantity] > 0, data[quantity], np.nan)
+        y_fit = data[quantity]  # xr.where(data[quantity] > 0, data[quantity], np.nan)
         try:
             _y_exp = xr.where(
                 y_fit.mean(xdim) > 0,
@@ -277,7 +284,7 @@ class DataPlotter:
             )
         self._plot_profile(y_fit, xdim=xdim, **kwargs)
 
-    def plot_spectrometer(
+    def spectrometer(
         self,
         data: dict,
         quantity: str = "spectra",
@@ -293,7 +300,7 @@ class DataPlotter:
         y = data[quantity].sel(channel=channel)
         self._plot_profile(y, xdim, **kwargs)
 
-    def plot_zeff(
+    def zeff(
         self,
         data: dict,
         quantity: str = "zeff",
@@ -306,7 +313,7 @@ class DataPlotter:
         self._plot_profile(y, xdim, **kwargs)
         plt.hlines(1, 0, 1, linestyle="dotted", color="k")
 
-    def plot_radiation_inversion(
+    def radiation_inversion(
         self,
         data: dict,
         quantity: str = "emission_rhop",
@@ -323,7 +330,7 @@ class DataPlotter:
         else:
             print(f"Plotting for {quantity} not implemented")
 
-    def plot_charge_exchange(
+    def charge_exchange(
         self,
         data: dict,
         quantity: str = "ti",
@@ -353,7 +360,7 @@ class DataPlotter:
         y.attrs = data[quantity].attrs
         self._plot_profile_data(y, xdim, **kwargs)
 
-    def plot_equilibrium(
+    def equilibrium(
         self,
         data: dict,
         quantity: str = "ipla",
@@ -363,7 +370,7 @@ class DataPlotter:
     ):
         self._plot_time_evolution(data[quantity], **kwargs)
 
-    def plot_radiation(
+    def radiation(
         self,
         data: dict,
         quantity: str = "brightness",
@@ -376,7 +383,7 @@ class DataPlotter:
             **kwargs,
         )
 
-    def plot_helike_spectroscopy(
+    def helike_spectroscopy(
         self,
         data: dict,
         quantity: str = "ti_w",
@@ -390,7 +397,7 @@ class DataPlotter:
         elif "spectra" in quantity:
             self._plot_profile(y, "wavelength", **kwargs)
 
-    def plot_diode_filters(
+    def diode_filters(
         self,
         data: dict,
         quantity: str = "",
@@ -399,17 +406,17 @@ class DataPlotter:
     ):
         raise NotImplementedError
 
-    def plot_interferometry(
+    def interferometry(
         self,
         data: dict,
-        quantity: str = "ne",
+        quantity: str = "ne_int",
         fig_name: str = "",
         fig_obj: plt.figure = None,
         **kwargs,
     ):
         self._plot_time_evolution(data[quantity], **kwargs)
 
-    def plot_plasma(
+    def plasma(
         self,
         plasma: Plasma,
         quantity: str,
@@ -448,7 +455,7 @@ class DataPlotter:
             y = _y
             self._plot_time_evolution(y, **kwargs)
 
-    def plot_solps(
+    def solps(
         self,
         data: dict,
         quantity: str,

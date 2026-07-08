@@ -48,7 +48,7 @@ class ST40Reader(DataReader):
         self.default_error = (default_error,)
         self.reader_utils = self.reader_utils(pulse, server, tree)
 
-    def _get_thomson_scattering(
+    def _thomson_scattering(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -60,7 +60,7 @@ class ST40Reader(DataReader):
         transform = assign_transect_transform(database_results)
         return database_results, transform
 
-    def _get_profile_fits(
+    def _profile_fits(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -76,7 +76,7 @@ class ST40Reader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
-    def _get_charge_exchange(
+    def _charge_exchange(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -90,7 +90,7 @@ class ST40Reader(DataReader):
         transform = assign_transect_transform(database_results)
         return database_results, transform
 
-    def _get_spectrometer(
+    def _spectrometer(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -123,7 +123,7 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_equilibrium(
+    def _equilibrium(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -134,17 +134,18 @@ class ST40Reader(DataReader):
             )
 
         # Re-shape psi matrix
-        database_results["psi"] = database_results["psi"].reshape(
-            (
-                len(database_results["t"]),
-                len(database_results["z"]),
-                len(database_results["R"]),
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
             )
-        )
         transform = assign_trivial_transform()
         return database_results, transform
 
-    def _get_radiation(
+    def _radiation(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -152,14 +153,14 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_radiation_inversion(
+    def _radiation_inversion(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         transform = assign_trivial_transform()
         return database_results, transform
 
-    def _get_helike_spectroscopy(
+    def _helike_spectroscopy(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -167,7 +168,7 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_diode_filters(
+    def _diode_filters(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -182,7 +183,7 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_interferometry(
+    def _interferometry(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -195,14 +196,14 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_zeff(
+    def _zeff(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         transform = assign_trivial_transform()
         return database_results, transform
 
-    def _get_nbi(
+    def _nbi(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -233,7 +234,7 @@ class ST40Reader(DataReader):
 
         return database_results, transform
 
-    def _get_astra(
+    def _astra(
         self,
         database_results: dict,
         **kwargs: Any,
@@ -270,7 +271,7 @@ class ST40Reader(DataReader):
 
         return database_results, transform
 
-    def _get_transp(
+    def _transp(
         self,
         database_results: dict,
         **kwargs: Any,
@@ -306,7 +307,7 @@ class ST40Reader(DataReader):
 
         return database_results, transform
 
-    def _get_metis(
+    def _metis(
         self,
         database_results: dict,
         **kwargs: Any,

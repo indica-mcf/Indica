@@ -2,6 +2,7 @@ from getpass import getpass
 from getpass import getuser
 from pathlib import Path
 import pickle
+import re
 import stat
 from typing import List
 from typing import Optional
@@ -79,7 +80,7 @@ class SALUtils(BaseIO):
         path = self.get_sal_path(
             uid=uid,
             instrument=instrument,
-            revision=self.get_revision(uid, instrument, revision),
+            revision=self.get_revision(uid, instrument, revision)[0],
             quantity=quantity,
         )
         cache_path = self._sal_path_to_file(path)
@@ -151,6 +152,8 @@ class SALUtils(BaseIO):
         Get actual revision that's being read from database, converts relative revision
         (e.g. 0, latest) to absolute
         """
+        if re.match(r"t[0-9]{3}", instrument.lower()) is not None:
+            return revision, True
         info = self._client.list(
             self.get_sal_path(uid=uid, instrument=instrument, revision=revision)
         )
@@ -170,8 +173,15 @@ class SALUtils(BaseIO):
             "kb5v": "bolo",
             "ks3h": "ks3",
             "ks3v": "ks3",
+            "ks3h_base": "ks3",
+            "ks3v_base": "ks3",
             **{
                 "cx{}{}_zeff".format(val1, val2): "cx{}{}".format(val1, val2)
+                for val1 in ("s", "d", "f", "g", "h")
+                for val2 in ("m", "w", "x", "4", "6", "8")
+            },
+            **{
+                "cx{}{}_base".format(val1, val2): "cx{}{}".format(val1, val2)
                 for val1 in ("s", "d", "f", "g", "h")
                 for val2 in ("m", "w", "x", "4", "6", "8")
             },

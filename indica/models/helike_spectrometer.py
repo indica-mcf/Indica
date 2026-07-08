@@ -42,7 +42,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         line_labels=None,
         background=0,
         instrumental_broadening: float = 100,  # eV
-        instrument_method="get_helike_spectroscopy",
+        instrument_method="helike_spectroscopy",
     ):
         """
         Read all atomic data and filter based on window limits

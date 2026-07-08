@@ -28,19 +28,30 @@ class ReaderProcessor:
     def reset_data(self):
         self.processed_data = {}
 
+    def get_tlabels_dt(
+        self,
+        tstart: float,
+        tend: float,
+        dt: float,
+    ):
+        self.t = get_tlabels_dt(tstart, tend, dt)
+        return self.t
+
     def __call__(
         self,
         raw_data: dict,
-        tstart: float = None,
-        tend: float = None,
-        dt: float = None,
+        tstart: float,
+        tend: float,
+        dt: float,
+        overlap: float = 0.0,
         verbose: bool = False,
+        check_bounds: bool = True,
     ):
 
         self.reset_data()
         self.raw_data = raw_data
 
-        self.t = get_tlabels_dt(tstart, tend, dt)
+        self.t = self.get_tlabels_dt(tstart, tend, dt)
 
         self.processed_data = apply_filter(
             raw_data,
@@ -59,7 +70,13 @@ class ReaderProcessor:
         )
 
         self.processed_data = bin_data_in_time(
-            self.processed_data, tstart=tstart, tend=tend, dt=dt
+            self.processed_data,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            overlap=overlap,
+            check_bounds=check_bounds,
+            verbose=verbose,
         )
         return self.processed_data
 
@@ -69,29 +86,24 @@ def bin_data_in_time(
     tstart: float = 0.02,
     tend: float = 0.1,
     dt: float = 0.01,
-    debug=False,
+    overlap: float = 0.0,
+    check_bounds: bool = True,
+    verbose: bool = False,
 ):
     binned_data = {}
     for instr in raw_data.keys():
-        if debug:
+        if verbose:
             print(f"instr: {instr}")
         binned_quantities = {}
         for quant in raw_data[instr].keys():
-            if debug:
+            if verbose:
                 print(f"quant: {quant}")
             data_quant = deepcopy(raw_data[instr][quant])
 
             if "t" in data_quant.coords:
-                data_quant = convert_in_time_dt(tstart, tend, dt, data_quant)
-                # Using groupedby_bins always removes error from coords so adding it
-                if "error" in raw_data[instr][quant].coords:
-                    error = convert_in_time_dt(
-                        tstart, tend, dt, raw_data[instr][quant].error
-                    )
-                    data_quant = data_quant.assign_coords(
-                        error=(raw_data[instr][quant].dims, error.data)
-                    )
-                binned_quantities[quant] = data_quant
+                binned_quantities[quant] = convert_in_time_dt(
+                    tstart, tend, dt, overlap, data_quant, check_bounds=check_bounds
+                )
         binned_data[instr] = binned_quantities
     return binned_data
 

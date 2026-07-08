@@ -40,7 +40,7 @@ class SOLPSReader:
         t
             time (ms)
         """
-        self.available_quantities = READER_QUANTITIES["get_solps"]
+        self.available_quantities = READER_QUANTITIES["solps"]
         path = Path(path)
         if path == DEFAULT_PATH:
             self.path = Path.home() / CACHE_DIR / "solps" / f"{pulse}_{int(t*1.e3)}"
@@ -104,7 +104,6 @@ class SOLPSReader:
     def get(
         self,
         file_type: str = "txt",
-        verbose: bool = False,
     ) -> Dict[str, DataArray]:
         """
         Temporary get method, similar to indica/readers/datareader
@@ -167,8 +166,6 @@ class SOLPSReader:
         data = build_dataarrays(
             database_results,
             self.available_quantities,
-            include_error=False,
-            verbose=verbose,
         )
         for k in data.keys():
             data[k] = data[k].expand_dims(dim={"t": t})

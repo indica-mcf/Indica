@@ -1,3 +1,5 @@
+import pytest
+
 from indica.examples.example_operators import example_aurora_run
 from indica.examples.example_operators import example_fit_ts
 from indica.examples.example_operators import example_tomo_1D
@@ -31,5 +33,5 @@ def test_fit_ts():
 
 
 def test_aurora():
-
+    pytest.importorskip("aurora", reason="Issues with Aurora installation")
     _ = example_aurora_run()

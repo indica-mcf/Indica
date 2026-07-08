@@ -22,7 +22,7 @@ class Interferometer(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
-        instrument_method="get_interferometry",
+        instrument_method="interferometry",
     ):
         self.transform: LineOfSightTransform
         self.name = name
@@ -35,7 +35,7 @@ class Interferometer(AbstractDiagnostic):
             "channel": np.arange(len(self.transform.x1)),
             "location": self.transform.origin,
             "direction": self.transform.direction,
-            "ne": self.los_integral_ne,
+            "ne_int": self.los_integral_ne,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
 

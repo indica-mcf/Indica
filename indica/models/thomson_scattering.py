@@ -18,7 +18,7 @@ class ThomsonScattering(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
-        instrument_method="get_thomson_scattering",
+        instrument_method="thomson_scattering",
     ):
         self.transform: TransectCoordinates
         self.name = name

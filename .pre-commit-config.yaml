@@ -1,6 +1,6 @@
 repos:
 -   repo: https://github.com/sqlalchemyorg/zimports/
-    rev: 0.2.0
+    rev: v0.7.0
     hooks:
     - id: zimports
       name: "Reorganise Import Statements"
@@ -11,7 +11,7 @@ repos:
       additional_dependencies: ['click==8.0.4']
       name: "Reformat Code Using black"
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
+    rev: v6.0.0
     hooks:
     - id: check-yaml
     - id: end-of-file-fixer
@@ -20,7 +20,7 @@ repos:
       name: "Fix Mixed Line Ending"
     - id: no-commit-to-branch
 -   repo: https://github.com/PyCQA/flake8
-    rev: 4.0.1
+    rev: 7.3.0
     hooks:
     - id: flake8
       additional_dependencies:
