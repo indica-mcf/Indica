@@ -56,7 +56,7 @@ aurora = [
     "scikit_build_core<0.8",
     # Currently won't install due to upstream build-system definition,
     # TODO re-add in the future. See README for now.
-    # "aurorafusion==3.0.6", 
+    # "aurorafusion==3.0.6",
 ]
 
 [build-system]
