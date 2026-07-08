@@ -116,7 +116,7 @@ class JETReader(DataReader):
     def _interferometry(self, data: dict) -> Tuple[Dict[str, Any], CoordinateTransform]:
         data = _interferometer_polarimeter_coords(data)
         data["t"] = data["LID3_dimensions"][0]
-        data["ne"] = np.array(
+        data["ne_int"] = np.array(
             [
                 data.get("LID{}".format(i + 1), np.zeros_like(data["LID3"]))
                 for i in data["channel"]
