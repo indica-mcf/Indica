@@ -32,7 +32,6 @@ def test_fit_ts():
     _ = example_fit_ts(plot=False)
 
 
-@pytest.mark.skip("Issues with Aurora installation")
 def test_aurora():
-
+    pytest.importorskip("aurora", reason="Issues with Aurora installation")
     _ = example_aurora_run()

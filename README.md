@@ -11,7 +11,17 @@ InDiCA (**In**tegrated **Di**agnosti**C** **A**nalysis) is a tool which allows t
 The overall design work has been completed and the general functionality implemented, but the library is still under active development.
 <!--In  addition to the (rapidly changing) code, this repository holds the documentation for this project, [which can be found on ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also still (rapidly) changing.-->
 
-## Creation of development environment
+## Development environment using [uv](https://docs.astral.sh/uv/)
+- `uv sync --frozen` to let `uv` handle everything and install InDiCA, including creating `.venv` and installing development dependencies
+- `uv sync --extra <extraname> --frozen` or `uv sync --all-extras --frozen` so include optional dependencies (e.g. FIDASIM and Aurora)
+- Add `-p 3.12` to sync commands to use a specific python version (for example 3.12)
+
+### [Aurora](https://github.com/fsciortino/Aurora) install instructions
+Currently there's a build-system issue with Aurora that fails on install due to `scikit_build` version, so the Aurora extra only installs the build requirements without the actual package. To install:
+1. `uv sync --extra aurora --frozen` or `uv sync --all-extras --frozen` to get build dependencies
+2. `uv pip install --no-build-isolation aurorafusion` to install into current environment
+
+## (LEGACY) Creation of development environment
 1. Upgrade pip:
     - *pip install --upgrade pip*
 
