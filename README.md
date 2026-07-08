@@ -16,6 +16,13 @@ The overall design work has been completed and the general functionality impleme
 - `uv sync --extra <extraname> --frozen` or `uv sync --all-extras --frozen` so include optional dependencies (e.g. FIDASIM and Aurora)
 - Add `-p 3.12` to sync commands to use a specific python version (for example 3.12)
 
+### Adding package
+- To add a main dependency: `uv add "package"`
+- To add an optional extra: `uv add --optional=<groupname> "package"`
+- To add a development dependency: `uv add --dev "package"`
+
+Adding using `uv add` keeps the `uv.lock` file up-to-date automatically. See [uv docs](https://docs.astral.sh/uv/concepts/projects/dependencies/) for more information.
+
 ### [Aurora](https://github.com/fsciortino/Aurora) install instructions
 Currently there's a build-system issue with Aurora that fails on install due to `scikit_build` version, so the Aurora extra only installs the build requirements without the actual package. To install:
 1. `uv sync --extra aurora --frozen` or `uv sync --all-extras --frozen` to get build dependencies
