@@ -5,7 +5,7 @@ repos:
     - id: zimports
       name: "Reorganise Import Statements"
 -   repo: https://github.com/psf/black
-    rev: 26.5.1
+    rev: 22.1.0
     hooks:
     - id: black
       additional_dependencies: ['click==8.0.4']
