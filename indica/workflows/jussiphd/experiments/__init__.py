@@ -17,6 +17,9 @@ from .noise_matching_brightness import (
 )
 from .noise_matching import calibrate_synthetic_noise_against_real
 from .te_ne_profile_comparison import compare_te_ne_profile_sampling
+from .multipulse_synthetic_expanded_equilibria import (
+    build_multipulse_synthetic_expanded_equilibria_dataset,
+)
 
 __all__ = [
     "bolometry_inversion_multipulse_synthetic",
@@ -30,4 +33,5 @@ __all__ = [
     "calibrate_synthetic_brightness_noise_against_real",
     "calibrate_synthetic_noise_against_real",
     "compare_te_ne_profile_sampling",
+    "build_multipulse_synthetic_expanded_equilibria_dataset",
 ]
