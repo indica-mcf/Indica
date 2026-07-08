@@ -99,13 +99,12 @@ def bolometry_inversion_multipulse_synthetic_splined(
     output_dir: str = DEFAULT_OUTPUT_DIR,
     b_filename: str = "b_slices_multipulse_synthetic.csv",
     eps_filename: str = "eps_slices_multipulse_synthetic.csv",
-    n_generations: int = 50,
+    n_generations: int = 100,
     generate_new_data: bool = True,
     use_all_timepoints: bool = True,
     config_name="baseline_spline_tene"
 
 ) -> dict[str, Any]:
-    """Run multipulse-like synthetic workflow: generate -> dataset -> VAE -> metrics -> visus."""
     transforms = load_default_objects(machine, "geometry")
     if use_real_equilibrium:
         equilibrium = load_real_equilibrium_task(
