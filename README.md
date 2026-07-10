@@ -10,14 +10,14 @@ InDiCA (**In**tegrated **Di**agnosti**C** **A**nalysis) is a tool which allows t
 
 ## Development environment using [uv](https://docs.astral.sh/uv/)
 - The recommended UV-managed environment is CPython 3.12.
-- Create or refresh it with `uv venv --python 3.12 .venv`.
-- Run `uv sync --frozen --python 3.12` to let `uv` install InDiCA and the development dependencies into that environment.
-- Add optional dependencies with `uv sync --extra <extraname> --frozen --python 3.12` or `uv sync --all-extras --frozen --python 3.12`.
+- Create or refresh it with `uv venv .venv`.
+- Run `uv sync --frozen` to let `uv` install InDiCA and the development dependencies into that environment.
+- Add optional dependencies with `uv sync --extra <extraname> --frozen` or `uv sync --all-extras --frozen`.
 - Adding using `uv add` keeps the `uv.lock` file up-to-date automatically.
 
 ### [Aurora](https://github.com/fsciortino/Aurora) install instructions
 Currently there's a build-system issue due to `scikit_build` version, so Aurora is not automatically installed. To install:
-1. `uv sync --extra aurora --frozen --python 3.12` or `uv sync --all-extras --frozen --python 3.12` to get the build requirements into the UV environment
+1. `uv sync --extra aurora --frozen` or `uv sync --all-extras --frozen` to get the build requirements into the UV environment
 2. `uv pip install --python .venv/bin/python --no-build-isolation aurorafusion` to install the package into the active environment
 
 ## License
