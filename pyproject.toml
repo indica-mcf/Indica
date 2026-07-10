@@ -15,7 +15,10 @@ maintainers = [
     { name = "Jussi Hakosalo", email = "jussi.hakosalo@tokamakenergy.com" }
 ]
 readme = 'README.md'
-requires-python = ">=3.10"
+# Aurora support has been verified with CPython 3.12, which is the recommended
+# Aurora needs needs OMFIT which can operate only with scipy<=1.13.1
+# Python version for UV-managed environments in this project.
+requires-python = "==3.12"
 dependencies = [
     "mdsthin",
     "corner>=1.0",
@@ -25,7 +28,7 @@ dependencies = [
     "netCDF4>=1.5.4",
     "numpy==1.26.4",
     "mpmath>=1.3.0",
-    "scipy>=1.9.2",
+    "scipy==1.13.1",
     "xarray>=2022.1.0",
     "matplotlib>=3.8.0",
     "sal>=1.2.2",
@@ -54,9 +57,9 @@ fidasim = [
 aurora = [
     "pyproject-metadata>=0.12.1",
     "scikit_build_core<0.8",
-    # Currently won't install due to upstream build-system definition,
-    # TODO re-add in the future. See README for now.
-    # "aurorafusion==3.0.6",
+    # Currently Aurora has a build-system issue with scikit-build-core >= 0.8.
+    # The package is intentionally not pinned here due to upstream install failures.
+    # Install manually after sync with `uv pip install --no-build-isolation aurorafusion`.
 ]
 
 [build-system]

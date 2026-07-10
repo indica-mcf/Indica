@@ -9,12 +9,12 @@ Status](https://readthedocs.org/projects/indica-ukaea/badge/?version=latest)](ht
 InDiCA (**In**tegrated **Di**agnosti**C** **A**nalysis) is a tool which allows to perform and combine the analysis of a large number of different diagnostics from Magnetic Confined Fusion (MCF) plasma devices. It will consist of a library of functions to analyse different diagnostic systems under a common framework, and a set of workflows to combine these measurements.  <!--- Test for pre-commit -->
 
 The overall design work has been completed and the general functionality implemented, but the library is still under active development.
-<!--In  addition to the (rapidly changing) code, this repository holds the documentation for this project, [which can be found on ReadTheDocs](https://indica-ukaea.readthedocs.io/en/latest/), which is also still (rapidly) changing.-->
 
 ## Development environment using [uv](https://docs.astral.sh/uv/)
-- `uv sync --frozen` to let `uv` handle everything and install InDiCA, including creating `.venv` and installing development dependencies
-- `uv sync --extra <extraname> --frozen` or `uv sync --all-extras --frozen` so include optional dependencies (e.g. FIDASIM and Aurora)
-- Add `-p 3.12` to sync commands to use a specific python version (for example 3.12)
+- The recommended UV-managed environment is CPython 3.12.
+- Create or refresh it with `uv venv --python 3.12 .venv`.
+- Run `uv sync --frozen --python 3.12` to let `uv` install InDiCA and the development dependencies into that environment.
+- Add optional dependencies with `uv sync --extra <extraname> --frozen --python 3.12` or `uv sync --all-extras --frozen --python 3.12`.
 
 ### Adding package
 - To add a main dependency: `uv add "package"`
@@ -25,8 +25,8 @@ Adding using `uv add` keeps the `uv.lock` file up-to-date automatically. See [uv
 
 ### [Aurora](https://github.com/fsciortino/Aurora) install instructions
 Currently there's a build-system issue with Aurora that fails on install due to `scikit_build` version, so the Aurora extra only installs the build requirements without the actual package. To install:
-1. `uv sync --extra aurora --frozen` or `uv sync --all-extras --frozen` to get build dependencies
-2. `uv pip install --no-build-isolation aurorafusion` to install into current environment
+1. `uv sync --extra aurora --frozen --python 3.12` or `uv sync --all-extras --frozen --python 3.12` to get the build requirements into the UV-managed Python 3.12 environment
+2. `uv pip install --python .venv/bin/python --no-build-isolation aurorafusion` to install the package into the active environment
 
 ## (LEGACY) Creation of development environment
 1. Upgrade pip:
