@@ -18,7 +18,7 @@ readme = 'README.md'
 # Aurora support has been verified with CPython 3.12, which is the recommended
 # Aurora needs needs OMFIT which can operate only with scipy<=1.13.1
 # Python version for UV-managed environments in this project.
-requires-python = "=>3.12,<3.13"
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "mdsthin",
     "corner>=1.0",
