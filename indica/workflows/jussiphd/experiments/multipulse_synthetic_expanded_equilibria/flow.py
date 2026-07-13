@@ -34,7 +34,13 @@ def _load_eps_matrix(eps_path: str) -> np.ndarray:
     return eps
 
 
-def _equilibrium_time_grid(equilibrium: Any, tstart: float, tend: float, dt: float) -> np.ndarray:
+def _equilibrium_time_grid(
+    equilibrium: Any,
+    tstart: float,
+    tend: float,
+    dt: float,
+    n_timepoints: int | None = None,
+) -> np.ndarray:
     raw = getattr(equilibrium, "t", None)
     if raw is None and hasattr(equilibrium, "rhop") and hasattr(equilibrium.rhop, "t"):
         raw = equilibrium.rhop.t
@@ -52,7 +58,13 @@ def _equilibrium_time_grid(equilibrium: Any, tstart: float, tend: float, dt: flo
             "No equilibrium times in requested interval "
             f"[{float(tstart):.6f}, {float(tend):.6f}]"
         )
-    return target_t.astype(np.float32)
+    target_t = target_t.astype(np.float32)
+    if n_timepoints is not None and int(n_timepoints) > 0 and target_t.size > int(n_timepoints):
+        # Pick representative times from the available equilibrium grid.
+        idx = np.linspace(0, target_t.size - 1, int(n_timepoints), dtype=int)
+        idx = np.unique(idx)
+        target_t = target_t[idx]
+    return target_t
 
 
 def _brightness_matrix_from_emissivity(
@@ -85,6 +97,7 @@ def expand_brightness_with_equilibria_task(
     eps_filename: str,
     meta_filename: str,
     generate_new_data: bool,
+    n_timepoints_per_equilibrium: int,
 ) -> dict[str, Any]:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -147,6 +160,7 @@ def expand_brightness_with_equilibria_task(
             tstart=float(spec["tstart"]),
             tend=float(spec["tend"]),
             dt=float(spec["dt"]),
+            n_timepoints=int(n_timepoints_per_equilibrium),
         )
 
         for eps_idx in range(n_samples):
@@ -201,6 +215,7 @@ def expand_brightness_with_equilibria_task(
         "num_pairs": int(b_arr.shape[0]),
         "num_source_eps": int(n_samples),
         "num_equilibrium_specs": int(len(equilibrium_specs)),
+        "n_timepoints_per_equilibrium": int(n_timepoints_per_equilibrium),
         "generated_new_data": True,
     }
 
@@ -215,6 +230,7 @@ def build_multipulse_synthetic_expanded_equilibria_dataset(
     eps_filename: str = "eps_slices_multipulse_synthetic_expanded_equilibria.csv",
     meta_filename: str = "sample_meta_multipulse_synthetic_expanded_equilibria.csv",
     generate_new_data: bool = True,
+    n_timepoints_per_equilibrium: int = 5,
 ) -> dict[str, Any]:
     """Expand brightness by projecting fixed synthetic eps over multiple equilibria."""
     return expand_brightness_with_equilibria_task(
@@ -226,6 +242,7 @@ def build_multipulse_synthetic_expanded_equilibria_dataset(
         eps_filename=eps_filename,
         meta_filename=meta_filename,
         generate_new_data=generate_new_data,
+        n_timepoints_per_equilibrium=n_timepoints_per_equilibrium,
     )
 
 
@@ -233,4 +250,3 @@ if __name__ == "__main__":
     result = build_multipulse_synthetic_expanded_equilibria_dataset()
     print("Expanded-equilibria synthetic dataset complete")
     print(result)
-
