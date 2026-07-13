@@ -31,6 +31,7 @@ from indica.workflows.jussiphd.plasma_profiler_init import (
 
 
 DEFAULT_OUTPUT_DIR = MULTIPULSE_SYNTHETIC_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR_STR
+DEFAULT_VIS_DIR = str(Path(__file__).resolve().parent / "outputs")
 EQUILIBRIUM_SPECS = [
     {"pulse": 11419, "tstart": 0.020, "tend": 0.160, "dt": 0.010, "label": "p11419_20to160ms"},
     {"pulse": 14606, "tstart": 0.015, "tend": 0.080, "dt": 0.010, "label": "p14606_15to80ms"},
@@ -305,7 +306,7 @@ def build_multipulse_synthetic_expanded_equilibria_constant_imp_dataset(
     c_concentration: float = 0.05,
     ar_concentration: float = 0.01,
     save_equilibrium_plots: bool = True,
-    equilibrium_plots_dir: str | None = None,
+    equilibrium_plots_dir: str = DEFAULT_VIS_DIR,
 ) -> dict[str, Any]:
     """
     Build expanded-equilibria dataset with fixed impurity concentrations.
@@ -333,11 +334,7 @@ def build_multipulse_synthetic_expanded_equilibria_constant_imp_dataset(
     plots_result = None
     if save_equilibrium_plots:
         plots_result = save_equilibrium_plots_task(
-            output_dir=(
-                equilibrium_plots_dir
-                if equilibrium_plots_dir is not None
-                else str(Path(output_dir) / "equilibrium_plots")
-            ),
+            output_dir=equilibrium_plots_dir,
             n_timepoints_per_equilibrium=n_timepoints_per_equilibrium,
         )
     return {
