@@ -61,26 +61,11 @@ def _equilibrium_time_grid(
             "No equilibrium times in requested interval "
             f"[{float(tstart):.6f}, {float(tend):.6f}]"
         )
-    target_t = target_t.astype(np.float32)
     if n_timepoints is not None and int(n_timepoints) > 0 and target_t.size > int(n_timepoints):
         idx = np.linspace(0, target_t.size - 1, int(n_timepoints), dtype=int)
         idx = np.unique(idx)
         target_t = target_t[idx]
     return target_t
-
-
-def _nearest_time_indices(available_t: Any, requested_t: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Map requested times to nearest available times and return unique indices + values."""
-    raw = available_t.values if hasattr(available_t, "values") else available_t
-    avail = np.asarray(raw, dtype=float).reshape(-1)
-    avail = avail[np.isfinite(avail)]
-    if avail.size == 0:
-        raise ValueError("No available model times found for nearest-time selection.")
-
-    req = np.asarray(requested_t, dtype=float).reshape(-1)
-    nearest_idx = np.array([int(np.argmin(np.abs(avail - t))) for t in req], dtype=int)
-    nearest_idx = np.unique(nearest_idx)
-    return nearest_idx, avail[nearest_idx].astype(np.float32)
 
 
 @task(name="save_equilibrium_plots")
@@ -250,11 +235,10 @@ def build_expanded_equilibria_constant_imp_dataset_task(
             target_t = ctx["target_t"]
             spec = ctx["spec"]
             model.set_plasma(plasma)
-            bckc, emissivity = model(return_emissivity=True)
+            bckc, emissivity = model(t=target_t, return_emissivity=True)
             brightness = bckc["brightness"]
-            t_indices, t_values = _nearest_time_indices(brightness.t, target_t)
 
-            for tidx, t_value in zip(t_indices, t_values, strict=False):
+            for tidx, t_value in enumerate(target_t):
                 b_rows.append(brightness.isel(t=tidx).values.astype(np.float32).reshape(-1))
                 eps_rows.append(emissivity.isel(t=tidx).values.astype(np.float32).reshape(-1))
                 meta_rows.append(
