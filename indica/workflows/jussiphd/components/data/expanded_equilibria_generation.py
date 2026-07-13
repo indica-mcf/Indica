@@ -286,13 +286,13 @@ def expand_brightness_with_equilibria(
     }
 
 
-def _interp_plasma_fz_to_times(plasma: Any, target_t: np.ndarray) -> None:
+def _interp_plasma_fz_to_times(plasma: Any, target_t: np.ndarray) -> dict[Any, Any]:
     if not hasattr(plasma, "fz") or plasma.fz is None:
-        return
+        return {}
     aligned: dict[Any, Any] = {}
     for elem, fz_da in plasma.fz.items():
         aligned[elem] = fz_da.interp(t=target_t, method="nearest") if hasattr(fz_da, "interp") else fz_da
-    plasma.fz = aligned
+    return aligned
 
 
 def build_sampled_plasma_expanded_equilibria_dataset(
@@ -360,8 +360,12 @@ def build_sampled_plasma_expanded_equilibria_dataset(
             model = ctx["model"]
             target_t = ctx["target_t"]
             spec = ctx["spec"]
-            plasma.fz = {elem: fz_da.copy(deep=True) for elem, fz_da in base_fz.items()}
-            _interp_plasma_fz_to_times(plasma, target_t)
+            # `plasma.fz` is a property without a setter; update element entries in-place.
+            for elem, fz_da in base_fz.items():
+                plasma.fz[elem] = fz_da.copy(deep=True)
+            aligned_fz = _interp_plasma_fz_to_times(plasma, target_t)
+            for elem, fz_da in aligned_fz.items():
+                plasma.fz[elem] = fz_da
             model.set_plasma(plasma)
             bckc, emissivity = model(t=target_t, return_emissivity=True)
             brightness = bckc["brightness"]
