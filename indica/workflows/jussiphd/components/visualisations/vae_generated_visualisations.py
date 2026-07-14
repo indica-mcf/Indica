@@ -30,6 +30,11 @@ def _next_available_path(path: Path) -> Path:
         idx += 1
 
 
+def next_available_path(path: Path) -> Path:
+    """Public wrapper for deriving a non-existing output path."""
+    return _next_available_path(path)
+
+
 def _load_vae(model_path: str) -> CVAENetwork:
     ckpt = torch.load(model_path, map_location="cpu")
     model = CVAENetwork(
@@ -41,6 +46,11 @@ def _load_vae(model_path: str) -> CVAENetwork:
     model.load_state_dict(ckpt["state_dict"])
     model.eval()
     return model
+
+
+def load_vae(model_path: str) -> CVAENetwork:
+    """Public wrapper for loading a trained VAE checkpoint."""
+    return _load_vae(model_path)
 
 
 def _pick_indices(n_total: int, n_pick: int) -> np.ndarray:

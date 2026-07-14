@@ -8,6 +8,7 @@ from .real_dataset_generation import generate_and_save_real_multipulse_dataset
 from .real_dataset_generation import load_real_transform_from_pulse
 from .quality_filtering import filter_dataset_csv_slices
 from .expanded_equilibria_generation import (
+    align_plasma_fz_to_times,
     build_sampled_plasma_expanded_equilibria_dataset,
     expand_brightness_with_equilibria,
     save_equilibrium_plots,
@@ -22,4 +23,5 @@ __all__ = [
     "expand_brightness_with_equilibria",
     "build_sampled_plasma_expanded_equilibria_dataset",
     "save_equilibrium_plots",
+    "align_plasma_fz_to_times",
 ]

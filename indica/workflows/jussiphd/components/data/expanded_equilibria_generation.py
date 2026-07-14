@@ -295,6 +295,11 @@ def _interp_plasma_fz_to_times(plasma: Any, target_t: np.ndarray) -> dict[Any, A
     return aligned
 
 
+def align_plasma_fz_to_times(plasma: Any, target_t: np.ndarray) -> dict[Any, Any]:
+    """Public wrapper for fz time-alignment used by model calls with explicit t."""
+    return _interp_plasma_fz_to_times(plasma, target_t)
+
+
 def build_sampled_plasma_expanded_equilibria_dataset(
     output_dir: str,
     machine: str,
@@ -363,7 +368,7 @@ def build_sampled_plasma_expanded_equilibria_dataset(
             # `plasma.fz` is a property without a setter; update element entries in-place.
             for elem, fz_da in base_fz.items():
                 plasma.fz[elem] = fz_da.copy(deep=True)
-            aligned_fz = _interp_plasma_fz_to_times(plasma, target_t)
+            aligned_fz = align_plasma_fz_to_times(plasma, target_t)
             for elem, fz_da in aligned_fz.items():
                 plasma.fz[elem] = fz_da
             model.set_plasma(plasma)

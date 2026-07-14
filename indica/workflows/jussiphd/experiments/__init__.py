@@ -26,6 +26,9 @@ from .multipulse_synthetic_expanded_equilibria_train import (
 from .multipulse_synthetic_expanded_equilibria_constant_imp import (
     build_multipulse_synthetic_expanded_equilibria_constant_imp_dataset,
 )
+from .multipulse_synthetic_expanded_equilibria_constant_imp_compare import (
+    multipulse_synthetic_expanded_equilibria_constant_imp_contextual_comparison,
+)
 
 __all__ = [
     "bolometry_inversion_multipulse_synthetic",
@@ -42,4 +45,5 @@ __all__ = [
     "build_multipulse_synthetic_expanded_equilibria_dataset",
     "bolometry_inversion_multipulse_synthetic_expanded_equilibria",
     "build_multipulse_synthetic_expanded_equilibria_constant_imp_dataset",
+    "multipulse_synthetic_expanded_equilibria_constant_imp_contextual_comparison",
 ]
