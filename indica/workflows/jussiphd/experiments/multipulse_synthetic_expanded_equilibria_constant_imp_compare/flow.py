@@ -83,7 +83,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_contextual_comparison(
     train_fraction: float = 0.8,
     batch_size: int = 8,
     visualisations_output_dir: str = DEFAULT_VIS_DIR,
-    n_generated_samples: int = 100,
+    n_generated_samples: int = 200,
     n_examples: int = 6,
     k_samples: int = 20,
     n_timepoints_per_equilibrium: int = 5,
