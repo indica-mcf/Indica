@@ -99,7 +99,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_b_contextual_com
     c_concentration: float = 0.05,
     ar_concentration: float = 0.01,
     seed: int | None = 7,
-    noise_count_level: float = 200.0,
+    noise_count_level: float = 370.0,
     noise_scale_percentile: float = 99.0,
     noise_seed: int | None = 0,
     vae_model_path: str | None = None,
