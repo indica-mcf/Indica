@@ -8,6 +8,7 @@ from xarray import DataArray
 from indica import Equilibrium
 from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
+from indica.numpy_typing import ArrayLike
 from indica.utilities import get_element_info
 
 
@@ -64,6 +65,7 @@ class NbiOperator(ABC):
         self,
         Ti: DataArray,
         Te: DataArray,
+        Ni: DataArray,
         Ne: DataArray,
         Nn: DataArray,
         Vtor: DataArray,
@@ -71,7 +73,7 @@ class NbiOperator(ABC):
         MeanZ: DataArray,
         ImpurityCharge: int,
         target_element: str,
-        t: float,
+        t: float | ArrayLike,
         file_name: Optional[str] = "",
         pulse: int = 0,
         machine: str = "tokamak",
@@ -107,6 +109,7 @@ class NbiOperator(ABC):
 
         self.Ti = Ti.interp(t=t)
         self.Te = Te.interp(t=t)
+        self.Ni = Ni.interp(t=t)
         self.Ne = Ne.interp(t=t)
         self.Nn = Nn.interp(t=t)
         self.Vtor = Vtor.interp(t=t)

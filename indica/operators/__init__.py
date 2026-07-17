@@ -1,4 +1,5 @@
 from .abstract_nbioperator import NbiOperator
+from .analytic_nbioperator import NbiAnalytic
 from .atomic_data import FractionalAbundance
 from .atomic_data import PowerLoss
 
@@ -6,6 +7,7 @@ __all__ = [
     "FractionalAbundance",
     "PowerLoss",
     "NbiOperator",
+    "NbiAnalytic",
 ]
 
 try:
