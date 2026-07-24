@@ -10,15 +10,22 @@ import numpy as np
 import xarray as xr
 
 from indica.configs import MACHINE_CONFS
-from indica.configs.operators.aurora import AuroraConfig
 from indica.converters.time import get_tlabels_dt
 from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
+from indica.operators import FractionalAbundanceAdas
+from indica.operators import PowerLoss
 import indica.physics as ph
 from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
+
+try:
+    from indica.operators import FractionalAbundanceAurora
+    from indica.configs.operators.aurora import AuroraConfig
+except ImportError:
+    pass
 
 
 class Plasma:
@@ -669,17 +676,13 @@ class Plasma:
         If self.aurora_run is True, uses aurora for ionisation balance calculation,
         otherwise uses coronal approximation.
         """
-        from indica.operators.atomic_data import (
-            FractionalAbundanceAurora,
-            FractionalAbundanceAdas,
-            default_atomic_data,
-        )
 
+        fract_abu = {}
+        power_loss_tot = {}
         if self.aurora_run:
             assert (
                 self.equilibrium
             ), "Equilibrium must be set before building atomic data for aurora run"
-            fract_abu = {}
             for impurity in self.impurities:
                 fract_abu[impurity] = FractionalAbundanceAurora(
                     element=impurity,
@@ -691,6 +694,9 @@ class Plasma:
         else:
             for element in self.elements:
                 fract_abu[element] = FractionalAbundanceAdas(element=element)
+
+        for element in self.elements:
+            power_loss_tot[element] = PowerLoss(element=element)
 
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
