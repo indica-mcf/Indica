@@ -3,12 +3,12 @@ import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.configs.operators.aurora import AuroraConfig
 from indica.defaults.load_defaults import load_default_objects
 from indica.examples.example_plasma import example_plasma
 from indica.models import ThomsonScattering
+from indica.operators import FractionalAbundanceAdas
+from indica.operators import FractionalAbundanceAurora
 from indica.operators import tomo_1D
-from indica.operators.atomic_data import FractionalAbundanceAurora
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_2d_map
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
 from indica.operators.spline_fit_R_shift import fit_profile_and_R_shift
@@ -368,25 +368,45 @@ def example_fit_ts(
     return te_data, ne_data, te_fit, ne_fit
 
 
-def example_aurora_run(plot: bool = False):
+def example_aurora_run(element: str = "ar", plot: bool = False):
     ne = PLASMA.electron_density
     Te = PLASMA.electron_temperature
-    Nh = PLASMA.neutral_density
+    Nn = PLASMA.neutral_density
     D_z = PLASMA.diffusion_coefficient
     V_z = PLASMA.convection_coefficient
-    operator = FractionalAbundanceAurora(
-        impurity="ar",
-        aurora_config=AuroraConfig,
-        equilibrium=EQUILIBRIUM,
-    )
+    operator = FractionalAbundanceAurora(element=element)
     fz_t = operator(
         Ne=ne,
         Te=Te,
-        Nh=Nh,
-        D_z=D_z,
-        V_z=V_z,
+        Nn=Nn,
+        prepare_kwargs={"D_z": D_z, "V_z": V_z, "equilibrium": EQUILIBRIUM},
     )
     if plot:
         operator.plot()
     plt.show()
+    return fz_t
+
+
+def example_adas_fractional_abundance(element: str = "ar", plot: bool = False):
+    ne = PLASMA.electron_density
+    Te = PLASMA.electron_temperature
+    Nn = PLASMA.neutral_density
+    tau = xr.full_like(Nn, 0.01)
+
+    operator = FractionalAbundanceAdas(element=element)
+    tind = int(len(PLASMA.t) / 2)
+    t = Te.t[tind]
+    fz_t = operator(
+        Ne=ne.sel(t=t),
+        Te=Te.sel(t=t),
+        Nn=Nn.sel(t=t),
+        tau=tau.sel(t=t),
+    )
+
+    if plot:
+        plt.figure()
+        for iq in fz_t.ion_charge.values:
+            fz_t.sel(ion_charge=iq).plot(label=iq)
+        plt.legend()
+
     return fz_t

@@ -671,6 +671,7 @@ class Plasma:
         """
         from indica.operators.atomic_data import (
             FractionalAbundanceAurora,
+            FractionalAbundanceAdas,
             default_atomic_data,
         )
 
@@ -681,22 +682,15 @@ class Plasma:
             fract_abu = {}
             for impurity in self.impurities:
                 fract_abu[impurity] = FractionalAbundanceAurora(
-                    impurity=impurity,
+                    element=impurity,
                     main_ion=self.main_ion,
                     aurora_config=AuroraConfig,
                     equilibrium=self.equilibrium,
                 )
-            _fz, power_loss_tot = default_atomic_data(
-                self.elements, full_run=self.full_run
-            )
-            fract_abu[self.main_ion] = _fz[
-                self.main_ion
-            ]  # Aurora doesn't handle main ion calculation
-
+            fract_abu[self.main_ion] = FractionalAbundanceAdas(element=self.main_ion)
         else:
-            fract_abu, power_loss_tot = default_atomic_data(
-                self.elements, full_run=self.full_run
-            )
+            for element in self.elements:
+                fract_abu[element] = FractionalAbundanceAdas(element=element)
 
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot
