@@ -10,13 +10,12 @@ from xarray import DataArray
 
 from indica.configs.readers.adasconf import ADF11
 from indica.operators import FractionalAbundanceAdas
-from indica.profilers.profiler_gauss import ProfilerGauss
 from indica.readers.adas import ADASReader
 from indica.utilities import DATA_PATH
+from indica.utilities import format_dataarray
+from indica.utilities import get_element_info
 from indica.utilities import set_plot_colors
 from .abstractoperator import Operator
-from indica.utilities import get_element_info, format_dataarray
-import warnings
 
 
 class PowerLoss(Operator):
@@ -32,7 +31,7 @@ class PowerLoss(Operator):
 
     def __init__(
         self,
-        element:str,
+        element: str,
         plt_year: str = None,
         prb_year: str = None,
         prc_year: str = None,
@@ -47,7 +46,7 @@ class PowerLoss(Operator):
             "name": _element_info[2],
             "symbol": _element_info[3],
         }
-        
+
         self.plt_year = plt_year
         self.prb_year = prb_year
         self.prc_year = prc_year
