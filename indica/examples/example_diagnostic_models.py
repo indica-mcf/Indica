@@ -181,7 +181,7 @@ def example_pinhole_camera_2d(
     _ = model(
         Te=data["te"],
         Ne=data["ne"],
-        Nh=data["ne"] * 0,
+        Nn=data["ne"] * 0,
         Nion=data["nion"],
         fz=data["fz"],
         t=data["te"].t,
@@ -224,7 +224,7 @@ def example_lyman_alpha_2d(
         Te=data["te"],
         Ne=data["ne"],
         Nimp=data["nion"],
-        Nh=data["nion"].sel(element="h") * data["fz"]["h"].sel(ion_charge=0),
+        Nn=data["nion"].sel(element="h") * data["fz"]["h"].sel(ion_charge=0),
         Fz=data["fz"],
         Ti=10,
         t=data["te"].t,

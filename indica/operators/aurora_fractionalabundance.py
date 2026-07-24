@@ -35,19 +35,19 @@ class FractionalAbundanceAurora(FractionalAbundance):
         self,
         Te: DataArray,
         Ne: DataArray,
-        Nh: DataArray,
+        Nn: DataArray,
     ):
         assert self.aurora_config
         kp = self.aurora_config["kin_profs"]
         kp["Te"]["rhop"] = Te.rhop.values
         kp["ne"]["rhop"] = Ne.rhop.values
-        kp["n0"]["rhop"] = Nh.rhop.values
+        kp["n0"]["rhop"] = Nn.rhop.values
         kp["Te"]["times"] = np.atleast_1d(Te.t.values)
         kp["ne"]["times"] = np.atleast_1d(Ne.t.values)
-        kp["n0"]["times"] = np.atleast_1d(Nh.t.values)
+        kp["n0"]["times"] = np.atleast_1d(Nn.t.values)
         kp["Te"]["vals"] = Te.values
         kp["ne"]["vals"] = Ne.values * 1e-6  # m^-3 -> cm^-3
-        kp["n0"]["vals"] = Nh.values * 1e-6
+        kp["n0"]["vals"] = Nn.values * 1e-6
 
     def _set_transport_profiles(
         self,
@@ -82,11 +82,13 @@ class FractionalAbundanceAurora(FractionalAbundance):
     ):
         return self.asim.run_aurora(D_z, V_z, plot=plot, **kwargs)
 
-    def prepare(self, 
-                D_z: DataArray=None, 
-                V_z: DataArray=None, 
-                main_ion:str="d", 
-                equilibrium:Equilibrium = None):
+    def prepare(
+        self,
+        D_z: DataArray = None,
+        V_z: DataArray = None,
+        main_ion: str = "d",
+        equilibrium: Equilibrium = None,
+    ):
         assert getattr(self, "equilibrium") is not None
 
         self.D_z = D_z
@@ -98,12 +100,12 @@ class FractionalAbundanceAurora(FractionalAbundance):
         self.aurora_config["main_element"] = self.main_ion.lower().title()
 
         if np.all(self.Nn.values == 0) and self.aurora_config["cxr_flag"]:
-            raise ValueError("Nh is zero but cxr_flag is True.")
+            raise ValueError("Nn is zero but cxr_flag is True.")
 
         if np.any(self.Nn.values != 0):
             if not self.aurora_config["cxr_flag"]:
                 warnings.warn(
-                    "Nh is non-zero but cxr_flag is False,"
+                    "Nn is non-zero but cxr_flag is False,"
                     "charge exchange will not be included."
                 )
 
@@ -191,7 +193,7 @@ class FractionalAbundanceAurora(FractionalAbundance):
         scd_year=None,
         acd_year=None,
         ccd_year=None,
-        main_ion:str="d",
+        main_ion: str = "d",
         aurora_config: dict = AuroraConfig,
         equilibrium: Equilibrium = None,
     ):

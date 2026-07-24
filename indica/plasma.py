@@ -455,7 +455,7 @@ class Plasma:
                 fz_tmp = self.fract_abu[elem](
                     electron_temperature,
                     Ne=electron_density,
-                    Nh=neutral_density,
+                    Nn=neutral_density,
                     tau=residence_time,
                 )
                 self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose()
@@ -480,7 +480,7 @@ class Plasma:
             fz = self.fract_abu[elem](
                 Te=self.electron_temperature.sel(t=self.time_to_calculate),
                 Ne=self.electron_density.sel(t=self.time_to_calculate),
-                Nh=self.neutral_density.sel(t=self.time_to_calculate),
+                Nn=self.neutral_density.sel(t=self.time_to_calculate),
                 D_z=self.diffusion_coefficient.sel(t=self.time_to_calculate),
                 V_z=self.convection_coefficient.sel(t=self.time_to_calculate),
             )
@@ -550,7 +550,7 @@ class Plasma:
                     electron_temperature,
                     Fz,
                     Ne=electron_density,
-                    Nh=neutral_density,
+                    Nn=neutral_density,
                 ).transpose()
         return self._lz_tot
 

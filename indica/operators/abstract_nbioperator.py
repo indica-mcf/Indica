@@ -83,8 +83,6 @@ class NbiOperator(ABC):
 
         target_element - plasma main ion element symbol (e.g. "d" for deuterium)
         file_name - first part of the file name to save the NBI model data to
-
-        # TODO: thermal neutral densities in indica to be changed from Nh to Nn
         """
         if not hasattr(self, "transform"):
             raise ValueError("transform is required (set it before calling)")

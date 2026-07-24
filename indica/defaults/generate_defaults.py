@@ -22,7 +22,7 @@ def default_atomic_data(
     elements: Tuple[str, ...],
     Te: DataArray = None,
     Ne: DataArray = None,
-    Nh: DataArray = None,
+    Nn: DataArray = None,
     tau: DataArray = None,
 ):
     """

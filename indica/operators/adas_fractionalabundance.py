@@ -65,21 +65,21 @@ class FractionalAbundanceAdas(FractionalAbundance):
     def _calc_ionisation_balance_matrix(
         self,
         Ne: DataArray,
-        Nh: DataArray = None,
+        Nn: DataArray = None,
     ):
         """Calculates the ionisation balance matrix
         Ne
             electron density profile
-        Nh
+        Nn
             thermal neutral hydrogen profile
         """
-        if Nh is not None:
+        if Nn is not None:
             if self.ccd is None:
-                raise ValueError("Nh cannot be given if ccd is None.")
+                raise ValueError("Nn cannot be given if ccd is None.")
         else:
-            Nh = xr.full_like(Ne, 0.0)
+            Nn = xr.full_like(Ne, 0.0)
 
-        self.Ne, self.Nh = Ne, Nh  # type: ignore
+        self.Ne, self.Nn = Ne, Nn  # type: ignore
 
         scd, acd, ccd = self.scd_spec, self.acd_spec, self.ccd_spec
 
@@ -95,7 +95,7 @@ class FractionalAbundanceAdas(FractionalAbundance):
         ionisation_balance_matrix[q, q : q + 2] = np.array(
             [
                 -Ne * scd.sel(ion_charge=q),
-                Ne * acd.sel(ion_charge=q) + Nh * ccd.sel(ion_charge=q),
+                Ne * acd.sel(ion_charge=q) + Nn * ccd.sel(ion_charge=q),
             ]
         )
 
@@ -104,8 +104,8 @@ class FractionalAbundanceAdas(FractionalAbundance):
                 [
                     Ne * scd.sel(ion_charge=q - 1),
                     -Ne * (scd.sel(ion_charge=q) + acd.sel(ion_charge=q - 1))
-                    - Nh * ccd.sel(ion_charge=q - 1),
-                    Ne * acd.sel(ion_charge=q) + Nh * ccd.sel(ion_charge=q),
+                    - Nn * ccd.sel(ion_charge=q - 1),
+                    Ne * acd.sel(ion_charge=q) + Nn * ccd.sel(ion_charge=q),
                 ]
             )
 
@@ -113,7 +113,7 @@ class FractionalAbundanceAdas(FractionalAbundance):
         ionisation_balance_matrix[q, q - 1 : q + 1] = np.array(
             [
                 Ne * scd.sel(ion_charge=q - 1),
-                -Ne * acd.sel(ion_charge=q - 1) - Nh * ccd.sel(ion_charge=q - 1),
+                -Ne * acd.sel(ion_charge=q - 1) - Nn * ccd.sel(ion_charge=q - 1),
             ]
         )
 
