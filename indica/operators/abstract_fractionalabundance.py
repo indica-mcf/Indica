@@ -17,6 +17,7 @@ class FractionalAbundance(ABC):
         scd_year: str = None,
         acd_year: str = None,
         ccd_year: str = None,
+        **kwargs,
     ):
         """
         Get element information, ADAS file names and adf11 data
@@ -56,6 +57,9 @@ class FractionalAbundance(ABC):
             # Data
             data = self.adas_reader.get_adf11(key, self.element, year)
             setattr(self, key, data)
+
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
     def set_parameters(self, **kwargs):
         """

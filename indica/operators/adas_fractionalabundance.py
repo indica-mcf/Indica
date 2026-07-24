@@ -288,4 +288,5 @@ class FractionalAbundanceAdas(FractionalAbundance):
         plt.title(f"{self.element.title()} fractional abundance")
 
     def __call__(self, Te, Ne, Nn=None, tau: DataArray = None):
+        # Add tau to call
         return super().__call__(Te, Ne, Nn, tau=tau)

@@ -1,7 +1,7 @@
 from .abstract_fractionalabundance import FractionalAbundance
 from .abstract_nbioperator import NbiOperator
 from .adas_fractionalabundance import FractionalAbundanceAdas
-from .adas_powerloss import PowerLoss
+from .powerloss import PowerLoss
 
 __all__ = [
     "FractionalAbundance",

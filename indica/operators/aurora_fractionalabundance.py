@@ -86,11 +86,8 @@ class FractionalAbundanceAurora(FractionalAbundance):
         self,
         D_z: DataArray = None,
         V_z: DataArray = None,
-        main_ion: str = "d",
-        equilibrium: Equilibrium = None,
     ):
         assert getattr(self, "equilibrium") is not None
-
         self.D_z = D_z
         self.V_z = V_z
         for key in ["acd", "scd", "ccd"]:
@@ -215,4 +212,5 @@ class FractionalAbundanceAurora(FractionalAbundance):
         D_z: DataArray = None,
         V_z: DataArray = None,
     ):
+        # Add D_z and V_z to call
         return super().__call__(Te, Ne, Nn, D_z=D_z, V_z=V_z)
