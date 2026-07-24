@@ -38,7 +38,7 @@ def default_atomic_data(
         fz_t = fract_abu[elem](Ne, Te, Nn, tau=tau)
 
         power_loss_tot[elem] = PowerLoss(element=elem)
-        lz_tot = power_loss_tot[elem](Te, fz_t, Ne=Ne, Nn=Nn)
+        _ = power_loss_tot[elem](Te, fz_t, Ne=Ne, Nn=Nn)
 
     return fract_abu, power_loss_tot
 
