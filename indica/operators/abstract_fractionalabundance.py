@@ -38,7 +38,7 @@ class FractionalAbundance(ABC):
             "name": _element_info[2],
             "symbol": _element_info[3],
         }
-        
+
         self.scd_year = scd_year
         self.acd_year = acd_year
         self.ccd_year = ccd_year
@@ -78,7 +78,7 @@ class FractionalAbundance(ABC):
         """
         Run fractional abundance code
 
-        kwargs 
+        kwargs
             for the prepare phase which may change depending on the code used
         """
         self.Te = Te
