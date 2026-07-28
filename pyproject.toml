@@ -22,13 +22,13 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "mdsthin",
     "corner>=1.0",
-    "pandas==2.2.1",
+    "pandas>=2.2.1",
     "hydra-core>=1.3.1",
     "prov>=1.5.3",
     "netCDF4>=1.5.4",
-    "numpy==1.26.4",
+    "numpy>=1.26.4",
     "mpmath>=1.3.0",
-    "scipy==1.13.1",
+    "scipy>=1.13.1",
     "xarray>=2022.1.0",
     "matplotlib>=3.8.0",
     "sal>=1.2.2",
@@ -57,6 +57,9 @@ fidasim = [
 aurora = [
     "pyproject-metadata>=0.12.1",
     "scikit_build_core<0.8",
+    "scipy==1.13.1",
+    "numpy==1.26.4",
+    "pandas==2.2.1",
     # Currently Aurora has a build-system issue with scikit-build-core >= 0.8.
     # The package is intentionally not pinned here due to upstream install failures.
     # Install manually after sync with `uv pip install --no-build-isolation aurorafusion`.
@@ -69,9 +72,8 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "click>=8.0.0",
-    "corner>=1.0",
     "coverage[toml]>=7.5.1",
-    "hypothesis[numpy]>=5.24.2",
+    "ipykernel>=7.3.0",
     "ipython>=8.24.0",
     "mypy>=0.942",
     "pre-commit>=2.9.2",
@@ -86,7 +88,11 @@ module-name = "indica"
 module-root = ""
 
 [tool.uv.extra-build-dependencies]
-aurorafusion = ["scikit_build_core<0.8"]
+aurorafusion = [
+    "scikit_build_core<0.8",
+    "scipy==1.13.1",
+    "numpy==1.26.4",
+    "pandas==2.2.1",]
 
 [tool.pypi-publisher]
 repository="pypi"
