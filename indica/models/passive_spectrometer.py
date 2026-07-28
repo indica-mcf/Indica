@@ -112,7 +112,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         """Returns transition matrix used to convert
         PECs to emissivity"""
         # fmt: off
-        _Nimp = self.Nimp.sel(element=element, ).drop("element")
+        _Nimp = self.Nimp.sel(element=element, ).drop_vars("element")
         _Fz = self.Fz[element]
         transition_matrix = xr.concat([
             self.Ne * _Nimp * _Fz,

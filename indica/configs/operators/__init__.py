@@ -1,5 +1,5 @@
 """Operator-specific configuration modules."""
 
-from indica.configs.operators.aurora import AuroraConfig
+from .aurora import AuroraConfig
 
 __all__ = ["AuroraConfig"]

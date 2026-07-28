@@ -2,9 +2,11 @@ from copy import deepcopy
 from functools import lru_cache
 import hashlib
 import pickle
+import sys
 from typing import Callable
 from typing import Optional
 from typing import Tuple
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -75,6 +77,9 @@ class Plasma:
         self.tend = tend
         self.dt = dt
         self.full_run = full_run
+        if aurora_run and "FractionalAbundanceAurora" not in sys.modules:
+            aurora_run = False
+            warnings.warn("Aurora not installed, setting aurora_run to False")
         self.aurora_run = aurora_run
         self.verbose = verbose
         elements: Tuple[str, ...] = (main_ion,)
@@ -454,7 +459,7 @@ class Plasma:
                     continue
                 fz_tmp = self.fract_abu[elem](
                     electron_temperature,
-                    Ne=electron_density,
+                    electron_density,
                     Nn=neutral_density,
                     tau=residence_time,
                 )

@@ -1,10 +1,12 @@
 from abc import ABC
 from abc import abstractmethod
 
+import xarray as xr
 from xarray import DataArray
 
 from indica.configs.readers.adasconf import ADF11
 from indica.readers import ADASReader
+from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
 
 
@@ -87,6 +89,9 @@ class FractionalAbundance(ABC):
         """
         self.Te = Te
         self.Ne = Ne
+        if Nn is None:
+            _Nn = xr.full_like(Ne, 0.0)
+            Nn = format_dataarray(_Nn, "thermal_neutral_density", dict(Ne.coords))
         self.Nn = Nn
 
         """Prepare code input data structure"""

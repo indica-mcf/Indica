@@ -1,6 +1,8 @@
 import warnings
 
+import aurora
 import numpy as np
+from omfit_classes import omfit_eqdsk
 import pandas as pd
 import xarray as xr
 from xarray import DataArray
@@ -10,12 +12,6 @@ from indica.configs.operators import AuroraConfig
 from indica.utilities import format_dataarray
 from indica.utilities import set_plot_colors
 from .abstract_fractionalabundance import FractionalAbundance
-
-try:
-    import aurora
-    from omfit_classes import omfit_eqdsk
-except ImportError:
-    pass
 
 np.set_printoptions(edgeitems=10, linewidth=100)
 

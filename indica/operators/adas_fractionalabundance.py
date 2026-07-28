@@ -16,7 +16,7 @@ CM, COLS = set_plot_colors()
 
 
 class FractionalAbundanceAdas(FractionalAbundance):
-    def _interpolate_rates(
+    def interpolate_rates(
         self,
         Ne: DataArray,
         Te: DataArray,
@@ -62,7 +62,7 @@ class FractionalAbundanceAdas(FractionalAbundance):
 
         return scd_spec, acd_spec, ccd_spec, self.nq
 
-    def _calc_ionisation_balance_matrix(
+    def calc_ionisation_balance_matrix(
         self,
         Ne: DataArray,
         Nn: DataArray = None,
@@ -122,7 +122,7 @@ class FractionalAbundanceAdas(FractionalAbundance):
 
         return ionisation_balance_matrix
 
-    def _calc_F_z_tinf(
+    def calc_F_z_tinf(
         self,
     ):
         """Calculates the equilibrium fractional abundance of all ionisation charges,
@@ -144,11 +144,15 @@ class FractionalAbundanceAdas(FractionalAbundance):
         # normalization needed for high-z elements
         F_z_tinf = F_z_tinf / np.sum(F_z_tinf, axis=0)
 
+        F_z_tinf = DataArray(
+            data=F_z_tinf, coords={"ion_charge": self.ion_charge, self.dim: self.coord}
+        )
+
         self.F_z_tinf = F_z_tinf
 
         return np.real(F_z_tinf)
 
-    def _calc_eigen_vals_and_vecs(
+    def calc_eigen_vals_and_vecs(
         self,
     ):
         """Calculates the eigenvalues and eigenvectors of the ionisation balance
@@ -170,7 +174,7 @@ class FractionalAbundanceAdas(FractionalAbundance):
 
         return eig_vals, eig_vecs
 
-    def _calc_eigen_coeffs(
+    def calc_eigen_coeffs(
         self,
         F_z_t0: DataArray = None,
     ):
@@ -200,6 +204,10 @@ class FractionalAbundanceAdas(FractionalAbundance):
 
             F_z_t0 = F_z_t0 / np.sum(F_z_t0, axis=0)
             F_z_t0 = F_z_t0.as_type(dtype=np.complex128)  # type: ignore
+            F_z_t0 = DataArray(
+                data=F_z_t0,
+                coords={"ion_charge": self.ion_charge, self.dim: self.coord},
+            )
 
         eig_vals = self.eig_vals
         eig_vecs_inv = np.zeros(self.eig_vecs.shape, dtype=np.complex128)
@@ -218,7 +226,7 @@ class FractionalAbundanceAdas(FractionalAbundance):
         self.F_z_t0 = np.abs(np.real(F_z_t0))
         return self.eig_coeffs, self.F_z_t0
 
-    def _calculate_abundance(self, tau: LabeledArray):
+    def calculate_abundance(self, tau: LabeledArray):
         """Calculates the fractional abundance of all ionisation charges at time tau.
 
         tau
@@ -241,25 +249,24 @@ class FractionalAbundanceAdas(FractionalAbundance):
         self.F_z_t = np.abs(np.real(F_z_t))
         self.tau = tau
 
-        return F_z_t
+        return self.F_z_t
 
     def prepare(self, tau: LabeledArray = None, F_z_t0: DataArray = None):
         self.tau = tau
         self.F_z_t0 = F_z_t0
-        self._interpolate_rates(self.Ne, self.Te)
+        self.interpolate_rates(self.Ne, self.Te)
 
     def run(self):
         # TODO: implement loop for multiple time-points similar to Aurora
-        self._calc_ionisation_balance_matrix(self.Ne, self.Nn)
-        self._calc_F_z_tinf()
+        self.calc_ionisation_balance_matrix(self.Ne, self.Nn)
+        self.calc_F_z_tinf()
 
         if self.tau is not None:
-            self._calc_eigen_vals_and_vecs()
-            self._calc_eigen_coeffs(self.F_z_t0)
-            F_z_t = self._calculate_abundance(self.tau)
-            self.F_z_t = F_z_t
+            self.calc_eigen_vals_and_vecs()
+            self.calc_eigen_coeffs(self.F_z_t0)
+            F_z_t = self.calculate_abundance(self.tau)
         else:
-            F_z_t = np.real(self.F_z_tinf)
+            F_z_t = np.abs(np.real(self.F_z_tinf))
 
         self.F_z_t = F_z_t
 
@@ -272,8 +279,10 @@ class FractionalAbundanceAdas(FractionalAbundance):
             if key not in spatial_coord.dims:
                 spatial_coord = spatial_coord.drop_vars(key)
         coords = {"ion_charge": _ion_charge, self.dim: spatial_coord}
+
         if self.F_z_t0 is not None:
             self.F_z_t0 = format_dataarray(self.F_z_t0, "fractional_abundance", coords)
+
         self.F_z_t = format_dataarray(self.F_z_t, "fractional_abundance", coords)
 
         return self.F_z_t

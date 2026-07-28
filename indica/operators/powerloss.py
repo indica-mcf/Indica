@@ -170,7 +170,9 @@ class PowerLoss(Operator):
             ) * self.F_z_t.loc[{"ion_charge": q, self.dim: coord_val}]
 
         coords = {"ion_charge": self.ion_charge, self.dim: self.coord}
-        self.cooling_factor = format_dataarray(cooling_factor, "cooling_factor", coords)
+        self.cooling_factor = format_dataarray(
+            cooling_factor, "total_radiation_loss_parameter", coords
+        )
 
         return self.cooling_factor
 

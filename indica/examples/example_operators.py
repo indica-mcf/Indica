@@ -7,7 +7,6 @@ from indica.defaults.load_defaults import load_default_objects
 from indica.examples.example_plasma import example_plasma
 from indica.models import ThomsonScattering
 from indica.operators import FractionalAbundanceAdas
-from indica.operators import FractionalAbundanceAurora
 from indica.operators import tomo_1D
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_2d_map
 from indica.operators.centrifugal_asymmetry import centrifugal_asymmetry_parameter
@@ -16,6 +15,12 @@ from indica.operators.tomo_asymmetry import InvertPoloidalAsymmetry
 from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
+
+try:
+    from indica.operators import FractionalAbundanceAurora
+    from indica.configs.operators import AuroraConfig
+except ImportError:
+    pass
 
 PLASMA = example_plasma()
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
@@ -374,12 +379,17 @@ def example_aurora_run(element: str = "ar", plot: bool = False):
     Nn = PLASMA.neutral_density
     D_z = PLASMA.diffusion_coefficient
     V_z = PLASMA.convection_coefficient
-    operator = FractionalAbundanceAurora(element=element)
+    operator = FractionalAbundanceAurora(
+        element=element,
+        aurora_config=AuroraConfig,
+        equilibrium=EQUILIBRIUM,
+    )
     fz_t = operator(
-        Ne=ne,
         Te=Te,
+        Ne=ne,
         Nn=Nn,
-        prepare_kwargs={"D_z": D_z, "V_z": V_z, "equilibrium": EQUILIBRIUM},
+        D_z=D_z,
+        V_z=V_z,
     )
     if plot:
         operator.plot()
@@ -397,8 +407,8 @@ def example_adas_fractional_abundance(element: str = "ar", plot: bool = False):
     tind = int(len(PLASMA.t) / 2)
     t = Te.t[tind]
     fz_t = operator(
-        Ne=ne.sel(t=t),
         Te=Te.sel(t=t),
+        Ne=ne.sel(t=t),
         Nn=Nn.sel(t=t),
         tau=tau.sel(t=t),
     )

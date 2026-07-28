@@ -1,9 +1,13 @@
 import pytest
 
-from indica.examples.example_operators import example_aurora_run
 from indica.examples.example_operators import example_fit_ts
 from indica.examples.example_operators import example_tomo_1D
 from indica.examples.example_operators import example_tomo_asymmetry
+
+try:
+    from indica.examples.example_operators import example_aurora_run
+except ImportError:
+    pass
 
 # TODO: expand testing to test output of operators, not just that they run ;-)!!
 
