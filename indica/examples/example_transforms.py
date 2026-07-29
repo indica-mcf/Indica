@@ -2,7 +2,6 @@ from matplotlib import pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
 import xarray as xr
-import xarray as xr
 
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
