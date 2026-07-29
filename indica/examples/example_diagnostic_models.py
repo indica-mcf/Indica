@@ -195,11 +195,12 @@ def example_pinhole_camera_2d(
     return model, data
 
 
-def example_lyman_alpha_2d(
-    pulse: int = 11890,
-    time: float = 0.105,
+def _example_lyman_alpha_2d(
+    pulse: int = 13565,
+    time: float = 0.16,
     machine: str = "st40",
     instrument: str = "blom_dv1",
+    plot:bool = False,
 ):
 
     solps = SOLPSReader(pulse, time)
@@ -232,7 +233,8 @@ def example_lyman_alpha_2d(
         t=data["te"].t,
     )
 
-    model.plot(orientation="Rz")
+    if plot:
+        model.plot(orientation="Rz")
 
     return model, data
 

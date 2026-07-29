@@ -8,7 +8,7 @@ from indica.converters import TransectCoordinates
 from indica.defaults.load_defaults import load_default_objects
 
 
-def convert_Rz_to_rhop_theta(machine: str = "st40"):
+def example_convert_Rz_to_rhop_theta(machine: str = "st40", plot:bool=False):
     equilibrium = load_default_objects(machine, "equilibrium")
 
     # Coordinates to convert
@@ -27,14 +27,15 @@ def convert_Rz_to_rhop_theta(machine: str = "st40"):
     z = xr.DataArray(_z, coords={"channel": np.arange(len(_z))})
     rhop_shift, theta_shift, t = equilibrium.flux_coords(R, z, t=t)
 
-    plt.figure()
-    rhop_mid.plot(marker="o", label="Nominal")
-    rhop_shift.plot(marker="x", label="Chan. 2 with z += 0.3")
-    plt.ylabel("R (m)")
-    plt.legend()
+    if plot:
+        plt.figure()
+        rhop_mid.plot(marker="o", label="Nominal")
+        rhop_shift.plot(marker="x", label="Chan. 2 with z += 0.3")
+        plt.ylabel("R (m)")
+        plt.legend()
 
 
-def line_of_sight_example(make_plot=True):
+def example_line_of_sight_example(plot:bool=False):
     # Dummy line-of-sight
     machine_dims = ((0.15, 0.85), (-0.75, 0.75))
     origin_x = np.array([1.0, 1.0, 1.0], dtype=float)
@@ -71,10 +72,10 @@ def line_of_sight_example(make_plot=True):
         focal_length=focal_length,
         machine_dimensions=machine_dims,
         passes=1,
-        plot_beamlets=plot_beamlets,
+        plot_beamlets=plot,
     )
 
-    if make_plot:
+    if plot:
         # Plotting...
         cols = cm.gnuplot2(np.linspace(0.3, 0.75, len(los_transform.x1), dtype=float))
 
@@ -125,7 +126,7 @@ def line_of_sight_example(make_plot=True):
     return los_transform
 
 
-def cxrs_transform_example(nchannels: int):
+def example_cxrs_transform_example(nchannels: int = 3):
     x_positions = np.linspace(0.2, 0.8, nchannels)
     y_positions = np.linspace(0.0, 0.0, nchannels)
     z_positions = np.linspace(0.0, 0.0, nchannels)
@@ -140,7 +141,7 @@ def cxrs_transform_example(nchannels: int):
     return transect_transform
 
 
-def helike_transform_example(nchannels):
+def example_helike_transform_example(nchannels:int = 3):
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
@@ -164,7 +165,7 @@ def helike_transform_example(nchannels):
     return los_transform
 
 
-def interferometer_transform_example(nchannels):
+def example_interferometer_transform_example(nchannels:int = 3):
     los_start = np.array([[0.8, 0, 0]]) * np.ones((nchannels, 3))
     los_start[:, 2] = np.linspace(0, -0.2, nchannels)
     los_end = np.array([[0.17, 0, 0]]) * np.ones((nchannels, 3))
@@ -185,7 +186,7 @@ def interferometer_transform_example(nchannels):
     return los_transform
 
 
-def ts_transform_example(nchannels):
+def example_ts_transform_example(nchannels:int = 3):
     x_positions = np.linspace(0.2, 0.8, nchannels)
     y_positions = np.linspace(0.0, 0.0, nchannels)
     z_positions = np.linspace(0.0, 0.0, nchannels)

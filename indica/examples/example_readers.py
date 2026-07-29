@@ -119,7 +119,7 @@ def example_adf11(
     return output
 
 
-def example_assign_modelling_to_plasma():
+def example_assign_modelling_to_plasma(plot:bool=False):
     # Read METIS modelled data
     reader = ST40Reader(
         40011890,
@@ -161,31 +161,32 @@ def example_assign_modelling_to_plasma():
 
     colors = CMAP(np.linspace(0.1, 0.75, np.size(Te.t), dtype=float))
 
-    plt.figure()
-    for i, t in enumerate(Ne.t):
-        label = f"{t:.3f} s"
-        if (i % 4) != 0:
-            continue
-        Ne.sel(t=t).plot(color=colors[i], label=label)
-    plt.legend()
-    plt.title("Electron density")
+    if plot:
+        plt.figure()
+        for i, t in enumerate(Ne.t):
+            label = f"{t:.3f} s"
+            if (i % 4) != 0:
+                continue
+            Ne.sel(t=t).plot(color=colors[i], label=label)
+        plt.legend()
+        plt.title("Electron density")
 
-    plt.figure()
-    for i, t in enumerate(Te.t):
-        label = f"{t:.3f} s"
-        if (i % 4) != 0:
-            continue
-        Te.sel(t=t).plot(color=colors[i], label=label)
-        Ti.sel(t=t).plot(color=colors[i], linestyle="dashed")
-    plt.title("Electron/Ion temperature")
+        plt.figure()
+        for i, t in enumerate(Te.t):
+            label = f"{t:.3f} s"
+            if (i % 4) != 0:
+                continue
+            Te.sel(t=t).plot(color=colors[i], label=label)
+            Ti.sel(t=t).plot(color=colors[i], linestyle="dashed")
+        plt.title("Electron/Ion temperature")
 
-    plt.figure()
-    for i, t in enumerate(Vtor.t):
-        label = f"{t:.3f} s"
-        if (i % 4) != 0:
-            continue
-        Vtor.sel(t=t).plot(color=colors[i], label=label)
-    plt.legend()
-    plt.title("Toroidal rotation")
+        plt.figure()
+        for i, t in enumerate(Vtor.t):
+            label = f"{t:.3f} s"
+            if (i % 4) != 0:
+                continue
+            Vtor.sel(t=t).plot(color=colors[i], label=label)
+        plt.legend()
+        plt.title("Toroidal rotation")
 
     return plasma

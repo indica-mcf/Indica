@@ -55,7 +55,7 @@ def example_poloidal_asymmetry():
 def example_tomo_asymmetry(
     instrument: str = "sxrc_xy1",
     asymmetric_profile: bool = True,
-    plot: bool = True,
+    plot: bool = False,
     element: str = "ar",
 ):
 
@@ -197,7 +197,7 @@ def example_tomo_1D(
     asymmetric_profile: bool = False,
     element: str = "ar",
     reg_level_guess: float = 0.8,
-    plot: bool = True,
+    plot: bool = False,
 ):
 
     if asymmetric_profile:
@@ -276,7 +276,7 @@ def example_tomo_1D(
 def example_fit_ts(
     fit_R_shift: bool = False,
     verbose: bool = False,
-    plot: bool = True,
+    plot: bool = False,
 ):
 
     models = {"ts": ThomsonScattering}
