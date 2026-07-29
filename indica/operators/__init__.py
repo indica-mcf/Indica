@@ -1,7 +1,7 @@
 from .abstract_fractionalabundance import FractionalAbundance
 from .abstract_nbioperator import NbiOperator
-from .adas_fractionalabundance import FractionalAbundanceAdas
-from .powerloss import PowerLoss
+from .fractionalabundance_adas import FractionalAbundanceAdas
+from .power_loss_adas import PowerLoss
 
 __all__ = [
     "FractionalAbundance",
@@ -18,7 +18,7 @@ except ImportError:
     pass
 
 try:
-    from .aurora_fractionalabundance import FractionalAbundanceAurora
+    from .fractionalabundance_aurora import FractionalAbundanceAurora
 
     __all__.append(FractionalAbundanceAurora.__name__)
 except ImportError:
