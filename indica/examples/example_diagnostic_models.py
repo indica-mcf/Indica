@@ -147,6 +147,7 @@ def example_pinhole_camera_2d(
     time: float = 0.16,
     machine: str = "st40",
     instrument: str = "blom_dv1",
+    plot: bool = False,
 ):
 
     # pulse = 11419  # 11890
@@ -188,7 +189,8 @@ def example_pinhole_camera_2d(
         sum_beamlets=False,
     )
 
-    model.plot(orientation=None)
+    if plot:
+        model.plot(orientation=None)
 
     return model, data
 

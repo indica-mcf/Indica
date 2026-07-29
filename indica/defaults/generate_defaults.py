@@ -21,12 +21,12 @@ def default_atomic_data(
     __call__ with default plasma parameters
     """
     n_rad = 41
-    rho_end = 1.01
+    rho_end = 1.02
     rho = np.abs(np.linspace(rho_end, 0, n_rad) ** 1.8 - rho_end - 0.01)
     rho_coord = DataArray(rho, coords={"rhop": rho}, dims="rhop").coords
-    Te = DataArray(np.linspace(10, 9e3, n_rad), coords=rho_coord)
+    Te = DataArray(np.linspace(20, 9e3, n_rad), coords=rho_coord)
     Ne = DataArray(np.logspace(18, 20, n_rad), coords=rho_coord)
-    Nn = None
+    Nn = DataArray(np.logspace(15, 12, n_rad), coords=rho_coord)
     tau = None
 
     fract_abu, power_loss_tot = {}, {}
