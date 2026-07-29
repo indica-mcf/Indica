@@ -1,5 +1,6 @@
 from typing import cast
 from typing import List
+import warnings
 
 import matplotlib.pylab as plt
 import numpy as np
@@ -35,7 +36,9 @@ class PowerLoss(Operator):
         plt_year: str = None,
         prb_year: str = None,
         prc_year: str = None,
+        full_run: bool = False,
     ):
+        self.full_run = full_run
         self.adas_reader = ADASReader()
 
         _element_info = get_element_info(element)
@@ -149,6 +152,8 @@ class PowerLoss(Operator):
 
         plt, prb, prc = self.plt_spec, self.prb_spec, self.prc_spec
 
+        # cooling_factor = xr.full_like(self.plt_spec)
+
         cooling_factor = np.zeros((self.nq, self.ncoord))
         for icoord, coord_val in enumerate(self.coord.data):
             q = 0
@@ -196,9 +201,13 @@ class PowerLoss(Operator):
             fractional abundance of all ionisation charges of given element
         """
 
-        self.interpolate_power(Ne, Te)
-        cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nn)  # type: ignore
-        self.cooling_factor = cooling_factor
+        if self.full_run or not hasattr(self, "cooling_factor"):
+            self.interpolate_power(Ne, Te)
+            cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nn)  # type: ignore
+            self.cooling_factor = cooling_factor
+        else:
+            warnings.warn("Interpolating on Te only!!!")
+            cooling_factor = interpolate_results(self.cooling_factor, self.Te, Te)
 
         return cooling_factor
 
@@ -323,3 +332,24 @@ def cooling_factor_corona(
             plt.legend()
 
     return cooling_factor, _to_write, fract_abu
+
+
+def interpolate_results(
+    data: DataArray, Te_data: DataArray, Te_interp: DataArray, method="cubic"
+):
+    """
+    Interpolate fractional abundance or cooling factor on electron
+    temperature for fast processing
+
+    atomic_data
+        Fractional abundance or cooling factor DataArrays
+    Te
+        Electron temperature on which interpolation is to be performed
+    """
+    dim_old = [d for d in data.dims if d != "ion_charge"][0]
+    _data = data.assign_coords(electron_temperature=(dim_old, Te_data.data))
+    _data = _data.swap_dims({dim_old: "electron_temperature"}).drop_vars(dim_old)
+    result = _data.interp(electron_temperature=Te_interp).drop_vars(
+        ("electron_temperature",)
+    )
+    return result

@@ -1,6 +1,8 @@
 from abc import ABC
 from abc import abstractmethod
 
+import matplotlib.pylab as plt
+import numpy as np
 import xarray as xr
 from xarray import DataArray
 
@@ -8,6 +10,9 @@ from indica.configs.readers.adasconf import ADF11
 from indica.readers import ADASReader
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
+from indica.utilities import set_plot_colors
+
+CM, COLS = set_plot_colors()
 
 
 class FractionalAbundance(ABC):
@@ -71,9 +76,6 @@ class FractionalAbundance(ABC):
             if hasattr(self, key):
                 setattr(self, key, value)
 
-    def plot(self, **kwargs):
-        self.plot_fractional_abundance(**kwargs)
-
     def __call__(
         self,
         Te: DataArray,
@@ -129,8 +131,13 @@ class FractionalAbundance(ABC):
             "Implement this method to reorganise FractionalAbundance code output"
         )
 
-    @abstractmethod
-    def plot_fractional_abundance(self, **kwargs):
-        raise NotImplementedError(
-            "Implement this method to plot FractionalAbundance code output"
-        )
+    def plot(self, xlim: tuple = (0, 1.2), title: str = None):
+        cols = CM(np.linspace(0.1, 0.75, len(self.ion_charge), dtype=float))
+
+        for iq in np.int_(self.ion_charge):
+            self.F_z_t.sel(ion_charge=iq).plot(color=cols[iq], alpha=0.8, label=iq)
+        plt.legend()
+        plt.xlim(xlim)
+        if title is None:
+            title = f"{self.element.title()} fractional abundance"
+        plt.title(title)

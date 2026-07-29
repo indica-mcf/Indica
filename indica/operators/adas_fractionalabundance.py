@@ -1,6 +1,6 @@
 import copy
+import warnings
 
-import matplotlib.pylab as plt
 import numpy as np
 import scipy
 import xarray as xr
@@ -9,10 +9,7 @@ from xarray import DataArray
 from indica.numpy_typing import LabeledArray
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
-from indica.utilities import set_plot_colors
 from .abstract_fractionalabundance import FractionalAbundance
-
-CM, COLS = set_plot_colors()
 
 
 class FractionalAbundanceAdas(FractionalAbundance):
@@ -32,27 +29,21 @@ class FractionalAbundanceAdas(FractionalAbundance):
 
         self.Ne, self.Te = Ne, Te  # type: ignore
 
-        scd_spec = self.scd.indica.interp2d(
+        scd_spec = self.scd.interp(
             electron_temperature=Te,
             electron_density=Ne,
-            method="cubic",
-            assume_sorted=True,
-        )
+        ).drop_vars(["electron_density", "electron_temperature"])
 
-        acd_spec = self.acd.indica.interp2d(
+        acd_spec = self.acd.interp(
             electron_temperature=Te,
             electron_density=Ne,
-            method="cubic",
-            assume_sorted=True,
-        )
+        ).drop_vars(["electron_density", "electron_temperature"])
 
         if self.ccd is not None:
-            ccd_spec = self.ccd.indica.interp2d(
+            ccd_spec = self.ccd.interp(
                 electron_temperature=Te,
                 electron_density=Ne,
-                method="cubic",
-                assume_sorted=True,
-            )
+            ).drop_vars(["electron_density", "electron_temperature"])
         else:
             ccd_spec = xr.full_like(scd_spec, 0.0)
 
@@ -88,11 +79,11 @@ class FractionalAbundanceAdas(FractionalAbundance):
         self.coord = coord
         self.dim = coord.dims[0]
         self.ncoord = len(coord)
-
         ionisation_balance_matrix = np.zeros((self.nq, self.nq, self.ncoord))
 
+        # Calculate ionisation balance matrix
         q = 0
-        ionisation_balance_matrix[q, q : q + 2] = np.array(
+        ionisation_balance_matrix[q, q : q + 2, :] = np.array(
             [
                 -Ne * scd.sel(ion_charge=q),
                 Ne * acd.sel(ion_charge=q) + Nn * ccd.sel(ion_charge=q),
@@ -100,7 +91,7 @@ class FractionalAbundanceAdas(FractionalAbundance):
         )
 
         for q in range(1, self.nq - 1):
-            ionisation_balance_matrix[q, q - 1 : q + 2] = np.array(
+            ionisation_balance_matrix[q, q - 1 : q + 2, :] = np.array(
                 [
                     Ne * scd.sel(ion_charge=q - 1),
                     -Ne * (scd.sel(ion_charge=q) + acd.sel(ion_charge=q - 1))
@@ -110,7 +101,7 @@ class FractionalAbundanceAdas(FractionalAbundance):
             )
 
         q = self.nq - 1
-        ionisation_balance_matrix[q, q - 1 : q + 1] = np.array(
+        ionisation_balance_matrix[q, q - 1 : q + 1, :] = np.array(
             [
                 Ne * scd.sel(ion_charge=q - 1),
                 -Ne * acd.sel(ion_charge=q - 1) - Nn * ccd.sel(ion_charge=q - 1),
@@ -254,10 +245,10 @@ class FractionalAbundanceAdas(FractionalAbundance):
     def prepare(self, tau: LabeledArray = None, F_z_t0: DataArray = None):
         self.tau = tau
         self.F_z_t0 = F_z_t0
-        self.interpolate_rates(self.Ne, self.Te)
 
     def run(self):
         # TODO: implement loop for multiple time-points similar to Aurora
+        self.interpolate_rates(self.Ne, self.Te)
         self.calc_ionisation_balance_matrix(self.Ne, self.Nn)
         self.calc_F_z_tinf()
 
@@ -287,15 +278,41 @@ class FractionalAbundanceAdas(FractionalAbundance):
 
         return self.F_z_t
 
-    def plot_fractional_abundance(self):
-        cols = CM(np.linspace(0.1, 0.75, len(self.ion_charge), dtype=float))
-
-        for iq in np.int_(self.ion_charge):
-            self.F_z_t.sel(ion_charge=iq).plot(color=cols[iq], alpha=0.8, label=iq)
-        plt.legend()
-        plt.xlim(0, 1.2)
-        plt.title(f"{self.element.title()} fractional abundance")
+    def __init__(
+        self,
+        element,
+        scd_year=None,
+        acd_year=None,
+        ccd_year=None,
+        full_run: bool = False,
+    ):
+        super().__init__(element, scd_year, acd_year, ccd_year, full_run=full_run)
 
     def __call__(self, Te, Ne, Nn=None, tau: DataArray = None):
         # Add tau to call
-        return super().__call__(Te, Ne, Nn, tau=tau)
+        if self.full_run or not hasattr(self, "F_z_t"):
+            return super().__call__(Te, Ne, Nn, tau=tau)
+        else:
+            warnings.warn("Interpolating on Te only!!!")
+            return interpolate_results(self.F_z_t, self.Te, Te)
+
+
+def interpolate_results(
+    data: DataArray, Te_data: DataArray, Te_interp: DataArray, method="cubic"
+):
+    """
+    Interpolate fractional abundance or cooling factor on electron
+    temperature for fast processing
+
+    atomic_data
+        Fractional abundance or cooling factor DataArrays
+    Te
+        Electron temperature on which interpolation is to be performed
+    """
+    dim_old = [d for d in data.dims if d != "ion_charge"][0]
+    _data = data.assign_coords(electron_temperature=(dim_old, Te_data.data))
+    _data = _data.swap_dims({dim_old: "electron_temperature"}).drop_vars(dim_old)
+    result = _data.interp(electron_temperature=Te_interp).drop_vars(
+        ("electron_temperature",)
+    )
+    return result
