@@ -119,7 +119,7 @@ def example_adf11(
     return output
 
 
-def example_assign_modelling_to_plasma(plot:bool=False):
+def example_assign_modelling_to_plasma(plot: bool = False):
     # Read METIS modelled data
     reader = ST40Reader(
         40011890,

@@ -6,6 +6,7 @@ import indica.examples.example_readers as example_readers
 import indica.examples.example_sawtooth_crash as example_sawtooth_crash
 import indica.examples.example_transforms as example_transforms
 
+
 def run_all():
     run_functions(example_equilibrium)
     run_functions(example_diagnostic_models)
@@ -14,6 +15,7 @@ def run_all():
     run_functions(example_readers)
     run_functions(example_sawtooth_crash)
     run_functions(example_transforms)
+
 
 def run_functions(imported):
     d = dir(imported)

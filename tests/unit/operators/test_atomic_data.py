@@ -6,8 +6,8 @@ from xarray import DataArray
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.examples import example_plasma
+from indica.operators import FractionalAbundanceAdas
 from indica.operators import PowerLoss
-from indica.operators.adas_fractionalabundance import FractionalAbundanceAdas
 from indica.utilities import get_element_info
 
 try:

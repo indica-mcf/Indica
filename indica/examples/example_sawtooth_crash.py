@@ -16,7 +16,7 @@ def example_density_crash(
     rhop=np.linspace(0, 1, 20),
     rho_inv=0.4,
     identifier="density",
-    plot:bool=False,
+    plot: bool = False,
 ):
     volume = DataArray(0.85 * rhop**3, coords=[("rhop", rhop)])
 

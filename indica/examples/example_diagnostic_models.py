@@ -200,7 +200,7 @@ def _example_lyman_alpha_2d(
     time: float = 0.16,
     machine: str = "st40",
     instrument: str = "blom_dv1",
-    plot:bool = False,
+    plot: bool = False,
 ):
 
     solps = SOLPSReader(pulse, time)
