@@ -38,6 +38,8 @@ class PowerLoss(Operator):
         prc_year: str = None,
         full_run: bool = False,
     ):
+        warnings.warn("Interpolating on Te only!!!")
+
         self.full_run = full_run
         self.adas_reader = ADASReader()
 
@@ -206,7 +208,6 @@ class PowerLoss(Operator):
             cooling_factor = self.calculate_power_loss(Ne, F_z_t, Nn)  # type: ignore
             self.cooling_factor = cooling_factor
         else:
-            warnings.warn("Interpolating on Te only!!!")
             cooling_factor = interpolate_results(self.cooling_factor, self.Te, Te)
 
         return cooling_factor

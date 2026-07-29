@@ -286,6 +286,7 @@ class FractionalAbundanceAdas(FractionalAbundance):
         ccd_year=None,
         full_run: bool = False,
     ):
+        warnings.warn("Interpolating on Te only!!!")
         super().__init__(element, scd_year, acd_year, ccd_year, full_run=full_run)
 
     def __call__(self, Te, Ne, Nn=None, tau: DataArray = None):
@@ -293,7 +294,6 @@ class FractionalAbundanceAdas(FractionalAbundance):
         if self.full_run or not hasattr(self, "F_z_t"):
             return super().__call__(Te, Ne, Nn, tau=tau)
         else:
-            warnings.warn("Interpolating on Te only!!!")
             return interpolate_results(self.F_z_t, self.Te, Te)
 
 
