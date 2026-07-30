@@ -52,9 +52,8 @@ class ModelReader:
         """
         Set Plasma class to all models and transforms
         """
-        for instrument in self.models.keys():
-            self.models[instrument].set_plasma(plasma)
-
+        for model_name, model in self.models.items():
+            model.set_plasma(plasma)
         self.plasma = plasma
 
     def update_model_settings(self, update_kwargs={}):
