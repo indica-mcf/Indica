@@ -7,25 +7,37 @@ import indica.examples.example_sawtooth_crash as example_sawtooth_crash
 import indica.examples.example_transforms as example_transforms
 
 
-def run_all():
-    run_functions(example_equilibrium)
-    run_functions(example_diagnostic_models)
-    run_functions(example_operators)
-    run_functions(example_plasma)
-    run_functions(example_readers)
-    run_functions(example_sawtooth_crash)
-    run_functions(example_transforms)
-
-
 def run_functions(imported):
     d = dir(imported)
     for function_name in d:
         function = getattr(imported, function_name)
         if callable(function) and function_name.startswith("example_"):
-            print(f"\n*** Runnning > {imported.__name__}.{function_name} ***\n")
             _ = function()
-    return
 
 
-if __name__ == "__main__":
-    run_all()
+def test_example_equilibrium():
+    run_functions(example_equilibrium)
+
+
+def test_example_diagnostic_models():
+    run_functions(example_diagnostic_models)
+
+
+def test_example_operators():
+    run_functions(example_operators)
+
+
+def test_example_plasma():
+    run_functions(example_plasma)
+
+
+def test_example_readers():
+    run_functions(example_readers)
+
+
+def test_example_sawtooth_crash():
+    run_functions(example_sawtooth_crash)
+
+
+def test_example_transforms():
+    run_functions(example_transforms)

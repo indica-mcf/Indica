@@ -16,10 +16,9 @@ from indica.utilities import DATA_PATH
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
 from indica.utilities import set_plot_colors
-from .abstractoperator import Operator
 
 
-class PowerLoss(Operator):
+class PowerLoss:
     """Calculate the total power loss associated with a given impurity element
 
     plt

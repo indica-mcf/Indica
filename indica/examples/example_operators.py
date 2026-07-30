@@ -16,12 +16,6 @@ from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
 
-try:
-    from indica.operators import FractionalAbundanceAurora
-    from indica.configs.operators import AuroraConfig
-except ImportError:
-    pass
-
 PLASMA = example_plasma()
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
 TRANSFORMS = load_default_objects("st40", "geometry")
@@ -374,6 +368,12 @@ def example_fit_ts(
 
 
 def example_aurora_run(element: str = "ar", plot: bool = False):
+    try:
+        from indica.operators import FractionalAbundanceAurora
+        from indica.configs.operators import AuroraConfig
+    except ImportError:
+        return
+
     ne = PLASMA.electron_density
     Te = PLASMA.electron_temperature
     Nn = PLASMA.neutral_density

@@ -142,7 +142,7 @@ def example_equilibrium(
     return run_example_diagnostic_model(machine, instrument, _model, plot=plot)
 
 
-def example_pinhole_camera_2d(
+def _example_pinhole_camera_2d(
     pulse: int = 13565,
     time: float = 0.16,
     machine: str = "st40",

@@ -23,6 +23,7 @@ def example_density_crash(
     pre = ProfilerGauss(f"electron_{identifier}", xspl=rhop)
     pre.wcenter = rho_inv / 1.5
     pre()
+    post = None
 
     if plot:
         plt.figure()
