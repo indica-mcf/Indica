@@ -54,6 +54,7 @@ class ModelReader:
         """
         for instrument in self.models.keys():
             self.models[instrument].set_plasma(plasma)
+
         self.plasma = plasma
 
     def update_model_settings(self, update_kwargs={}):
