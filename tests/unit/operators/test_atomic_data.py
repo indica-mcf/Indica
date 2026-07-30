@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from xarray import DataArray
 
+from indica.configs.operators import AuroraConfig
 from indica.defaults.load_defaults import load_default_objects
 from indica.examples import example_plasma
 from indica.operators import FractionalAbundanceAdas
@@ -12,7 +13,6 @@ from indica.utilities import get_element_info
 
 try:
     from indica.operators import FractionalAbundanceAurora
-    from indica.configs.operators import AuroraConfig
 except ImportError:
     pass
 
@@ -283,7 +283,10 @@ class TestFractionalAbundanceAurora:
     """Test that the fractional abundance operator can be used in Aurora."""
 
     def setup_class(self):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.plasma = example_plasma(aurora_run=True)
         self.plasma.set_equilibrium(EQUILIBRIUM)
         self.plasma.build_atomic_data()
@@ -291,7 +294,10 @@ class TestFractionalAbundanceAurora:
     def fractional_abundance_aurora_init(
         self,
     ):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.ne = self.plasma.electron_density
         self.Te = self.plasma.electron_temperature
         self.Nn = self.plasma.neutral_density
@@ -306,7 +312,10 @@ class TestFractionalAbundanceAurora:
         )
 
     def test_call_returns_non_zero_values(self):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.fractional_abundance_aurora_init()
         fz_t = self.operator(
             Ne=self.ne,
@@ -318,7 +327,10 @@ class TestFractionalAbundanceAurora:
         assert np.any(fz_t != 0)
 
     def test_call_with_one_timepoint_returns_non_zero_values(self):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.fractional_abundance_aurora_init()
         fz_t = self.operator(
             Ne=self.ne.isel({"t": 0}),
@@ -330,7 +342,10 @@ class TestFractionalAbundanceAurora:
         assert np.any(fz_t != 0)
 
     def test_call_with_zero_nh_and_cxr_flag_true(self):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.fractional_abundance_aurora_init()
         self.config["cxr_flag"] = True
         with pytest.raises(ValueError):
@@ -343,7 +358,10 @@ class TestFractionalAbundanceAurora:
             )
 
     def test_call_with_non_zero_nh_and_cxr_flag_false(self):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.fractional_abundance_aurora_init()
         self.config["cxr_flag"] = False
         fz_t = self.operator(

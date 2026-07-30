@@ -1,5 +1,6 @@
 import matplotlib.pylab as plt
 import numpy as np
+import pytest
 import xarray as xr
 from xarray import DataArray
 
@@ -368,6 +369,10 @@ def example_fit_ts(
 
 
 def example_aurora_run(element: str = "ar", plot: bool = False):
+    pytest.importorskip(
+        "indica.operators.fractionalabundance_aurora",
+        reason="Issues with Aurora installation",
+    )
     try:
         from indica.operators import FractionalAbundanceAurora
         from indica.configs.operators import AuroraConfig
