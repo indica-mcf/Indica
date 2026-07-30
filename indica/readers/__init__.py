@@ -20,9 +20,23 @@ __all__ = [
 ]
 
 try:
+    from .udautils import UDAUtils
+
+    __all__ += ["UDAUtils"]
+except ImportError:
+    pass
+
+try:
     from .salutils import SALUtils
 
     __all__ += ["SALUtils"]
+except ImportError:
+    pass
+
+try:
+    from .mastureader import MASTUReader
+
+    __all__ += ["MASTUReader"]
 except ImportError:
     pass
 
