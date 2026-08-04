@@ -45,13 +45,5 @@ jobs:
       shell: bash
       run: uv sync --locked --all-extras --dev
 
-    - name: Freeze for aurora
-      shell: bash
-      run: uv sync --extra aurora --frozen
-
-    - name: Install aurora
-      shell: bash
-      run: uv pip install --python .venv/bin/python --no-build-isolation aurorafusion
-
     - name: Test with pytest
       run: uv run pytest --continue-on-collection-errors -v --cov=indica
