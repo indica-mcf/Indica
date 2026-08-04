@@ -1,14 +1,16 @@
-"""Prefect flow for VAE scaling study on synthetic single-slice generated data."""
+"""Prefect flow for VAE scaling study on synthetic generated data."""
 
 from __future__ import annotations
 
 import csv
+import pickle
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 from typing import Sequence
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 from prefect import flow, task
 
@@ -26,6 +28,9 @@ from indica.workflows.jussiphd.components.evaluation.noise_likelihood import (
     add_poisson_noise_with_counts,
 )
 from indica.workflows.jussiphd.components.ml.vae import train_vae_from_csv
+from indica.workflows.jussiphd.datasets.paths import (
+    MULTIPULSE_SYNTHETIC_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR_STR,
+)
 
 
 DEFAULT_OUTPUT_DIR = str(
@@ -33,9 +38,7 @@ DEFAULT_OUTPUT_DIR = str(
 )
 DEFAULT_VAE_DIR = str(Path(__file__).resolve().parents[2] / "components" / "ml" / "flow_data" / "scaling_study")
 DEFAULT_VIS_DIR = str(Path(__file__).resolve().parent / "outputs")
-DEFAULT_SINGLE_GENERATED_DIR = str(
-    Path(__file__).resolve().parents[2] / "components" / "data" / "flow_data" / "single_generated"
-)
+DEFAULT_CONSTANT_IMP_EXPANDED_EQ_DIR = MULTIPULSE_SYNTHETIC_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR_STR
 
 
 def _load_csv_2d(path: str) -> np.ndarray:
@@ -52,13 +55,18 @@ def _save_csv_2d(path: str, arr: np.ndarray) -> str:
     return str(out_path)
 
 
-def _poisson_noise_eps_array(
-    eps: np.ndarray,
+def _load_results_rows(path: str) -> list[dict[str, Any]]:
+    with Path(path).open(newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def _poisson_noise_array(
+    values: np.ndarray,
     count_level: float,
     scale_percentile: float,
     seed: int,
 ) -> np.ndarray:
-    arr = np.asarray(eps, dtype=np.float32)
+    arr = np.asarray(values, dtype=np.float32)
     if arr.ndim == 1:
         arr = arr[None, :]
     scale_value = float(np.percentile(np.clip(arr, a_min=0.0, a_max=None), float(scale_percentile)))
@@ -199,6 +207,7 @@ def plot_scaling_results_task(
     rows: list[dict[str, Any]],
     output_dir: str,
     filename: str,
+    x_log_scale: bool = False,
 ) -> str:
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -237,12 +246,46 @@ def plot_scaling_results_task(
     ax.set_title("VAE Scaling Study: Accuracy vs Training Data Size")
     ax.set_xlabel("Training samples (n_generations)")
     ax.set_ylabel("L2(sample_mean, true) norm (lower is better)")
+    if x_log_scale:
+        ax.set_xscale("log")
+        # Keep labels human-readable for common sample counts.
+        ax.xaxis.set_major_formatter(mticker.ScalarFormatter())
+        unique_ns = sorted({int(row["train_generations"]) for row in rows})
+        if unique_ns:
+            ax.set_xticks(unique_ns)
     ax.grid(alpha=0.25)
     ax.legend()
     fig.tight_layout()
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return str(out_path)
+
+
+def replot_scaling_results_from_pickle(
+    pickle_path: str = "scaling_results.pickle",
+    output_plot_filename: str = "vae_scaling_accuracy_vs_data_logx.png",
+    x_log_scale: bool = True,
+) -> str:
+    with Path(pickle_path).open("rb") as handle:
+        result = pickle.load(handle)
+    if not isinstance(result, dict):
+        raise ValueError("Expected a dict in scaling_results pickle")
+    results_csv_path = result.get("results_csv_path")
+    if not results_csv_path:
+        raise ValueError("results_csv_path missing from scaling_results pickle")
+    rows = _load_results_rows(str(results_csv_path))
+    results_plot_path = result.get("results_plot_path")
+    output_dir = (
+        str(Path(results_plot_path).parent)
+        if results_plot_path
+        else DEFAULT_VIS_DIR
+    )
+    return plot_scaling_results_task.fn(
+        rows=rows,
+        output_dir=output_dir,
+        filename=output_plot_filename,
+        x_log_scale=bool(x_log_scale),
+    )
 
 
 @flow(name="bolometry_inversion_vae_scaling_study")
@@ -259,15 +302,26 @@ def bolometry_inversion_vae_scaling_study(
     vae_output_dir: str = DEFAULT_VAE_DIR,
     visualisations_output_dir: str = DEFAULT_VIS_DIR,
     use_existing_single_generated_pool: bool = True,
-    pool_b_path: str = str(Path(DEFAULT_SINGLE_GENERATED_DIR) / "b_slices_single_generated.csv"),
-    pool_eps_path: str = str(Path(DEFAULT_SINGLE_GENERATED_DIR) / "eps_slices_single_generated.csv"),
+    pool_b_path: str = str(
+        Path(DEFAULT_CONSTANT_IMP_EXPANDED_EQ_DIR)
+        / "b_slices_multipulse_synthetic_expanded_equilibria_constant_imp.csv"
+    ),
+    pool_eps_path: str = str(
+        Path(DEFAULT_CONSTANT_IMP_EXPANDED_EQ_DIR)
+        / "eps_slices_multipulse_synthetic_expanded_equilibria_constant_imp.csv"
+    ),
+    apply_b_poisson_noise: bool = True,
+    b_poisson_count_level: float = 200.0,
+    b_poisson_scale_percentile: float = 99.0,
+    b_poisson_seed: int = 1,
     apply_eps_poisson_noise: bool = True,
     eps_poisson_count_level: float = 200.0,
     eps_poisson_scale_percentile: float = 99.0,
     eps_poisson_seed: int = 0,
-    hidden_scalings: Sequence[int] = (1, 2, 4, 8),
-    train_generations_grid: Sequence[int] = (50, 250, 500, 1300, 2900 ),
-    n_repeats: int = 10,
+    hidden_scalings: Sequence[int] = (1, 2, 3, 4),
+    train_generations_grid: Sequence[int] = (50, 200, 700, 2500, 10000, 22000 ),
+
+    n_repeats: int = 5,
     eval_generations: int = 100,
     eval_b_filename: str = "b_slices_eval_fixed_100.csv",
     eval_eps_filename: str = "eps_slices_eval_fixed_100.csv",
@@ -281,19 +335,6 @@ def bolometry_inversion_vae_scaling_study(
     results_plot_filename: str = "vae_scaling_accuracy_vs_data.png",
 ) -> dict[str, Any]:
     """Run model-width/data-size sweep with one fixed synthetic evaluation set."""
-    transforms = load_default_objects(machine, "geometry")
-    if use_real_equilibrium:
-        equilibrium = load_real_equilibrium_task(
-            pulse=real_equilibrium_pulse,
-            tstart=tstart,
-            tend=tend,
-            dt=dt,
-            verbose=real_equilibrium_verbose,
-        )
-    else:
-        equilibrium = load_default_objects(machine, "equilibrium")
-    transform = transforms[instrument]
-
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -303,9 +344,16 @@ def bolometry_inversion_vae_scaling_study(
     if use_existing_single_generated_pool:
         b_pool = _load_csv_2d(pool_b_path)
         eps_pool = _load_csv_2d(pool_eps_path)
+        if apply_b_poisson_noise:
+            b_pool = _poisson_noise_array(
+                values=b_pool,
+                count_level=b_poisson_count_level,
+                scale_percentile=b_poisson_scale_percentile,
+                seed=b_poisson_seed,
+            )
         if apply_eps_poisson_noise:
-            eps_pool = _poisson_noise_eps_array(
-                eps=eps_pool,
+            eps_pool = _poisson_noise_array(
+                values=eps_pool,
                 count_level=eps_poisson_count_level,
                 scale_percentile=eps_poisson_scale_percentile,
                 seed=eps_poisson_seed,
@@ -336,6 +384,19 @@ def bolometry_inversion_vae_scaling_study(
             "pool_size": n_pool,
         }
     else:
+        transforms = load_default_objects(machine, "geometry")
+        if use_real_equilibrium:
+            equilibrium = load_real_equilibrium_task(
+                pulse=real_equilibrium_pulse,
+                tstart=tstart,
+                tend=tend,
+                dt=dt,
+                verbose=real_equilibrium_verbose,
+            )
+        else:
+            equilibrium = load_default_objects(machine, "equilibrium")
+        transform = transforms[instrument]
+
         eval_dataset = generate_scaling_dataset_task(
             machine=machine,
             instrument=instrument,
@@ -346,10 +407,24 @@ def bolometry_inversion_vae_scaling_study(
             b_filename=eval_b_filename,
             eps_filename=eval_eps_filename,
         )
+        if apply_b_poisson_noise:
+            eval_b = _load_csv_2d(eval_dataset["b_path"])
+            eval_b_noisy = _poisson_noise_array(
+                values=eval_b,
+                count_level=b_poisson_count_level,
+                scale_percentile=b_poisson_scale_percentile,
+                seed=b_poisson_seed,
+            )
+            eval_dataset["b_path"] = _save_csv_2d(
+                str(Path(eval_dataset["b_path"]).with_name(
+                    f"{Path(eval_dataset['b_path']).stem}_poisson{int(b_poisson_count_level)}.csv"
+                )),
+                eval_b_noisy,
+            )
         if apply_eps_poisson_noise:
             eval_eps = _load_csv_2d(eval_dataset["eps_path"])
-            eval_eps_noisy = _poisson_noise_eps_array(
-                eps=eval_eps,
+            eval_eps_noisy = _poisson_noise_array(
+                values=eval_eps,
                 count_level=eps_poisson_count_level,
                 scale_percentile=eps_poisson_scale_percentile,
                 seed=eps_poisson_seed,
@@ -399,10 +474,24 @@ def bolometry_inversion_vae_scaling_study(
                         b_filename=f"train_sets/b_slices_{tag}.csv",
                         eps_filename=f"train_sets/eps_slices_{tag}.csv",
                     )
+                    if apply_b_poisson_noise:
+                        train_b = _load_csv_2d(train_dataset["b_path"])
+                        train_b_noisy = _poisson_noise_array(
+                            values=train_b,
+                            count_level=b_poisson_count_level,
+                            scale_percentile=b_poisson_scale_percentile,
+                            seed=b_poisson_seed + int(repeat_idx) + int(hidden_scaling) + int(train_generations),
+                        )
+                        train_dataset["b_path"] = _save_csv_2d(
+                            str(Path(train_dataset["b_path"]).with_name(
+                                f"{Path(train_dataset['b_path']).stem}_poisson{int(b_poisson_count_level)}.csv"
+                            )),
+                            train_b_noisy,
+                        )
                     if apply_eps_poisson_noise:
                         train_eps = _load_csv_2d(train_dataset["eps_path"])
-                        train_eps_noisy = _poisson_noise_eps_array(
-                            eps=train_eps,
+                        train_eps_noisy = _poisson_noise_array(
+                            values=train_eps,
                             count_level=eps_poisson_count_level,
                             scale_percentile=eps_poisson_scale_percentile,
                             seed=eps_poisson_seed + int(repeat_idx) + int(hidden_scaling) + int(train_generations),
@@ -468,6 +557,8 @@ def bolometry_inversion_vae_scaling_study(
         "eval_dataset": eval_dataset,
         "n_rows": int(len(rows)),
         "use_existing_single_generated_pool": bool(use_existing_single_generated_pool),
+        "apply_b_poisson_noise": bool(apply_b_poisson_noise),
+        "b_poisson_count_level": float(b_poisson_count_level),
         "apply_eps_poisson_noise": bool(apply_eps_poisson_noise),
         "eps_poisson_count_level": float(eps_poisson_count_level),
         "pool_b_path": pool_b_path if use_existing_single_generated_pool else None,

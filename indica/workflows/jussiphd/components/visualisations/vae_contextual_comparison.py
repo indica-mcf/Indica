@@ -16,6 +16,9 @@ from indica.workflows.jussiphd.components.data.expanded_equilibria_generation im
     align_plasma_fz_to_times,
     build_equilibrium_contexts,
 )
+from indica.workflows.jussiphd.components.evaluation.noise_likelihood import (
+    add_poisson_noise_with_counts,
+)
 from indica.workflows.jussiphd.components.preprocessing.dataset_creation import PairDataset
 from indica.workflows.jussiphd.components.visualisations.vae_generated_visualisations import (
     load_vae,
@@ -40,6 +43,10 @@ def generate_contextual_vae_vs_naive_visualisations(
     k_samples: int,
     n_examples: int,
     seed: int | None,
+    noise_b_test: bool = False,
+    noise_count_level: float = 200.0,
+    noise_scale_percentile: float = 99.0,
+    noise_seed: int | None = 0,
 ) -> dict[str, Any]:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -79,8 +86,7 @@ def generate_contextual_vae_vs_naive_visualisations(
         else ["plasma.settings.n_rad=41", "tstart=0.015", "tend=0.160", "dt=0.005"]
     )
 
-    rows: list[dict[str, Any]] = []
-    example_store: list[dict[str, np.ndarray]] = []
+    generated_samples: list[dict[str, Any]] = []
     for idx in range(int(n_generated_samples)):
         pt = points[int(rng.integers(len(points)))]
         model = pt["model"]
@@ -118,21 +124,95 @@ def generate_contextual_vae_vs_naive_visualisations(
         e_true = emissivity.isel(t=tidx).values.astype(np.float32).reshape(-1)
         rhop = emissivity.rhop.values.astype(np.float32)
 
-        brightness_single = DataArray(
-            b_true[None, :],
-            coords=[("t", np.asarray([t_s], dtype=float)), ("channel", np.arange(b_true.shape[0]))],
-        )
-        e_naive = (
-            calculate_tomo_inversion(
-                brightness_single,
-                model.transform,
-                rhop,
-            )
-            .isel(t=0)
-            .values.astype(np.float32)
+        generated_samples.append(
+            {
+                "trial_index": int(idx),
+                "equilibrium_index": int(pt["eq_idx"]),
+                "equilibrium_label": str(pt["spec"]["label"]),
+                "pulse": int(pt["spec"]["pulse"]),
+                "t_s": float(t_s),
+                "model": model,
+                "b_true": b_true,
+                "e_true": e_true,
+                "rhop": rhop,
+            }
         )
 
-        b_norm = (b_true - dataset.mu_b) / dataset.sigma_b
+    if len(generated_samples) == 0:
+        raise ValueError("No generated samples available for contextual comparison.")
+
+    b_clean_mat = np.asarray([s["b_true"] for s in generated_samples], dtype=np.float32)
+    b_input_mat = b_clean_mat.copy()
+    noise_info: dict[str, Any] | None = None
+    if bool(noise_b_test):
+        # Match noisy-test-b calibration style: derive scale from the dataset brightness CSV.
+        b_reference = np.loadtxt(b_path, delimiter=",", dtype=np.float32)
+        if b_reference.ndim == 1:
+            b_reference = b_reference[None, :]
+        scale = float(
+            np.percentile(
+                np.clip(b_reference, a_min=0.0, a_max=None),
+                float(noise_scale_percentile),
+            )
+        )
+        if scale <= 0:
+            scale = 1.0
+        noise_rng = np.random.default_rng(noise_seed)
+        b_input_mat = add_poisson_noise_with_counts(
+            values=b_clean_mat,
+            count_level=float(noise_count_level),
+            scale_value=scale,
+            rng=noise_rng,
+        ).astype(np.float32)
+        noise_info = {
+            "enabled": True,
+            "count_level": float(noise_count_level),
+            "scale_percentile": float(noise_scale_percentile),
+            "scale_value": float(scale),
+            "scale_source": str(b_path),
+            "seed": None if noise_seed is None else int(noise_seed),
+        }
+
+    rows: list[dict[str, Any]] = []
+    example_store: list[dict[str, np.ndarray]] = []
+    vae_sampling_store: list[dict[str, np.ndarray]] = []
+    reproj_store: list[dict[str, np.ndarray]] = []
+    for sidx, sample in enumerate(generated_samples):
+        b_input = b_input_mat[sidx]
+        e_true = sample["e_true"]
+        rhop = sample["rhop"]
+        model = sample["model"]
+        t_s = float(sample["t_s"])
+
+        brightness_single = DataArray(
+            b_input[None, :],
+            coords=[("t", np.asarray([t_s], dtype=float)), ("channel", np.arange(b_input.shape[0]))],
+        )
+        try:
+            e_naive = (
+                calculate_tomo_inversion(
+                    brightness_single,
+                    model.transform,
+                    rhop,
+                )
+                .isel(t=0)
+                .values.astype(np.float32)
+            )
+        except Exception:
+            continue
+
+        # Reproject the naive inverse emissivity back to LOS brightness (b -> inv -> fwd b).
+        emissivity_single = DataArray(
+            e_naive[None, :],
+            coords=[("t", np.asarray([t_s], dtype=float)), ("rhop", rhop)],
+        )
+        b_reproj_da = model.transform.integrate_on_los(emissivity_single, t=emissivity_single.t)
+        if hasattr(b_reproj_da, "isel") and "t" in getattr(b_reproj_da, "dims", ()):
+            b_reproj = b_reproj_da.isel(t=0).values.astype(np.float32).reshape(-1)
+        else:
+            b_reproj = np.asarray(getattr(b_reproj_da, "values", b_reproj_da), dtype=np.float32).reshape(-1)
+
+        b_norm = (b_input - dataset.mu_b) / dataset.sigma_b
         b_t_norm = torch.from_numpy(b_norm.astype(np.float32)).unsqueeze(0)
         with torch.no_grad():
             z = torch.randn(int(k_samples), vae.latent_dim)
@@ -150,10 +230,10 @@ def generate_contextual_vae_vs_naive_visualisations(
         rows.append(
             {
                 "sample_index": len(rows),
-                "trial_index": int(idx),
-                "equilibrium_index": int(pt["eq_idx"]),
-                "equilibrium_label": str(pt["spec"]["label"]),
-                "pulse": int(pt["spec"]["pulse"]),
+                "trial_index": int(sample["trial_index"]),
+                "equilibrium_index": int(sample["equilibrium_index"]),
+                "equilibrium_label": str(sample["equilibrium_label"]),
+                "pulse": int(sample["pulse"]),
                 "t_s": float(t_s),
                 "naive_rmse": naive_rmse,
                 "vae_rmse": vae_rmse,
@@ -167,6 +247,22 @@ def generate_contextual_vae_vs_naive_visualisations(
                     "true": e_true.copy(),
                     "naive": e_naive.copy(),
                     "vae": e_vae_mean.copy(),
+                    "label": np.array([rows[-1]["equilibrium_label"], rows[-1]["t_s"]], dtype=object),
+                }
+            )
+            vae_sampling_store.append(
+                {
+                    "rhop": rhop.copy(),
+                    "true": e_true.copy(),
+                    "vae_mean": e_vae_mean.copy(),
+                    "vae_samples": e_samps_un.astype(np.float32).copy(),
+                    "label": np.array([rows[-1]["equilibrium_label"], rows[-1]["t_s"]], dtype=object),
+                }
+            )
+            reproj_store.append(
+                {
+                    "b_input": b_input.copy(),
+                    "b_reproj": b_reproj.copy(),
                     "label": np.array([rows[-1]["equilibrium_label"], rows[-1]["t_s"]], dtype=object),
                 }
             )
@@ -229,6 +325,72 @@ def generate_contextual_vae_vs_naive_visualisations(
     fig.savefig(examples_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
+    # Additional view: ground truth + VAE samples + VAE mean.
+    n_show_s = len(vae_sampling_store)
+    n_cols_s = 2
+    n_rows_s = int(np.ceil(max(1, n_show_s) / n_cols_s))
+    fig, axes = plt.subplots(
+        n_rows_s,
+        n_cols_s,
+        figsize=(12, 4.5 * n_rows_s),
+        sharex=True,
+        sharey=True,
+    )
+    axes = np.atleast_1d(axes).ravel()
+    for ax in axes[n_show_s:]:
+        ax.axis("off")
+    for ax, ex in zip(axes[:n_show_s], vae_sampling_store):
+        rhop = ex["rhop"]
+        e_true = ex["true"]
+        e_vae_mean = ex["vae_mean"]
+        e_samps_un = ex["vae_samples"]
+        ax.plot(rhop, e_true, color="k", linewidth=2.2, label="Ground truth")
+        for i in range(e_samps_un.shape[0]):
+            lbl = "VAE sample" if i == 0 else None
+            ax.plot(rhop, e_samps_un[i], alpha=0.32, linewidth=1.0, label=lbl)
+        ax.plot(rhop, e_vae_mean, color="tab:red", linewidth=2.2, label="VAE mean")
+        eq_label = str(ex["label"][0])
+        t_s = float(ex["label"][1])
+        ax.set_title(f"{eq_label}, t={t_s:.3f}s")
+        ax.set_xlabel("rhop")
+        ax.grid(alpha=0.25)
+    if n_show_s > 0:
+        axes[0].set_ylabel("emissivity")
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="upper right")
+    fig.suptitle("Contextual emissivity sampling: ground truth vs VAE samples", y=1.02)
+    fig.tight_layout()
+    vae_sampling_path = next_available_path(out / "generated_contextual_emissivity_sampling.png")
+    fig.savefig(vae_sampling_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    # Additional diagnostic: measurement vs inverse->forward reprojection in measurement space.
+    n_show_b = len(reproj_store)
+    n_cols_b = 2
+    n_rows_b = int(np.ceil(max(1, n_show_b) / n_cols_b))
+    fig, axes = plt.subplots(n_rows_b, n_cols_b, figsize=(12, 3.6 * n_rows_b), sharex=True)
+    axes = np.atleast_1d(axes).ravel()
+    for ax in axes[n_show_b:]:
+        ax.axis("off")
+    for ax, ex in zip(axes[:n_show_b], reproj_store):
+        channels = np.arange(ex["b_input"].shape[0], dtype=int)
+        ax.plot(channels, ex["b_input"], linewidth=1.9, label="Input b")
+        ax.plot(channels, ex["b_reproj"], linewidth=1.8, alpha=0.9, label="b -> inv -> fwd b")
+        eq_label = str(ex["label"][0])
+        t_s = float(ex["label"][1])
+        ax.set_title(f"{eq_label}, t={t_s:.3f}s")
+        ax.set_xlabel("channel")
+        ax.set_ylabel("brightness")
+        ax.grid(alpha=0.25)
+    if n_show_b > 0:
+        handles, labels = axes[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="upper right")
+    fig.suptitle("Contextual measurement consistency: input b vs inverse-forward b", y=1.02)
+    fig.tight_layout()
+    b_reproj_path = next_available_path(out / "generated_contextual_b_vs_inverse_forward_b.png")
+    fig.savefig(b_reproj_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
     metrics_csv = out / "generated_contextual_comparison_metrics.csv"
     np.savetxt(
         metrics_csv,
@@ -263,5 +425,10 @@ def generate_contextual_vae_vs_naive_visualisations(
         "vae_win_fraction": float(np.mean(delta > 0)),
         "scatter_plot": str(scatter_path),
         "examples_plot": str(examples_path),
+        "vae_sampling_plot": str(vae_sampling_path),
+        "b_inverse_forward_plot": str(b_reproj_path),
         "metrics_csv": str(metrics_csv),
     }
+    if noise_info is not None:
+        result["noise"] = noise_info
+    return result
