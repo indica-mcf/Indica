@@ -5,7 +5,7 @@ import xarray as xr
 from indica.defaults.load_defaults import load_default_objects
 
 
-def example_flux_coords(machine: str = "st40", plot: bool = False):
+def flux_coords(machine: str = "st40", plot: bool = False):
     """Convert from (R, z) to  (rhop, theta)"""
     equilibrium = load_default_objects(machine, "equilibrium")
 

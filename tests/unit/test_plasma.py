@@ -1,4 +1,4 @@
-from indica.examples import example_plasma
+from indica.examples import plasma as example_plasma
 
 
 class TestPlasmaCaching:

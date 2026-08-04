@@ -23,7 +23,7 @@ TRANSFORMS = load_default_objects("st40", "geometry")
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
 
 
-def example_zeff_bremstrahlung(
+def zeff_bremstrahlung(
     plot: bool = True,
     nplot: int = 2,
     save_fig: bool = False,
@@ -323,5 +323,5 @@ def plot_results(
 
 if __name__ == "__main__":
     plt.ioff()
-    _ = example_zeff_bremstrahlung()
+    _ = zeff_bremstrahlung()
     plt.show()

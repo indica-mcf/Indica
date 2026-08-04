@@ -5,7 +5,7 @@ from indica import Equilibrium
 from indica.configs.readers import ST40Conf
 from indica.defaults.generate_defaults import default_atomic_data
 from indica.defaults.load_defaults import get_filename_default_objects
-from indica.examples.example_plasma import example_plasma
+from indica.examples.example_plasma import plasma as example_plasma
 from indica.readers import ST40Reader
 
 PROJECT_PATH = Path(__file__).parent.parent

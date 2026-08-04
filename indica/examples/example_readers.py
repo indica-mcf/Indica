@@ -29,7 +29,7 @@ MODELS = {
 }
 
 
-def example_model_reader(plot=False):
+def model_reader(plot=False):
     _, power_loss = default_atomic_data(PLASMA.elements)
 
     model_reader = ModelReader(
@@ -91,7 +91,7 @@ def example_model_reader(plot=False):
     return bckc, model_reader
 
 
-def example_adf11(
+def adf11(
     element: str = "h",
     file_type: str = None,
     **kwargs,
@@ -119,7 +119,7 @@ def example_adf11(
     return output
 
 
-def _example_assign_modelling_to_plasma(plot: bool = False):
+def assign_modelling_to_plasma(plot: bool = False):
     # Read METIS modelled data
     reader = ST40Reader(
         40011890,

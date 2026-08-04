@@ -6,7 +6,7 @@ from xarray import DataArray
 
 from indica.configs.operators import AuroraConfig
 from indica.defaults.load_defaults import load_default_objects
-from indica.examples import example_plasma
+from indica.examples import plasma as example_plasma
 from indica.operators import FractionalAbundanceAdas
 from indica.operators import PowerLoss
 from indica.utilities import get_element_info

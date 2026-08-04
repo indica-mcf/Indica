@@ -11,7 +11,7 @@ from indica.utilities import set_plot_colors
 CMAP, COLORS = set_plot_colors()
 
 
-def example_density_crash(
+def density_crash(
     los_avrg=2.8e19,
     rhop=np.linspace(0, 1, 20),
     rho_inv=0.4,

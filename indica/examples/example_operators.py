@@ -5,7 +5,7 @@ import xarray as xr
 from xarray import DataArray
 
 from indica.defaults.load_defaults import load_default_objects
-from indica.examples.example_plasma import example_plasma
+from indica.examples.example_plasma import plasma
 from indica.models import ThomsonScattering
 from indica.operators import FractionalAbundanceAdas
 from indica.operators import tomo_1D
@@ -17,7 +17,7 @@ from indica.readers.modelreader import ModelReader
 from indica.utilities import set_axis_sci
 from indica.utilities import set_plot_colors
 
-PLASMA = example_plasma()
+PLASMA = plasma()
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
 TRANSFORMS = load_default_objects("st40", "geometry")
 PLASMA.set_equilibrium(EQUILIBRIUM)
@@ -27,7 +27,7 @@ NPLOT = 3
 CM, COLS = set_plot_colors()
 
 
-def example_poloidal_asymmetry():
+def poloidal_asymmetry():
     asymmetry_parameter = centrifugal_asymmetry_parameter(
         PLASMA.ion_density,
         PLASMA.ion_temperature,
@@ -47,7 +47,7 @@ def example_poloidal_asymmetry():
     return ion_density_2d
 
 
-def example_tomo_asymmetry(
+def tomo_asymmetry(
     instrument: str = "sxrc_xy1",
     asymmetric_profile: bool = True,
     plot: bool = False,
@@ -55,7 +55,7 @@ def example_tomo_asymmetry(
 ):
 
     if asymmetric_profile:
-        ion_density_2d = example_poloidal_asymmetry()
+        ion_density_2d = poloidal_asymmetry()
     else:
         rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t)
         ion_density_2d = PLASMA.ion_density.interp(rhop=rho_2d)
@@ -187,7 +187,7 @@ def example_tomo_asymmetry(
             plt.show()
 
 
-def example_tomo_1D(
+def tomo_sym_1D(
     instrument: str = "sxrc_xy1",
     asymmetric_profile: bool = False,
     element: str = "ar",
@@ -196,7 +196,7 @@ def example_tomo_1D(
 ):
 
     if asymmetric_profile:
-        ion_density_2d = example_poloidal_asymmetry()
+        ion_density_2d = poloidal_asymmetry()
         emissivity = None
     else:
         rho_2d = PLASMA.equilibrium.rhop.interp(t=PLASMA.t.values)
@@ -268,7 +268,7 @@ def example_tomo_1D(
     return inverted_emissivity, data_tomo, bckc_tomo
 
 
-def example_fit_ts(
+def fit_ts(
     fit_R_shift: bool = False,
     verbose: bool = False,
     plot: bool = False,
@@ -368,7 +368,7 @@ def example_fit_ts(
     return te_data, ne_data, te_fit, ne_fit
 
 
-def example_aurora_run(element: str = "ar", plot: bool = False):
+def aurora_run(element: str = "ar", plot: bool = False):
     pytest.importorskip(
         "indica.operators.fractionalabundance_aurora",
         reason="Issues with Aurora installation",
@@ -402,7 +402,7 @@ def example_aurora_run(element: str = "ar", plot: bool = False):
     return fz_t
 
 
-def example_adas_fractional_abundance(element: str = "ar", plot: bool = False):
+def adas_fractional_abundance(element: str = "ar", plot: bool = False):
     ne = PLASMA.electron_density
     Te = PLASMA.electron_temperature
     Nn = PLASMA.neutral_density
