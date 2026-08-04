@@ -1,21 +1,16 @@
 from typing import cast
-from typing import List
 import warnings
 
-import matplotlib.pylab as plt
 import numpy as np
 from numpy.core.numeric import zeros_like
-from pandas import DataFrame
 import xarray as xr
 from xarray import DataArray
 
 from indica.configs.readers.adasconf import ADF11
-from indica.operators import FractionalAbundanceAdas
 from indica.readers.adas import ADASReader
-from indica.utilities import DATA_PATH
+from indica.readers.adas import DEFAULT_PATH
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
-from indica.utilities import set_plot_colors
 
 
 class PowerLoss:
@@ -35,12 +30,13 @@ class PowerLoss:
         plt_year: str = None,
         prb_year: str = None,
         prc_year: str = None,
+        adas_path: str = DEFAULT_PATH,
         full_run: bool = False,
     ):
         warnings.warn("Interpolating on Te only!!!")
 
         self.full_run = full_run
-        self.adas_reader = ADASReader()
+        self.adas_reader = ADASReader(path=adas_path)
 
         _element_info = get_element_info(element)
         self.element = element
@@ -153,8 +149,6 @@ class PowerLoss:
 
         plt, prb, prc = self.plt_spec, self.prb_spec, self.prc_spec
 
-        # cooling_factor = xr.full_like(self.plt_spec)
-
         cooling_factor = np.zeros((self.nq, self.ncoord))
         for icoord, coord_val in enumerate(self.coord.data):
             q = 0
@@ -210,128 +204,6 @@ class PowerLoss:
             cooling_factor = interpolate_results(self.cooling_factor, self.Te, Te)
 
         return cooling_factor
-
-
-def cooling_factor_corona(
-    elements: List[str],
-    write_to_file: bool = False,
-    plot: bool = False,
-    new_figure: bool = True,
-    include_neutrals: bool = False,
-):
-    """
-    Initialises atomic data classes with default ADAS files and runs the
-    __call__ with default plasma parameters
-    """
-    tau = None
-    Ne_const = 5.0e19
-    Nn1 = 1.0e17
-    Nn0 = 1.0e12
-
-    fract_abu: dict = {}
-    power_loss_tot: dict = {}
-    atomic_data_files: dict = {}
-    cooling_factor: dict = {}
-    filenames = ""
-    files_to_read = ["scd", "acd", "ccd", "plt", "prb", "prc"]
-    Te_files = []
-
-    print("Read atomic data")
-    adas_reader = ADASReader()
-    for elem in elements:
-        atomic_data_files[elem] = {}
-        for file_type in files_to_read:
-            _atomic_data = adas_reader.get_adf11(
-                file_type, elem, ADF11[elem][file_type]
-            )
-            filenames += f"{_atomic_data.filename}"
-            Te_files.append(_atomic_data.electron_temperature)
-            atomic_data_files[elem][file_type] = _atomic_data
-
-    # Set Te so that max(Te) doesn't exceed the value available in all atomic-data files
-    _indx = np.argmin(np.array([np.max(_Te) for _Te in Te_files]))
-    _Te = Te_files[_indx]
-    nTe = np.size(_Te)
-    Te = DataArray(_Te.data, coords=[("index", np.arange(nTe))])
-    Ne = xr.full_like(Te, Ne_const)
-    Nn = xr.full_like(Te, 0.0)
-    if include_neutrals:
-        _Nn = np.array([Te.values[i] for i in np.arange(Te.size - 1, -1, -1)])
-        _Nn -= np.min(_Nn)
-        _Nn /= np.max(_Nn)
-        _Nn *= Nn1
-        _Nn += Nn0
-        Nn.values = _Nn
-
-    _to_write = {"Te": np.array(Te), "Ne": np.array(Ne), "Nn": np.array(Nn)}
-
-    print("Calculate fractional abundance and cooling factors")
-    for elem in elements:
-        print(f"  {elem}")
-        fract_abu[elem] = FractionalAbundanceAdas(
-            atomic_data_files[elem]["scd"],
-            atomic_data_files[elem]["acd"],
-            ccd=atomic_data_files[elem]["ccd"],
-        )
-        _fz = fract_abu[elem](Ne=Ne, Te=Te, Nn=Nn, tau=tau)
-
-        power_loss_tot[elem] = PowerLoss(
-            atomic_data_files[elem]["plt"],
-            atomic_data_files[elem]["prb"],
-            prc=atomic_data_files[elem]["prc"],
-        )
-        _power_loss = power_loss_tot[elem](Te, _fz, Ne=Ne, Nn=Nn)
-
-        _cooling_factor: DataArray = _power_loss.sum("ion_charge")
-        _cooling_factor = (
-            _cooling_factor.assign_coords(electron_temperature=("index", Te.data))
-            .swap_dims({"index": "electron_temperature"})
-            .drop_vars("index")
-        )
-
-        cooling_factor[elem] = _cooling_factor
-        _to_write[elem] = np.array(_cooling_factor)
-
-    _to_write["atomic_data_files"] = filenames
-
-    if write_to_file:
-        if include_neutrals:
-            file_name = f"{DATA_PATH}corona_cooling_factors_Nn.csv"
-        else:
-            file_name = f"{DATA_PATH}corona_cooling_factors.csv"
-        print(f"Writing data to {file_name}")
-        df = DataFrame(_to_write)
-        df.to_csv(file_name)
-
-    if plot:
-        if new_figure:
-            plt.figure()
-        cmap, _ = set_plot_colors()
-        cols = cmap(np.linspace(0.75, 0.1, len(cooling_factor), dtype=float))
-
-        label = ""
-        marker = "o"
-        linestyle = "solid"
-        if include_neutrals:
-            marker = ""
-            linestyle = "dashed"
-
-        for i, elem in enumerate(elements):
-            if new_figure:
-                label = elem
-            cooling_factor[elem].plot(
-                label=label,
-                alpha=0.8,
-                marker=marker,
-                color=cols[i],
-                linestyle=linestyle,
-            )
-        if new_figure:
-            plt.xscale("log")
-            plt.yscale("log")
-            plt.legend()
-
-    return cooling_factor, _to_write, fract_abu
 
 
 def interpolate_results(

@@ -8,6 +8,7 @@ from xarray import DataArray
 
 from indica.configs.readers.adasconf import ADF11
 from indica.readers import ADASReader
+from indica.readers.adas import DEFAULT_PATH
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
 from indica.utilities import set_plot_colors
@@ -24,6 +25,7 @@ class FractionalAbundance(ABC):
         scd_year: str = None,
         acd_year: str = None,
         ccd_year: str = None,
+        adas_path: str = DEFAULT_PATH,
         **kwargs,
     ):
         """
@@ -36,7 +38,7 @@ class FractionalAbundance(ABC):
             ADAS adf11 "year" (see https://open.adas.ac.uk/adf11) for ionisation (scd),
             recombination (acd) and thermal charge exchange (ccd)
         """
-        self.adas_reader = ADASReader()
+        self.adas_reader = ADASReader(path=adas_path)
 
         _element_info = get_element_info(element)
         self.element = element
