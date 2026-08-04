@@ -2,9 +2,11 @@ from copy import deepcopy
 from functools import lru_cache
 import hashlib
 import pickle
+import sys
 from typing import Callable
 from typing import Optional
 from typing import Tuple
+import warnings
 
 import numpy as np
 import xarray as xr
@@ -14,11 +16,18 @@ from indica.configs.operators.aurora import AuroraConfig
 from indica.converters.time import get_tlabels_dt
 from indica.equilibrium import Equilibrium
 from indica.numpy_typing import LabeledArray
+from indica.operators import FractionalAbundanceAdas
+from indica.operators import PowerLoss
 import indica.physics as ph
 from indica.profilers.profiler_base import ProfilerBase
 from indica.utilities import format_coord
 from indica.utilities import format_dataarray
 from indica.utilities import get_element_info
+
+try:
+    from indica.operators import FractionalAbundanceAurora
+except ImportError:
+    pass
 
 
 class Plasma:
@@ -68,6 +77,9 @@ class Plasma:
         self.tend = tend
         self.dt = dt
         self.full_run = full_run
+        if aurora_run and "FractionalAbundanceAurora" not in sys.modules:
+            aurora_run = False
+            warnings.warn("Aurora not installed, setting aurora_run to False")
         self.aurora_run = aurora_run
         self.verbose = verbose
         elements: Tuple[str, ...] = (main_ion,)
@@ -447,8 +459,8 @@ class Plasma:
                     continue
                 fz_tmp = self.fract_abu[elem](
                     electron_temperature,
-                    Ne=electron_density,
-                    Nh=neutral_density,
+                    electron_density,
+                    Nn=neutral_density,
                     tau=residence_time,
                 )
                 self._fz[elem].loc[dict(t=t)] = fz_tmp.transpose()
@@ -473,7 +485,7 @@ class Plasma:
             fz = self.fract_abu[elem](
                 Te=self.electron_temperature.sel(t=self.time_to_calculate),
                 Ne=self.electron_density.sel(t=self.time_to_calculate),
-                Nh=self.neutral_density.sel(t=self.time_to_calculate),
+                Nn=self.neutral_density.sel(t=self.time_to_calculate),
                 D_z=self.diffusion_coefficient.sel(t=self.time_to_calculate),
                 V_z=self.convection_coefficient.sel(t=self.time_to_calculate),
             )
@@ -543,7 +555,7 @@ class Plasma:
                     electron_temperature,
                     Fz,
                     Ne=electron_density,
-                    Nh=neutral_density,
+                    Nn=neutral_density,
                 ).transpose()
         return self._lz_tot
 
@@ -669,34 +681,27 @@ class Plasma:
         If self.aurora_run is True, uses aurora for ionisation balance calculation,
         otherwise uses coronal approximation.
         """
-        from indica.operators.atomic_data import (
-            FractionalAbundanceAurora,
-            default_atomic_data,
-        )
 
+        fract_abu = {}
+        power_loss_tot = {}
         if self.aurora_run:
             assert (
                 self.equilibrium
             ), "Equilibrium must be set before building atomic data for aurora run"
-            fract_abu = {}
             for impurity in self.impurities:
                 fract_abu[impurity] = FractionalAbundanceAurora(
-                    impurity=impurity,
+                    element=impurity,
                     main_ion=self.main_ion,
                     aurora_config=AuroraConfig,
                     equilibrium=self.equilibrium,
                 )
-            _fz, power_loss_tot = default_atomic_data(
-                self.elements, full_run=self.full_run
-            )
-            fract_abu[self.main_ion] = _fz[
-                self.main_ion
-            ]  # Aurora doesn't handle main ion calculation
-
+            fract_abu[self.main_ion] = FractionalAbundanceAdas(element=self.main_ion)
         else:
-            fract_abu, power_loss_tot = default_atomic_data(
-                self.elements, full_run=self.full_run
-            )
+            for element in self.elements:
+                fract_abu[element] = FractionalAbundanceAdas(element=element)
+
+        for element in self.elements:
+            power_loss_tot[element] = PowerLoss(element=element)
 
         self.fract_abu = fract_abu
         self.power_loss_tot = power_loss_tot

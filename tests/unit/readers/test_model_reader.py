@@ -1,9 +1,9 @@
+from indica.defaults.generate_defaults import default_atomic_data
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import HelikeSpectrometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
-from indica.operators.atomic_data import default_atomic_data
 from indica.readers.modelreader import ModelReader
 
 
