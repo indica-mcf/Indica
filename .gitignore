@@ -2,7 +2,7 @@ doc/_build
 *~
 *.pyc
 *.ipynb
-venv/
+venv*/
 .hypothesis/
 .coverage
 indica.egg-info/
@@ -18,4 +18,5 @@ indica/git_version
 *.png
 *.prof
 *.lprof
+*.sh
 .ropeproject/

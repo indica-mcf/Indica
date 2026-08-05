@@ -7,7 +7,7 @@ from typing import Tuple
 import warnings
 
 import numpy as np
-from pyuda import Client, Signal
+from pyuda import Client, Signal, ServerException
 
 from indica.abstractio import BaseIO
 from indica.numpy_typing import RevisionLike
@@ -26,7 +26,7 @@ class UDAWarning(UserWarning):
     """
 
 class UDAUtils(BaseIO):
-    def __init__(self, pulse, **kwargs):
+    def __init__(self, pulse, server:str=""):
         self._pulse = pulse
         self._reader_cache_id = f"uda"
         self._client = Client()
@@ -46,7 +46,9 @@ class UDAUtils(BaseIO):
             "celeste-3": "act",
             "midplane_thomson": "ayc",
         }
-        return instrument_mapping.get(instrument, instrument)
+        if instrument not in instrument_mapping.keys():
+            raise UDAError(f"Instrument not recognised: {instrument}")
+        return instrument_mapping[instrument]
 
     def get_data(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
@@ -68,7 +70,27 @@ class UDAUtils(BaseIO):
         revision
             "LATEST" gives most recent version of the data
         """
+        
+        # Adjust the quantity address if we're being asked for an error signal
+        if quantity[-4:] == "_err":
+            quantity = self._get_error_path(
+                uid=uid,
+                instrument=instrument,
+                quantity=quantity,
+                revision=revision,
+            )
 
+        # If error signal doesn't exist return empty tuple
+        if quantity is None:
+            uda_client_args = self.get_uda_client_args(
+                uid, 
+                instrument, 
+                revision,
+                quantity=quantity,
+            )
+            return None, None, None, None
+
+        # Retrieve the data
         signal, source_id = self._get_signal(
             uid=uid,
             instrument=instrument,
@@ -79,6 +101,40 @@ class UDAUtils(BaseIO):
         units = self._get_signal_units(signal=signal)
         return signal.data, dims, units, source_id
 
+    def _get_error_path(
+            self, 
+            uid: str, 
+            instrument: str, 
+            quantity: str, 
+            revision: RevisionLike,
+    ) -> Optional[str]:
+        """ Deduce the signal name of the linked errors
+        """   
+
+        # Check to make sure that the "_err" tag has been removed
+        if quantity[-4:] == "_err":
+            quantity = quantity[:-4]
+     
+        # Construct name of error signal
+        path_stem = "/".join(quantity.split("/")[:-1])
+        path_leaf = quantity.split("/")[-1]
+        group, group_id = self._get_signal(
+            uid=uid,
+            instrument=instrument,
+            quantity=path_stem,
+            revision=revision,
+        )
+        try:
+            error_leaf = group[path_leaf].errors
+        except AttributeError: # Error signal does not exist
+            return
+            
+        if path_stem != "":
+            error_path = "/".join([path_stem, error_leaf])
+        else:
+            error_path = error_leaf
+        return error_path
+        
     def _get_signal(
             self, 
             uid: str, 
@@ -100,15 +156,10 @@ class UDAUtils(BaseIO):
             quantity=quantity,
         )
         cache_path = self._uda_args_to_file(signal_name, source)
-        signal = None
-        signal = self._client.get(signal_name, source) #  REMOVE LINE FOR CACHING
-
-        # UNCOMMENT THE FOLLOWING FOR CACHING:
-
-        #signal = self._read_cached_uda_file(cache_path)
-        #if signal is None:
-        #    signal = self._client.get(signal_name, source)
-        #    self._write_cached_uda_file(cache_path, signal)
+        signal = self._read_cached_uda_file(cache_path)
+        if signal is None:
+            signal = self._client.get(signal_name, source)
+            self._write_cached_uda_file(cache_path, signal)
 
         return signal, source_id
 
@@ -116,7 +167,7 @@ class UDAUtils(BaseIO):
         self,
         uid: str,
         instrument: str,
-        revision: int,
+        revision: RevisionLike,
         quantity: Optional[str] = None,
     ) -> Tuple[str, str, str]:
         """Construct the signal name and source for pyuda client
@@ -124,9 +175,12 @@ class UDAUtils(BaseIO):
         TODO: Add functionality for reading from uda-scratch
         """
 
+        revision = self.get_revision(uid, instrument, revision)[0]
+        
         signal_name = self._mastu_names(instrument=instrument)
         if quantity is not None:
-            signal_name += f"/{quantity}"
+            if quantity != "":
+                signal_name += f"/{quantity}"
         if uid == "UDADefault":
             source = f"{self._pulse:d}/{revision:d}"
         else:
@@ -144,7 +198,6 @@ class UDAUtils(BaseIO):
     ) -> Tuple[int, bool]:
         """ If revision is "LATEST" replace with equivalent pass number
         """
-
         latest_pass = self._client.latest_source_pass(
             self._mastu_names(instrument=instrument),
             self._pulse
@@ -167,18 +220,20 @@ class UDAUtils(BaseIO):
 
         """
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("wb") as f:
-            pickle.dump(data, f)
-        path.chmod(0o644)
+        try:
+            with path.open("wb") as f:
+                pickle.dump(data, f)
+            path.chmod(0o644)
+        except TypeError: # Note - signal groups can't be pickled
+            path.unlink()
+            pass
 
     def _uda_args_to_file(self, signal_name: str, source: str) -> Path:
         """Get the file path which would be used to cache data from the given
         `sal_path`.
 
-        """
-        
-        id_list = [self._reader_cache_id, signal_name, source]
-        
+        """        
+        id_list = [self._reader_cache_id, signal_name, source]        
         return (
             Path.home()
             / CACHE_DIR
@@ -211,10 +266,3 @@ class UDAUtils(BaseIO):
                     UDAWarning,
                 )
                 return None
-
-
-
-
-
-
-    
