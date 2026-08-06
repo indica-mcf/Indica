@@ -1,5 +1,5 @@
 from .readers import JETConf
-from .readers import ST40Conf
 from .readers import MASTUConf
+from .readers import ST40Conf
 
 MACHINE_CONFS = {"st40": ST40Conf, "jet": JETConf, "mastu": MASTUConf}

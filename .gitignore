@@ -5,6 +5,7 @@ doc/_build
 venv*/
 .hypothesis/
 .coverage
+.envrc
 indica.egg-info/
 dist/
 htmlcov/
