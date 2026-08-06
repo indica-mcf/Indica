@@ -1,9 +1,14 @@
-"""Base class for IO objects.
-"""
+"""Base class for IO objects."""
 
 from abc import ABC
 from abc import abstractmethod
+from typing import List
 from typing import Literal
+from typing import Tuple
+
+import numpy as np
+
+from indica.numpy_typing import RevisionLike
 
 
 class BaseIO(ABC):
@@ -53,9 +58,9 @@ class BaseIO(ABC):
             True if authentication is needed, otherwise false.
         """
         raise NotImplementedError(
-            "{} does not implement a "
-            "'requires_authentication' "
-            "property.".format(self.__class__.__name__)
+            "{} does not implement a 'requires_authentication' property.".format(
+                self.__class__.__name__
+            )
         )
 
     @abstractmethod
@@ -64,4 +69,39 @@ class BaseIO(ABC):
         etc.) to which data is being written."""
         raise NotImplementedError(
             "{} does not implement a 'close' method.".format(self.__class__.__name__)
+        )
+
+    @abstractmethod
+    def get_data(
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
+    ) -> Tuple[np.array, List[np.array], str, str]:
+        """Fetch a quantity, it's coordinates, and it's units from a database."""
+        raise NotImplementedError(
+            "{} does not implement a 'get_data' method.".format(self.__class__.__name__)
+        )
+
+    @abstractmethod
+    def get_error(
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
+    ) -> Tuple[np.array, List[np.array], str, str]:
+        """Fetch the errors associated with a quantity from a database."""
+        raise NotImplementedError(
+            "{} does not implement a 'get_error' method.".format(
+                self.__class__.__name__
+            )
+        )
+
+    @abstractmethod
+    def get_revision(
+        self, uid: str, instrument: str, revision: RevisionLike
+    ) -> tuple[RevisionLike, bool]:
+        """Get actual revision that's being read from database, converts relative
+        revision (e.g. 0, latest) to absolute, and return if latest/best revision
+        according to source.
+
+        """
+        raise NotImplementedError(
+            "{} does not implement a 'get_revision' method.".format(
+                self.__class__.__name__
+            )
         )
