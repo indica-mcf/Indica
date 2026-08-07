@@ -66,8 +66,6 @@ class AbstractDiagnostic(ABC):
         """
         if noise_config is None:
             noise_config = {}
-        if not isinstance(noise_config, dict):
-            raise TypeError("noise_config must be a dictionary.")
 
         noise_operator = get_noise_model(noise_model)
         config = dict(noise_config)

@@ -37,7 +37,7 @@ def run_example_diagnostic_model(
 
     bckc = model(
         sum_beamlets=False,
-        noise="poisson",
+        noise_model="poisson",
         noise_config={"typical_counts": 200, "target_quantity": "ne"},
     )
 
