@@ -20,6 +20,6 @@ indica/git_version
 .ropeproject/
 *.pt
 *.csv
-# Jussiphd workflow generated artifacts
-indica/workflows/jussiphd/components/**/flow_data/**/*.csv
-indica/workflows/jussiphd/components/**/flow_data/**/*.pt
+
+# Always track all jussiphd workflow files and outputs.
+!indica/workflows/jussiphd/**
