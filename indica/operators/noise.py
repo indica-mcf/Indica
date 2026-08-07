@@ -78,6 +78,8 @@ def add_poisson_noise(
 
     #Here, typical mcounts is not the noise amplitude! It sets a counting scale.
     #Basically, I get the signal scale from the previous step to be the mean of the positive signal.
+    #Then I pretend that an average signal corresponds to typical_counts counts, and scale the signal to that level.
+
     #The lambda is then determined with the scale and the counts.
     #For instance, with counts=1000 and signal=signal_scale,
     # the poisson parameter becomes 1000, signal 2x large 2000, half gets 500.
