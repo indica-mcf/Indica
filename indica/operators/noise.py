@@ -67,12 +67,30 @@ def add_poisson_noise(
         if not np.isfinite(background):
             raise ValueError("background must be finite.")
 
+
+
     signal_scale = float(signal.where(positive_mask).mean(skipna=True).item())
     if not np.isfinite(signal_scale) or signal_scale <= 0:
         unchanged = data.copy()
         unchanged = unchanged.assign_attrs(data.attrs)
         unchanged.name = data.name
         return unchanged
+
+    #Here, typical mcounts is not the noise amplitude! It sets a counting scale.
+    #Basically, I get the signal scale from the previous step to be the mean of the positive signal.
+    #The lambda is then determined with the scale and the counts.
+    #For instance, with counts=1000 and signal=signal_scale,
+    # the poisson parameter becomes 1000, signal 2x large 2000, half gets 500.
+    #Typical counts: how many poisson counts correspond to a typical signal?
+
+    #Then we sample from the poisson distribution with that lambda, and scale it back to the signal space.
+
+    #A poisson distribution has exmectation of lambda and std of sqrt lambda.
+    #So with typical counts=1000, a mean signal becomes N=Poisson(lambda=1000)-> N=1000+- sqrt(1000)=1000+-31.6 counts, which is 3.16% noise.
+    #So the noise level is roughly 1/sqrt(typical_counts) at the mean signal level.
+
+    #Disagreement with Marco: I am saying I first apply noise to the actual signal, then add background.
+    # He seems to think that the background should also be part of the noise process, as it is physically relevant.
 
     lam = xr.where(positive_mask, typical_counts * signal / signal_scale, 0.0)
     noisy_counts = xr.apply_ufunc(poisson_sampler, lam, keep_attrs=True)
