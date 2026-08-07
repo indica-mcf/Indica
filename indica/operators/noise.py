@@ -6,6 +6,7 @@ import xarray as xr
 from xarray import DataArray
 
 PoissonSampler: TypeAlias = Callable[[DataArray], DataArray | np.ndarray]
+NormalSampler: TypeAlias = Callable[[DataArray], DataArray | np.ndarray]
 
 
 def add_poisson_noise(
@@ -88,7 +89,67 @@ def add_poisson_noise(
     return noisy
 
 
+def add_channelwise_sqrt_noise(
+    data: DataArray,
+    noise_scale: float = 1.0,
+    rng: np.random.Generator | NormalSampler | None = None,
+) -> DataArray:
+    """
+    Add channel-wise Gaussian noise with magnitude proportional to sqrt(signal).
+
+    For positive values, this applies:
+      noisy = data + N(0, noise_scale * sqrt(data))
+    Non-positive values are left unchanged.
+
+    Parameters
+    ----------
+    data : xarray.DataArray
+        Clean signal to perturb.
+    noise_scale : float, default 1.0
+        Multiplicative factor for the noise standard deviation.
+    rng : np.random.Generator or callable, optional
+        Random source used to draw Gaussian samples. If a callable is provided,
+        it must accept a DataArray of per-element standard deviations and return
+        sampled noise values with a broadcast-compatible shape.
+    """
+    if not isinstance(data, DataArray):
+        raise TypeError(
+            "add_channelwise_sqrt_noise requires xarray.DataArray input. "
+            f"Got {type(data)!r}."
+        )
+
+    if noise_scale < 0:
+        raise ValueError("noise_scale must be non-negative.")
+
+    if isinstance(rng, np.random.Generator):
+        normal_sampler: NormalSampler = lambda sigma: rng.normal(loc=0.0, scale=sigma)
+    elif callable(rng):
+        normal_sampler = rng
+    elif rng is None:
+        _rng = np.random.default_rng()
+        normal_sampler = lambda sigma: _rng.normal(loc=0.0, scale=sigma)
+    else:
+        raise TypeError("rng must be a numpy Generator, callable, or None.")
+
+    positive_mask = (data > 0).fillna(False)
+    if not bool(positive_mask.any().item()):
+        unchanged = data.copy()
+        unchanged = unchanged.assign_attrs(data.attrs)
+        unchanged.name = data.name
+        return unchanged
+
+    safe_positive = xr.where(positive_mask, data, 0.0)
+    sigma = noise_scale * np.sqrt(safe_positive)
+    noise = xr.apply_ufunc(normal_sampler, sigma, keep_attrs=True)
+    noisy = xr.where(positive_mask, data + noise, data)
+
+    noisy = noisy.assign_attrs(data.attrs)
+    noisy.name = data.name
+    return noisy
+
+
 NOISE_MODELS: dict[str, Callable[..., DataArray]] = {
+    "channelwise_sqrt": add_channelwise_sqrt_noise,
     "poisson": add_poisson_noise,
 }
 
