@@ -314,7 +314,7 @@ def bolometry_inversion_vae_scaling_study(
     b_poisson_count_level: float = 200.0,
     b_poisson_scale_percentile: float = 99.0,
     b_poisson_seed: int = 1,
-    apply_eps_poisson_noise: bool = True,
+    apply_eps_poisson_noise: bool = False,
     eps_poisson_count_level: float = 200.0,
     eps_poisson_scale_percentile: float = 99.0,
     eps_poisson_seed: int = 0,

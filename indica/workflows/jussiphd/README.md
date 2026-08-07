@@ -70,6 +70,7 @@ All entrypoints live at `experiments/<name>/flow.py`.
 - `multipulse_synthetic_expanded_equilibria_constant_imp`: expanded-equilibria generation with fixed impurities (default C=5%, Ar=1%).
 - `multipulse_synthetic_expanded_equilibria_constant_imp_compare`: VAE vs naive contextual inversion benchmark.
 - `multipulse_synthetic_expanded_equilibria_constant_imp_noise_b_compare`: same contextual benchmark with noisy test brightness.
+- `multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_compare`: contextual benchmark with noise applied to the full `b` dataset.
 - `multipulse_synthetic_noisy_test_b`: clean-train / noisy-test robustness flow.
 
 ### Analysis and benchmarking
