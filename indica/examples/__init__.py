@@ -1,3 +1,13 @@
+from .example_diagnostic_models import example_bolometer
+from .example_diagnostic_models import example_charge_exchange
+from .example_diagnostic_models import example_diode_filter
+from .example_diagnostic_models import example_equilibrium
+from .example_diagnostic_models import example_helike_spectroscopy
+from .example_diagnostic_models import example_interferometer
+from .example_diagnostic_models import example_lyman_alpha_2d
+from .example_diagnostic_models import example_passive_spectroscopy
+from .example_diagnostic_models import example_pinhole_camera_2d
+from .example_diagnostic_models import example_thomson_scattering
 from .example_equilibrium import flux_coords
 from .example_operators import adas_fractional_abundance
 from .example_operators import aurora_run
@@ -14,17 +24,6 @@ from .example_transforms import helike_transform
 from .example_transforms import interferometer_transform
 from .example_transforms import line_of_sight
 from .example_transforms import ts_transform
-from .example_diagnostic_models import run_example_diagnostic_model
-from .example_diagnostic_models import example_thomson_scattering
-from .example_diagnostic_models import example_bolometer
-from .example_diagnostic_models import example_charge_exchange
-from .example_diagnostic_models import example_helike_spectroscopy
-from .example_diagnostic_models import example_passive_spectroscopy
-from .example_diagnostic_models import example_interferometer
-from .example_diagnostic_models import example_equilibrium
-from .example_diagnostic_models import example_diode_filter
-from .example_diagnostic_models import example_pinhole_camera_2d
-from .example_diagnostic_models import example_lyman_alpha_2d
 
 __all__ = [
     "plasma",
@@ -53,5 +52,4 @@ __all__ = [
     "example_diode_filter",
     "example_pinhole_camera_2d",
     "example_lyman_alpha_2d",
-
 ]
