@@ -83,6 +83,7 @@ All entrypoints live at `experiments/<name>/flow.py`.
 - `testset_brightness_noise`: detailed clean-train vs noisy-test diagnostics.
 - `eps_profile_clustering`: unsupervised profile clustering (`eps` and `b`).
 - `te_ne_profile_comparison`: Te/Ne profile sampling comparison.
+- `real_tene_clustering`: read real TS `TE/NE` profiles (plasma-gated) and plot middle-time overlays.
 
 ## Useful paths
 

@@ -10,6 +10,7 @@ from typing import Sequence
 import numpy as np
 
 from indica.workflows.jussiphd.components.data.read_st40 import (
+    pulse_has_st40_plasma,
     read_st40_instrument_data,
     read_st40_node,
 )
@@ -108,6 +109,7 @@ def generate_and_save_real_multipulse_brightness_dataset(
     min_finite_fraction: float = 0.95,
     min_nonzero_fraction: float = 0.01,
     nonzero_threshold: float = 0.0,
+    require_plasma_summary: bool = False,
 ) -> dict[str, Any]:
     """Build and save brightness-only dataset from ST40 RZ1 channel data over pulses."""
     pulse_list = [int(p) for p in pulses]
@@ -139,6 +141,7 @@ def generate_and_save_real_multipulse_brightness_dataset(
             "num_meta_rows": int(num_meta_rows) if num_meta_rows is not None else None,
             "num_pulses_input": int(len(pulse_list)),
             "num_pulses_skipped": None,
+            "num_no_plasma_skipped": None,
             "skipped": None,
             "num_slices_filtered": None,
             "generated_new_data": False,
@@ -149,8 +152,20 @@ def generate_and_save_real_multipulse_brightness_dataset(
     sample_meta: list[tuple[int, float]] = []
     skipped: list[tuple[int, str]] = []
     num_slices_filtered = 0
+    num_no_plasma_skipped = 0
 
     for pulse in pulse_list:
+        if require_plasma_summary and not pulse_has_st40_plasma(
+            pulse=pulse,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            verbose=verbose,
+        ):
+            skipped.append((int(pulse), "No plasma according to \\ST40::TOP.SUMMARY:PLASMA"))
+            num_no_plasma_skipped += 1
+            continue
+
         try:
             if node is not None:
                 signal = read_st40_node(
@@ -257,6 +272,7 @@ def generate_and_save_real_multipulse_brightness_dataset(
         "num_pulses_skipped": int(len(skipped)),
         "skipped": skipped,
         "num_slices_filtered": int(num_slices_filtered),
+        "num_no_plasma_skipped": int(num_no_plasma_skipped),
         "generated_new_data": True,
         "source_signal": node if node is not None else f"instrument={instrument}:brightness",
     }

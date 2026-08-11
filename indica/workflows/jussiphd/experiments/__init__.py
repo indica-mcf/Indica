@@ -35,6 +35,7 @@ from .multipulse_synthetic_expanded_equilibria_constant_imp_noise_b_compare impo
 from .multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_compare import (
     multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual_comparison,
 )
+from .real_tene_clustering import real_tene_clustering
 
 __all__ = [
     "bolometry_inversion_multipulse_synthetic",
@@ -54,4 +55,5 @@ __all__ = [
     "multipulse_synthetic_expanded_equilibria_constant_imp_contextual_comparison",
     "multipulse_synthetic_expanded_equilibria_constant_imp_noise_b_contextual_comparison",
     "multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual_comparison",
+    "real_tene_clustering",
 ]
