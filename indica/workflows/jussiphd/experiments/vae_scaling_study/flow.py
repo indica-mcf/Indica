@@ -319,7 +319,7 @@ def bolometry_inversion_vae_scaling_study(
     eps_poisson_scale_percentile: float = 99.0,
     eps_poisson_seed: int = 0,
     hidden_scalings: Sequence[int] = (1, 2, 3, 4),
-    train_generations_grid: Sequence[int] = (50, 200, 700, 2500, 10000, 22000 ),
+    train_generations_grid: Sequence[int] = (50, 200, 700, 2500, 10000, 25000 ),
 
     n_repeats: int = 5,
     eval_generations: int = 100,
