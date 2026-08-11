@@ -32,7 +32,7 @@
     "fixed_end_param": "y1",
     "n_anchors": 6
   },
-  "n_input": 26,
-  "n_fit_kept": 26,
+  "n_input": 71,
+  "n_fit_kept": 71,
   "n_fit_dropped": 0
 }

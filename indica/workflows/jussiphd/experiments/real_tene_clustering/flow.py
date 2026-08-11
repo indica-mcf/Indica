@@ -277,18 +277,6 @@ def align_and_plot_te_ne_profiles_task(
     ax_te.set_ylabel("TE")
     ax_te.grid(alpha=0.25)
 
-    handles, labels = ax_ne.get_legend_handles_labels()
-    if labels:
-        keep = min(12, len(labels))
-        fig.legend(
-            handles[:keep],
-            labels[:keep],
-            title="Pulse",
-            loc="upper center",
-            bbox_to_anchor=(0.5, 1.05),
-            ncol=max(1, min(6, keep)),
-            fontsize=8,
-        )
     fig.tight_layout()
     fig.savefig(plot_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
@@ -648,7 +636,7 @@ def real_tene_clustering(
 
 
 if __name__ == "__main__":
-    result = real_tene_clustering(pulses=list(range(14500,14700)))
+    result = real_tene_clustering(pulses=(list(range(14500,14700)) + list(range(11300,11500))))
     print("Real Te/Ne clustering read pass complete")
     print(f"Matched pulses: {result['outputs']['num_matched']}/{result['n_requested']}")
     print(f"Outputs: {result['outputs']}")
