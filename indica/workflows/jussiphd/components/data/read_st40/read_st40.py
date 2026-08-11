@@ -128,3 +128,29 @@ def read_st40_emission_signal(
         f"Expected 'emission' (or fallback 'brightness') in ST40Reader output for "
         f"instrument '{instrument}', available keys: {available}"
     )
+
+
+def read_st40_ppts_signal(
+    signal_key: str,
+    pulse: int = 13622,
+    tstart: float = 0.04,
+    tend: float = 0.15,
+    dt: float = 0.01,
+    revision: int = 0,
+    verbose: bool = False,
+) -> Any:
+    """Read one signal from the ST40 `ppts` payload (e.g. `ne_rhop`, `te_rhop`)."""
+    reader = ST40Reader(
+        pulse,
+        tstart - dt,
+        tend + dt,
+        dt=dt,
+        verbose=verbose,
+    )
+    ppts = reader.get("", "ppts", revision)
+    if signal_key not in ppts:
+        available = ", ".join(sorted(ppts.keys()))
+        raise KeyError(
+            f"Signal '{signal_key}' not found in ppts payload, available keys: {available}"
+        )
+    return ppts[signal_key]

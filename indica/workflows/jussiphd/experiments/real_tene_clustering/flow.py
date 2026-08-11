@@ -97,7 +97,8 @@ def _align_by_pulse(
 @task(name="build_real_node_profile_dataset")
 def build_real_node_profile_dataset_task(
     pulses: list[int],
-    node: str,
+    node: str | None,
+    ppts_profile_key: str | None,
     output_dir: str,
     profile_filename: str,
     meta_filename: str,
@@ -106,6 +107,9 @@ def build_real_node_profile_dataset_task(
     dt: float,
     read_verbose: bool,
     min_finite_fraction: float,
+    min_nonzero_fraction: float,
+    canonicalize_profile_coordinate: bool,
+    canonicalize_profile_coordinate_mode: str,
 ) -> dict[str, Any]:
     return generate_and_save_real_multipulse_brightness_dataset(
         pulses=pulses,
@@ -118,13 +122,16 @@ def build_real_node_profile_dataset_task(
         meta_filename=meta_filename,
         use_all_timepoints=False,
         node=node,
+        ppts_profile_key=ppts_profile_key,
         generate_new_data=True,
         verbose=read_verbose,
         apply_basic_quality_filter=True,
         min_finite_fraction=min_finite_fraction,
-        min_nonzero_fraction=0.0,
+        min_nonzero_fraction=min_nonzero_fraction,
         nonzero_threshold=0.0,
         require_plasma_summary=True,
+        canonicalize_profile_coordinate=canonicalize_profile_coordinate,
+        canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
     )
 
 
@@ -311,6 +318,10 @@ def fit_te_ne_to_spline_anchor_space_task(
     te_anchor_filename: str,
     fit_summary_filename: str,
     fit_spec_filename: str,
+    ne_anchor_plot_filename: str,
+    te_anchor_plot_filename: str,
+    ne_middle_knot_plot_filename: str,
+    te_middle_knot_plot_filename: str,
 ) -> dict[str, Any]:
     ne = _load_csv_matrix(ne_aligned_path)
     te = _load_csv_matrix(te_aligned_path)
@@ -367,6 +378,10 @@ def fit_te_ne_to_spline_anchor_space_task(
     te_anchor_path = out / te_anchor_filename
     fit_summary_path = out / fit_summary_filename
     fit_spec_path = out / fit_spec_filename
+    ne_anchor_plot_path = out / ne_anchor_plot_filename
+    te_anchor_plot_path = out / te_anchor_plot_filename
+    ne_middle_knot_plot_path = out / ne_middle_knot_plot_filename
+    te_middle_knot_plot_path = out / te_middle_knot_plot_filename
 
     np.savetxt(ne_anchor_path, ne_anchors, delimiter=",")
     np.savetxt(te_anchor_path, te_anchors, delimiter=",")
@@ -403,11 +418,93 @@ def fit_te_ne_to_spline_anchor_space_task(
     }
     fit_spec_path.write_text(json.dumps(fit_spec, indent=2))
 
+    # Visualise anchor vectors in spline domain (xknots vs anchor values).
+    ne_x = np.asarray(ne_spec["xknots"], dtype=np.float64).reshape(-1)
+    te_x = np.asarray(te_spec["xknots"], dtype=np.float64).reshape(-1)
+
+    fig_ne, ax_ne = plt.subplots(figsize=(8.5, 5.0))
+    for row in ne_anchors:
+        ax_ne.plot(ne_x, np.asarray(row, dtype=np.float64), color="#1f77b4", alpha=0.20, linewidth=1.1)
+    ax_ne.plot(ne_x, np.nanmean(ne_anchors, axis=0), color="black", linewidth=2.4, label="mean anchors")
+    ax_ne.set_title("NE spline anchors (fitted, middle-time real profiles)")
+    ax_ne.set_xlabel("knot coordinate (xknots)")
+    ax_ne.set_ylabel("anchor value")
+    ax_ne.grid(alpha=0.25)
+    ax_ne.legend()
+    fig_ne.tight_layout()
+    fig_ne.savefig(ne_anchor_plot_path, dpi=180, bbox_inches="tight")
+    plt.close(fig_ne)
+
+    fig_te, ax_te = plt.subplots(figsize=(8.5, 5.0))
+    for row in te_anchors:
+        ax_te.plot(te_x, np.asarray(row, dtype=np.float64), color="#d62728", alpha=0.20, linewidth=1.1)
+    ax_te.plot(te_x, np.nanmean(te_anchors, axis=0), color="black", linewidth=2.4, label="mean anchors")
+    ax_te.set_title("TE spline anchors (fitted, middle-time real profiles)")
+    ax_te.set_xlabel("knot coordinate (xknots)")
+    ax_te.set_ylabel("anchor value")
+    ax_te.grid(alpha=0.25)
+    ax_te.legend()
+    fig_te.tight_layout()
+    fig_te.savefig(te_anchor_plot_path, dpi=180, bbox_inches="tight")
+    plt.close(fig_te)
+
+    # Also show original middle profiles in the spline-knot domain.
+    x_full_ne = np.linspace(0.0, 1.0, ne.shape[1], dtype=np.float64)
+    x_full_te = np.linspace(0.0, 1.0, te.shape[1], dtype=np.float64)
+    ne_middle_on_knots = np.vstack(
+        [np.interp(ne_x, x_full_ne, np.asarray(row, dtype=np.float64)) for row in ne[keep_mask]]
+    ).astype(np.float32)
+    te_middle_on_knots = np.vstack(
+        [np.interp(te_x, x_full_te, np.asarray(row, dtype=np.float64)) for row in te[keep_mask]]
+    ).astype(np.float32)
+
+    fig_ne_m, ax_ne_m = plt.subplots(figsize=(8.5, 5.0))
+    for row in ne_middle_on_knots:
+        ax_ne_m.plot(ne_x, np.asarray(row, dtype=np.float64), color="#1f77b4", alpha=0.20, linewidth=1.1)
+    ax_ne_m.plot(
+        ne_x,
+        np.nanmean(ne_middle_on_knots, axis=0),
+        color="black",
+        linewidth=2.4,
+        label="mean middle profile",
+    )
+    ax_ne_m.set_title("NE middle profiles projected to spline-knot domain")
+    ax_ne_m.set_xlabel("knot coordinate (xknots)")
+    ax_ne_m.set_ylabel("profile value")
+    ax_ne_m.grid(alpha=0.25)
+    ax_ne_m.legend()
+    fig_ne_m.tight_layout()
+    fig_ne_m.savefig(ne_middle_knot_plot_path, dpi=180, bbox_inches="tight")
+    plt.close(fig_ne_m)
+
+    fig_te_m, ax_te_m = plt.subplots(figsize=(8.5, 5.0))
+    for row in te_middle_on_knots:
+        ax_te_m.plot(te_x, np.asarray(row, dtype=np.float64), color="#d62728", alpha=0.20, linewidth=1.1)
+    ax_te_m.plot(
+        te_x,
+        np.nanmean(te_middle_on_knots, axis=0),
+        color="black",
+        linewidth=2.4,
+        label="mean middle profile",
+    )
+    ax_te_m.set_title("TE middle profiles projected to spline-knot domain")
+    ax_te_m.set_xlabel("knot coordinate (xknots)")
+    ax_te_m.set_ylabel("profile value")
+    ax_te_m.grid(alpha=0.25)
+    ax_te_m.legend()
+    fig_te_m.tight_layout()
+    fig_te_m.savefig(te_middle_knot_plot_path, dpi=180, bbox_inches="tight")
+    plt.close(fig_te_m)
+
     return {
         "ne_anchor_path": str(ne_anchor_path),
         "te_anchor_path": str(te_anchor_path),
         "fit_summary_path": str(fit_summary_path),
         "fit_spec_path": str(fit_spec_path),
+        "ne_anchor_plot_path": str(ne_anchor_plot_path),
+        "te_anchor_plot_path": str(te_anchor_plot_path),
+        "ne_middle_knot_plot_path": str(ne_middle_knot_plot_path),
+        "te_middle_knot_plot_path": str(te_middle_knot_plot_path),
         "n_fit_kept": int(len(pulses_kept)),
         "n_fit_dropped": int(ne.shape[0] - len(pulses_kept)),
     }
@@ -420,8 +517,10 @@ def real_tene_clustering(
     tend: float = DEFAULT_TEND,
     dt: float = 0.01,
     read_verbose: bool = False,
-    ne_node: str = TS_NE_NODE,
-    te_node: str = TS_TE_NODE,
+    ne_node: str | None = None,
+    te_node: str | None = None,
+    ne_ppts_profile_key: str = "ne_rhop",
+    te_ppts_profile_key: str = "te_rhop",
     output_dir: str = DEFAULT_OUTPUT_DIR,
     ne_filename: str = "ne_middle_profiles_real_raw.csv",
     te_filename: str = "te_middle_profiles_real_raw.csv",
@@ -433,11 +532,14 @@ def real_tene_clustering(
     matched_meta_filename: str = "te_ne_matched_meta.csv",
     outlier_report_filename: str = "te_ne_outlier_report.csv",
     min_finite_fraction: float = 0.90,
+    min_nonzero_fraction: float = 0.01,
     apply_outlier_filter: bool = True,
     outlier_point_z_threshold: float = 8.0,
     outlier_extreme_point_z_threshold: float = 15.0,
     outlier_min_bad_points: int = 2,
     outlier_bad_fraction_threshold: float = 0.08,
+    canonicalize_profile_coordinate: bool = False,
+    canonicalize_profile_coordinate_mode: str = "auto",
     spline_config_name: str = "baseline_spline_tene",
     spline_ne_profile_name: str = "electron_density",
     spline_te_profile_name: str = "electron_temperature",
@@ -445,6 +547,10 @@ def real_tene_clustering(
     te_anchor_filename: str = "te_spline_anchor_vectors.csv",
     spline_fit_summary_filename: str = "te_ne_spline_fit_summary.csv",
     spline_fit_spec_filename: str = "te_ne_spline_fit_spec.json",
+    ne_anchor_plot_filename: str = "ne_spline_anchor_space_overlay.png",
+    te_anchor_plot_filename: str = "te_spline_anchor_space_overlay.png",
+    ne_middle_knot_plot_filename: str = "ne_middle_profiles_spline_knot_domain_overlay.png",
+    te_middle_knot_plot_filename: str = "te_middle_profiles_spline_knot_domain_overlay.png",
 ) -> dict[str, Any]:
     """Read real TS Te/Ne profiles, plasma-gated, and plot middle-time overlays."""
     if tstart < DEFAULT_TSTART or tend > DEFAULT_TEND:
@@ -456,6 +562,10 @@ def real_tene_clustering(
         raise ValueError(
             f"Invalid time window: tstart={tstart} must be smaller than tend={tend}."
         )
+    if ne_ppts_profile_key is None and ne_node is None:
+        raise ValueError("For NE, provide either `ne_ppts_profile_key` or `ne_node`.")
+    if te_ppts_profile_key is None and te_node is None:
+        raise ValueError("For TE, provide either `te_ppts_profile_key` or `te_node`.")
 
     pulse_list = [int(p) for p in (pulses or [])]
     if not pulse_list:
@@ -463,7 +573,8 @@ def real_tene_clustering(
 
     ne_dataset = build_real_node_profile_dataset_task(
         pulses=pulse_list,
-        node=ne_node,
+        node=ne_node if ne_ppts_profile_key is None else None,
+        ppts_profile_key=ne_ppts_profile_key,
         output_dir=output_dir,
         profile_filename=ne_filename,
         meta_filename=ne_meta_filename,
@@ -472,10 +583,14 @@ def real_tene_clustering(
         dt=dt,
         read_verbose=read_verbose,
         min_finite_fraction=min_finite_fraction,
+        min_nonzero_fraction=min_nonzero_fraction,
+        canonicalize_profile_coordinate=canonicalize_profile_coordinate,
+        canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
     )
     te_dataset = build_real_node_profile_dataset_task(
         pulses=pulse_list,
-        node=te_node,
+        node=te_node if te_ppts_profile_key is None else None,
+        ppts_profile_key=te_ppts_profile_key,
         output_dir=output_dir,
         profile_filename=te_filename,
         meta_filename=te_meta_filename,
@@ -484,6 +599,9 @@ def real_tene_clustering(
         dt=dt,
         read_verbose=read_verbose,
         min_finite_fraction=min_finite_fraction,
+        min_nonzero_fraction=min_nonzero_fraction,
+        canonicalize_profile_coordinate=canonicalize_profile_coordinate,
+        canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
     )
 
     outputs = align_and_plot_te_ne_profiles_task(
@@ -513,6 +631,10 @@ def real_tene_clustering(
         te_anchor_filename=te_anchor_filename,
         fit_summary_filename=spline_fit_summary_filename,
         fit_spec_filename=spline_fit_spec_filename,
+        ne_anchor_plot_filename=ne_anchor_plot_filename,
+        te_anchor_plot_filename=te_anchor_plot_filename,
+        ne_middle_knot_plot_filename=ne_middle_knot_plot_filename,
+        te_middle_knot_plot_filename=te_middle_knot_plot_filename,
     )
     outputs["spline_fit"] = spline_fit
 
@@ -526,7 +648,7 @@ def real_tene_clustering(
 
 
 if __name__ == "__main__":
-    result = real_tene_clustering(pulses=list(range(14500,14600)))
+    result = real_tene_clustering(pulses=list(range(14500,14700)))
     print("Real Te/Ne clustering read pass complete")
     print(f"Matched pulses: {result['outputs']['num_matched']}/{result['n_requested']}")
     print(f"Outputs: {result['outputs']}")

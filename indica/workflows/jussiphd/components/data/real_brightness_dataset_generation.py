@@ -13,6 +13,7 @@ from indica.workflows.jussiphd.components.data.read_st40 import (
     pulse_has_st40_plasma,
     read_st40_instrument_data,
     read_st40_node,
+    read_st40_ppts_signal,
 )
 
 
@@ -21,8 +22,97 @@ def _to_brightness_rows(
     use_all_timepoints: bool,
     tstart: float,
     tend: float,
+    canonicalize_profile_coordinate: bool = False,
+    canonicalize_profile_coordinate_mode: str = "auto",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert reader output into 2D [n_t, n_channel] brightness rows and t-values."""
+    def _canonicalize_rows(
+        rows_in: np.ndarray,
+        coord_in: np.ndarray,
+        mode: str,
+    ) -> np.ndarray:
+        """Map profile-like coordinates to a consistent core->edge [0, 1] axis."""
+        rows_in = np.asarray(rows_in, dtype=np.float32)
+        coord = np.asarray(coord_in, dtype=np.float64).reshape(-1)
+        if rows_in.ndim != 2 or coord.size != rows_in.shape[1]:
+            return rows_in
+
+        finite_coord = np.isfinite(coord)
+        if int(finite_coord.sum()) < 2:
+            return rows_in
+
+        c = coord.copy()
+        mode_l = str(mode).strip().lower()
+        if mode_l not in {"auto", "signed_abs", "core_peak_fold"}:
+            raise ValueError(
+                "canonicalize_profile_coordinate_mode must be one of "
+                "{'auto','signed_abs','core_peak_fold'}"
+            )
+
+        has_neg = bool(np.nanmin(c[finite_coord]) < 0.0)
+        has_pos = bool(np.nanmax(c[finite_coord]) > 0.0)
+        do_signed_abs = mode_l == "signed_abs" or (mode_l == "auto" and has_neg and has_pos)
+        if do_signed_abs:
+            # Typical signed radial coordinate: fold to distance from core.
+            c = np.abs(c)
+        else:
+            # Positive-only coordinate (e.g. R-like): estimate core location from peak.
+            # Use robust mean profile across time rows and fold distance from peak coord.
+            prof_mean = np.nanmean(rows_in, axis=0)
+            valid_core = np.isfinite(prof_mean) & np.isfinite(c)
+            if int(valid_core.sum()) >= 2:
+                core_rel = int(np.nanargmax(prof_mean[valid_core]))
+                core_idx = np.flatnonzero(valid_core)[core_rel]
+                c_core = float(c[core_idx])
+                c = np.abs(c - c_core)
+            else:
+                # Last fallback: fold around midpoint of coordinate range.
+                c_mid = float(0.5 * (np.nanmin(c[finite_coord]) + np.nanmax(c[finite_coord])))
+                c = np.abs(c - c_mid)
+
+        c_valid = c[finite_coord]
+        cmin = float(np.nanmin(c_valid))
+        cmax = float(np.nanmax(c_valid))
+        if not np.isfinite(cmin) or not np.isfinite(cmax) or cmax <= cmin:
+            return rows_in
+
+        c_norm = (c - cmin) / (cmax - cmin)
+        # Target stays fixed-length to keep row shape stable across pulses.
+        x_target = np.linspace(0.0, 1.0, rows_in.shape[1], dtype=np.float64)
+        out = np.full_like(rows_in, np.nan, dtype=np.float32)
+
+        for i in range(rows_in.shape[0]):
+            y = np.asarray(rows_in[i], dtype=np.float64)
+            valid = np.isfinite(y) & np.isfinite(c_norm)
+            if int(valid.sum()) < 2:
+                continue
+
+            xv = c_norm[valid]
+            yv = y[valid]
+            order = np.argsort(xv)
+            xv = xv[order]
+            yv = yv[order]
+
+            # Collapse duplicate x (common after abs-folding) by averaging.
+            x_unique, inv = np.unique(xv, return_inverse=True)
+            y_unique = np.zeros_like(x_unique, dtype=np.float64)
+            cnt = np.zeros_like(x_unique, dtype=np.int32)
+            for j, g in enumerate(inv):
+                y_unique[g] += yv[j]
+                cnt[g] += 1
+            y_unique = y_unique / np.maximum(cnt, 1)
+
+            if x_unique.size < 2:
+                continue
+            out[i] = np.interp(
+                x_target,
+                x_unique,
+                y_unique,
+                left=np.nan,
+                right=np.nan,
+            ).astype(np.float32)
+        return out
+
     if hasattr(signal, "dims") and hasattr(signal, "values"):
         brightness = signal
         if "t" not in brightness.dims:
@@ -41,6 +131,13 @@ def _to_brightness_rows(
             brightness = brightness.isel(t=[int(brightness.sizes["t"] // 2)])
 
         rows = np.asarray(brightness.values, dtype=np.float32)
+        if canonicalize_profile_coordinate:
+            coord_values = np.asarray(brightness.coords["channel"].values, dtype=np.float64)
+            rows = _canonicalize_rows(
+                rows,
+                coord_values,
+                canonicalize_profile_coordinate_mode,
+            )
         t_values = np.asarray(brightness.t.values, dtype=np.float64)
     else:
         arr = np.asarray(signal, dtype=np.float32)
@@ -102,6 +199,7 @@ def generate_and_save_real_multipulse_brightness_dataset(
     meta_filename: str = "sample_meta_multipulse_real_rz1_channels.csv",
     use_all_timepoints: bool = True,
     node: str | None = None,
+    ppts_profile_key: str | None = None,
     revision: int = 0,
     generate_new_data: bool = True,
     verbose: bool = False,
@@ -110,6 +208,8 @@ def generate_and_save_real_multipulse_brightness_dataset(
     min_nonzero_fraction: float = 0.01,
     nonzero_threshold: float = 0.0,
     require_plasma_summary: bool = False,
+    canonicalize_profile_coordinate: bool = False,
+    canonicalize_profile_coordinate_mode: str = "auto",
 ) -> dict[str, Any]:
     """Build and save brightness-only dataset from ST40 RZ1 channel data over pulses."""
     pulse_list = [int(p) for p in pulses]
@@ -145,7 +245,11 @@ def generate_and_save_real_multipulse_brightness_dataset(
             "skipped": None,
             "num_slices_filtered": None,
             "generated_new_data": False,
-            "source_signal": node if node is not None else f"instrument={instrument}:brightness",
+            "source_signal": (
+                f"ppts:{ppts_profile_key}"
+                if ppts_profile_key is not None
+                else (node if node is not None else f"instrument={instrument}:brightness")
+            ),
         }
 
     b_slices: list[np.ndarray] = []
@@ -167,7 +271,19 @@ def generate_and_save_real_multipulse_brightness_dataset(
             continue
 
         try:
-            if node is not None:
+            if node is not None and ppts_profile_key is not None:
+                raise ValueError("Pass only one of `node` or `ppts_profile_key`.")
+            if ppts_profile_key is not None:
+                signal = read_st40_ppts_signal(
+                    signal_key=ppts_profile_key,
+                    pulse=pulse,
+                    tstart=tstart,
+                    tend=tend,
+                    dt=dt,
+                    revision=revision,
+                    verbose=verbose,
+                )
+            elif node is not None:
                 signal = read_st40_node(
                     node=node,
                     pulse=pulse,
@@ -200,6 +316,8 @@ def generate_and_save_real_multipulse_brightness_dataset(
                 use_all_timepoints=use_all_timepoints,
                 tstart=tstart,
                 tend=tend,
+                canonicalize_profile_coordinate=canonicalize_profile_coordinate,
+                canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
             )
             if b_arr.shape[1] == 0:
                 raise ValueError(f"Empty channel dimension for pulse {pulse}.")
@@ -274,5 +392,9 @@ def generate_and_save_real_multipulse_brightness_dataset(
         "num_slices_filtered": int(num_slices_filtered),
         "num_no_plasma_skipped": int(num_no_plasma_skipped),
         "generated_new_data": True,
-        "source_signal": node if node is not None else f"instrument={instrument}:brightness",
+        "source_signal": (
+            f"ppts:{ppts_profile_key}"
+            if ppts_profile_key is not None
+            else (node if node is not None else f"instrument={instrument}:brightness")
+        ),
     }
