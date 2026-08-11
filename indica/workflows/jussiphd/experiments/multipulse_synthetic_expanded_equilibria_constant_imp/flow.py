@@ -74,7 +74,7 @@ def build_multipulse_synthetic_expanded_equilibria_constant_imp_dataset(
     meta_filename: str = "sample_meta_multipulse_synthetic_expanded_equilibria_constant_imp.csv",
     generate_new_data: bool = True,
     n_timepoints_per_equilibrium: int = 6,
-    n_generations: int = 2000,
+    n_generations: int = 2500,
     config_name: str = "ion_temperature_phantom_run_all_params",
     config_overrides: list[str] | None = None,
     c_concentration: float = 0.05,

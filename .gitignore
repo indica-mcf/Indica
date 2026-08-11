@@ -23,3 +23,7 @@ indica/git_version
 
 # Always track all jussiphd workflow files and outputs.
 !indica/workflows/jussiphd/**
+
+# But keep Python cache artifacts ignored inside jussiphd.
+indica/workflows/jussiphd/**/__pycache__/
+indica/workflows/jussiphd/**/*.py[cod]
