@@ -42,9 +42,9 @@ def load_monospline_anchor_spec(
     if len(y_indices) < 2:
         raise ValueError(f"Profile '{profile_name}' must define at least y0 and one edge y.")
 
-    # Follow existing mono_spline sampling convention: y0 core, y1 used as edge if present.
+    # Use first/last available y-index as core/edge anchor values (e.g., y0 and y5).
     first_idx = y_indices[0]
-    legacy_edge_idx = 1 if 1 in y_indices else y_indices[-1]
+    legacy_edge_idx = y_indices[-1]
     fixed_start = float(params[f"y{first_idx}"])
     fixed_end = float(params[f"y{legacy_edge_idx}"])
 
@@ -91,8 +91,8 @@ def fit_profiles_to_anchor_space(
     profiles: np.ndarray,
     *,
     xknots: np.ndarray,
-    fixed_start: float,
-    fixed_end: float,
+    fixed_start: float | None,
+    fixed_end: float | None,
 ) -> dict[str, Any]:
     """Fit rows of profile matrix to anchor vectors with fixed end points."""
     y = np.asarray(profiles, dtype=np.float64)
@@ -117,15 +117,26 @@ def fit_profiles_to_anchor_space(
             continue
 
         ai = np.zeros(n_anchors, dtype=np.float64)
-        ai[0] = float(fixed_start)
-        ai[-1] = float(fixed_end)
+        fixed_idx: list[int] = []
+        if fixed_start is not None:
+            ai[0] = float(fixed_start)
+            fixed_idx.append(0)
+        if fixed_end is not None:
+            ai[-1] = float(fixed_end)
+            if (n_anchors - 1) not in fixed_idx:
+                fixed_idx.append(n_anchors - 1)
 
-        if n_anchors > 2:
-            rhs = yi - basis[:, 0] * ai[0] - basis[:, -1] * ai[-1]
-            coef, *_ = np.linalg.lstsq(basis[valid, 1:-1], rhs[valid], rcond=None)
-            ai[1:-1] = coef
+        free_idx = [j for j in range(n_anchors) if j not in fixed_idx]
+        if not free_idx:
+            yhat = basis @ ai
+        else:
+            rhs = yi.copy()
+            if fixed_idx:
+                rhs = rhs - basis[:, fixed_idx] @ ai[fixed_idx]
+            coef, *_ = np.linalg.lstsq(basis[valid][:, free_idx], rhs[valid], rcond=None)
+            ai[free_idx] = coef
+            yhat = basis @ ai
 
-        yhat = basis @ ai
         diff = yi[valid] - yhat[valid]
         rmse[i] = float(np.sqrt(np.mean(diff * diff))) if diff.size else np.nan
         anchors[i] = ai
@@ -142,4 +153,3 @@ def fit_profiles_to_anchor_space(
         "n_fit_failed": int((~ok_mask).sum()),
         "x_grid_fit": x.astype(np.float32),
     }
-

@@ -15,6 +15,10 @@ from prefect import flow, task
 from indica.workflows.jussiphd.components.data.real_brightness_dataset_generation import (
     generate_and_save_real_multipulse_brightness_dataset,
 )
+from indica.workflows.jussiphd.components.evaluation.eps_clustering import (
+    kmeans_cluster_eps_profiles,
+    save_profile_clustering_outputs,
+)
 from indica.workflows.jussiphd.components.filtering import (
     filter_paired_profile_outliers,
 )
@@ -310,6 +314,14 @@ def fit_te_ne_to_spline_anchor_space_task(
     te_anchor_plot_filename: str,
     ne_middle_knot_plot_filename: str,
     te_middle_knot_plot_filename: str,
+    ne_fixed_start: float | None,
+    ne_fixed_end: float | None,
+    te_fixed_start: float | None,
+    te_fixed_end: float | None,
+    ne_start_min: float | None,
+    ne_start_max: float | None,
+    te_start_min: float | None,
+    te_start_max: float | None,
 ) -> dict[str, Any]:
     ne = _load_csv_matrix(ne_aligned_path)
     te = _load_csv_matrix(te_aligned_path)
@@ -340,17 +352,30 @@ def fit_te_ne_to_spline_anchor_space_task(
     ne_fit = fit_profiles_to_anchor_space(
         ne,
         xknots=np.asarray(ne_spec["xknots"], dtype=np.float64),
-        fixed_start=float(ne_spec["fixed_start"]),
-        fixed_end=float(ne_spec["fixed_end"]),
+        fixed_start=ne_fixed_start,
+        fixed_end=ne_fixed_end,
     )
     te_fit = fit_profiles_to_anchor_space(
         te,
         xknots=np.asarray(te_spec["xknots"], dtype=np.float64),
-        fixed_start=float(te_spec["fixed_start"]),
-        fixed_end=float(te_spec["fixed_end"]),
+        fixed_start=te_fixed_start,
+        fixed_end=te_fixed_end,
     )
 
     keep_mask = np.asarray(ne_fit["ok_mask"], dtype=bool) & np.asarray(te_fit["ok_mask"], dtype=bool)
+    ne_anchor_all = np.asarray(ne_fit["anchors"], dtype=np.float64)
+    te_anchor_all = np.asarray(te_fit["anchors"], dtype=np.float64)
+    ne_start = ne_anchor_all[:, 0]
+    te_start = te_anchor_all[:, 0]
+    if ne_start_min is not None:
+        keep_mask &= ne_start >= float(ne_start_min)
+    if ne_start_max is not None:
+        keep_mask &= ne_start <= float(ne_start_max)
+    if te_start_min is not None:
+        keep_mask &= te_start >= float(te_start_min)
+    if te_start_max is not None:
+        keep_mask &= te_start <= float(te_start_max)
+
     if int(keep_mask.sum()) == 0:
         raise RuntimeError("Spline fitting failed for all aligned samples.")
 
@@ -376,29 +401,44 @@ def fit_te_ne_to_spline_anchor_space_task(
 
     with fit_summary_path.open("w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["sample_idx", "pulse", "ne_rmse", "te_rmse"])
+        writer.writerow(["sample_idx", "pulse", "ne_rmse", "te_rmse", "ne_start", "te_start"])
         for i, pulse in enumerate(pulses_kept):
-            writer.writerow([int(i), int(pulse), float(ne_rmse[i]), float(te_rmse[i])])
+            writer.writerow(
+                [
+                    int(i),
+                    int(pulse),
+                    float(ne_rmse[i]),
+                    float(te_rmse[i]),
+                    float(ne_anchors[i, 0]),
+                    float(te_anchors[i, 0]),
+                ]
+            )
 
     fit_spec = {
         "config_name": config_name,
         "ne_spec": {
             "profile_name": ne_spec["profile_name"],
             "xknots": [float(v) for v in np.asarray(ne_spec["xknots"]).reshape(-1)],
-            "fixed_start": float(ne_spec["fixed_start"]),
-            "fixed_end": float(ne_spec["fixed_end"]),
-            "fixed_start_param": str(ne_spec["fixed_start_param"]),
-            "fixed_end_param": str(ne_spec["fixed_end_param"]),
+            "fixed_start": None if ne_fixed_start is None else float(ne_fixed_start),
+            "fixed_end": None if ne_fixed_end is None else float(ne_fixed_end),
+            "fixed_start_param": None if ne_fixed_start is None else str(ne_spec["fixed_start_param"]),
+            "fixed_end_param": None if ne_fixed_end is None else str(ne_spec["fixed_end_param"]),
             "n_anchors": int(ne_spec["n_anchors"]),
         },
         "te_spec": {
             "profile_name": te_spec["profile_name"],
             "xknots": [float(v) for v in np.asarray(te_spec["xknots"]).reshape(-1)],
-            "fixed_start": float(te_spec["fixed_start"]),
-            "fixed_end": float(te_spec["fixed_end"]),
-            "fixed_start_param": str(te_spec["fixed_start_param"]),
-            "fixed_end_param": str(te_spec["fixed_end_param"]),
+            "fixed_start": None if te_fixed_start is None else float(te_fixed_start),
+            "fixed_end": None if te_fixed_end is None else float(te_fixed_end),
+            "fixed_start_param": None if te_fixed_start is None else str(te_spec["fixed_start_param"]),
+            "fixed_end_param": None if te_fixed_end is None else str(te_spec["fixed_end_param"]),
             "n_anchors": int(te_spec["n_anchors"]),
+        },
+        "start_range_filter": {
+            "ne_start_min": None if ne_start_min is None else float(ne_start_min),
+            "ne_start_max": None if ne_start_max is None else float(ne_start_max),
+            "te_start_min": None if te_start_min is None else float(te_start_min),
+            "te_start_max": None if te_start_max is None else float(te_start_max),
         },
         "n_input": int(ne.shape[0]),
         "n_fit_kept": int(len(pulses_kept)),
@@ -498,6 +538,52 @@ def fit_te_ne_to_spline_anchor_space_task(
     }
 
 
+@task(name="cluster_anchor_vectors")
+def cluster_anchor_vectors_task(
+    anchor_path: str,
+    output_dir: str,
+    prefix: str,
+    x_values: list[float],
+    y_label: str,
+    title_prefix: str,
+    x_label: str,
+    n_clusters: int,
+    max_iter: int,
+    tol: float,
+    seed: int,
+    normalize_per_profile: bool,
+    max_profiles_per_cluster: int,
+) -> dict[str, Any]:
+    clustering = kmeans_cluster_eps_profiles(
+        eps_path=anchor_path,
+        n_clusters=n_clusters,
+        max_iter=max_iter,
+        tol=tol,
+        seed=seed,
+        normalize_per_profile=normalize_per_profile,
+    )
+    outputs = save_profile_clustering_outputs(
+        clustering=clustering,
+        output_dir=output_dir,
+        assignments_filename=f"{prefix}_cluster_assignments.csv",
+        gallery_filename=f"{prefix}_clusters_gallery.png",
+        centers_filename=f"{prefix}_cluster_centers_overlay.png",
+        y_label=y_label,
+        title_prefix=title_prefix,
+        max_profiles_per_cluster=max_profiles_per_cluster,
+        seed=seed,
+        x_values=np.asarray(x_values, dtype=np.float64),
+        x_label=x_label,
+    )
+    return {
+        "anchor_path": anchor_path,
+        "n_clusters": int(clustering["n_clusters"]),
+        "counts": [int(x) for x in np.asarray(clustering["counts"], dtype=int)],
+        "normalize_per_profile": bool(normalize_per_profile),
+        "outputs": outputs,
+    }
+
+
 @flow(name="real_tene_clustering")
 def real_tene_clustering(
     pulses: Sequence[int] | None = None,
@@ -539,6 +625,25 @@ def real_tene_clustering(
     te_anchor_plot_filename: str = "te_spline_anchor_space_overlay.png",
     ne_middle_knot_plot_filename: str = "ne_middle_profiles_spline_knot_domain_overlay.png",
     te_middle_knot_plot_filename: str = "te_middle_profiles_spline_knot_domain_overlay.png",
+    spline_ne_fixed_start: float | None = None,
+    spline_ne_fixed_end: float | None = 0.0,
+    spline_te_fixed_start: float | None = None,
+    spline_te_fixed_end: float | None = 0.0,
+    spline_ne_start_min: float | None = 0.3e20,
+    spline_ne_start_max: float | None = 1.3e20,
+    spline_te_start_min: float | None = 500.0,
+    spline_te_start_max: float | None = 2000.0,
+    original_data_subdir: str = "original_data",
+    cluster_info_subdir: str = "cluster_info",
+    reuse_existing_profiles: bool = True,
+    run_anchor_clustering: bool = True,
+    anchor_cluster_output_subdir: str = "anchor_clusters",
+    anchor_cluster_n_clusters: int = 8,
+    anchor_cluster_max_iter: int = 150,
+    anchor_cluster_tol: float = 1e-4,
+    anchor_cluster_seed: int = 0,
+    anchor_cluster_normalize_per_profile: bool = False,
+    anchor_cluster_max_profiles_per_cluster: int = 80,
 ) -> dict[str, Any]:
     """Read real TS Te/Ne profiles, plasma-gated, and plot middle-time overlays."""
     if tstart < DEFAULT_TSTART or tend > DEFAULT_TEND:
@@ -559,59 +664,103 @@ def real_tene_clustering(
     if not pulse_list:
         pulse_list = [13622]
 
-    ne_dataset = build_real_node_profile_dataset_task(
-        pulses=pulse_list,
-        node=ne_node if ne_ppts_profile_key is None else None,
-        ppts_profile_key=ne_ppts_profile_key,
-        output_dir=output_dir,
-        profile_filename=ne_filename,
-        meta_filename=ne_meta_filename,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        read_verbose=read_verbose,
-        min_finite_fraction=min_finite_fraction,
-        min_nonzero_fraction=min_nonzero_fraction,
-        canonicalize_profile_coordinate=canonicalize_profile_coordinate,
-        canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
-    )
-    te_dataset = build_real_node_profile_dataset_task(
-        pulses=pulse_list,
-        node=te_node if te_ppts_profile_key is None else None,
-        ppts_profile_key=te_ppts_profile_key,
-        output_dir=output_dir,
-        profile_filename=te_filename,
-        meta_filename=te_meta_filename,
-        tstart=tstart,
-        tend=tend,
-        dt=dt,
-        read_verbose=read_verbose,
-        min_finite_fraction=min_finite_fraction,
-        min_nonzero_fraction=min_nonzero_fraction,
-        canonicalize_profile_coordinate=canonicalize_profile_coordinate,
-        canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
-    )
+    output_root = Path(output_dir)
+    original_data_dir = output_root / original_data_subdir
+    cluster_info_dir = output_root / cluster_info_subdir
+    anchor_cluster_dir = output_root / anchor_cluster_output_subdir
+    original_data_dir.mkdir(parents=True, exist_ok=True)
+    cluster_info_dir.mkdir(parents=True, exist_ok=True)
+    anchor_cluster_dir.mkdir(parents=True, exist_ok=True)
 
-    outputs = align_and_plot_te_ne_profiles_task(
-        ne_dataset=ne_dataset,
-        te_dataset=te_dataset,
-        output_dir=output_dir,
-        plot_filename=plot_filename,
-        ne_aligned_filename=ne_aligned_filename,
-        te_aligned_filename=te_aligned_filename,
-        matched_meta_filename=matched_meta_filename,
-        outlier_report_filename=outlier_report_filename,
-        apply_outlier_filter=apply_outlier_filter,
-        outlier_point_z_threshold=outlier_point_z_threshold,
-        outlier_extreme_point_z_threshold=outlier_extreme_point_z_threshold,
-        outlier_min_bad_points=outlier_min_bad_points,
-        outlier_bad_fraction_threshold=outlier_bad_fraction_threshold,
-    )
+    if reuse_existing_profiles:
+        ne_aligned_path = original_data_dir / ne_aligned_filename
+        te_aligned_path = original_data_dir / te_aligned_filename
+        matched_meta_path = original_data_dir / matched_meta_filename
+        missing = [
+            str(p)
+            for p in (ne_aligned_path, te_aligned_path, matched_meta_path)
+            if not p.exists()
+        ]
+        if missing:
+            raise FileNotFoundError(
+                "reuse_existing_profiles=True but required files are missing: "
+                + ", ".join(missing)
+            )
+        outputs = {
+            "plot_path": None,
+            "ne_aligned_path": str(ne_aligned_path),
+            "te_aligned_path": str(te_aligned_path),
+            "matched_meta_path": str(matched_meta_path),
+            "outlier_report_path": None,
+            "num_matched": int(np.loadtxt(ne_aligned_path, delimiter=",", ndmin=2).shape[0]),
+            "num_dropped_alignment": None,
+            "dropped_alignment_preview": [],
+            "num_outliers_removed": None,
+            "outlier_filter_applied": False,
+            "num_after_outlier_filter": int(
+                np.loadtxt(ne_aligned_path, delimiter=",", ndmin=2).shape[0]
+            ),
+            "num_matched_pre_outlier": int(
+                np.loadtxt(ne_aligned_path, delimiter=",", ndmin=2).shape[0]
+            ),
+            "used_existing_profiles": True,
+        }
+        ne_dataset: dict[str, Any] | None = None
+        te_dataset: dict[str, Any] | None = None
+    else:
+        ne_dataset = build_real_node_profile_dataset_task(
+            pulses=pulse_list,
+            node=ne_node if ne_ppts_profile_key is None else None,
+            ppts_profile_key=ne_ppts_profile_key,
+            output_dir=str(original_data_dir),
+            profile_filename=ne_filename,
+            meta_filename=ne_meta_filename,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            read_verbose=read_verbose,
+            min_finite_fraction=min_finite_fraction,
+            min_nonzero_fraction=min_nonzero_fraction,
+            canonicalize_profile_coordinate=canonicalize_profile_coordinate,
+            canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
+        )
+        te_dataset = build_real_node_profile_dataset_task(
+            pulses=pulse_list,
+            node=te_node if te_ppts_profile_key is None else None,
+            ppts_profile_key=te_ppts_profile_key,
+            output_dir=str(original_data_dir),
+            profile_filename=te_filename,
+            meta_filename=te_meta_filename,
+            tstart=tstart,
+            tend=tend,
+            dt=dt,
+            read_verbose=read_verbose,
+            min_finite_fraction=min_finite_fraction,
+            min_nonzero_fraction=min_nonzero_fraction,
+            canonicalize_profile_coordinate=canonicalize_profile_coordinate,
+            canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
+        )
+
+        outputs = align_and_plot_te_ne_profiles_task(
+            ne_dataset=ne_dataset,
+            te_dataset=te_dataset,
+            output_dir=str(original_data_dir),
+            plot_filename=plot_filename,
+            ne_aligned_filename=ne_aligned_filename,
+            te_aligned_filename=te_aligned_filename,
+            matched_meta_filename=matched_meta_filename,
+            outlier_report_filename=outlier_report_filename,
+            apply_outlier_filter=apply_outlier_filter,
+            outlier_point_z_threshold=outlier_point_z_threshold,
+            outlier_extreme_point_z_threshold=outlier_extreme_point_z_threshold,
+            outlier_min_bad_points=outlier_min_bad_points,
+            outlier_bad_fraction_threshold=outlier_bad_fraction_threshold,
+        )
     spline_fit = fit_te_ne_to_spline_anchor_space_task(
         ne_aligned_path=outputs["ne_aligned_path"],
         te_aligned_path=outputs["te_aligned_path"],
         matched_meta_path=outputs["matched_meta_path"],
-        output_dir=output_dir,
+        output_dir=str(cluster_info_dir),
         config_name=spline_config_name,
         ne_profile_name=spline_ne_profile_name,
         te_profile_name=spline_te_profile_name,
@@ -623,8 +772,70 @@ def real_tene_clustering(
         te_anchor_plot_filename=te_anchor_plot_filename,
         ne_middle_knot_plot_filename=ne_middle_knot_plot_filename,
         te_middle_knot_plot_filename=te_middle_knot_plot_filename,
+        ne_fixed_start=spline_ne_fixed_start,
+        ne_fixed_end=spline_ne_fixed_end,
+        te_fixed_start=spline_te_fixed_start,
+        te_fixed_end=spline_te_fixed_end,
+        ne_start_min=spline_ne_start_min,
+        ne_start_max=spline_ne_start_max,
+        te_start_min=spline_te_start_min,
+        te_start_max=spline_te_start_max,
     )
     outputs["spline_fit"] = spline_fit
+
+    anchor_clustering = None
+    if run_anchor_clustering:
+        clustering_dir = str(anchor_cluster_dir)
+        ne_cluster_spec = load_monospline_anchor_spec(
+            config_name=spline_config_name,
+            profile_name=spline_ne_profile_name,
+        )
+        te_cluster_spec = load_monospline_anchor_spec(
+            config_name=spline_config_name,
+            profile_name=spline_te_profile_name,
+        )
+        ne_anchor_clustering = cluster_anchor_vectors_task(
+            anchor_path=spline_fit["ne_anchor_path"],
+            output_dir=clustering_dir,
+            prefix="ne_anchors",
+            x_values=[float(v) for v in np.asarray(ne_cluster_spec["xknots"]).reshape(-1)],
+            y_label="n_e anchor value",
+            title_prefix="NE anchor",
+            x_label="rhop knot",
+            n_clusters=anchor_cluster_n_clusters,
+            max_iter=anchor_cluster_max_iter,
+            tol=anchor_cluster_tol,
+            seed=anchor_cluster_seed,
+            normalize_per_profile=anchor_cluster_normalize_per_profile,
+            max_profiles_per_cluster=anchor_cluster_max_profiles_per_cluster,
+        )
+        te_anchor_clustering = cluster_anchor_vectors_task(
+            anchor_path=spline_fit["te_anchor_path"],
+            output_dir=clustering_dir,
+            prefix="te_anchors",
+            x_values=[float(v) for v in np.asarray(te_cluster_spec["xknots"]).reshape(-1)],
+            y_label="T_e anchor value",
+            title_prefix="TE anchor",
+            x_label="rhop knot",
+            n_clusters=anchor_cluster_n_clusters,
+            max_iter=anchor_cluster_max_iter,
+            tol=anchor_cluster_tol,
+            seed=anchor_cluster_seed,
+            normalize_per_profile=anchor_cluster_normalize_per_profile,
+            max_profiles_per_cluster=anchor_cluster_max_profiles_per_cluster,
+        )
+        anchor_clustering = {
+            "output_dir": clustering_dir,
+            "ne": ne_anchor_clustering,
+            "te": te_anchor_clustering,
+        }
+    outputs["anchor_clustering"] = anchor_clustering
+    outputs["output_dirs"] = {
+        "root": str(output_root),
+        "original_data": str(original_data_dir),
+        "cluster_info": str(cluster_info_dir),
+        "anchor_clusters": str(anchor_cluster_dir),
+    }
 
     return {
         "pulses_requested": pulse_list,

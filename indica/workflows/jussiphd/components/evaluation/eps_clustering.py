@@ -11,17 +11,18 @@ import numpy as np
 
 
 def _load_csv_2d(path: str) -> np.ndarray:
-    arr = np.loadtxt(path, delimiter=",", dtype=np.float32)
+    arr = np.loadtxt(path, delimiter=",", dtype=np.float64)
     if arr.ndim == 1:
         arr = arr[None, :]
-    return np.asarray(arr, dtype=np.float32)
+    return np.asarray(arr, dtype=np.float64)
 
 
 def _normalize_rows(arr: np.ndarray) -> np.ndarray:
-    mu = np.mean(arr, axis=1, keepdims=True)
-    sigma = np.std(arr, axis=1, keepdims=True)
+    x = np.asarray(arr, dtype=np.float64)
+    mu = np.mean(x, axis=1, keepdims=True, dtype=np.float64)
+    sigma = np.std(x, axis=1, keepdims=True, dtype=np.float64)
     sigma = np.where(sigma > 0.0, sigma, 1.0)
-    return (arr - mu) / sigma
+    return (x - mu) / sigma
 
 
 def _kmeans_cluster_profiles(
@@ -64,13 +65,13 @@ def _kmeans_cluster_profiles(
             break
 
     counts = np.asarray([(labels == c).sum() for c in range(k)], dtype=int)
-    centers_orig = np.zeros((k, data.shape[1]), dtype=np.float32)
+    centers_orig = np.zeros((k, data.shape[1]), dtype=np.float64)
     for c in range(k):
         mask = labels == c
         if np.any(mask):
             centers_orig[c] = np.mean(data[mask], axis=0)
         else:
-            centers_orig[c] = np.zeros(data.shape[1], dtype=np.float32)
+            centers_orig[c] = np.zeros(data.shape[1], dtype=np.float64)
 
     return {
         "data_path": data_path,
@@ -138,6 +139,8 @@ def _save_clustering_outputs(
     title_prefix: str,
     max_profiles_per_cluster: int = 60,
     seed: int = 0,
+    x_values: np.ndarray | None = None,
+    x_label: str = "normalized position (0..1)",
 ) -> dict[str, str]:
     """Save cluster assignment table and two profile-cluster visualisations."""
     out_dir = Path(output_dir)
@@ -145,7 +148,7 @@ def _save_clustering_outputs(
 
     labels = np.asarray(clustering["labels"], dtype=int)
     counts = np.asarray(clustering["counts"], dtype=int)
-    centers = np.asarray(clustering["centers_original"], dtype=np.float32)
+    centers = np.asarray(clustering["centers_original"], dtype=np.float64)
     profiles = _load_csv_2d(clustering["data_path"])
     k = int(clustering["n_clusters"])
 
@@ -161,7 +164,14 @@ def _save_clustering_outputs(
     n_rows = int(np.ceil(k / n_cols))
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 3.8 * n_rows), sharex=True)
     axes = np.atleast_1d(axes).ravel()
-    x = np.linspace(0.0, 1.0, profiles.shape[1], dtype=np.float32)
+    if x_values is None:
+        x = np.linspace(0.0, 1.0, profiles.shape[1], dtype=np.float64)
+    else:
+        x = np.asarray(x_values, dtype=np.float64).reshape(-1)
+        if x.size != profiles.shape[1]:
+            raise ValueError(
+                f"x_values length {x.size} does not match profile width {profiles.shape[1]}."
+            )
     rng = np.random.default_rng(int(seed))
 
     for c in range(k):
@@ -174,7 +184,7 @@ def _save_clustering_outputs(
                 ax.plot(x, profiles[int(idx)], color="tab:blue", alpha=0.15, linewidth=1.0)
         ax.plot(x, centers[c], color="black", linewidth=2.2, label="cluster center")
         ax.set_title(f"Cluster {c} (n={int(counts[c])})")
-        ax.set_xlabel("normalized position (0..1)")
+        ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
         ax.grid(alpha=0.25)
 
@@ -199,7 +209,7 @@ def _save_clustering_outputs(
             label=f"Cluster {c} (n={int(counts[c])})",
         )
     ax.set_title(f"{title_prefix} cluster center profiles")
-    ax.set_xlabel("normalized position (0..1)")
+    ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
     ax.grid(alpha=0.25)
     ax.legend(loc="best")
@@ -234,6 +244,37 @@ def save_eps_clustering_outputs(
         title_prefix="Emissivity",
         max_profiles_per_cluster=max_profiles_per_cluster,
         seed=seed,
+        x_values=None,
+        x_label="normalized position (0..1)",
+    )
+
+
+def save_profile_clustering_outputs(
+    clustering: dict[str, Any],
+    output_dir: str,
+    assignments_filename: str,
+    gallery_filename: str,
+    centers_filename: str,
+    y_label: str,
+    title_prefix: str,
+    max_profiles_per_cluster: int = 60,
+    seed: int = 0,
+    x_values: np.ndarray | None = None,
+    x_label: str = "position",
+) -> dict[str, str]:
+    """Save clustering outputs with configurable axis labels and x-coordinates."""
+    return _save_clustering_outputs(
+        clustering=clustering,
+        output_dir=output_dir,
+        assignments_filename=assignments_filename,
+        gallery_filename=gallery_filename,
+        centers_filename=centers_filename,
+        y_label=y_label,
+        title_prefix=title_prefix,
+        max_profiles_per_cluster=max_profiles_per_cluster,
+        seed=seed,
+        x_values=x_values,
+        x_label=x_label,
     )
 
 
