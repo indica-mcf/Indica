@@ -2,29 +2,27 @@
 
 from __future__ import annotations
 
-import csv
-import json
-from collections import defaultdict
 from pathlib import Path
 from typing import Any, Sequence
 
-import matplotlib.pyplot as plt
 import numpy as np
 from prefect import flow, task
 
 from indica.workflows.jussiphd.components.data.real_brightness_dataset_generation import (
     generate_and_save_real_multipulse_brightness_dataset,
 )
-from indica.workflows.jussiphd.components.evaluation.eps_clustering import (
+from indica.workflows.jussiphd.components.evaluation import (
+    estimate_anchor_cluster_gaussians,
     kmeans_cluster_eps_profiles,
     save_profile_clustering_outputs,
 )
-from indica.workflows.jussiphd.components.filtering import (
-    filter_paired_profile_outliers,
-)
 from indica.workflows.jussiphd.components.preprocessing import (
-    fit_profiles_to_anchor_space,
+    align_filter_plot_and_save_te_ne_profiles,
+    fit_save_and_plot_te_ne_anchor_space,
     load_monospline_anchor_spec,
+)
+from indica.workflows.jussiphd.components.visualisations import (
+    plot_anchor_cluster_gaussian_samples,
 )
 
 TS_NE_NODE = r"\ST40::TOP.TS.BEST.PROFILES:NE"
@@ -32,71 +30,6 @@ TS_TE_NODE = r"\ST40::TOP.TS.BEST.PROFILES:TE"
 DEFAULT_OUTPUT_DIR = str(Path(__file__).resolve().parent / "outputs")
 DEFAULT_TSTART = 0.04
 DEFAULT_TEND = 0.15
-
-
-def _load_csv_matrix(path: str) -> np.ndarray:
-    arr = np.loadtxt(path, delimiter=",", dtype=np.float32)
-    if arr.ndim == 1:
-        arr = arr[None, :]
-    return np.asarray(arr, dtype=np.float32)
-
-
-def _load_meta_rows(meta_path: str) -> list[tuple[int, float]]:
-    rows: list[tuple[int, float]] = []
-    with Path(meta_path).open(newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            rows.append((int(row["pulse"]), float(row["t"])))
-    return rows
-
-
-def _align_by_pulse(
-    ne_rows: np.ndarray,
-    ne_meta: list[tuple[int, float]],
-    te_rows: np.ndarray,
-    te_meta: list[tuple[int, float]],
-) -> tuple[np.ndarray, np.ndarray, list[int], list[tuple[int, str]]]:
-    """Align middle-time NE/TE rows by pulse using first-in-first-out matching."""
-    if ne_rows.shape[0] != len(ne_meta):
-        raise ValueError(
-            f"NE row/meta mismatch: rows={ne_rows.shape[0]} meta={len(ne_meta)}"
-        )
-    if te_rows.shape[0] != len(te_meta):
-        raise ValueError(
-            f"TE row/meta mismatch: rows={te_rows.shape[0]} meta={len(te_meta)}"
-        )
-
-    te_by_pulse: dict[int, list[int]] = defaultdict(list)
-    for idx, (pulse, _t) in enumerate(te_meta):
-        te_by_pulse[int(pulse)].append(int(idx))
-
-    matched_ne: list[np.ndarray] = []
-    matched_te: list[np.ndarray] = []
-    matched_pulses: list[int] = []
-    dropped: list[tuple[int, str]] = []
-
-    for ne_idx, (pulse, _t_ne) in enumerate(ne_meta):
-        candidates = te_by_pulse.get(int(pulse), [])
-        if not candidates:
-            dropped.append((int(pulse), "missing_te"))
-            continue
-        te_idx = candidates.pop(0)
-        matched_ne.append(ne_rows[int(ne_idx)])
-        matched_te.append(te_rows[int(te_idx)])
-        matched_pulses.append(int(pulse))
-
-    if not matched_ne:
-        raise RuntimeError(
-            "No matching pulses between NE and TE reads after plasma gating."
-        )
-
-    return (
-        np.asarray(matched_ne, dtype=np.float32),
-        np.asarray(matched_te, dtype=np.float32),
-        matched_pulses,
-        dropped,
-    )
-
 
 @task(name="build_real_node_profile_dataset")
 def build_real_node_profile_dataset_task(
@@ -155,146 +88,21 @@ def align_and_plot_te_ne_profiles_task(
     outlier_min_bad_points: int,
     outlier_bad_fraction_threshold: float,
 ) -> dict[str, Any]:
-    ne_rows = _load_csv_matrix(ne_dataset["b_path"])
-    te_rows = _load_csv_matrix(te_dataset["b_path"])
-    ne_meta = _load_meta_rows(ne_dataset["meta_path"])
-    te_meta = _load_meta_rows(te_dataset["meta_path"])
-
-    ne_aligned, te_aligned, matched_pulses, dropped = _align_by_pulse(
-        ne_rows=ne_rows,
-        ne_meta=ne_meta,
-        te_rows=te_rows,
-        te_meta=te_meta,
+    return align_filter_plot_and_save_te_ne_profiles(
+        ne_dataset=ne_dataset,
+        te_dataset=te_dataset,
+        output_dir=output_dir,
+        plot_filename=plot_filename,
+        ne_aligned_filename=ne_aligned_filename,
+        te_aligned_filename=te_aligned_filename,
+        matched_meta_filename=matched_meta_filename,
+        outlier_report_filename=outlier_report_filename,
+        apply_outlier_filter=apply_outlier_filter,
+        outlier_point_z_threshold=outlier_point_z_threshold,
+        outlier_extreme_point_z_threshold=outlier_extreme_point_z_threshold,
+        outlier_min_bad_points=outlier_min_bad_points,
+        outlier_bad_fraction_threshold=outlier_bad_fraction_threshold,
     )
-
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    ne_aligned_path = out / ne_aligned_filename
-    te_aligned_path = out / te_aligned_filename
-    matched_meta_path = out / matched_meta_filename
-    outlier_report_path = out / outlier_report_filename
-    plot_path = out / plot_filename
-
-    outlier_summary: dict[str, Any] | None = None
-    matched_pulses_before_filter = list(matched_pulses)
-    if apply_outlier_filter:
-        filtered = filter_paired_profile_outliers(
-            primary=ne_aligned,
-            secondary=te_aligned,
-            point_z_threshold=outlier_point_z_threshold,
-            extreme_point_z_threshold=outlier_extreme_point_z_threshold,
-            min_bad_points=outlier_min_bad_points,
-            bad_fraction_threshold=outlier_bad_fraction_threshold,
-        )
-        keep_mask = np.asarray(filtered["keep_mask"], dtype=bool)
-        ne_aligned = np.asarray(filtered["primary_filtered"], dtype=np.float32)
-        te_aligned = np.asarray(filtered["secondary_filtered"], dtype=np.float32)
-        matched_pulses = [p for p, keep in zip(matched_pulses, keep_mask) if keep]
-
-        with outlier_report_path.open("w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    "sample_idx",
-                    "pulse",
-                    "removed_as_outlier",
-                    "ne_max_abs_robust_z",
-                    "te_max_abs_robust_z",
-                    "ne_bad_count",
-                    "te_bad_count",
-                    "ne_bad_fraction",
-                    "te_bad_fraction",
-                ]
-            )
-            ne_det = filtered["primary_detection"]
-            te_det = filtered["secondary_detection"]
-            out_mask = np.asarray(filtered["outlier_mask"], dtype=bool)
-            for i, pulse in enumerate(matched_pulses_before_filter):
-                writer.writerow(
-                    [
-                        int(i),
-                        int(pulse),
-                        bool(out_mask[i]),
-                        float(ne_det["max_abs_robust_z"][i]),
-                        float(te_det["max_abs_robust_z"][i]),
-                        int(ne_det["bad_count"][i]),
-                        int(te_det["bad_count"][i]),
-                        float(ne_det["bad_fraction"][i]),
-                        float(te_det["bad_fraction"][i]),
-                    ]
-                )
-
-        outlier_summary = {
-            "applied": True,
-            "n_input": int(filtered["n_input"]),
-            "n_kept": int(filtered["n_kept"]),
-            "n_outliers": int(filtered["n_outliers"]),
-            "parameters": filtered["primary_detection"]["parameters"],
-            "outlier_report_path": str(outlier_report_path),
-        }
-    else:
-        outlier_summary = {
-            "applied": False,
-            "n_input": int(len(matched_pulses)),
-            "n_kept": int(len(matched_pulses)),
-            "n_outliers": 0,
-            "outlier_report_path": None,
-        }
-
-    if ne_aligned.shape[0] == 0:
-        raise RuntimeError("All matched Te/Ne profiles were removed by outlier filtering.")
-
-    np.savetxt(ne_aligned_path, ne_aligned, delimiter=",")
-    np.savetxt(te_aligned_path, te_aligned, delimiter=",")
-
-    with matched_meta_path.open("w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["sample_idx", "pulse"])
-        for i, pulse in enumerate(matched_pulses):
-            writer.writerow([int(i), int(pulse)])
-
-    fig, (ax_ne, ax_te) = plt.subplots(1, 2, figsize=(12, 4.8))
-    for i, pulse in enumerate(matched_pulses):
-        ne = np.asarray(ne_aligned[i], dtype=np.float64)
-        te = np.asarray(te_aligned[i], dtype=np.float64)
-        ax_ne.plot(
-            np.linspace(0.0, 1.0, ne.size, dtype=np.float64),
-            ne,
-            alpha=0.28,
-            linewidth=1.2,
-            label=str(pulse),
-        )
-        ax_te.plot(
-            np.linspace(0.0, 1.0, te.size, dtype=np.float64),
-            te,
-            alpha=0.28,
-            linewidth=1.2,
-            label=str(pulse),
-        )
-
-    ax_ne.set_title("NE profiles (middle time index)")
-    ax_ne.set_xlabel("normalized profile coordinate")
-    ax_ne.set_ylabel("NE")
-    ax_ne.grid(alpha=0.25)
-    ax_te.set_title("TE profiles (middle time index)")
-    ax_te.set_xlabel("normalized profile coordinate")
-    ax_te.set_ylabel("TE")
-    ax_te.grid(alpha=0.25)
-
-    fig.tight_layout()
-    fig.savefig(plot_path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-
-    return {
-        "ne_aligned_path": str(ne_aligned_path),
-        "te_aligned_path": str(te_aligned_path),
-        "matched_meta_path": str(matched_meta_path),
-        "plot_path": str(plot_path),
-        "num_matched": int(len(matched_pulses)),
-        "num_dropped": int(len(dropped)),
-        "dropped": dropped,
-        "outlier_filter": outlier_summary,
-    }
 
 
 @task(name="fit_te_ne_to_spline_anchor_space")
@@ -323,219 +131,31 @@ def fit_te_ne_to_spline_anchor_space_task(
     te_start_min: float | None,
     te_start_max: float | None,
 ) -> dict[str, Any]:
-    ne = _load_csv_matrix(ne_aligned_path)
-    te = _load_csv_matrix(te_aligned_path)
-    if ne.shape[0] != te.shape[0]:
-        raise ValueError(
-            f"Aligned NE/TE row mismatch: {ne.shape[0]} vs {te.shape[0]}."
-        )
-
-    pulses: list[int] = []
-    with Path(matched_meta_path).open(newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            pulses.append(int(row["pulse"]))
-    if len(pulses) != ne.shape[0]:
-        raise ValueError(
-            f"Matched meta rows ({len(pulses)}) do not match aligned profiles ({ne.shape[0]})."
-        )
-
-    ne_spec = load_monospline_anchor_spec(
-        profile_name=ne_profile_name,
+    return fit_save_and_plot_te_ne_anchor_space(
+        ne_aligned_path=ne_aligned_path,
+        te_aligned_path=te_aligned_path,
+        matched_meta_path=matched_meta_path,
+        output_dir=output_dir,
         config_name=config_name,
+        ne_profile_name=ne_profile_name,
+        te_profile_name=te_profile_name,
+        ne_anchor_filename=ne_anchor_filename,
+        te_anchor_filename=te_anchor_filename,
+        fit_summary_filename=fit_summary_filename,
+        fit_spec_filename=fit_spec_filename,
+        ne_anchor_plot_filename=ne_anchor_plot_filename,
+        te_anchor_plot_filename=te_anchor_plot_filename,
+        ne_middle_knot_plot_filename=ne_middle_knot_plot_filename,
+        te_middle_knot_plot_filename=te_middle_knot_plot_filename,
+        ne_fixed_start=ne_fixed_start,
+        ne_fixed_end=ne_fixed_end,
+        te_fixed_start=te_fixed_start,
+        te_fixed_end=te_fixed_end,
+        ne_start_min=ne_start_min,
+        ne_start_max=ne_start_max,
+        te_start_min=te_start_min,
+        te_start_max=te_start_max,
     )
-    te_spec = load_monospline_anchor_spec(
-        profile_name=te_profile_name,
-        config_name=config_name,
-    )
-
-    ne_fit = fit_profiles_to_anchor_space(
-        ne,
-        xknots=np.asarray(ne_spec["xknots"], dtype=np.float64),
-        fixed_start=ne_fixed_start,
-        fixed_end=ne_fixed_end,
-    )
-    te_fit = fit_profiles_to_anchor_space(
-        te,
-        xknots=np.asarray(te_spec["xknots"], dtype=np.float64),
-        fixed_start=te_fixed_start,
-        fixed_end=te_fixed_end,
-    )
-
-    keep_mask = np.asarray(ne_fit["ok_mask"], dtype=bool) & np.asarray(te_fit["ok_mask"], dtype=bool)
-    ne_anchor_all = np.asarray(ne_fit["anchors"], dtype=np.float64)
-    te_anchor_all = np.asarray(te_fit["anchors"], dtype=np.float64)
-    ne_start = ne_anchor_all[:, 0]
-    te_start = te_anchor_all[:, 0]
-    if ne_start_min is not None:
-        keep_mask &= ne_start >= float(ne_start_min)
-    if ne_start_max is not None:
-        keep_mask &= ne_start <= float(ne_start_max)
-    if te_start_min is not None:
-        keep_mask &= te_start >= float(te_start_min)
-    if te_start_max is not None:
-        keep_mask &= te_start <= float(te_start_max)
-
-    if int(keep_mask.sum()) == 0:
-        raise RuntimeError("Spline fitting failed for all aligned samples.")
-
-    ne_anchors = np.asarray(ne_fit["anchors"], dtype=np.float32)[keep_mask]
-    te_anchors = np.asarray(te_fit["anchors"], dtype=np.float32)[keep_mask]
-    pulses_kept = [p for p, keep in zip(pulses, keep_mask) if keep]
-    ne_rmse = np.asarray(ne_fit["rmse"], dtype=np.float32)[keep_mask]
-    te_rmse = np.asarray(te_fit["rmse"], dtype=np.float32)[keep_mask]
-
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    ne_anchor_path = out / ne_anchor_filename
-    te_anchor_path = out / te_anchor_filename
-    fit_summary_path = out / fit_summary_filename
-    fit_spec_path = out / fit_spec_filename
-    ne_anchor_plot_path = out / ne_anchor_plot_filename
-    te_anchor_plot_path = out / te_anchor_plot_filename
-    ne_middle_knot_plot_path = out / ne_middle_knot_plot_filename
-    te_middle_knot_plot_path = out / te_middle_knot_plot_filename
-
-    np.savetxt(ne_anchor_path, ne_anchors, delimiter=",")
-    np.savetxt(te_anchor_path, te_anchors, delimiter=",")
-
-    with fit_summary_path.open("w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["sample_idx", "pulse", "ne_rmse", "te_rmse", "ne_start", "te_start"])
-        for i, pulse in enumerate(pulses_kept):
-            writer.writerow(
-                [
-                    int(i),
-                    int(pulse),
-                    float(ne_rmse[i]),
-                    float(te_rmse[i]),
-                    float(ne_anchors[i, 0]),
-                    float(te_anchors[i, 0]),
-                ]
-            )
-
-    fit_spec = {
-        "config_name": config_name,
-        "ne_spec": {
-            "profile_name": ne_spec["profile_name"],
-            "xknots": [float(v) for v in np.asarray(ne_spec["xknots"]).reshape(-1)],
-            "fixed_start": None if ne_fixed_start is None else float(ne_fixed_start),
-            "fixed_end": None if ne_fixed_end is None else float(ne_fixed_end),
-            "fixed_start_param": None if ne_fixed_start is None else str(ne_spec["fixed_start_param"]),
-            "fixed_end_param": None if ne_fixed_end is None else str(ne_spec["fixed_end_param"]),
-            "n_anchors": int(ne_spec["n_anchors"]),
-        },
-        "te_spec": {
-            "profile_name": te_spec["profile_name"],
-            "xknots": [float(v) for v in np.asarray(te_spec["xknots"]).reshape(-1)],
-            "fixed_start": None if te_fixed_start is None else float(te_fixed_start),
-            "fixed_end": None if te_fixed_end is None else float(te_fixed_end),
-            "fixed_start_param": None if te_fixed_start is None else str(te_spec["fixed_start_param"]),
-            "fixed_end_param": None if te_fixed_end is None else str(te_spec["fixed_end_param"]),
-            "n_anchors": int(te_spec["n_anchors"]),
-        },
-        "start_range_filter": {
-            "ne_start_min": None if ne_start_min is None else float(ne_start_min),
-            "ne_start_max": None if ne_start_max is None else float(ne_start_max),
-            "te_start_min": None if te_start_min is None else float(te_start_min),
-            "te_start_max": None if te_start_max is None else float(te_start_max),
-        },
-        "n_input": int(ne.shape[0]),
-        "n_fit_kept": int(len(pulses_kept)),
-        "n_fit_dropped": int(ne.shape[0] - len(pulses_kept)),
-    }
-    fit_spec_path.write_text(json.dumps(fit_spec, indent=2))
-
-    # Visualise anchor vectors in spline domain (xknots vs anchor values).
-    ne_x = np.asarray(ne_spec["xknots"], dtype=np.float64).reshape(-1)
-    te_x = np.asarray(te_spec["xknots"], dtype=np.float64).reshape(-1)
-
-    fig_ne, ax_ne = plt.subplots(figsize=(8.5, 5.0))
-    for row in ne_anchors:
-        ax_ne.plot(ne_x, np.asarray(row, dtype=np.float64), color="#1f77b4", alpha=0.20, linewidth=1.1)
-    ax_ne.plot(ne_x, np.nanmean(ne_anchors, axis=0), color="black", linewidth=2.4, label="mean anchors")
-    ax_ne.set_title("NE spline anchors (fitted, middle-time real profiles)")
-    ax_ne.set_xlabel("knot coordinate (xknots)")
-    ax_ne.set_ylabel("anchor value")
-    ax_ne.grid(alpha=0.25)
-    ax_ne.legend()
-    fig_ne.tight_layout()
-    fig_ne.savefig(ne_anchor_plot_path, dpi=180, bbox_inches="tight")
-    plt.close(fig_ne)
-
-    fig_te, ax_te = plt.subplots(figsize=(8.5, 5.0))
-    for row in te_anchors:
-        ax_te.plot(te_x, np.asarray(row, dtype=np.float64), color="#d62728", alpha=0.20, linewidth=1.1)
-    ax_te.plot(te_x, np.nanmean(te_anchors, axis=0), color="black", linewidth=2.4, label="mean anchors")
-    ax_te.set_title("TE spline anchors (fitted, middle-time real profiles)")
-    ax_te.set_xlabel("knot coordinate (xknots)")
-    ax_te.set_ylabel("anchor value")
-    ax_te.grid(alpha=0.25)
-    ax_te.legend()
-    fig_te.tight_layout()
-    fig_te.savefig(te_anchor_plot_path, dpi=180, bbox_inches="tight")
-    plt.close(fig_te)
-
-    # Also show original middle profiles in the spline-knot domain.
-    x_full_ne = np.linspace(0.0, 1.0, ne.shape[1], dtype=np.float64)
-    x_full_te = np.linspace(0.0, 1.0, te.shape[1], dtype=np.float64)
-    ne_middle_on_knots = np.vstack(
-        [np.interp(ne_x, x_full_ne, np.asarray(row, dtype=np.float64)) for row in ne[keep_mask]]
-    ).astype(np.float32)
-    te_middle_on_knots = np.vstack(
-        [np.interp(te_x, x_full_te, np.asarray(row, dtype=np.float64)) for row in te[keep_mask]]
-    ).astype(np.float32)
-
-    fig_ne_m, ax_ne_m = plt.subplots(figsize=(8.5, 5.0))
-    for row in ne_middle_on_knots:
-        ax_ne_m.plot(ne_x, np.asarray(row, dtype=np.float64), color="#1f77b4", alpha=0.20, linewidth=1.1)
-    ax_ne_m.plot(
-        ne_x,
-        np.nanmean(ne_middle_on_knots, axis=0),
-        color="black",
-        linewidth=2.4,
-        label="mean middle profile",
-    )
-    ax_ne_m.set_title("NE middle profiles projected to spline-knot domain")
-    ax_ne_m.set_xlabel("knot coordinate (xknots)")
-    ax_ne_m.set_ylabel("profile value")
-    ax_ne_m.grid(alpha=0.25)
-    ax_ne_m.legend()
-    fig_ne_m.tight_layout()
-    fig_ne_m.savefig(ne_middle_knot_plot_path, dpi=180, bbox_inches="tight")
-    plt.close(fig_ne_m)
-
-    fig_te_m, ax_te_m = plt.subplots(figsize=(8.5, 5.0))
-    for row in te_middle_on_knots:
-        ax_te_m.plot(te_x, np.asarray(row, dtype=np.float64), color="#d62728", alpha=0.20, linewidth=1.1)
-    ax_te_m.plot(
-        te_x,
-        np.nanmean(te_middle_on_knots, axis=0),
-        color="black",
-        linewidth=2.4,
-        label="mean middle profile",
-    )
-    ax_te_m.set_title("TE middle profiles projected to spline-knot domain")
-    ax_te_m.set_xlabel("knot coordinate (xknots)")
-    ax_te_m.set_ylabel("profile value")
-    ax_te_m.grid(alpha=0.25)
-    ax_te_m.legend()
-    fig_te_m.tight_layout()
-    fig_te_m.savefig(te_middle_knot_plot_path, dpi=180, bbox_inches="tight")
-    plt.close(fig_te_m)
-
-    return {
-        "ne_anchor_path": str(ne_anchor_path),
-        "te_anchor_path": str(te_anchor_path),
-        "fit_summary_path": str(fit_summary_path),
-        "fit_spec_path": str(fit_spec_path),
-        "ne_anchor_plot_path": str(ne_anchor_plot_path),
-        "te_anchor_plot_path": str(te_anchor_plot_path),
-        "ne_middle_knot_plot_path": str(ne_middle_knot_plot_path),
-        "te_middle_knot_plot_path": str(te_middle_knot_plot_path),
-        "n_fit_kept": int(len(pulses_kept)),
-        "n_fit_dropped": int(ne.shape[0] - len(pulses_kept)),
-    }
 
 
 @task(name="cluster_anchor_vectors")
@@ -582,6 +202,46 @@ def cluster_anchor_vectors_task(
         "normalize_per_profile": bool(normalize_per_profile),
         "outputs": outputs,
     }
+
+
+@task(name="estimate_anchor_cluster_gaussians")
+def estimate_anchor_cluster_gaussians_task(
+    anchor_path: str,
+    assignments_csv: str,
+    output_dir: str,
+    prefix: str,
+    cov_regularization: float = 1e-8,
+) -> dict[str, Any]:
+    return estimate_anchor_cluster_gaussians(
+        anchor_path=anchor_path,
+        assignments_csv=assignments_csv,
+        output_dir=output_dir,
+        prefix=prefix,
+        cov_regularization=cov_regularization,
+    )
+
+
+@task(name="plot_anchor_cluster_gaussian_samples")
+def plot_anchor_cluster_gaussian_samples_task(
+    gaussian_params_npz: str,
+    output_dir: str,
+    plot_filename: str,
+    x_values: list[float],
+    title: str,
+    y_label: str,
+    samples_per_cluster: int = 4,
+    seed: int = 0,
+) -> dict[str, Any]:
+    return plot_anchor_cluster_gaussian_samples(
+        gaussian_params_npz=gaussian_params_npz,
+        output_dir=output_dir,
+        plot_filename=plot_filename,
+        x_values=x_values,
+        title=title,
+        y_label=y_label,
+        samples_per_cluster=samples_per_cluster,
+        seed=seed,
+    )
 
 
 @flow(name="real_tene_clustering")
@@ -644,6 +304,13 @@ def real_tene_clustering(
     anchor_cluster_seed: int = 0,
     anchor_cluster_normalize_per_profile: bool = False,
     anchor_cluster_max_profiles_per_cluster: int = 80,
+    run_anchor_cluster_gaussian_fit: bool = True,
+    anchor_cluster_cov_regularization: float = 1e-8,
+    run_anchor_cluster_gaussian_samples_plot: bool = True,
+    anchor_cluster_samples_per_cluster: int = 4,
+    anchor_cluster_samples_seed: int = 0,
+    ne_anchor_cluster_samples_plot_filename: str = "ne_anchor_cluster_gaussian_samples_overlay.png",
+    te_anchor_cluster_samples_plot_filename: str = "te_anchor_cluster_gaussian_samples_overlay.png",
 ) -> dict[str, Any]:
     """Read real TS Te/Ne profiles, plasma-gated, and plot middle-time overlays."""
     if tstart < DEFAULT_TSTART or tend > DEFAULT_TEND:
@@ -830,6 +497,68 @@ def real_tene_clustering(
             "te": te_anchor_clustering,
         }
     outputs["anchor_clustering"] = anchor_clustering
+
+    anchor_cluster_gaussians = None
+    if run_anchor_clustering and run_anchor_cluster_gaussian_fit and anchor_clustering is not None:
+        ne_gauss = estimate_anchor_cluster_gaussians_task(
+            anchor_path=spline_fit["ne_anchor_path"],
+            assignments_csv=anchor_clustering["ne"]["outputs"]["assignments_csv"],
+            output_dir=str(cluster_info_dir),
+            prefix="ne_anchors",
+            cov_regularization=anchor_cluster_cov_regularization,
+        )
+        te_gauss = estimate_anchor_cluster_gaussians_task(
+            anchor_path=spline_fit["te_anchor_path"],
+            assignments_csv=anchor_clustering["te"]["outputs"]["assignments_csv"],
+            output_dir=str(cluster_info_dir),
+            prefix="te_anchors",
+            cov_regularization=anchor_cluster_cov_regularization,
+        )
+        anchor_cluster_gaussians = {
+            "output_dir": str(cluster_info_dir),
+            "ne": ne_gauss,
+            "te": te_gauss,
+        }
+    outputs["anchor_cluster_gaussians"] = anchor_cluster_gaussians
+
+    anchor_cluster_sample_plots = None
+    if (
+        run_anchor_clustering
+        and run_anchor_cluster_gaussian_fit
+        and run_anchor_cluster_gaussian_samples_plot
+        and anchor_cluster_gaussians is not None
+    ):
+        ne_cluster_spec = load_monospline_anchor_spec(
+            config_name=spline_config_name,
+            profile_name=spline_ne_profile_name,
+        )
+        te_cluster_spec = load_monospline_anchor_spec(
+            config_name=spline_config_name,
+            profile_name=spline_te_profile_name,
+        )
+        ne_plot = plot_anchor_cluster_gaussian_samples_task(
+            gaussian_params_npz=anchor_cluster_gaussians["ne"]["params_npz"],
+            output_dir=str(cluster_info_dir),
+            plot_filename=ne_anchor_cluster_samples_plot_filename,
+            x_values=[float(v) for v in np.asarray(ne_cluster_spec["xknots"]).reshape(-1)],
+            title="NE sampled anchors from cluster Gaussians",
+            y_label="n_e anchor value",
+            samples_per_cluster=anchor_cluster_samples_per_cluster,
+            seed=anchor_cluster_samples_seed,
+        )
+        te_plot = plot_anchor_cluster_gaussian_samples_task(
+            gaussian_params_npz=anchor_cluster_gaussians["te"]["params_npz"],
+            output_dir=str(cluster_info_dir),
+            plot_filename=te_anchor_cluster_samples_plot_filename,
+            x_values=[float(v) for v in np.asarray(te_cluster_spec["xknots"]).reshape(-1)],
+            title="TE sampled anchors from cluster Gaussians",
+            y_label="T_e anchor value",
+            samples_per_cluster=anchor_cluster_samples_per_cluster,
+            seed=anchor_cluster_samples_seed + 1,
+        )
+        anchor_cluster_sample_plots = {"ne": ne_plot, "te": te_plot}
+    outputs["anchor_cluster_sample_plots"] = anchor_cluster_sample_plots
+
     outputs["output_dirs"] = {
         "root": str(output_root),
         "original_data": str(original_data_dir),

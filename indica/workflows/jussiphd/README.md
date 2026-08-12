@@ -83,12 +83,15 @@ All entrypoints live at `experiments/<name>/flow.py`.
 - `testset_brightness_noise`: detailed clean-train vs noisy-test diagnostics.
 - `eps_profile_clustering`: unsupervised profile clustering (`eps` and `b`).
 - `te_ne_profile_comparison`: Te/Ne profile sampling comparison.
-- `real_tene_clustering`: read real TS `TE/NE` profiles (plasma-gated) and plot middle-time overlays.
+- `real_tene_clustering`: real TS `TE/NE` anchor-space workflow: plasma-gated read, middle-profile alignment, spline-anchor fitting, anchor clustering, per-cluster Gaussian estimation, and sampled-cluster-family visualisations.
 
 ## Useful paths
 
 - `datasets/`: shared reference CSV datasets (including expanded-equilibria variants)
 - `experiments/*/outputs/`: per-experiment figures, metrics, and summaries
+- `experiments/real_tene_clustering/outputs/original_data/`: cached real `TE/NE` reads + aligned middle profiles
+- `experiments/real_tene_clustering/outputs/cluster_info/`: spline-anchor vectors, fit summaries/spec, Gaussian-by-cluster summaries, sampled-family plots
+- `experiments/real_tene_clustering/outputs/anchor_clusters/`: anchor cluster assignments and cluster visualisations
 - `components/data/flow_data/`: generated/intermediate CSVs used by flows
 - `components/ml/flow_data/`: trained model checkpoints and training metadata
 
