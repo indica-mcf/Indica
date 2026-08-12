@@ -64,6 +64,7 @@ All entrypoints live at `experiments/<name>/flow.py`.
 ### Synthetic variants and contextual studies
 
 - `generate_synth_multipulse_splined`: generation-only splined synthetic dataset.
+- `generate_synth_multipulse_clustered`: generation-only synthetic dataset sampled from real-data TE/NE anchor cluster families.
 - `multipulse_synthetic_poisson_eps`: synthetic training with Poisson-like noise on `eps`.
 - `multipulse_synthetic_expanded_equilibria`: expand synthetic profiles across real equilibrium contexts.
 - `multipulse_synthetic_expanded_equilibria_train`: train/evaluate directly on expanded-equilibria data.

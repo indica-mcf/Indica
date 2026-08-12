@@ -16,6 +16,10 @@ MULTIPULSE_SYNTHETIC_DATA_DIR_STR = str(MULTIPULSE_SYNTHETIC_DATA_DIR)
 MULTIPULSE_SYNTHETIC_SPLINED_DATA_DIR = DATASETS_ROOT / "multipulse_synthetic_splined"
 MULTIPULSE_SYNTHETIC_SPLINED_DATA_DIR_STR = str(MULTIPULSE_SYNTHETIC_SPLINED_DATA_DIR)
 
+# Shared synthetic dataset generated from TE/NE anchor-cluster Gaussian families.
+MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR = DATASETS_ROOT / "multipulse_synthetic_clustered"
+MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR_STR = str(MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR)
+
 # Expanded-brightness synthetic dataset reusing fixed eps over multiple equilibria.
 MULTIPULSE_SYNTHETIC_EXPANDED_EQUILIBRIA_DATA_DIR = (
     DATASETS_ROOT / "multipulse_synthetic_expanded_equilibria"

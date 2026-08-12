@@ -13,6 +13,7 @@ from .expanded_equilibria_generation import (
     expand_brightness_with_equilibria,
     save_equilibrium_plots,
 )
+from .cluster_anchor_generation import generate_and_save_dataset_from_anchor_cluster_gaussians
 
 __all__ = [
     "generate_and_save_real_multipulse_brightness_dataset",
@@ -24,4 +25,5 @@ __all__ = [
     "build_sampled_plasma_expanded_equilibria_dataset",
     "save_equilibrium_plots",
     "align_plasma_fz_to_times",
+    "generate_and_save_dataset_from_anchor_cluster_gaussians",
 ]

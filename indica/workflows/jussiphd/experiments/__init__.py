@@ -2,6 +2,7 @@
 
 from .multipulse_synthetic import bolometry_inversion_multipulse_synthetic
 from .generate_synth_multipulse_splined import bolometry_inversion_multipulse_synthetic_splined
+from .generate_synth_multipulse_clustered import bolometry_inversion_multipulse_synthetic_clustered
 from .eps_profile_clustering import cluster_synthetic_eps_profiles
 from .multipulse_synthetic_noisy_test_b import (
     bolometry_inversion_multipulse_synthetic_noisy_test_b,
@@ -40,6 +41,7 @@ from .real_tene_clustering import real_tene_clustering
 __all__ = [
     "bolometry_inversion_multipulse_synthetic",
     "bolometry_inversion_multipulse_synthetic_splined",
+    "bolometry_inversion_multipulse_synthetic_clustered",
     "cluster_synthetic_eps_profiles",
     "bolometry_inversion_multipulse_synthetic_noisy_test_b",
     "bolometry_inversion_multipulse_synthetic_poisson_eps",
