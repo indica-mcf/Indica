@@ -148,10 +148,10 @@ class DataReader(ABC):
                     q_err_dimensions,
                     q_err_units,
                     q_err_path,
-                ) = self.reader_utils.get_data(
+                ) = self.reader_utils.get_error(
                     uid,
                     instrument,
-                    _path_err,
+                    _path,
                     revision,
                 )
             except Exception as e:

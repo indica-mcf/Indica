@@ -3,7 +3,9 @@ produced by MAST-U
 
 """
 
+from typing import Any
 from typing import Dict
+from typing import Tuple
 
 from xarray import DataArray
 
@@ -11,13 +13,15 @@ from indica import Equilibrium
 from indica.abstractio import BaseIO
 from indica.configs.readers.machineconf import MachineConf
 from indica.configs.readers.mastuconf import MASTUConf
+from indica.converters import CoordinateTransform
 from indica.numpy_typing import RevisionLike
 from indica.readers.datareader import DataReader
-from indica.readers.salutils import UDAUtils
+from indica.readers.jetutils import assign_trivial_transform
+from indica.readers.udautils import UDAUtils
 
 
 class MASTUReader(DataReader):
-    """Class to read JET PPF data using SAL"""
+    """Class to read MAST-U data from UDA"""
 
     def __init__(
         self,
@@ -69,3 +73,10 @@ class MASTUReader(DataReader):
     ) -> Dict[str, DataArray]:
         """Wrap parent class method but use "LATEST" as default revision"""
         return super().get(**locals())
+
+    def _equilibrium(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        transform = assign_trivial_transform()
+        return data, transform
