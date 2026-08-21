@@ -108,6 +108,16 @@ class MDSUtils(BaseIO):
 
         return data, dims, unit, _path
 
+    def get_error(
+        self, uid: str, instrument: str, quantity: str, revision: RevisionLike
+    ) -> Tuple[np.array, List[np.array], str, str]:
+        """Gets the signal error and its coordinates for the given INSTRUMENT, at the
+        given revision."""
+        err_quantity = quantity + "_err"
+        return self.get_data(
+            uid=uid, instrument=instrument, quantity=err_quantity, revision=revision
+        )
+
     def revision_name(self, revision: RevisionLike) -> RevisionLike:
         """Return string defining RUN## or BEST if revision = 0"""
 

@@ -1,5 +1,5 @@
 from indica.defaults.load_defaults import load_default_objects
-from indica.examples.example_transforms import helike_transform_example
+from indica.examples.example_transforms import helike_transform
 from indica.models import helike_spectrometer
 
 
@@ -13,8 +13,8 @@ class TestHelike:
         self.plasma = _plasma
         self.single_time_point = self.plasma.time_to_calculate[1]
         self.multiple_time_point = self.plasma.time_to_calculate
-        self.multiple_channel_los_transform = helike_transform_example(nchannels=3)
-        self.single_channel_los_transform = helike_transform_example(nchannels=1)
+        self.multiple_channel_los_transform = helike_transform(nchannels=3)
+        self.single_channel_los_transform = helike_transform(nchannels=1)
         self.single_channel_los_transform.set_equilibrium(self.plasma.equilibrium)
         self.multiple_channel_los_transform.set_equilibrium(self.plasma.equilibrium)
 

@@ -122,7 +122,6 @@ class DataReader(ABC):
         }
         for _key, _path in quantities_paths.items():
             _key_err = _key + "_error"
-            _path_err = _path + "_err"
 
             # Read quantity value
             try:
@@ -156,7 +155,7 @@ class DataReader(ABC):
                 )
             except Exception as e:
                 if debug:
-                    print(f"get_data error: {_path_err} ({e})")
+                    print(f"get_data error: {_path} ({e})")
                 q_err = np.full_like(results[_key], 0.0)
                 q_err_dimensions = []
                 q_err_units = ""

@@ -5,7 +5,7 @@ import xarray as xr
 from indica.defaults.load_defaults import load_default_objects
 
 
-def flux_coords(machine: str = "st40"):
+def flux_coords(machine: str = "st40", plot: bool = False):
     """Convert from (R, z) to  (rhop, theta)"""
     equilibrium = load_default_objects(machine, "equilibrium")
 
@@ -25,8 +25,9 @@ def flux_coords(machine: str = "st40"):
     z = xr.DataArray(_z, coords={"channel": np.arange(len(_z))})
     rhop_shift, theta_shift, t = equilibrium.flux_coords(R, z, t=t)
 
-    plt.figure()
-    rhop_mid.plot(marker="o", label="Nominal")
-    rhop_shift.plot(marker="x", label="Chan. 2 with z += 0.3")
-    plt.ylabel("R (m)")
-    plt.legend()
+    if plot:
+        plt.figure()
+        rhop_mid.plot(marker="o", label="Nominal")
+        rhop_shift.plot(marker="x", label="Chan. 2 with z += 0.3")
+        plt.ylabel("R (m)")
+        plt.legend()
