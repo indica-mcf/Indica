@@ -284,6 +284,25 @@ class JETReader(DataReader):
             data["direction"] = (
                 np.asarray([[(los[4] / 1000), 0, (los[5] / 1000)]]) - data["location"]
             )
+        elif "ks5" in instrument.lower():
+            # Calibration routines are in IDL. Read and calibrate, then extract data
+            idlb = _setup_idl(self.pulse)
+            idlb.put("spec", instrument.lower())
+            idlb.execute("o=agm_readspec(shot,spec=spec)")
+            idlb.execute("data=o.data")
+            idlb.execute("cg_calibrate_spectra,data=data,/cal_si,/wdeg,/relcal")
+            raw = idlb.get("o")["data"]
+            spec = idlb.get("data")
+            data["spectra_raw"] = raw["data"]
+            data["spectra"] = spec["data"]
+            data["t"] = spec["time"]
+            data["channel"] = spec["track"]
+            data["wavelength"] = spec["wave"]
+            tracks = spec["track_name"]
+            sav_file = _cxrs_los_savfile(pulse=self.pulse, spec=instrument.lower())
+            data["location"], data["direction"] = _cxrs_los_geometry(
+                sav_file=sav_file, tracks=tracks
+            )
         elif instrument.lower().startswith("cx"):
             assert self.pulse >= 92671
             spec = {
