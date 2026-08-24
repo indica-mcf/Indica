@@ -16,7 +16,7 @@ from indica.configs.readers.mastuconf import MASTUConf
 from indica.converters import CoordinateTransform
 from indica.numpy_typing import RevisionLike
 from indica.readers.datareader import DataReader
-from indica.readers.jetutils import assign_trivial_transform
+from indica.readers.jetreader import assign_trivial_transform
 from indica.readers.udautils import UDAUtils
 
 
@@ -72,11 +72,13 @@ class MASTUReader(DataReader):
         equilibrium: Equilibrium = None,
     ) -> Dict[str, DataArray]:
         """Wrap parent class method but use "LATEST" as default revision"""
-        return super().get(**locals())
+        d = {k: v for k, v in locals().items() if k not in ["self", "__class__"]}
+        return super().get(**d)
 
     def _equilibrium(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        data["index"] = data["rbnd_dimensions"][1]
         transform = assign_trivial_transform()
         return data, transform

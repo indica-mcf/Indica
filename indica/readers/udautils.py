@@ -54,6 +54,7 @@ class UDAUtils(BaseIO):
         """Look up three-letter MAST-U name from instrument name"""
         instrument_mapping = {
             "celeste-3": "act",
+            "magnetics_efit": "epm",
             "midplane_thomson": "ayc",
         }
         if instrument not in instrument_mapping.keys():
