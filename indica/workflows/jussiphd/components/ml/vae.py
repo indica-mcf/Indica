@@ -151,7 +151,7 @@ def train_vae_from_csv(
         train_loss = 0.0
         recon_loss_total = 0.0
         kl_loss_total = 0.0
-        kl_epoch_beta = min(1, epoch / (n_epochs - 10))*0.5
+        kl_epoch_beta = min(1, epoch / (n_epochs - 15))*0.5
 
         for emissivity, bolom in train_loader:
             optimizer.zero_grad()
