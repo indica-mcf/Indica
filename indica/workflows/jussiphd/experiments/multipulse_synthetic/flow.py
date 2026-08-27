@@ -26,12 +26,16 @@ from indica.workflows.jussiphd.components.visualisations.vae_generated_visualisa
     generate_vae_training_progress_visualisation,
 )
 from indica.workflows.jussiphd.datasets.paths import (
-    MULTIPULSE_SYNTHETIC_DATA_DIR_STR,
+    MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR_STR,
 )
 
-DEFAULT_OUTPUT_DIR = MULTIPULSE_SYNTHETIC_DATA_DIR_STR
+DEFAULT_OUTPUT_DIR = MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR_STR
 DEFAULT_VAE_DIR = str(
-    Path(__file__).resolve().parents[2] / "components" / "ml" / "flow_data" / "multipulse_synthetic"
+    Path(__file__).resolve().parents[2]
+    / "components"
+    / "ml"
+    / "flow_data"
+    / "multipulse_synthetic_clustered"
 )
 DEFAULT_VIS_DIR = str(Path(__file__).resolve().parent / "outputs")
 
@@ -199,8 +203,8 @@ def bolometry_inversion_multipulse_synthetic(
     real_equilibrium_pulse: int = 13622,
     real_equilibrium_verbose: bool = False,
     output_dir: str = DEFAULT_OUTPUT_DIR,
-    b_filename: str = "b_slices_multipulse_synthetic.csv",
-    eps_filename: str = "eps_slices_multipulse_synthetic.csv",
+    b_filename: str = "b_slices_multipulse_synthetic_clustered.csv",
+    eps_filename: str = "eps_slices_multipulse_synthetic_clustered.csv",
     n_generations: int = 3000,
     generate_new_data: bool = False,
     use_all_timepoints: bool = True,
@@ -210,7 +214,7 @@ def bolometry_inversion_multipulse_synthetic(
     shuffle: bool = True,
     run_vae_training: bool = True,
     vae_output_dir: str = DEFAULT_VAE_DIR,
-    vae_model_filename: str = "vae_multipulse_synthetic.pt",
+    vae_model_filename: str = "vae_multipulse_synthetic_clustered.pt",
     vae_latent_dim: int = 4,
     vae_hidden_scaling: int = 8,
     vae_n_epochs: int = 25,
