@@ -15,20 +15,20 @@ from indica.workflows.jussiphd.components.visualisations.vae_contextual_comparis
     generate_contextual_vae_vs_naive_visualisations,
 )
 from indica.workflows.jussiphd.datasets.paths import (
-    MULTIPULSE_SYNTHETIC_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR_STR,
+    MULTIPULSE_SYNTHETIC_CLUSTERED_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR_STR,
 )
 from indica.workflows.jussiphd.experiments.multipulse_synthetic.flow import (
     bolometry_inversion_multipulse_synthetic,
 )
 
 
-DEFAULT_OUTPUT_DIR = MULTIPULSE_SYNTHETIC_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR_STR
+DEFAULT_OUTPUT_DIR = MULTIPULSE_SYNTHETIC_CLUSTERED_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR_STR
 DEFAULT_VAE_DIR = str(
     Path(__file__).resolve().parents[2]
     / "components"
     / "ml"
     / "flow_data"
-    / "multipulse_synthetic_expanded_equilibria_constant_imp_compare"
+    / "multipulse_synthetic_clustered_expanded_equilibria_constant_imp_compare"
 )
 DEFAULT_VIS_DIR = str(Path(__file__).resolve().parent / "outputs")
 
@@ -117,11 +117,11 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual
     machine: str = "st40",
     instrument: str = "blom_xy1",
     output_dir: str = DEFAULT_OUTPUT_DIR,
-    b_filename: str = "b_slices_multipulse_synthetic_expanded_equilibria_constant_imp.csv",
-    eps_filename: str = "eps_slices_multipulse_synthetic_expanded_equilibria_constant_imp.csv",
+    b_filename: str = "b_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
+    eps_filename: str = "eps_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
     train_or_reuse_vae: bool = True,
     vae_output_dir: str = DEFAULT_VAE_DIR,
-    vae_model_filename: str = "vae_multipulse_synthetic_expanded_equilibria_constant_imp.pt",
+    vae_model_filename: str = "vae_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.pt",
     vae_latent_dim: int = 4,
     vae_hidden_scaling: int = 8,
     vae_n_epochs: int = 25,
@@ -141,7 +141,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual
     noise_count_level: float = 370.0,
     noise_scale_percentile: float = 99.0,
     noise_seed: int | None = 0,
-    noisy_b_filename: str = "b_slices_multipulse_synthetic_expanded_equilibria_constant_imp_noisy_poisson370.csv",
+    noisy_b_filename: str = "b_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_noisy_poisson370.csv",
     vae_model_path: str | None = None,
 ) -> dict[str, Any]:
     """

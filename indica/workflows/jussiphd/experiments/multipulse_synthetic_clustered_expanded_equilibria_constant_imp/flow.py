@@ -187,7 +187,7 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
     clustered_b_filename: str = "b_slices_multipulse_synthetic_clustered.csv",
     clustered_eps_filename: str = "eps_slices_multipulse_synthetic_clustered.csv",
     clustered_meta_filename: str = "sample_meta_multipulse_synthetic_clustered.csv",
-    generate_new_clustered_data: bool = True,
+    generate_new_clustered_data: bool = False,
     n_generations: int = 2500,
     use_all_timepoints: bool = False,
     single_timepoint_mode: str = "middle",
