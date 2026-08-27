@@ -14,18 +14,18 @@ from indica.workflows.jussiphd.components.evaluation.eps_clustering import (
     save_eps_clustering_outputs,
 )
 from indica.workflows.jussiphd.datasets.paths import (
-    MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR,
+    MULTIPULSE_SYNTHETIC_CLUSTERED_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR,
 )
 
 
-DEFAULT_OUTPUT_DIR = str(Path(__file__).resolve().parent / "outputs_clustered")
+DEFAULT_OUTPUT_DIR = str(Path(__file__).resolve().parent / "outputs_clustered_expanded")
 DEFAULT_EPS_PATH = str(
-    MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR
-    / "eps_slices_multipulse_synthetic_clustered.csv"
+    MULTIPULSE_SYNTHETIC_CLUSTERED_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR
+    / "eps_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv"
 )
 DEFAULT_B_PATH = str(
-    MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR
-    / "b_slices_multipulse_synthetic_clustered.csv"
+    MULTIPULSE_SYNTHETIC_CLUSTERED_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR
+    / "b_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv"
 )
 
 

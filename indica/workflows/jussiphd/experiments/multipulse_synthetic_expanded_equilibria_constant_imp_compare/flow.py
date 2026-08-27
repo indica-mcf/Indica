@@ -34,6 +34,7 @@ def compare_vae_vs_naive_on_generated_equilibrium_contexts_task(
     model_path: str,
     b_path: str,
     eps_path: str,
+    meta_path: str | None,
     output_dir: str,
     machine: str,
     instrument: str,
@@ -46,11 +47,13 @@ def compare_vae_vs_naive_on_generated_equilibrium_contexts_task(
     k_samples: int,
     n_examples: int,
     seed: int | None,
+    use_dataset_samples: bool,
 ) -> dict[str, Any]:
     return generate_contextual_vae_vs_naive_visualisations(
         model_path=model_path,
         b_path=b_path,
         eps_path=eps_path,
+        meta_path=meta_path,
         output_dir=output_dir,
         machine=machine,
         instrument=instrument,
@@ -63,6 +66,7 @@ def compare_vae_vs_naive_on_generated_equilibrium_contexts_task(
         k_samples=k_samples,
         n_examples=n_examples,
         seed=seed,
+        use_dataset_samples=use_dataset_samples,
     )
 
 
@@ -73,6 +77,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_contextual_comparison(
     output_dir: str = DEFAULT_OUTPUT_DIR,
     b_filename: str = "b_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
     eps_filename: str = "eps_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
+    meta_filename: str = "sample_meta_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
     train_or_reuse_vae: bool = True,
     vae_output_dir: str = DEFAULT_VAE_DIR,
     vae_model_filename: str = "vae_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.pt",
@@ -92,6 +97,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_contextual_comparison(
     c_concentration: float = 0.05,
     ar_concentration: float = 0.01,
     seed: int | None = 7,
+    use_dataset_samples_for_comparison: bool = True,
     vae_model_path: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -105,6 +111,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_contextual_comparison(
     """
     b_path = str(Path(output_dir) / b_filename)
     eps_path = str(Path(output_dir) / eps_filename)
+    meta_path = str(Path(output_dir) / meta_filename)
 
     training_result = None
     model_path = vae_model_path
@@ -142,6 +149,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_contextual_comparison(
         model_path=model_path,
         b_path=b_path,
         eps_path=eps_path,
+        meta_path=meta_path,
         output_dir=visualisations_output_dir,
         machine=machine,
         instrument=instrument,
@@ -154,6 +162,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_contextual_comparison(
         k_samples=k_samples,
         n_examples=n_examples,
         seed=seed,
+        use_dataset_samples=use_dataset_samples_for_comparison,
     )
 
     return {

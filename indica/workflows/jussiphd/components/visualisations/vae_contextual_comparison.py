@@ -47,6 +47,8 @@ def generate_contextual_vae_vs_naive_visualisations(
     noise_count_level: float = 200.0,
     noise_scale_percentile: float = 99.0,
     noise_seed: int | None = 0,
+    use_dataset_samples: bool = False,
+    meta_path: str | None = None,
 ) -> dict[str, Any]:
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -78,65 +80,128 @@ def generate_contextual_vae_vs_naive_visualisations(
     if len(points) == 0:
         raise ValueError("No equilibrium/time points available for comparison generation.")
 
-    reference_model = contexts[0]["model"]
-    reference_transform = contexts[0]["transform"]
-    overrides = (
-        list(config_overrides)
-        if config_overrides is not None
-        else ["plasma.settings.n_rad=41", "tstart=0.015", "tend=0.160", "dt=0.005"]
-    )
-
     generated_samples: list[dict[str, Any]] = []
-    for idx in range(int(n_generated_samples)):
-        pt = points[int(rng.integers(len(points)))]
-        model = pt["model"]
-        target_t = np.asarray(pt["target_t"], dtype=float).reshape(-1)
-        tidx = int(pt["tidx"])
-        t_s = float(pt["t_s"])
+    if bool(use_dataset_samples):
+        b_matrix = np.loadtxt(b_path, delimiter=",", dtype=np.float32)
+        e_matrix = np.loadtxt(eps_path, delimiter=",", dtype=np.float32)
+        if b_matrix.ndim == 1:
+            b_matrix = b_matrix[None, :]
+        if e_matrix.ndim == 1:
+            e_matrix = e_matrix[None, :]
+        n_rows = int(min(b_matrix.shape[0], e_matrix.shape[0]))
+        if n_rows <= 0:
+            raise ValueError("No rows available in b/eps dataset for contextual comparison.")
+        n_use = int(min(int(n_generated_samples), n_rows))
+        selected = rng.choice(n_rows, size=n_use, replace=False)
 
-        plasma = sample_plasma(
-            model=reference_model,
-            transform=reference_transform,
-            config_name=config_name,
-            overrides=overrides,
-        )
-        plasma.set_impurity_concentration(
-            element="c",
-            concentration=float(c_concentration),
-            flat_zeff=True,
-        )
-        plasma.set_impurity_concentration(
-            element="ar",
-            concentration=float(ar_concentration),
-            flat_zeff=True,
-        )
+        meta = None
+        if meta_path is not None and Path(meta_path).exists():
+            try:
+                meta = np.genfromtxt(meta_path, delimiter=",", names=True, dtype=None, encoding=None)
+                meta = np.atleast_1d(meta)
+            except Exception:
+                meta = None
+        contexts_by_idx = {int(ctx["eq_idx"]): ctx for ctx in contexts}
 
-        base_fz = {elem: fz_da.copy(deep=True) for elem, fz_da in plasma.fz.items()}
-        for elem, fz_da in base_fz.items():
-            plasma.fz[elem] = fz_da.copy(deep=True)
-        aligned_fz = align_plasma_fz_to_times(plasma, target_t)
-        for elem, fz_da in aligned_fz.items():
-            plasma.fz[elem] = fz_da
+        for trial_idx, row_idx in enumerate(selected):
+            b_true = b_matrix[int(row_idx)].astype(np.float32).reshape(-1)
+            e_true = e_matrix[int(row_idx)].astype(np.float32).reshape(-1)
+            rhop = np.linspace(0.0, 1.0, int(e_true.size), dtype=np.float32)
 
-        model.set_plasma(plasma)
-        bckc, emissivity = model(t=target_t, return_emissivity=True)
-        b_true = bckc["brightness"].isel(t=tidx).values.astype(np.float32).reshape(-1)
-        e_true = emissivity.isel(t=tidx).values.astype(np.float32).reshape(-1)
-        rhop = emissivity.rhop.values.astype(np.float32)
+            ctx = points[int(rng.integers(len(points)))]
+            eq_idx = int(ctx["eq_idx"])
+            eq_label = str(ctx["spec"]["label"])
+            pulse = int(ctx["spec"]["pulse"])
+            t_s = float(ctx["t_s"])
+            model = ctx["model"]
+            if meta is not None and int(row_idx) < int(np.size(meta)):
+                meta_row = meta[int(row_idx)]
+                try:
+                    meta_eq = int(meta_row["equilibrium_index"])
+                    if meta_eq in contexts_by_idx:
+                        ctx_match = contexts_by_idx[meta_eq]
+                        target_t = np.asarray(ctx_match["target_t"], dtype=float).reshape(-1)
+                        t_guess = float(meta_row["t_s"]) if "t_s" in meta.dtype.names else float(target_t[0])
+                        tidx = int(np.argmin(np.abs(target_t - t_guess)))
+                        t_s = float(target_t[tidx])
+                        eq_idx = int(ctx_match["eq_idx"])
+                        eq_label = str(ctx_match["spec"]["label"])
+                        pulse = int(ctx_match["spec"]["pulse"])
+                        model = ctx_match["model"]
+                except Exception:
+                    pass
 
-        generated_samples.append(
-            {
-                "trial_index": int(idx),
-                "equilibrium_index": int(pt["eq_idx"]),
-                "equilibrium_label": str(pt["spec"]["label"]),
-                "pulse": int(pt["spec"]["pulse"]),
-                "t_s": float(t_s),
-                "model": model,
-                "b_true": b_true,
-                "e_true": e_true,
-                "rhop": rhop,
-            }
+            generated_samples.append(
+                {
+                    "trial_index": int(trial_idx),
+                    "equilibrium_index": int(eq_idx),
+                    "equilibrium_label": str(eq_label),
+                    "pulse": int(pulse),
+                    "t_s": float(t_s),
+                    "model": model,
+                    "b_true": b_true,
+                    "e_true": e_true,
+                    "rhop": rhop,
+                }
+            )
+    else:
+        reference_model = contexts[0]["model"]
+        reference_transform = contexts[0]["transform"]
+        overrides = (
+            list(config_overrides)
+            if config_overrides is not None
+            else ["plasma.settings.n_rad=41", "tstart=0.015", "tend=0.160", "dt=0.005"]
         )
+        for idx in range(int(n_generated_samples)):
+            pt = points[int(rng.integers(len(points)))]
+            model = pt["model"]
+            target_t = np.asarray(pt["target_t"], dtype=float).reshape(-1)
+            tidx = int(pt["tidx"])
+            t_s = float(pt["t_s"])
+
+            plasma = sample_plasma(
+                model=reference_model,
+                transform=reference_transform,
+                config_name=config_name,
+                overrides=overrides,
+            )
+            plasma.set_impurity_concentration(
+                element="c",
+                concentration=float(c_concentration),
+                flat_zeff=True,
+            )
+            plasma.set_impurity_concentration(
+                element="ar",
+                concentration=float(ar_concentration),
+                flat_zeff=True,
+            )
+
+            base_fz = {elem: fz_da.copy(deep=True) for elem, fz_da in plasma.fz.items()}
+            for elem, fz_da in base_fz.items():
+                plasma.fz[elem] = fz_da.copy(deep=True)
+            aligned_fz = align_plasma_fz_to_times(plasma, target_t)
+            for elem, fz_da in aligned_fz.items():
+                plasma.fz[elem] = fz_da
+
+            model.set_plasma(plasma)
+            bckc, emissivity = model(t=target_t, return_emissivity=True)
+            b_true = bckc["brightness"].isel(t=tidx).values.astype(np.float32).reshape(-1)
+            e_true = emissivity.isel(t=tidx).values.astype(np.float32).reshape(-1)
+            rhop = emissivity.rhop.values.astype(np.float32)
+
+            generated_samples.append(
+                {
+                    "trial_index": int(idx),
+                    "equilibrium_index": int(pt["eq_idx"]),
+                    "equilibrium_label": str(pt["spec"]["label"]),
+                    "pulse": int(pt["spec"]["pulse"]),
+                    "t_s": float(t_s),
+                    "model": model,
+                    "b_true": b_true,
+                    "e_true": e_true,
+                    "rhop": rhop,
+                }
+            )
 
     if len(generated_samples) == 0:
         raise ValueError("No generated samples available for contextual comparison.")
@@ -415,9 +480,10 @@ def generate_contextual_vae_vs_naive_visualisations(
         comments="",
     )
 
-    return {
+    result = {
         "num_valid_samples": int(len(rows)),
         "num_requested_samples": int(n_generated_samples),
+        "used_dataset_samples": bool(use_dataset_samples),
         "num_equilibrium_points": int(len(points)),
         "median_naive_rmse": float(np.median(naive_rmse_vals)),
         "median_vae_rmse": float(np.median(vae_rmse_vals)),
