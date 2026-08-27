@@ -13,12 +13,20 @@ from indica.workflows.jussiphd.components.evaluation.eps_clustering import (
     save_b_clustering_outputs,
     save_eps_clustering_outputs,
 )
-from indica.workflows.jussiphd.datasets.paths import MULTIPULSE_SYNTHETIC_DATA_DIR
+from indica.workflows.jussiphd.datasets.paths import (
+    MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR,
+)
 
 
-DEFAULT_OUTPUT_DIR = str(Path(__file__).resolve().parent / "outputs")
-DEFAULT_EPS_PATH = str(MULTIPULSE_SYNTHETIC_DATA_DIR / "eps_slices_multipulse_synthetic.csv")
-DEFAULT_B_PATH = str(MULTIPULSE_SYNTHETIC_DATA_DIR / "b_slices_multipulse_synthetic.csv")
+DEFAULT_OUTPUT_DIR = str(Path(__file__).resolve().parent / "outputs_clustered")
+DEFAULT_EPS_PATH = str(
+    MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR
+    / "eps_slices_multipulse_synthetic_clustered.csv"
+)
+DEFAULT_B_PATH = str(
+    MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR
+    / "b_slices_multipulse_synthetic_clustered.csv"
+)
 
 
 @task(name="cluster_eps_profiles")

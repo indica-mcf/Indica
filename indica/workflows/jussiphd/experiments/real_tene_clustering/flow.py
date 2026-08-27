@@ -298,7 +298,7 @@ def real_tene_clustering(
     reuse_existing_profiles: bool = True,
     run_anchor_clustering: bool = True,
     anchor_cluster_output_subdir: str = "anchor_clusters",
-    anchor_cluster_n_clusters: int = 8,
+    anchor_cluster_n_clusters: int = 10,
     anchor_cluster_max_iter: int = 150,
     anchor_cluster_tol: float = 1e-4,
     anchor_cluster_seed: int = 0,
@@ -576,7 +576,8 @@ def real_tene_clustering(
 
 
 if __name__ == "__main__":
-    result = real_tene_clustering(pulses=(list(range(14500,14700)) + list(range(11300,11500))))
+    #result = real_tene_clustering(pulses=(list(range(14500,14700)) + list(range(11500,11700))),reuse_existing_profiles=False)
+    result = real_tene_clustering(pulses=(list(range(11000,15000))),reuse_existing_profiles=False)
     print("Real Te/Ne clustering read pass complete")
     print(f"Matched pulses: {result['outputs']['num_matched']}/{result['n_requested']}")
     print(f"Outputs: {result['outputs']}")

@@ -54,27 +54,27 @@ workflows/jussiphd/
 
 All entrypoints live at `experiments/<name>/flow.py`.
 
-### Core train and eval
-
-- `standard_multipulse`: baseline real multipulse inversion.
-- `multipulse_real`: fuller real-data pipeline with quality filtering.
-- `multipulse_synthetic`: baseline synthetic multipulse pipeline.
-- `single_generated`: simplified single-generated synthetic variant.
-
-### Synthetic variants and contextual studies
+### Data generation flows
 
 - `generate_synth_multipulse_splined`: generation-only splined synthetic dataset.
-- `generate_synth_multipulse_clustered`: generation-only synthetic dataset sampled from real-data TE/NE anchor cluster families.
-- `multipulse_synthetic_poisson_eps`: synthetic training with Poisson-like noise on `eps`.
+- `generate_synth_multipulse_clustered`: generation-only synthetic dataset sampled from real-data TE/NE anchor cluster families; copies source cluster artefacts into `outputs/cluster_inputs/` for provenance.
 - `multipulse_synthetic_expanded_equilibria`: expand synthetic profiles across real equilibrium contexts.
-- `multipulse_synthetic_expanded_equilibria_train`: train/evaluate directly on expanded-equilibria data.
 - `multipulse_synthetic_expanded_equilibria_constant_imp`: expanded-equilibria generation with fixed impurities (default C=5%, Ar=1%).
+- `multipulse_real`: fuller real-data dataset generation with quality filtering.
+
+### Model training and evaluation flows
+
+- `standard_multipulse`: baseline real multipulse inversion.
+- `multipulse_synthetic`: baseline synthetic multipulse training/evaluation pipeline.
+- `single_generated`: simplified single-generated synthetic variant.
+- `multipulse_synthetic_expanded_equilibria_train`: train/evaluate directly on expanded-equilibria data.
 - `multipulse_synthetic_expanded_equilibria_constant_imp_compare`: VAE vs naive contextual inversion benchmark.
 - `multipulse_synthetic_expanded_equilibria_constant_imp_noise_b_compare`: same contextual benchmark with noisy test brightness.
 - `multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_compare`: contextual benchmark with noise applied to the full `b` dataset.
 - `multipulse_synthetic_noisy_test_b`: clean-train / noisy-test robustness flow.
+- `multipulse_synthetic_poisson_eps`: synthetic training with Poisson-like noise on `eps`.
 
-### Analysis and benchmarking
+### Analysis, clustering, and benchmarking flows
 
 - `comparison`: side-by-side real vs synthetic summary metrics.
 - `inference_timing_synthetic`: inference-time benchmark.
@@ -86,13 +86,31 @@ All entrypoints live at `experiments/<name>/flow.py`.
 - `te_ne_profile_comparison`: Te/Ne profile sampling comparison.
 - `real_tene_clustering`: real TS `TE/NE` anchor-space workflow: plasma-gated read, middle-profile alignment, spline-anchor fitting, anchor clustering, per-cluster Gaussian estimation, and sampled-cluster-family visualisations.
 
+## Common pipeline recipes
+
+### Splined to expanded-equilibria (constant impurities) to training/eval
+
+1. Run `generate_synth_multipulse_splined` to create the base splined dataset.
+2. Run `multipulse_synthetic_expanded_equilibria_constant_imp` to expand it over real equilibria with fixed impurities.
+3. Run one of the model flows on that dataset, typically:
+   - `multipulse_synthetic_expanded_equilibria_train`
+   - `multipulse_synthetic_expanded_equilibria_constant_imp_compare`
+   - `multipulse_synthetic_expanded_equilibria_constant_imp_noise_b_compare`
+   - `multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_compare`
+
 ## Useful paths
 
 - `datasets/`: shared reference CSV datasets (including expanded-equilibria variants)
 - `experiments/*/outputs/`: per-experiment figures, metrics, and summaries
 - `experiments/real_tene_clustering/outputs/original_data/`: cached real `TE/NE` reads + aligned middle profiles
+- `experiments/real_tene_clustering/outputs/original_data/te_middle_profiles_real_raw.csv`: raw middle-time `TE` profiles before alignment/cleaning
+- `experiments/real_tene_clustering/outputs/original_data/te_ne_outlier_report.csv`: row-wise `TE/NE` outlier filtering report
 - `experiments/real_tene_clustering/outputs/cluster_info/`: spline-anchor vectors, fit summaries/spec, Gaussian-by-cluster summaries, sampled-family plots
 - `experiments/real_tene_clustering/outputs/anchor_clusters/`: anchor cluster assignments and cluster visualisations
+- `experiments/real_tene_clustering/outputs/anchor_clusters/ne_anchors_cluster_assignments.csv`: `NE` anchor-family assignment table (sample-to-cluster mapping)
+- `datasets/multipulse_synthetic_clustered/`: generated clustered-anchor synthetic `b/eps/meta` CSVs
+- `experiments/generate_synth_multipulse_clustered/outputs/cluster_inputs/`: copied source cluster files (`npz` + assignment/summary CSVs)
+- `experiments/eps_profile_clustering/outputs_clustered/`: clustering galleries/overlays/assignments for the clustered synthetic dataset
 - `components/data/flow_data/`: generated/intermediate CSVs used by flows
 - `components/ml/flow_data/`: trained model checkpoints and training metadata
 
