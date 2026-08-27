@@ -73,6 +73,7 @@ def compare_vae_vs_naive_on_generated_equilibrium_contexts_noisy_b_task(
     model_path: str,
     b_path: str,
     eps_path: str,
+    meta_path: str | None,
     output_dir: str,
     machine: str,
     instrument: str,
@@ -88,11 +89,13 @@ def compare_vae_vs_naive_on_generated_equilibrium_contexts_noisy_b_task(
     noise_count_level: float,
     noise_scale_percentile: float,
     noise_seed: int | None,
+    use_dataset_samples: bool,
 ) -> dict[str, Any]:
     return generate_contextual_vae_vs_naive_visualisations(
         model_path=model_path,
         b_path=b_path,
         eps_path=eps_path,
+        meta_path=meta_path,
         output_dir=output_dir,
         machine=machine,
         instrument=instrument,
@@ -109,6 +112,7 @@ def compare_vae_vs_naive_on_generated_equilibrium_contexts_noisy_b_task(
         noise_count_level=noise_count_level,
         noise_scale_percentile=noise_scale_percentile,
         noise_seed=noise_seed,
+        use_dataset_samples=use_dataset_samples,
     )
 
 
@@ -119,6 +123,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual
     output_dir: str = DEFAULT_OUTPUT_DIR,
     b_filename: str = "b_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
     eps_filename: str = "eps_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
+    meta_filename: str = "sample_meta_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
     train_or_reuse_vae: bool = True,
     vae_output_dir: str = DEFAULT_VAE_DIR,
     vae_model_filename: str = "vae_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.pt",
@@ -142,6 +147,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual
     noise_scale_percentile: float = 99.0,
     noise_seed: int | None = 0,
     noisy_b_filename: str = "b_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_noisy_poisson370.csv",
+    use_dataset_samples_for_comparison: bool = True,
     vae_model_path: str | None = None,
 ) -> dict[str, Any]:
     """
@@ -156,6 +162,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual
     """
     b_path = str(Path(output_dir) / b_filename)
     eps_path = str(Path(output_dir) / eps_filename)
+    meta_path = str(Path(output_dir) / meta_filename)
     noisy_b = noise_full_brightness_dataset_task(
         b_path=b_path,
         output_dir=output_dir,
@@ -202,6 +209,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual
         model_path=model_path,
         b_path=b_noisy_path,
         eps_path=eps_path,
+        meta_path=meta_path,
         output_dir=visualisations_output_dir,
         machine=machine,
         instrument=instrument,
@@ -217,6 +225,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual
         noise_count_level=noise_count_level,
         noise_scale_percentile=noise_scale_percentile,
         noise_seed=noise_seed,
+        use_dataset_samples=use_dataset_samples_for_comparison,
     )
 
     return {
