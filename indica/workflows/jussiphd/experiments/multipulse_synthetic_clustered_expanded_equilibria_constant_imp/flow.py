@@ -1,4 +1,4 @@
-"""Prefect flow for synthetic dataset generation from real TE/NE anchor clusters."""
+"""Prefect flow: clustered-anchor synthetic generation then expanded equilibria projection."""
 
 from __future__ import annotations
 
@@ -12,14 +12,21 @@ from indica.defaults.load_defaults import load_default_objects
 from indica.workflows.jussiphd.components.data.cluster_anchor_generation import (
     generate_and_save_dataset_from_anchor_cluster_gaussians,
 )
+from indica.workflows.jussiphd.components.data.expanded_equilibria_generation import (
+    expand_brightness_with_equilibria,
+)
 from indica.workflows.jussiphd.components.data.real_equilibrium import (
     load_real_equilibrium_from_pulse,
 )
 from indica.workflows.jussiphd.datasets.paths import (
     MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR_STR,
+    MULTIPULSE_SYNTHETIC_CLUSTERED_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR_STR,
 )
 
-DEFAULT_OUTPUT_DIR = MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR_STR
+DEFAULT_CLUSTERED_OUTPUT_DIR = MULTIPULSE_SYNTHETIC_CLUSTERED_DATA_DIR_STR
+DEFAULT_EXPANDED_OUTPUT_DIR = (
+    MULTIPULSE_SYNTHETIC_CLUSTERED_EXPANDED_EQUILIBRIA_CONSTANT_IMP_DATA_DIR_STR
+)
 DEFAULT_REAL_TENE_OUTPUTS = (
     Path(__file__).resolve().parents[1] / "real_tene_clustering" / "outputs"
 )
@@ -87,8 +94,8 @@ def copy_cluster_inputs_task(
     }
 
 
-@task(name="generate_multipulse_synthetic_dataset_from_anchor_clusters")
-def generate_multipulse_synthetic_dataset_from_anchor_clusters_task(
+@task(name="generate_clustered_constant_imp_dataset")
+def generate_clustered_constant_imp_dataset_task(
     machine: str,
     instrument: str,
     transform: Any,
@@ -99,6 +106,7 @@ def generate_multipulse_synthetic_dataset_from_anchor_clusters_task(
     te_xknots: list[float],
     n_generations: int,
     use_all_timepoints: bool,
+    single_timepoint_mode: str,
     output_dir: str,
     b_filename: str,
     eps_filename: str,
@@ -106,7 +114,6 @@ def generate_multipulse_synthetic_dataset_from_anchor_clusters_task(
     generate_new_data: bool,
     config_name: str,
     config_overrides: list[str] | None,
-    single_timepoint_mode: str,
     seed: int,
     sample_weight_by_cluster_counts: bool,
     enforce_nonnegative_profiles: bool,
@@ -141,8 +148,33 @@ def generate_multipulse_synthetic_dataset_from_anchor_clusters_task(
     )
 
 
-@flow(name="bolometry_inversion_multipulse_synthetic_clustered")
-def bolometry_inversion_multipulse_synthetic_clustered(
+@task(name="expand_clustered_eps_with_equilibria")
+def expand_clustered_eps_with_equilibria_task(
+    eps_path: str,
+    output_dir: str,
+    machine: str,
+    instrument: str,
+    b_filename: str,
+    eps_filename: str,
+    meta_filename: str,
+    generate_new_data: bool,
+    n_timepoints_per_equilibrium: int,
+) -> dict[str, Any]:
+    return expand_brightness_with_equilibria(
+        eps_path=eps_path,
+        output_dir=output_dir,
+        machine=machine,
+        instrument=instrument,
+        b_filename=b_filename,
+        eps_filename=eps_filename,
+        meta_filename=meta_filename,
+        generate_new_data=generate_new_data,
+        n_timepoints_per_equilibrium=n_timepoints_per_equilibrium,
+    )
+
+
+@flow(name="build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_dataset")
+def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_dataset(
     machine: str = "st40",
     instrument: str = "blom_xy1",
     tstart: float = 0.04,
@@ -151,13 +183,13 @@ def bolometry_inversion_multipulse_synthetic_clustered(
     use_real_equilibrium: bool = True,
     real_equilibrium_pulse: int = 13622,
     real_equilibrium_verbose: bool = False,
-    output_dir: str = DEFAULT_OUTPUT_DIR,
-    b_filename: str = "b_slices_multipulse_synthetic_clustered.csv",
-    eps_filename: str = "eps_slices_multipulse_synthetic_clustered.csv",
-    meta_filename: str = "sample_meta_multipulse_synthetic_clustered.csv",
-    n_generations: int = 100,
-    generate_new_data: bool = True,
-    use_all_timepoints: bool = True,
+    clustered_output_dir: str = DEFAULT_CLUSTERED_OUTPUT_DIR,
+    clustered_b_filename: str = "b_slices_multipulse_synthetic_clustered.csv",
+    clustered_eps_filename: str = "eps_slices_multipulse_synthetic_clustered.csv",
+    clustered_meta_filename: str = "sample_meta_multipulse_synthetic_clustered.csv",
+    generate_new_clustered_data: bool = True,
+    n_generations: int = 2500,
+    use_all_timepoints: bool = False,
     single_timepoint_mode: str = "middle",
     config_name: str = "baseline_spline_tene",
     config_overrides: list[str] | None = None,
@@ -177,6 +209,12 @@ def bolometry_inversion_multipulse_synthetic_clustered(
     te_assignment_csv: str = DEFAULT_TE_ASSIGN_CSV,
     ne_gaussian_summary_csv: str = DEFAULT_NE_GAUSS_SUMMARY_CSV,
     te_gaussian_summary_csv: str = DEFAULT_TE_GAUSS_SUMMARY_CSV,
+    expanded_output_dir: str = DEFAULT_EXPANDED_OUTPUT_DIR,
+    expanded_b_filename: str = "b_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
+    expanded_eps_filename: str = "eps_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
+    expanded_meta_filename: str = "sample_meta_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
+    generate_new_expanded_data: bool = True,
+    n_timepoints_per_equilibrium: int = 6,
 ) -> dict[str, Any]:
     transforms = load_default_objects(machine, "geometry")
     if use_real_equilibrium:
@@ -194,7 +232,7 @@ def bolometry_inversion_multipulse_synthetic_clustered(
     copied_cluster_inputs = None
     if copy_cluster_inputs:
         copied_cluster_inputs = copy_cluster_inputs_task(
-            output_dir=output_dir,
+            output_dir=clustered_output_dir,
             subdir=cluster_input_subdir,
             files_to_copy=[
                 ne_gaussian_params_path,
@@ -206,7 +244,7 @@ def bolometry_inversion_multipulse_synthetic_clustered(
             ],
         )
 
-    synthetic_dataset = generate_multipulse_synthetic_dataset_from_anchor_clusters_task(
+    clustered_dataset = generate_clustered_constant_imp_dataset_task(
         machine=machine,
         instrument=instrument,
         transform=transform,
@@ -217,14 +255,14 @@ def bolometry_inversion_multipulse_synthetic_clustered(
         te_xknots=te_xknots,
         n_generations=n_generations,
         use_all_timepoints=use_all_timepoints,
-        output_dir=output_dir,
-        b_filename=b_filename,
-        eps_filename=eps_filename,
-        meta_filename=meta_filename,
-        generate_new_data=generate_new_data,
+        single_timepoint_mode=single_timepoint_mode,
+        output_dir=clustered_output_dir,
+        b_filename=clustered_b_filename,
+        eps_filename=clustered_eps_filename,
+        meta_filename=clustered_meta_filename,
+        generate_new_data=generate_new_clustered_data,
         config_name=config_name,
         config_overrides=config_overrides,
-        single_timepoint_mode=single_timepoint_mode,
         seed=seed,
         sample_weight_by_cluster_counts=sample_weight_by_cluster_counts,
         enforce_nonnegative_profiles=enforce_nonnegative_profiles,
@@ -233,14 +271,28 @@ def bolometry_inversion_multipulse_synthetic_clustered(
         impurity_flat_zeff=impurity_flat_zeff,
     )
 
+    expanded_dataset = expand_clustered_eps_with_equilibria_task(
+        eps_path=str(clustered_dataset["eps_path"]),
+        output_dir=expanded_output_dir,
+        machine=machine,
+        instrument=instrument,
+        b_filename=expanded_b_filename,
+        eps_filename=expanded_eps_filename,
+        meta_filename=expanded_meta_filename,
+        generate_new_data=generate_new_expanded_data,
+        n_timepoints_per_equilibrium=n_timepoints_per_equilibrium,
+    )
+
     return {
-        "synthetic_dataset": synthetic_dataset,
+        "clustered_dataset": clustered_dataset,
+        "expanded_dataset": expanded_dataset,
         "copied_cluster_inputs": copied_cluster_inputs,
-        "output_dir": output_dir,
+        "clustered_output_dir": clustered_output_dir,
+        "expanded_output_dir": expanded_output_dir,
     }
 
 
 if __name__ == "__main__":
-    result = bolometry_inversion_multipulse_synthetic_clustered()
-    print("Clustered-anchor synthetic dataset generation complete")
+    result = build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_dataset()
+    print("Clustered constant-imp + expanded-equilibria synthetic dataset complete")
     print(result)

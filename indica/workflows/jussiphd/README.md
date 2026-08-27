@@ -58,6 +58,7 @@ All entrypoints live at `experiments/<name>/flow.py`.
 
 - `generate_synth_multipulse_splined`: generation-only splined synthetic dataset.
 - `generate_synth_multipulse_clustered`: generation-only synthetic dataset sampled from real-data TE/NE anchor cluster families; copies source cluster artefacts into `outputs/cluster_inputs/` for provenance.
+- `multipulse_synthetic_clustered_expanded_equilibria_constant_imp`: two-stage generation flow that first builds clustered-anchor synthetic data with fixed impurities, then expands it across equilibria/timepoints.
 - `multipulse_synthetic_expanded_equilibria`: expand synthetic profiles across real equilibrium contexts.
 - `multipulse_synthetic_expanded_equilibria_constant_imp`: expanded-equilibria generation with fixed impurities (default C=5%, Ar=1%).
 - `multipulse_real`: fuller real-data dataset generation with quality filtering.
@@ -98,6 +99,14 @@ All entrypoints live at `experiments/<name>/flow.py`.
    - `multipulse_synthetic_expanded_equilibria_constant_imp_noise_b_compare`
    - `multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_compare`
 
+### Clustered anchors to expanded-equilibria (constant impurities)
+
+1. Run `real_tene_clustering` to build anchor clusters and per-cluster Gaussian parameters from real `TE/NE`.
+2. Run `multipulse_synthetic_clustered_expanded_equilibria_constant_imp` to:
+   - sample clustered-anchor synthetic profiles with fixed impurities
+   - expand the resulting `eps` over multiple real equilibria/timepoints
+3. Run downstream training/eval or clustering flows on the produced expanded dataset.
+
 ## Useful paths
 
 - `datasets/`: shared reference CSV datasets (including expanded-equilibria variants)
@@ -109,6 +118,7 @@ All entrypoints live at `experiments/<name>/flow.py`.
 - `experiments/real_tene_clustering/outputs/anchor_clusters/`: anchor cluster assignments and cluster visualisations
 - `experiments/real_tene_clustering/outputs/anchor_clusters/ne_anchors_cluster_assignments.csv`: `NE` anchor-family assignment table (sample-to-cluster mapping)
 - `datasets/multipulse_synthetic_clustered/`: generated clustered-anchor synthetic `b/eps/meta` CSVs
+- `datasets/multipulse_synthetic_clustered_expanded_equilibria_constant_imp/`: expanded-equilibria dataset generated from clustered-anchor synthetic `eps`
 - `experiments/generate_synth_multipulse_clustered/outputs/cluster_inputs/`: copied source cluster files (`npz` + assignment/summary CSVs)
 - `experiments/eps_profile_clustering/outputs_clustered/`: clustering galleries/overlays/assignments for the clustered synthetic dataset
 - `components/data/flow_data/`: generated/intermediate CSVs used by flows

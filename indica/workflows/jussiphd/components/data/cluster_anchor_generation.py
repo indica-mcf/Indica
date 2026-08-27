@@ -74,6 +74,8 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
     seed: int = 0,
     sample_weight_by_cluster_counts: bool = True,
     enforce_nonnegative_profiles: bool = True,
+    impurity_concentrations: dict[str, float] | None = None,
+    impurity_flat_zeff: bool = True,
 ) -> dict[str, Any]:
     """Generate (brightness, emissivity) pairs by sampling TE/NE anchors per cluster family."""
     output_path = Path(output_dir)
@@ -159,6 +161,13 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
         ne_anchor = _safe_mvn_draw(rng, ne_params["means"][fam_idx], ne_params["covariances"][fam_idx])
         te_anchor = _safe_mvn_draw(rng, te_params["means"][fam_idx], te_params["covariances"][fam_idx])
         plasma = generator.generate()
+        if impurity_concentrations is not None:
+            for element, concentration in impurity_concentrations.items():
+                plasma.set_impurity_concentration(
+                    element=str(element),
+                    concentration=float(concentration),
+                    flat_zeff=bool(impurity_flat_zeff),
+                )
         rhop = np.asarray(plasma.rhop.values, dtype=np.float64).reshape(-1)
         ne_profile = np.interp(rhop, ne_x, ne_anchor).astype(np.float64)
         te_profile = np.interp(rhop, te_x, te_anchor).astype(np.float64)
@@ -226,4 +235,9 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
         "source_ne_gaussian_params": str(ne_gaussian_params_path),
         "source_te_gaussian_params": str(te_gaussian_params_path),
     }
-
+    if impurity_concentrations is not None:
+        result["impurity_concentrations"] = {
+            str(k): float(v) for k, v in impurity_concentrations.items()
+        }
+        result["impurity_flat_zeff"] = bool(impurity_flat_zeff)
+    return result
