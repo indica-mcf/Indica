@@ -361,9 +361,9 @@ def generate_contextual_vae_vs_naive_visualisations(
     plt.close(fig)
 
     n_show = len(example_store)
-    n_cols = 2
+    n_cols = 4
     n_rows = int(np.ceil(max(1, n_show) / n_cols))
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 4.5 * n_rows), sharex=True, sharey=True)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(24, 4.0 * n_rows), sharex=True, sharey=True)
     axes = np.atleast_1d(axes).ravel()
     for ax in axes[n_show:]:
         ax.axis("off")
@@ -392,12 +392,12 @@ def generate_contextual_vae_vs_naive_visualisations(
 
     # Additional view: ground truth + VAE samples + VAE mean.
     n_show_s = len(vae_sampling_store)
-    n_cols_s = 2
+    n_cols_s = 4
     n_rows_s = int(np.ceil(max(1, n_show_s) / n_cols_s))
     fig, axes = plt.subplots(
         n_rows_s,
         n_cols_s,
-        figsize=(12, 4.5 * n_rows_s),
+        figsize=(24, 4.0 * n_rows_s),
         sharex=True,
         sharey=True,
     )

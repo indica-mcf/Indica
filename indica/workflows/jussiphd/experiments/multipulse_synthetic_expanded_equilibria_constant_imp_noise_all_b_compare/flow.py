@@ -135,7 +135,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual
     batch_size: int = 8,
     visualisations_output_dir: str = DEFAULT_VIS_DIR,
     n_generated_samples: int = 200,
-    n_examples: int = 8,
+    n_examples: int = 16,
     k_samples: int = 30,
     n_timepoints_per_equilibrium: int = 5,
     config_name: str = "ion_temperature_phantom_run_all_params",
