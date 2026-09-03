@@ -21,8 +21,10 @@ from indica.workflows.jussiphd.components.evaluation.noise_likelihood import (
 )
 from indica.workflows.jussiphd.components.preprocessing.dataset_creation import PairDataset
 from indica.workflows.jussiphd.components.visualisations.vae_generated_visualisations import (
+    load_kl_scaling,
     load_vae,
     next_available_path,
+    pointwise_band_coverage,
 )
 from indica.workflows.jussiphd.los_bolometry_radiation import calculate_tomo_inversion
 
@@ -56,6 +58,7 @@ def generate_contextual_vae_vs_naive_visualisations(
     rng = np.random.default_rng(seed)
     dataset = PairDataset(b_path=b_path, eps_path=eps_path, meta_path=None)
     vae = load_vae(model_path)
+    kl_scaling = load_kl_scaling(model_path)
 
     contexts = build_equilibrium_contexts(
         machine=machine,
@@ -242,6 +245,8 @@ def generate_contextual_vae_vs_naive_visualisations(
     example_store: list[dict[str, np.ndarray]] = []
     vae_sampling_store: list[dict[str, np.ndarray]] = []
     reproj_store: list[dict[str, np.ndarray]] = []
+    sampling_cov_weighted_sum = 0.0
+    sampling_cov_weight = 0
     for sidx, sample in enumerate(generated_samples):
         b_input = b_input_mat[sidx]
         e_true = sample["e_true"]
@@ -285,6 +290,10 @@ def generate_contextual_vae_vs_naive_visualisations(
             e_samps = vae.decode(b_rep, z)
             e_samps_un = (e_samps * dataset.sigma_eps + dataset.mu_eps).cpu().numpy()
         e_vae_mean = e_samps_un.mean(axis=0).astype(np.float32)
+        cov_i, cov_n = pointwise_band_coverage(e_true, e_samps_un, central_mass=0.95)
+        if np.isfinite(cov_i) and cov_n > 0:
+            sampling_cov_weighted_sum += float(cov_i) * float(cov_n)
+            sampling_cov_weight += int(cov_n)
 
         valid = np.isfinite(e_true) & np.isfinite(e_naive) & np.isfinite(e_vae_mean)
         if not np.any(valid):
@@ -423,7 +432,29 @@ def generate_contextual_vae_vs_naive_visualisations(
         axes[0].set_ylabel("emissivity")
         handles, labels = axes[0].get_legend_handles_labels()
         fig.legend(handles, labels, loc="upper right")
-    fig.suptitle("Contextual emissivity sampling: ground truth vs VAE samples", y=1.02)
+    if sampling_cov_weight > 0:
+        sampling_cov_pct = 100.0 * (sampling_cov_weighted_sum / float(sampling_cov_weight))
+        kl_note = (
+            f", KL scaling: {kl_scaling:.3g}"
+            if kl_scaling is not None and np.isfinite(kl_scaling)
+            else ""
+        )
+        fig.suptitle(
+            "Contextual emissivity sampling: ground truth vs VAE samples "
+            f"(95% band coverage: {sampling_cov_pct:.1f}%{kl_note})",
+            y=1.02,
+        )
+    else:
+        sampling_cov_pct = float("nan")
+        kl_note = (
+            f" (KL scaling: {kl_scaling:.3g})"
+            if kl_scaling is not None and np.isfinite(kl_scaling)
+            else ""
+        )
+        fig.suptitle(
+            "Contextual emissivity sampling: ground truth vs VAE samples" + kl_note,
+            y=1.02,
+        )
     fig.tight_layout()
     vae_sampling_path = next_available_path(out / "generated_contextual_emissivity_sampling.png")
     fig.savefig(vae_sampling_path, dpi=150, bbox_inches="tight")
@@ -492,6 +523,12 @@ def generate_contextual_vae_vs_naive_visualisations(
         "scatter_plot": str(scatter_path),
         "examples_plot": str(examples_path),
         "vae_sampling_plot": str(vae_sampling_path),
+        "vae_95_band_coverage_pct": (
+            float(sampling_cov_pct) if np.isfinite(sampling_cov_pct) else None
+        ),
+        "vae_kl_scaling": (
+            float(kl_scaling) if kl_scaling is not None and np.isfinite(kl_scaling) else None
+        ),
         "b_inverse_forward_plot": str(b_reproj_path),
         "metrics_csv": str(metrics_csv),
     }

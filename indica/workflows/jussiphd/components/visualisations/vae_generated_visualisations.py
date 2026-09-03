@@ -48,6 +48,23 @@ def _load_vae(model_path: str) -> CVAENetwork:
     return model
 
 
+def _load_kl_scaling(model_path: str) -> float | None:
+    """Load KL scaling metadata from VAE checkpoint if available."""
+    try:
+        ckpt = torch.load(model_path, map_location="cpu")
+        value = ckpt.get("kl_scaling")
+        if value is None:
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def load_kl_scaling(model_path: str) -> float | None:
+    """Public wrapper for KL scaling metadata in a VAE checkpoint."""
+    return _load_kl_scaling(model_path)
+
+
 def load_vae(model_path: str) -> CVAENetwork:
     """Public wrapper for loading a trained VAE checkpoint."""
     return _load_vae(model_path)
@@ -83,6 +100,41 @@ def _equilibrium_midpoint_time(transform: Any) -> float:
         return 0.0
 
 
+def _pointwise_band_coverage(
+    y_true: np.ndarray,
+    y_samples: np.ndarray,
+    central_mass: float = 0.95,
+) -> tuple[float, int]:
+    """Coverage of truth inside predictive band across profile coordinates."""
+    y_true_arr = np.asarray(y_true, dtype=float).reshape(-1)
+    y_samps = np.asarray(y_samples, dtype=float)
+    if y_samps.ndim != 2 or y_samps.shape[1] != y_true_arr.size:
+        return float("nan"), 0
+    alpha = float(np.clip(central_mass, 0.0, 1.0))
+    tail = 50.0 * (1.0 - alpha)
+    lo = np.nanpercentile(y_samps, tail, axis=0)
+    hi = np.nanpercentile(y_samps, 100.0 - tail, axis=0)
+    valid = np.isfinite(y_true_arr) & np.isfinite(lo) & np.isfinite(hi)
+    n_valid = int(np.sum(valid))
+    if n_valid <= 0:
+        return float("nan"), 0
+    inside = (y_true_arr[valid] >= lo[valid]) & (y_true_arr[valid] <= hi[valid])
+    return float(np.mean(inside)), n_valid
+
+
+def pointwise_band_coverage(
+    y_true: np.ndarray,
+    y_samples: np.ndarray,
+    central_mass: float = 0.95,
+) -> tuple[float, int]:
+    """Public wrapper for predictive-band coverage helper."""
+    return _pointwise_band_coverage(
+        y_true=y_true,
+        y_samples=y_samples,
+        central_mass=central_mass,
+    )
+
+
 def generate_generated_dataset_visualisations(
     model_path: str,
     b_path: str,
@@ -99,6 +151,7 @@ def generate_generated_dataset_visualisations(
 
     dataset = PairDataset(b_path=b_path, eps_path=eps_path, meta_path=None)
     model = _load_vae(model_path)
+    kl_scaling = _load_kl_scaling(model_path)
     eq_t_mid = _equilibrium_midpoint_time(transform)
     tomo_success_count = 0
     tomo_fail_count = 0
@@ -115,6 +168,8 @@ def generate_generated_dataset_visualisations(
     n_rows = int(np.ceil(max(1, n_show) / n_cols))
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 4.5 * n_rows), sharex=True, sharey=True)
     axes = np.atleast_1d(axes).ravel()
+    sample_cov_weighted_sum = 0.0
+    sample_cov_weight = 0
 
     for ax in axes[n_show:]:
         ax.axis("off")
@@ -129,6 +184,10 @@ def generate_generated_dataset_visualisations(
             b_rep = b_t_norm.expand(k_samples, -1)
             e_samps = model.decode(b_rep, z)
             e_samps_un = (e_samps * dataset.sigma_eps + dataset.mu_eps).cpu().numpy()
+        cov_i, cov_n = _pointwise_band_coverage(e_true, e_samps_un, central_mass=0.95)
+        if np.isfinite(cov_i) and cov_n > 0:
+            sample_cov_weighted_sum += float(cov_i) * float(cov_n)
+            sample_cov_weight += int(cov_n)
 
         e_vae_mean = e_samps_un.mean(axis=0)
 
@@ -145,7 +204,29 @@ def generate_generated_dataset_visualisations(
         axes[0].set_ylabel("emissivity")
         handles, labels = axes[0].get_legend_handles_labels()
         fig.legend(handles, labels, loc="upper right")
-    fig.suptitle("Generated data: emissivity comparison with VAE samples", y=1.02)
+    if sample_cov_weight > 0:
+        sample_cov_pct = 100.0 * (sample_cov_weighted_sum / float(sample_cov_weight))
+        kl_note = (
+            f", KL scaling: {kl_scaling:.3g}"
+            if kl_scaling is not None and np.isfinite(kl_scaling)
+            else ""
+        )
+        fig.suptitle(
+            "Generated data: emissivity comparison with VAE samples "
+            f"(95% band coverage: {sample_cov_pct:.1f}%{kl_note})",
+            y=1.02,
+        )
+    else:
+        sample_cov_pct = float("nan")
+        kl_note = (
+            f" (KL scaling: {kl_scaling:.3g})"
+            if kl_scaling is not None and np.isfinite(kl_scaling)
+            else ""
+        )
+        fig.suptitle(
+            "Generated data: emissivity comparison with VAE samples" + kl_note,
+            y=1.02,
+        )
     fig.tight_layout()
 
     emissivity_path = _next_available_path(out_dir / "generated_emissivity_sampling.png")
@@ -407,6 +488,12 @@ def generate_generated_dataset_visualisations(
         "num_tomo_rmse_fail": int(tomo_rmse_fail_count),
         "num_rmse_pairs": int(len(vae_rmse_vals)),
         "num_rmse_invalid": int(rmse_invalid_count),
+        "vae_95_band_coverage_pct_examples": (
+            float(sample_cov_pct) if np.isfinite(sample_cov_pct) else None
+        ),
+        "vae_kl_scaling": (
+            float(kl_scaling) if kl_scaling is not None and np.isfinite(kl_scaling) else None
+        ),
     }
 
 
