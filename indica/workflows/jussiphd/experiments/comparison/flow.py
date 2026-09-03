@@ -155,6 +155,7 @@ def compare_real_vs_synthetic(
     vae_hidden_scaling: int = 8,
     vae_latent_dim: int = 4,
     vae_n_epochs: int = 25,
+    vae_kl_scaling: float = 0.2,
 ) -> dict[str, Any]:
     """Run aligned real and synthetic experiments and save summary CSV/JSON."""
     cfg = ComparisonConfig(
@@ -168,6 +169,7 @@ def compare_real_vs_synthetic(
         vae_hidden_scaling=int(vae_hidden_scaling),
         vae_latent_dim=int(vae_latent_dim),
         vae_n_epochs=int(vae_n_epochs),
+        vae_kl_scaling=float(vae_kl_scaling),
     )
 
     out_dir = Path(output_dir)

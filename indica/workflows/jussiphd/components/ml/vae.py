@@ -103,6 +103,7 @@ def train_vae_from_csv(
     hidden_scaling: int = 1,
     n_epochs: int = 25,
     lr: float = 1e-3,
+    kl_scaling: float = 0.2,
     train_fraction: float = 0.8,
     batch_size: int = 8,
     shuffle: bool = True,
@@ -151,8 +152,8 @@ def train_vae_from_csv(
         train_loss = 0.0
         recon_loss_total = 0.0
         kl_loss_total = 0.0
-        kl_scaling=0.2
-        kl_epoch_beta = min(1, epoch / (n_epochs - 15))*kl_scaling
+        warmup_denom = max(1, int(n_epochs) - 15)
+        kl_epoch_beta = min(1.0, float(epoch) / float(warmup_denom)) * float(kl_scaling)
 
         for emissivity, bolom in train_loader:
             optimizer.zero_grad()
@@ -193,6 +194,7 @@ def train_vae_from_csv(
             "e_dim": e_dim,
             "n_epochs": n_epochs,
             "lr": lr,
+            "kl_scaling": float(kl_scaling),
             "training_history": {
                 "epoch": history_epochs,
                 "total_loss": history_total_loss,
@@ -212,6 +214,7 @@ def train_vae_from_csv(
         "e_dim": e_dim,
         "n_epochs": n_epochs,
         "lr": lr,
+        "kl_scaling": float(kl_scaling),
         "last_epoch_loss": last_epoch_loss,
         "last_recon_loss": last_recon_loss,
         "last_kl_loss": last_kl_loss,

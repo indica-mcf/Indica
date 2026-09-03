@@ -30,6 +30,7 @@ class ComparisonConfig:
     vae_hidden_scaling: int = 8
     vae_n_epochs: int = 25
     vae_lr: float = 1e-3
+    vae_kl_scaling: float = 0.2
     metrics_idx: int = 10
     metrics_k_samples: int = 100
     run_visualisations: bool = False
@@ -74,6 +75,7 @@ def build_real_flow_kwargs(cfg: ComparisonConfig) -> dict[str, Any]:
         "vae_hidden_scaling": cfg.vae_hidden_scaling,
         "vae_n_epochs": cfg.vae_n_epochs,
         "vae_lr": cfg.vae_lr,
+        "vae_kl_scaling": cfg.vae_kl_scaling,
         "run_vae_metrics": True,
         "metrics_idx": cfg.metrics_idx,
         "metrics_k_samples": cfg.metrics_k_samples,
@@ -103,6 +105,7 @@ def build_synthetic_flow_kwargs(cfg: ComparisonConfig) -> dict[str, Any]:
         "vae_hidden_scaling": cfg.vae_hidden_scaling,
         "vae_n_epochs": cfg.vae_n_epochs,
         "vae_lr": cfg.vae_lr,
+        "vae_kl_scaling": cfg.vae_kl_scaling,
         "run_vae_metrics": True,
         "metrics_idx": cfg.metrics_idx,
         "metrics_k_samples": cfg.metrics_k_samples,
@@ -112,4 +115,3 @@ def build_synthetic_flow_kwargs(cfg: ComparisonConfig) -> dict[str, Any]:
 
 def parse_pulses_csv(pulses_csv: str) -> Sequence[int]:
     return tuple(int(p.strip()) for p in pulses_csv.split(",") if p.strip())
-

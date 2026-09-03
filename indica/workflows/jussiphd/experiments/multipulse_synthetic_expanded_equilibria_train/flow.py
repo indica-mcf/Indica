@@ -53,6 +53,7 @@ def bolometry_inversion_multipulse_synthetic_expanded_equilibria(
     vae_hidden_scaling: int = 8,
     vae_n_epochs: int = 25,
     vae_lr: float = 1e-3,
+    vae_kl_scaling: float = 0.2,
     run_vae_metrics: bool = True,
     vae_metrics_model_path: str | None = None,
     metrics_idx: int = 10,
@@ -95,6 +96,7 @@ def bolometry_inversion_multipulse_synthetic_expanded_equilibria(
         vae_hidden_scaling=vae_hidden_scaling,
         vae_n_epochs=vae_n_epochs,
         vae_lr=vae_lr,
+        vae_kl_scaling=vae_kl_scaling,
         run_vae_metrics=run_vae_metrics,
         vae_metrics_model_path=vae_metrics_model_path,
         metrics_idx=metrics_idx,
@@ -110,4 +112,3 @@ def bolometry_inversion_multipulse_synthetic_expanded_equilibria(
 if __name__ == "__main__":
     result = bolometry_inversion_multipulse_synthetic_expanded_equilibria()
     print(result)
-

@@ -87,6 +87,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_b_contextual_com
     vae_hidden_scaling: int = 8,
     vae_n_epochs: int = 25,
     vae_lr: float = 1e-3,
+    vae_kl_scaling: float = 0.2,
     train_fraction: float = 0.8,
     batch_size: int = 8,
     visualisations_output_dir: str = DEFAULT_VIS_DIR,
@@ -139,6 +140,7 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_b_contextual_com
             vae_hidden_scaling=vae_hidden_scaling,
             vae_n_epochs=vae_n_epochs,
             vae_lr=vae_lr,
+            vae_kl_scaling=vae_kl_scaling,
             run_vae_metrics=False,
             run_visualisations=False,
         )

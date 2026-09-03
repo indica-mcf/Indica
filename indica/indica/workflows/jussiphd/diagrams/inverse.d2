@@ -1,0 +1,43 @@
+direction: right
+
+true: {
+  label: |md
+    **TRUE EMISSIVITY**
+
+    ε
+  |
+}
+
+forward: {
+  label: |md
+    **FORWARD MODEL**
+
+    𝓕ₑ
+  |
+}
+
+bolo: {
+  label: |md
+    **BOLOMETRY**
+
+    b = 𝓕ₑ(ε)
+  |
+}
+
+inverse: {
+  label: |md
+    **INVERSE MODEL**
+
+    qθ(ε | b,e)
+  |
+}
+
+recon: {
+  label: |md
+    **RECONSTRUCTED EMISSIVITY**
+
+    ε̂ ~ qθ(ε | b,e)
+  |
+}
+
+true -> forward -> bolo -> inverse -> recon
