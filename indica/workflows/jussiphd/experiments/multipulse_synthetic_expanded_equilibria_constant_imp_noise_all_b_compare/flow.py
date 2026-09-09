@@ -239,5 +239,9 @@ def multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual
 
 
 if __name__ == "__main__":
-    result = multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual_comparison()
-    print(result)
+    result = multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual_comparison(vae_kl_scaling=0.03)
+    result = multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual_comparison(vae_kl_scaling=0.01)
+    result = multipulse_synthetic_expanded_equilibria_constant_imp_noise_all_b_contextual_comparison(vae_kl_scaling=0.001)
+
+
+    #print(result)

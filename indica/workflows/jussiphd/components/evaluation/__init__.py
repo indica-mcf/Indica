@@ -6,6 +6,7 @@ from .eps_clustering import save_b_clustering_outputs
 from .eps_clustering import save_eps_clustering_outputs
 from .eps_clustering import save_profile_clustering_outputs
 from .anchor_cluster_gaussians import estimate_anchor_cluster_gaussians
+from .equilibrium_clustering import save_equilibrium_clustering_outputs
 
 __all__ = [
     "kmeans_cluster_b_profiles",
@@ -14,4 +15,5 @@ __all__ = [
     "save_eps_clustering_outputs",
     "save_profile_clustering_outputs",
     "estimate_anchor_cluster_gaussians",
+    "save_equilibrium_clustering_outputs",
 ]
