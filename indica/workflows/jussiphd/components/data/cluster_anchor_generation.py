@@ -74,6 +74,8 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
     seed: int = 0,
     sample_weight_by_cluster_counts: bool = True,
     enforce_nonnegative_profiles: bool = True,
+    enforce_strictly_positive_profiles: bool = False,
+    positive_profile_floor: float = 1e-12,
     impurity_concentrations: dict[str, float] | None = None,
     impurity_flat_zeff: bool = True,
 ) -> dict[str, Any]:
@@ -174,6 +176,15 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
         if enforce_nonnegative_profiles:
             ne_profile = np.maximum(ne_profile, 0.0)
             te_profile = np.maximum(te_profile, 0.0)
+        if enforce_strictly_positive_profiles:
+            floor = float(positive_profile_floor)
+            if floor <= 0.0:
+                raise ValueError(
+                    "positive_profile_floor must be > 0 when "
+                    "enforce_strictly_positive_profiles=True."
+                )
+            ne_profile = np.maximum(ne_profile, floor)
+            te_profile = np.maximum(te_profile, floor)
         plasma.electron_density.loc[dict(t=plasma.t)] = np.repeat(ne_profile[None, :], int(plasma.t.size), axis=0)
         plasma.electron_temperature.loc[dict(t=plasma.t)] = np.repeat(
             te_profile[None, :], int(plasma.t.size), axis=0
@@ -221,7 +232,7 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
         writer.writeheader()
         writer.writerows(meta_rows)
 
-    return {
+    result = {
         "b_path": str(b_path),
         "eps_path": str(eps_path),
         "meta_path": str(meta_path),
@@ -232,6 +243,9 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
         "num_cluster_families": int(k),
         "generated_new_data": True,
         "single_timepoint_mode": single_timepoint_mode,
+        "enforce_nonnegative_profiles": bool(enforce_nonnegative_profiles),
+        "enforce_strictly_positive_profiles": bool(enforce_strictly_positive_profiles),
+        "positive_profile_floor": float(positive_profile_floor),
         "source_ne_gaussian_params": str(ne_gaussian_params_path),
         "source_te_gaussian_params": str(te_gaussian_params_path),
     }

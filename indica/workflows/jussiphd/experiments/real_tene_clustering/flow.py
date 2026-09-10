@@ -243,6 +243,7 @@ def plot_anchor_cluster_gaussian_samples_task(
     y_label: str,
     samples_per_cluster: int = 4,
     seed: int = 0,
+    clip_nonnegative: bool = True,
 ) -> dict[str, Any]:
     return plot_anchor_cluster_gaussian_samples(
         gaussian_params_npz=gaussian_params_npz,
@@ -253,6 +254,7 @@ def plot_anchor_cluster_gaussian_samples_task(
         y_label=y_label,
         samples_per_cluster=samples_per_cluster,
         seed=seed,
+        clip_nonnegative=clip_nonnegative,
     )
 
 
@@ -326,6 +328,7 @@ def real_tene_clustering(
     run_anchor_cluster_gaussian_samples_plot: bool = True,
     anchor_cluster_samples_per_cluster: int = 4,
     anchor_cluster_samples_seed: int = 0,
+    anchor_cluster_samples_clip_nonnegative: bool = True,
     ne_anchor_cluster_samples_plot_filename: str = "ne_anchor_cluster_gaussian_samples_overlay.png",
     te_anchor_cluster_samples_plot_filename: str = "te_anchor_cluster_gaussian_samples_overlay.png",
 ) -> dict[str, Any]:
@@ -575,6 +578,7 @@ def real_tene_clustering(
             y_label="n_e anchor value",
             samples_per_cluster=anchor_cluster_samples_per_cluster,
             seed=anchor_cluster_samples_seed,
+            clip_nonnegative=anchor_cluster_samples_clip_nonnegative,
         )
         te_plot = plot_anchor_cluster_gaussian_samples_task(
             gaussian_params_npz=anchor_cluster_gaussians["te"]["params_npz"],
@@ -585,6 +589,7 @@ def real_tene_clustering(
             y_label="T_e anchor value",
             samples_per_cluster=anchor_cluster_samples_per_cluster,
             seed=anchor_cluster_samples_seed + 1,
+            clip_nonnegative=anchor_cluster_samples_clip_nonnegative,
         )
         anchor_cluster_sample_plots = {"ne": ne_plot, "te": te_plot}
     outputs["anchor_cluster_sample_plots"] = anchor_cluster_sample_plots

@@ -33,6 +33,7 @@ def plot_anchor_cluster_gaussian_samples(
     y_label: str,
     samples_per_cluster: int = 4,
     seed: int = 0,
+    clip_nonnegative: bool = True,
 ) -> dict[str, Any]:
     params = np.load(gaussian_params_npz)
     clusters = np.asarray(params["clusters"], dtype=int).reshape(-1)
@@ -64,6 +65,8 @@ def plot_anchor_cluster_gaussian_samples(
 
         base = cmap(i)
         for j in range(n_draw):
+            if clip_nonnegative:
+                draws[j] = np.maximum(np.asarray(draws[j], dtype=np.float64), 0.0)
             color = _shade_for_member(base, j, n_draw)
             label = f"C{int(cluster_id)} samples" if j == 0 else None
             ax.plot(x, draws[j], color=color, linewidth=1.6, alpha=0.98, label=label)
@@ -86,5 +89,5 @@ def plot_anchor_cluster_gaussian_samples(
         "n_clusters": k,
         "samples_per_cluster": n_draw,
         "n_total_draws": int(total_draws),
+        "clip_nonnegative": bool(clip_nonnegative),
     }
-
