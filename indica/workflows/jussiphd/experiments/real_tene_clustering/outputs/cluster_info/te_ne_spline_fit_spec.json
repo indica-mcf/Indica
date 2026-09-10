@@ -56,7 +56,7 @@
     "te_start_min": 500.0,
     "te_start_max": 2000.0
   },
-  "n_input": 100,
-  "n_fit_kept": 94,
-  "n_fit_dropped": 6
+  "n_input": 52,
+  "n_fit_kept": 50,
+  "n_fit_dropped": 2
 }
