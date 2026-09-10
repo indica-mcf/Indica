@@ -65,12 +65,14 @@ def fit_save_and_plot_te_ne_anchor_space(
         xknots=np.asarray(ne_spec["xknots"], dtype=np.float64),
         fixed_start=ne_fixed_start,
         fixed_end=ne_fixed_end,
+        x_domain_end=float(np.max(np.asarray(ne_spec["xknots"], dtype=np.float64))),
     )
     te_fit = fit_profiles_to_anchor_space(
         te,
         xknots=np.asarray(te_spec["xknots"], dtype=np.float64),
         fixed_start=te_fixed_start,
         fixed_end=te_fixed_end,
+        x_domain_end=float(np.max(np.asarray(te_spec["xknots"], dtype=np.float64))),
     )
 
     keep_mask = np.asarray(ne_fit["ok_mask"], dtype=bool) & np.asarray(te_fit["ok_mask"], dtype=bool)
@@ -185,8 +187,8 @@ def fit_save_and_plot_te_ne_anchor_space(
     fig_te.savefig(te_anchor_plot_path, dpi=180, bbox_inches="tight")
     plt.close(fig_te)
 
-    x_full_ne = np.linspace(0.0, 1.0, ne.shape[1], dtype=np.float64)
-    x_full_te = np.linspace(0.0, 1.0, te.shape[1], dtype=np.float64)
+    x_full_ne = np.linspace(0.0, float(np.max(ne_x)), ne.shape[1], dtype=np.float64)
+    x_full_te = np.linspace(0.0, float(np.max(te_x)), te.shape[1], dtype=np.float64)
     ne_middle_on_knots = np.vstack(
         [np.interp(ne_x, x_full_ne, np.asarray(row, dtype=np.float64)) for row in ne[keep_mask]]
     ).astype(np.float32)
@@ -236,4 +238,3 @@ def fit_save_and_plot_te_ne_anchor_space(
         "n_fit_kept": int(len(pulses_kept)),
         "n_fit_dropped": int(ne.shape[0] - len(pulses_kept)),
     }
-

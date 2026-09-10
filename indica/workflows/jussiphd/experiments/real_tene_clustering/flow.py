@@ -11,6 +11,9 @@ from prefect import flow, task
 from indica.workflows.jussiphd.components.data.real_brightness_dataset_generation import (
     generate_and_save_real_multipulse_brightness_dataset,
 )
+from indica.workflows.jussiphd.components.data.equilibrium_snapshot_dataset import (
+    load_non_outlier_pulses_from_report,
+)
 from indica.workflows.jussiphd.components.evaluation import (
     estimate_anchor_cluster_gaussians,
     kmeans_cluster_eps_profiles,
@@ -30,6 +33,9 @@ TS_TE_NODE = r"\ST40::TOP.TS.BEST.PROFILES:TE"
 DEFAULT_OUTPUT_DIR = str(Path(__file__).resolve().parent / "outputs")
 DEFAULT_TSTART = 0.04
 DEFAULT_TEND = 0.15
+DEFAULT_FILTERED_PULSE_REPORT = str(
+    Path(__file__).resolve().parent / "outputs" / "original_data" / "te_ne_outlier_report.csv"
+)
 
 @task(name="build_real_node_profile_dataset")
 def build_real_node_profile_dataset_task(
@@ -247,6 +253,8 @@ def plot_anchor_cluster_gaussian_samples_task(
 @flow(name="real_tene_clustering")
 def real_tene_clustering(
     pulses: Sequence[int] | None = None,
+    use_filtered_pulses_from_report: bool = True,
+    filtered_pulse_report_path: str = DEFAULT_FILTERED_PULSE_REPORT,
     tstart: float = DEFAULT_TSTART,
     tend: float = DEFAULT_TEND,
     dt: float = 0.01,
@@ -328,8 +336,15 @@ def real_tene_clustering(
         raise ValueError("For TE, provide either `te_ppts_profile_key` or `te_node`.")
 
     pulse_list = [int(p) for p in (pulses or [])]
+    if use_filtered_pulses_from_report:
+        pulse_list = load_non_outlier_pulses_from_report(
+            outlier_report_path=filtered_pulse_report_path,
+            deduplicate=True,
+        )
     if not pulse_list:
-        pulse_list = [13622]
+        raise RuntimeError(
+            "No pulses available: pass `pulses=[...]` or provide a valid filtered pulse report."
+        )
 
     output_root = Path(output_dir)
     original_data_dir = output_root / original_data_subdir
@@ -576,8 +591,12 @@ def real_tene_clustering(
 
 
 if __name__ == "__main__":
-    #result = real_tene_clustering(pulses=(list(range(14500,14700)) + list(range(11500,11700))),reuse_existing_profiles=False)
-    result = real_tene_clustering(pulses=(list(range(11000,15000))),reuse_existing_profiles=False)
+    result = real_tene_clustering(
+        pulses=None,
+        use_filtered_pulses_from_report=True,
+        filtered_pulse_report_path=DEFAULT_FILTERED_PULSE_REPORT,
+        reuse_existing_profiles=False,
+    )
     print("Real Te/Ne clustering read pass complete")
     print(f"Matched pulses: {result['outputs']['num_matched']}/{result['n_requested']}")
     print(f"Outputs: {result['outputs']}")

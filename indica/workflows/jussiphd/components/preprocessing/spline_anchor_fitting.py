@@ -93,6 +93,7 @@ def fit_profiles_to_anchor_space(
     xknots: np.ndarray,
     fixed_start: float | None,
     fixed_end: float | None,
+    x_domain_end: float = 1.0,
 ) -> dict[str, Any]:
     """Fit rows of profile matrix to anchor vectors with fixed end points."""
     y = np.asarray(profiles, dtype=np.float64)
@@ -102,7 +103,10 @@ def fit_profiles_to_anchor_space(
         raise ValueError(f"Expected 2D matrix, got shape {y.shape}.")
 
     n_samples, n_points = int(y.shape[0]), int(y.shape[1])
-    x = np.linspace(0.0, 1.0, n_points, dtype=np.float64)
+    x_end = float(x_domain_end)
+    if not np.isfinite(x_end) or x_end <= 0.0:
+        raise ValueError(f"x_domain_end must be positive and finite, got {x_domain_end}.")
+    x = np.linspace(0.0, x_end, n_points, dtype=np.float64)
     basis = _build_piecewise_linear_basis(x, np.asarray(xknots, dtype=np.float64))
     n_anchors = int(basis.shape[1])
 
