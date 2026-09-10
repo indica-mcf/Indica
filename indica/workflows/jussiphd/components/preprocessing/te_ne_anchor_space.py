@@ -44,6 +44,9 @@ def fit_save_and_plot_te_ne_anchor_space(
 ) -> dict[str, Any]:
     ne = load_csv_matrix(ne_aligned_path)
     te = load_csv_matrix(te_aligned_path)
+    # Guard against non-physical negatives in real-profile rows.
+    ne = np.clip(ne, 0.0, None)
+    te = np.clip(te, 0.0, None)
     if ne.shape[0] != te.shape[0]:
         raise ValueError(f"Aligned NE/TE row mismatch: {ne.shape[0]} vs {te.shape[0]}.")
 
