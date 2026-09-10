@@ -53,6 +53,9 @@ def build_real_node_profile_dataset_task(
     min_nonzero_fraction: float,
     canonicalize_profile_coordinate: bool,
     canonicalize_profile_coordinate_mode: str,
+    use_source_coordinate_grid: bool,
+    source_coordinate_min: float,
+    source_coordinate_max: float | None,
 ) -> dict[str, Any]:
     return generate_and_save_real_multipulse_brightness_dataset(
         pulses=pulses,
@@ -75,6 +78,9 @@ def build_real_node_profile_dataset_task(
         require_plasma_summary=True,
         canonicalize_profile_coordinate=canonicalize_profile_coordinate,
         canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
+        use_source_coordinate_grid=use_source_coordinate_grid,
+        source_coordinate_min=source_coordinate_min,
+        source_coordinate_max=source_coordinate_max,
     )
 
 
@@ -282,6 +288,9 @@ def real_tene_clustering(
     outlier_bad_fraction_threshold: float = 0.08,
     canonicalize_profile_coordinate: bool = False,
     canonicalize_profile_coordinate_mode: str = "auto",
+    use_source_coordinate_grid: bool = True,
+    source_coordinate_min: float = 0.0,
+    source_coordinate_max: float | None = 1.1,
     spline_config_name: str = "baseline_spline_tene",
     spline_ne_profile_name: str = "electron_density",
     spline_te_profile_name: str = "electron_temperature",
@@ -405,6 +414,9 @@ def real_tene_clustering(
             min_nonzero_fraction=min_nonzero_fraction,
             canonicalize_profile_coordinate=canonicalize_profile_coordinate,
             canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
+            use_source_coordinate_grid=use_source_coordinate_grid,
+            source_coordinate_min=source_coordinate_min,
+            source_coordinate_max=source_coordinate_max,
         )
         te_dataset = build_real_node_profile_dataset_task(
             pulses=pulse_list,
@@ -421,6 +433,9 @@ def real_tene_clustering(
             min_nonzero_fraction=min_nonzero_fraction,
             canonicalize_profile_coordinate=canonicalize_profile_coordinate,
             canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
+            use_source_coordinate_grid=use_source_coordinate_grid,
+            source_coordinate_min=source_coordinate_min,
+            source_coordinate_max=source_coordinate_max,
         )
 
         outputs = align_and_plot_te_ne_profiles_task(

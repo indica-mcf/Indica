@@ -24,6 +24,9 @@ def _to_brightness_rows(
     tend: float,
     canonicalize_profile_coordinate: bool = False,
     canonicalize_profile_coordinate_mode: str = "auto",
+    use_source_coordinate_grid: bool = False,
+    source_coordinate_min: float = 0.0,
+    source_coordinate_max: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert reader output into 2D [n_t, n_channel] brightness rows and t-values."""
     def _canonicalize_rows(
@@ -113,6 +116,62 @@ def _to_brightness_rows(
             ).astype(np.float32)
         return out
 
+    def _resample_rows_on_source_coordinate(
+        rows_in: np.ndarray,
+        coord_in: np.ndarray,
+        x_min: float,
+        x_max: float,
+    ) -> np.ndarray:
+        """Resample rows onto a shared physical coordinate grid without per-row stretching."""
+        rows_in = np.asarray(rows_in, dtype=np.float32)
+        coord = np.asarray(coord_in, dtype=np.float64).reshape(-1)
+        if rows_in.ndim != 2 or coord.size != rows_in.shape[1]:
+            return rows_in
+
+        finite_coord = np.isfinite(coord)
+        if int(finite_coord.sum()) < 2:
+            return rows_in
+
+        c = coord.copy()
+        mode_l = str(canonicalize_profile_coordinate_mode).strip().lower()
+        has_neg = bool(np.nanmin(c[finite_coord]) < 0.0)
+        has_pos = bool(np.nanmax(c[finite_coord]) > 0.0)
+        do_signed_abs = mode_l == "signed_abs" or (mode_l == "auto" and has_neg and has_pos)
+        if do_signed_abs:
+            c = np.abs(c)
+
+        x_lo = float(x_min)
+        x_hi = float(x_max)
+        if not np.isfinite(x_lo) or not np.isfinite(x_hi) or x_hi <= x_lo:
+            return rows_in
+
+        x_target = np.linspace(x_lo, x_hi, rows_in.shape[1], dtype=np.float64)
+        out = np.full_like(rows_in, np.nan, dtype=np.float32)
+        for i in range(rows_in.shape[0]):
+            y = np.asarray(rows_in[i], dtype=np.float64)
+            valid = np.isfinite(y) & np.isfinite(c)
+            if int(valid.sum()) < 2:
+                continue
+
+            xv = c[valid]
+            yv = y[valid]
+            order = np.argsort(xv)
+            xv = xv[order]
+            yv = yv[order]
+
+            x_unique, inv = np.unique(xv, return_inverse=True)
+            y_unique = np.zeros_like(x_unique, dtype=np.float64)
+            cnt = np.zeros_like(x_unique, dtype=np.int32)
+            for j, g in enumerate(inv):
+                y_unique[g] += yv[j]
+                cnt[g] += 1
+            y_unique = y_unique / np.maximum(cnt, 1)
+            if x_unique.size < 2:
+                continue
+
+            out[i] = np.interp(x_target, x_unique, y_unique, left=np.nan, right=np.nan).astype(np.float32)
+        return out
+
     if hasattr(signal, "dims") and hasattr(signal, "values"):
         brightness = signal
         if "t" not in brightness.dims:
@@ -137,6 +196,22 @@ def _to_brightness_rows(
                 rows,
                 coord_values,
                 canonicalize_profile_coordinate_mode,
+            )
+        elif use_source_coordinate_grid and "channel" in brightness.coords:
+            coord_values = np.asarray(brightness.coords["channel"].values, dtype=np.float64)
+            if source_coordinate_max is None:
+                finite = coord_values[np.isfinite(coord_values)]
+                if finite.size >= 2:
+                    x_max = float(np.nanmax(np.abs(finite)))
+                else:
+                    x_max = float(rows.shape[1] - 1)
+            else:
+                x_max = float(source_coordinate_max)
+            rows = _resample_rows_on_source_coordinate(
+                rows_in=rows,
+                coord_in=coord_values,
+                x_min=float(source_coordinate_min),
+                x_max=x_max,
             )
         t_values = np.asarray(brightness.t.values, dtype=np.float64)
     else:
@@ -210,6 +285,9 @@ def generate_and_save_real_multipulse_brightness_dataset(
     require_plasma_summary: bool = False,
     canonicalize_profile_coordinate: bool = False,
     canonicalize_profile_coordinate_mode: str = "auto",
+    use_source_coordinate_grid: bool = False,
+    source_coordinate_min: float = 0.0,
+    source_coordinate_max: float | None = None,
 ) -> dict[str, Any]:
     """Build and save brightness-only dataset from ST40 RZ1 channel data over pulses."""
     pulse_list = [int(p) for p in pulses]
@@ -318,6 +396,9 @@ def generate_and_save_real_multipulse_brightness_dataset(
                 tend=tend,
                 canonicalize_profile_coordinate=canonicalize_profile_coordinate,
                 canonicalize_profile_coordinate_mode=canonicalize_profile_coordinate_mode,
+                use_source_coordinate_grid=use_source_coordinate_grid,
+                source_coordinate_min=source_coordinate_min,
+                source_coordinate_max=source_coordinate_max,
             )
             if b_arr.shape[1] == 0:
                 raise ValueError(f"Empty channel dimension for pulse {pulse}.")
