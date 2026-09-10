@@ -12,7 +12,9 @@
       0.75,
       0.8,
       0.875,
+      0.925,
       0.95,
+      0.975,
       1.0,
       1.05,
       1.1
@@ -20,8 +22,8 @@
     "fixed_start": null,
     "fixed_end": 0.0,
     "fixed_start_param": null,
-    "fixed_end_param": "y12",
-    "n_anchors": 13
+    "fixed_end_param": "y14",
+    "n_anchors": 15
   },
   "te_spec": {
     "profile_name": "electron_temperature",
@@ -35,7 +37,9 @@
       0.75,
       0.8,
       0.875,
+      0.925,
       0.95,
+      0.975,
       1.0,
       1.05,
       1.1
@@ -43,8 +47,8 @@
     "fixed_start": null,
     "fixed_end": 0.0,
     "fixed_start_param": null,
-    "fixed_end_param": "y12",
-    "n_anchors": 13
+    "fixed_end_param": "y14",
+    "n_anchors": 15
   },
   "start_range_filter": {
     "ne_start_min": 3e+19,
@@ -52,7 +56,7 @@
     "te_start_min": 500.0,
     "te_start_max": 2000.0
   },
-  "n_input": 177,
-  "n_fit_kept": 168,
-  "n_fit_dropped": 9
+  "n_input": 100,
+  "n_fit_kept": 94,
+  "n_fit_dropped": 6
 }
