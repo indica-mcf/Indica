@@ -53,7 +53,8 @@ class UDAUtils(BaseIO):
     def _mastu_names(self, instrument: str) -> str:
         """Look up three-letter MAST-U name from instrument name"""
         instrument_mapping = {
-            "celeste-3": "act",
+            "cel3": "act",
+            "cel4b": "acu",
             "magnetics_efit": "epm",
             "midplane_thomson": "ayc",
         }

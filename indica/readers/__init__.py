@@ -27,6 +27,13 @@ except ImportError:
     pass
 
 try:
+    from .actcalib import ACTCalib
+
+    __all__ += ["ACTCalib"]
+except ImportError:
+    pass
+
+try:
     from .salutils import SALUtils
 
     __all__ += ["SALUtils"]
