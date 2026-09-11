@@ -12,6 +12,9 @@ from indica.defaults.load_defaults import load_default_objects
 from indica.workflows.jussiphd.components.data.cluster_anchor_generation import (
     generate_and_save_dataset_from_anchor_cluster_gaussians,
 )
+from indica.workflows.jussiphd.components.preprocessing.spline_anchor_fitting import (
+    load_monospline_anchor_spec,
+)
 from indica.workflows.jussiphd.components.data.real_equilibrium import (
     load_real_equilibrium_from_pulse,
 )
@@ -175,8 +178,8 @@ def bolometry_inversion_multipulse_synthetic_clustered(
     impurity_flat_zeff: bool = True,
     ne_gaussian_params_path: str = DEFAULT_NE_GAUSS_NPZ,
     te_gaussian_params_path: str = DEFAULT_TE_GAUSS_NPZ,
-    ne_xknots: list[float] = [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0],
-    te_xknots: list[float] = [0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0],
+    ne_xknots: list[float] | None = None,
+    te_xknots: list[float] | None = None,
     copy_cluster_inputs: bool = True,
     cluster_input_subdir: str = "cluster_inputs",
     ne_assignment_csv: str = DEFAULT_NE_ASSIGN_CSV,
@@ -196,6 +199,21 @@ def bolometry_inversion_multipulse_synthetic_clustered(
     else:
         equilibrium = load_default_objects(machine, "equilibrium")
     transform = transforms[instrument]
+
+    resolved_ne_xknots = ne_xknots
+    resolved_te_xknots = te_xknots
+    if resolved_ne_xknots is None:
+        ne_spec = load_monospline_anchor_spec(
+            "electron_density",
+            config_name=config_name,
+        )
+        resolved_ne_xknots = [float(v) for v in ne_spec["xknots"]]
+    if resolved_te_xknots is None:
+        te_spec = load_monospline_anchor_spec(
+            "electron_temperature",
+            config_name=config_name,
+        )
+        resolved_te_xknots = [float(v) for v in te_spec["xknots"]]
 
     copied_cluster_inputs = None
     if copy_cluster_inputs:
@@ -219,8 +237,8 @@ def bolometry_inversion_multipulse_synthetic_clustered(
         equilibrium=equilibrium,
         ne_gaussian_params_path=ne_gaussian_params_path,
         te_gaussian_params_path=te_gaussian_params_path,
-        ne_xknots=ne_xknots,
-        te_xknots=te_xknots,
+        ne_xknots=resolved_ne_xknots,
+        te_xknots=resolved_te_xknots,
         n_generations=n_generations,
         use_all_timepoints=use_all_timepoints,
         output_dir=output_dir,
