@@ -276,10 +276,10 @@ def compare_saved_model_vs_real_emissivity_nodes(
             e_err = np.abs(_resample_row_to_dim(e_err_rows[t_idx], int(model.e_dim)))
 
             b_norm = (b_row - float(dataset.mu_b)) / max(float(dataset.sigma_b), 1e-12)
-            b_t = torch.from_numpy(np.asarray(b_norm, dtype=np.float32)).unsqueeze(0)
+            b_tensor = torch.from_numpy(np.asarray(b_norm, dtype=np.float32)).unsqueeze(0)
 
             with torch.no_grad():
-                b_rep = b_t.expand(int(k_samples), -1)
+                b_rep = b_tensor.expand(int(k_samples), -1)
                 e_samps = model.decode(b_rep, z_fixed)
                 e_samps_un = (e_samps * float(dataset.sigma_eps) + float(dataset.mu_eps)).cpu().numpy()
 

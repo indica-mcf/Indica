@@ -109,7 +109,7 @@ def compare_model_vs_t1d_for_real_pulses_task(
 @flow(name="real_bolometer_emissivity_comparison")
 def compare_real_bolometer_vs_t1d_emissivity(
     outlier_report_path: str = DEFAULT_OUTLIER_REPORT_PATH,
-    n_random_pulses: int = 9,
+    n_random_pulses: int = 30,
     pulse_seed: int | None = 0,
     model_path: str = DEFAULT_MODEL_PATH,
     reference_b_path: str = DEFAULT_REFERENCE_B_PATH,
