@@ -15,9 +15,6 @@ from indica.workflows.jussiphd.components.data.cluster_anchor_generation import 
 from indica.workflows.jussiphd.components.data.expanded_equilibria_generation import (
     expand_brightness_with_equilibria,
 )
-from indica.workflows.jussiphd.components.preprocessing.spline_anchor_fitting import (
-    load_monospline_anchor_spec,
-)
 from indica.workflows.jussiphd.components.data.real_equilibrium import (
     load_real_equilibrium_from_pulse,
 )
@@ -125,6 +122,8 @@ def generate_clustered_constant_imp_dataset_task(
     c_concentration: float,
     ar_concentration: float,
     impurity_flat_zeff: bool,
+    show_progress: bool,
+    progress_every: int | None,
 ) -> dict[str, Any]:
     return generate_and_save_dataset_from_anchor_cluster_gaussians(
         machine=machine,
@@ -152,6 +151,8 @@ def generate_clustered_constant_imp_dataset_task(
         positive_profile_floor=positive_profile_floor,
         impurity_concentrations={"c": float(c_concentration), "ar": float(ar_concentration)},
         impurity_flat_zeff=impurity_flat_zeff,
+        show_progress=show_progress,
+        progress_every=progress_every,
     )
 
 
@@ -208,10 +209,54 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
     c_concentration: float = 0.05,
     ar_concentration: float = 0.01,
     impurity_flat_zeff: bool = True,
+    show_progress: bool = True,
+    progress_every: int | None = 1,
     ne_gaussian_params_path: str = DEFAULT_NE_GAUSS_NPZ,
     te_gaussian_params_path: str = DEFAULT_TE_GAUSS_NPZ,
-    ne_xknots: list[float] | None = None,
-    te_xknots: list[float] | None = None,
+    ne_xknots: list[float] = [
+        0.0,
+        0.125,
+        0.25,
+        0.375,
+        0.5,
+        0.625,
+        0.75,
+        0.8,
+        0.875,
+        0.925,
+        0.95,
+        0.975,
+        0.99,
+        1.0,
+        1.025,
+        1.035,
+        1.05,
+        1.075,
+        1.085,
+        1.1,
+    ],
+    te_xknots: list[float] = [
+        0.0,
+        0.125,
+        0.25,
+        0.375,
+        0.5,
+        0.625,
+        0.75,
+        0.8,
+        0.875,
+        0.925,
+        0.95,
+        0.975,
+        0.99,
+        1.0,
+        1.025,
+        1.035,
+        1.05,
+        1.075,
+        1.085,
+        1.1,
+    ],
     copy_cluster_inputs: bool = True,
     cluster_input_subdir: str = "cluster_inputs",
     ne_assignment_csv: str = DEFAULT_NE_ASSIGN_CSV,
@@ -238,21 +283,6 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
         equilibrium = load_default_objects(machine, "equilibrium")
     transform = transforms[instrument]
 
-    resolved_ne_xknots = ne_xknots
-    resolved_te_xknots = te_xknots
-    if resolved_ne_xknots is None:
-        ne_spec = load_monospline_anchor_spec(
-            "electron_density",
-            config_name=config_name,
-        )
-        resolved_ne_xknots = [float(v) for v in ne_spec["xknots"]]
-    if resolved_te_xknots is None:
-        te_spec = load_monospline_anchor_spec(
-            "electron_temperature",
-            config_name=config_name,
-        )
-        resolved_te_xknots = [float(v) for v in te_spec["xknots"]]
-
     copied_cluster_inputs = None
     if copy_cluster_inputs:
         copied_cluster_inputs = copy_cluster_inputs_task(
@@ -275,8 +305,8 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
         equilibrium=equilibrium,
         ne_gaussian_params_path=ne_gaussian_params_path,
         te_gaussian_params_path=te_gaussian_params_path,
-        ne_xknots=resolved_ne_xknots,
-        te_xknots=resolved_te_xknots,
+        ne_xknots=ne_xknots,
+        te_xknots=te_xknots,
         n_generations=n_generations,
         use_all_timepoints=use_all_timepoints,
         single_timepoint_mode=single_timepoint_mode,
@@ -295,6 +325,8 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
         c_concentration=c_concentration,
         ar_concentration=ar_concentration,
         impurity_flat_zeff=impurity_flat_zeff,
+        show_progress=show_progress,
+        progress_every=progress_every,
     )
 
     expanded_dataset = expand_clustered_eps_with_equilibria_task(

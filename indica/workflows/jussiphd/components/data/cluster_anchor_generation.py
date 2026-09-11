@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import time
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -78,6 +79,8 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
     positive_profile_floor: float = 1e-12,
     impurity_concentrations: dict[str, float] | None = None,
     impurity_flat_zeff: bool = True,
+    show_progress: bool = True,
+    progress_every: int | None = 1,
 ) -> dict[str, Any]:
     """Generate (brightness, emissivity) pairs by sampling TE/NE anchors per cluster family."""
     output_path = Path(output_dir)
@@ -158,7 +161,20 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
     eps_slices: list[np.ndarray] = []
     meta_rows: list[dict[str, Any]] = []
 
+    progress_step = (
+        int(progress_every)
+        if progress_every is not None and int(progress_every) > 0
+        else max(1, int(n_generations) // 10)
+    )
+    t_start = time.perf_counter()
+    if show_progress:
+        print(
+            "[cluster_anchor_generation] Starting generation: "
+            f"0/{int(n_generations)}"
+        )
+
     for gen_idx in range(int(n_generations)):
+        t_gen = time.perf_counter()
         fam_idx = int(rng.choice(k, p=w))
         ne_anchor = _safe_mvn_draw(rng, ne_params["means"][fam_idx], ne_params["covariances"][fam_idx])
         te_anchor = _safe_mvn_draw(rng, te_params["means"][fam_idx], te_params["covariances"][fam_idx])
@@ -211,6 +227,17 @@ def generate_and_save_dataset_from_anchor_cluster_gaussians(
                     "t_s": t_val,
                 }
             )
+
+        if show_progress:
+            n_done = int(gen_idx) + 1
+            if n_done % progress_step == 0 or n_done == int(n_generations):
+                elapsed = time.perf_counter() - t_start
+                gen_elapsed = time.perf_counter() - t_gen
+                print(
+                    "[cluster_anchor_generation] Generated "
+                    f"{n_done}/{int(n_generations)} "
+                    f"(last gen {gen_elapsed:.2f}s, total {elapsed:.2f}s)"
+                )
 
     b_arr = np.asarray(b_slices, dtype=np.float32)
     eps_arr = np.asarray(eps_slices, dtype=np.float32)
