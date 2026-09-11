@@ -52,6 +52,44 @@ def read_st40_node(
     return reader.reader_utils.conn.get(node).data()
 
 
+def read_st40_node_with_dims(
+    node: str = DEFAULT_SOURCE_SIGNAL,
+    pulse: int = 13622,
+    tstart: float = 0.04,
+    tend: float = 0.15,
+    dt: float = 0.01,
+    verbose: bool = False,
+) -> dict[str, Any]:
+    """Read raw node data together with `dim_of(node, i)` arrays."""
+    reader = ST40Reader(
+        pulse,
+        tstart - dt,
+        tend + dt,
+        dt=dt,
+        verbose=verbose,
+    )
+    values = reader.reader_utils.conn.get(node).data()
+    arr = np.asarray(values)
+
+    dims: list[np.ndarray] = []
+    if arr.ndim > 0:
+        for i in range(arr.ndim):
+            try:
+                d_i = reader.reader_utils.conn.get(f"dim_of({node},{i})").data()
+                dims.append(np.asarray(d_i, dtype=np.float64).reshape(-1))
+            except Exception:
+                dims.append(np.asarray([], dtype=np.float64))
+
+    return {
+        "values": values,
+        "dims": dims,
+        "ndim": int(arr.ndim),
+        "shape": tuple(arr.shape),
+        "node": str(node),
+        "pulse": int(pulse),
+    }
+
+
 def pulse_has_st40_plasma(
     pulse: int,
     tstart: float = 0.04,

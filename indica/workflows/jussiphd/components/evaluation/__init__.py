@@ -7,6 +7,7 @@ from .eps_clustering import save_eps_clustering_outputs
 from .eps_clustering import save_profile_clustering_outputs
 from .anchor_cluster_gaussians import estimate_anchor_cluster_gaussians
 from .equilibrium_clustering import save_equilibrium_clustering_outputs
+from .real_emissivity_model_comparison import compare_saved_model_vs_real_emissivity_nodes
 
 __all__ = [
     "kmeans_cluster_b_profiles",
@@ -16,4 +17,5 @@ __all__ = [
     "save_profile_clustering_outputs",
     "estimate_anchor_cluster_gaussians",
     "save_equilibrium_clustering_outputs",
+    "compare_saved_model_vs_real_emissivity_nodes",
 ]
