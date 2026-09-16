@@ -8,7 +8,7 @@ from indica.readers import ADASReader
 from indica.utilities import get_element_info
 
 
-class NbiAnalytic(NbiOperator):
+class NbiADAS(NbiOperator):
     """Calculate neutral beam attenuation from beam stopping coefficients, typically
     ADAS ADF21 (bms) data.
 
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     plasma.set_equilibrium(equilibrium)
     nbi_transform.set_equilibrium(equilibrium)
 
-    nbi_op = NbiAnalytic(
+    nbi_op = NbiADAS(
         name="hnbi",
         energy=1.15e05 * 2.01410177784,  # eV
         power=2.09e06,  # W
@@ -122,4 +122,7 @@ if __name__ == "__main__":
     nbi_op.Ne = plasma.electron_density.isel(t=0)
     nbi_op.Ni = plasma.ion_density.sel(element=["h", "c"]).isel(t=0)
     nbi_op.Te = plasma.electron_temperature.isel(t=0)
-    nbi_op.prepare(None, None)
+    nbi_op.prepare()
+    nbi_op.run()
+    result = nbi_op.refactor_output()
+    nd = result["neutral_density"]
