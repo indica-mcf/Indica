@@ -18,8 +18,8 @@ class NbiAnalytic(NbiOperator):
 
     def prepare(
         self,
-        bms: dict[str, DataArray] | None,
-        reader: ADASReader | None,
+        bms: dict[str, DataArray] | None = None,
+        reader: ADASReader | None = None,
         year: str = "97",
         bms_quantity: str = "bms",
     ):
@@ -77,17 +77,22 @@ class NbiAnalytic(NbiOperator):
             ),
             t=np.asarray(self.t),
         ).assign_coords({"element": bms.element})
-        conc_mapped = self.transform.map_profile_to_los(
-            self.Ni / self.Ne, np.asarray(self.t)
-        )
+        ni_mapped = self.transform.map_profile_to_los(self.Ni, np.asarray(self.t))
+        # conc_mapped = self.transform.map_profile_to_los(
+        #     self.Ni / self.Ne, np.asarray(self.t)
+        # )
         self.vbeam = np.sqrt(2 * self.energy * constants.e / constants.m_u)
-        self.stopping_cross_section = bms_mapped * z * conc_mapped / self.vbeam  # m^2
+        # self.stopping_cross_section = bms_mapped * z * conc_mapped / self.vbeam  # m^2
+        self.zeta = np.exp(
+            -(bms_mapped * z * ni_mapped / self.vbeam).cumsum("los_position")
+        )
 
     def run(self, **kwargs):
-        ...
+        self.neutral_density = self.source_neutral_flux * self.zeta
 
     def refactor_output(self):
-        ...
+        result = {"neutral_density": self.neutral_density}
+        return result
 
 
 if __name__ == "__main__":
