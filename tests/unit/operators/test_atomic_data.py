@@ -4,30 +4,33 @@ import numpy as np
 import pytest
 from xarray import DataArray
 
-from indica.configs.operators.aurora import AuroraConfig
+from indica.configs.operators import AuroraConfig
 from indica.defaults.load_defaults import load_default_objects
-from indica.examples import example_plasma
-from indica.operators.atomic_data import FractionalAbundance
-from indica.operators.atomic_data import FractionalAbundanceAurora
-from indica.operators.atomic_data import PowerLoss
-from indica.readers import ADASReader
+from indica.examples import plasma as example_plasma
+from indica.operators import FractionalAbundanceAdas
+from indica.operators import PowerLoss
 from indica.utilities import get_element_info
 
+try:
+    from indica.operators import FractionalAbundanceAurora
+except ImportError:
+    pass
+
+MAIN_ION = "d"
 ELEMENT = "be"
 Z, A, NAME, SYMBOL = get_element_info(ELEMENT)
 
-ADAS_FILE = ADASReader()
-SCD = ADAS_FILE.get_adf11("scd", ELEMENT, "89")
-ACD = ADAS_FILE.get_adf11("acd", ELEMENT, "89")
-CCD = ADAS_FILE.get_adf11("ccd", ELEMENT, "89")
+SCD_YEAR = "89"
+ACD_YEAR = "89"
+CCD_YEAR = "89"
 
-PLT = ADAS_FILE.get_adf11("plt", ELEMENT, "89")
-PRC = ADAS_FILE.get_adf11("prc", ELEMENT, "89")
-PRB = ADAS_FILE.get_adf11("prb", ELEMENT, "89")
+PLT_YEAR = "89"
+PRB_YEAR = "89"
+PRC_YEAR = "89"
 
 RHOP = np.linspace(0.0, 1.0, 10)
 INPUT_NE = DataArray(data=np.logspace(19.0, 16.0, 10), coords={"rhop": RHOP})
-INPUT_NH = DataArray(np.logspace(14.0, 16.0, 10), coords={"rhop": RHOP})
+INPUT_NN = DataArray(np.logspace(14.0, 16.0, 10), coords={"rhop": RHOP})
 INPUT_TE = DataArray(data=np.logspace(4.6, 2, 10), coords={"rhop": RHOP})
 INPUT_TAU = DataArray(data=np.logspace(0, -3, 10), coords={"rhop": RHOP})
 
@@ -40,22 +43,17 @@ EQUILIBRIUM = load_default_objects(
 def fractional_abundance_init():
     """Test initialisation of FractionalAbundance class."""
 
-    fract_abu = FractionalAbundance(
-        SCD,
-        ACD,
-        ccd=CCD,
-        full_run=False,
+    fract_abu = FractionalAbundanceAdas(ELEMENT)
+    fract_abu_full_run = FractionalAbundanceAdas(
+        ELEMENT,
+        SCD_YEAR,
+        ACD_YEAR,
     )
-    fract_abu_no_optional = FractionalAbundance(
-        SCD,
-        ACD,
-        full_run=False,
-    )
-    fract_abu_full_run = FractionalAbundance(
-        SCD,
-        ACD,
-        ccd=CCD,
-        full_run=True,
+    fract_abu_no_optional = FractionalAbundanceAdas(
+        ELEMENT,
+        SCD_YEAR,
+        ACD_YEAR,
+        CCD_YEAR,
     )
 
     return (
@@ -68,24 +66,18 @@ def fractional_abundance_init():
 def power_loss_init():
     """Test initialisation of FractionalAbundance class."""
 
-    power_loss = PowerLoss(
-        PLT,
-        PRB,
-        prc=PRC,
-        full_run=False,
-    )
+    power_loss = PowerLoss(ELEMENT)
     power_loss_no_optional = PowerLoss(
-        PLT,
-        PRB,
-        full_run=False,
+        ELEMENT,
+        PLT_YEAR,
+        PRB_YEAR,
     )
     power_loss_full_run = PowerLoss(
-        PLT,
-        PRB,
-        prc=PRC,
-        full_run=True,
+        ELEMENT,
+        PLT_YEAR,
+        PRB_YEAR,
+        PRC_YEAR,
     )
-
     return (
         power_loss,
         power_loss_no_optional,
@@ -106,7 +98,7 @@ class TestFractionalAbundance:
         self.rhop = RHOP
         self.input_Ne = INPUT_NE
         self.input_Te = INPUT_TE
-        self.input_Nh = INPUT_NH
+        self.input_Nn = INPUT_NN
         self.input_tau = INPUT_TAU
 
     def test_interpolate_rates(self):
@@ -128,7 +120,7 @@ class TestFractionalAbundance:
         try:
             self.fract_abu.interpolate_rates(self.input_Ne, self.input_Te)
             ionisation_balance_matrix = self.fract_abu.calc_ionisation_balance_matrix(
-                self.input_Ne, self.input_Nh
+                self.input_Ne, self.input_Nn
             )
         except Exception as e:
             raise e
@@ -164,7 +156,7 @@ class TestFractionalAbundance:
         try:
             self.fract_abu.interpolate_rates(self.input_Ne, self.input_Te)
             ionisation_balance_matrix = self.fract_abu.calc_ionisation_balance_matrix(
-                self.input_Ne, self.input_Nh
+                self.input_Ne, self.input_Nn
             )
             F_z_tinf = self.fract_abu.calc_F_z_tinf()
         except Exception as e:
@@ -191,7 +183,7 @@ class TestFractionalAbundance:
         """Test calc_eigen_vals_and_vecs() function in FractionalAbundance class."""
         try:
             self.fract_abu.interpolate_rates(self.input_Ne, self.input_Te)
-            self.fract_abu.calc_ionisation_balance_matrix(self.input_Ne, self.input_Nh)
+            self.fract_abu.calc_ionisation_balance_matrix(self.input_Ne, self.input_Nn)
             self.fract_abu.calc_F_z_tinf()
             (
                 eig_vals,
@@ -248,7 +240,7 @@ class TestFractionalAbundance:
         try:
             # Stick with default F_z_t0=None assignment
             self.fract_abu.interpolate_rates(self.input_Ne, self.input_Te)
-            self.fract_abu.calc_ionisation_balance_matrix(self.input_Ne, self.input_Nh)
+            self.fract_abu.calc_ionisation_balance_matrix(self.input_Ne, self.input_Nn)
             self.fract_abu.calc_F_z_tinf()
             self.fract_abu.calc_eigen_vals_and_vecs()
             (
@@ -271,7 +263,7 @@ class TestFractionalAbundance:
         try:
             # Stick with default F_z_t0=None assignment
             F_z_t = self.fract_abu_full_run(
-                self.input_Te, self.input_Ne, self.input_Nh, self.input_tau
+                self.input_Te, self.input_Ne, self.input_Nn, self.input_tau
             )
         except Exception as e:
             raise e
@@ -291,6 +283,10 @@ class TestFractionalAbundanceAurora:
     """Test that the fractional abundance operator can be used in Aurora."""
 
     def setup_class(self):
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.plasma = example_plasma(aurora_run=True)
         self.plasma.set_equilibrium(EQUILIBRIUM)
         self.plasma.build_atomic_data()
@@ -298,64 +294,80 @@ class TestFractionalAbundanceAurora:
     def fractional_abundance_aurora_init(
         self,
     ):
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.ne = self.plasma.electron_density
         self.Te = self.plasma.electron_temperature
-        self.Nh = self.plasma.neutral_density
+        self.Nn = self.plasma.neutral_density
         self.D_z = self.plasma.diffusion_coefficient
         self.V_z = self.plasma.convection_coefficient
         self.config = deepcopy(AuroraConfig)
         self.operator = FractionalAbundanceAurora(
-            impurity="ar",
-            main_ion="d",
+            element=ELEMENT,
+            main_ion=MAIN_ION,
             aurora_config=self.config,
             equilibrium=EQUILIBRIUM,
         )
 
     def test_call_returns_non_zero_values(self):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.fractional_abundance_aurora_init()
         fz_t = self.operator(
             Ne=self.ne,
             Te=self.Te,
-            Nh=self.Nh,
+            Nn=self.Nn,
             D_z=self.D_z,
             V_z=self.V_z,
         )
         assert np.any(fz_t != 0)
 
     def test_call_with_one_timepoint_returns_non_zero_values(self):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.fractional_abundance_aurora_init()
         fz_t = self.operator(
             Ne=self.ne.isel({"t": 0}),
             Te=self.Te.isel({"t": 0}),
-            Nh=self.Nh.isel({"t": 0}),
+            Nn=self.Nn.isel({"t": 0}),
             D_z=self.D_z.isel({"t": 0}),
             V_z=self.V_z.isel({"t": 0}),
         )
         assert np.any(fz_t != 0)
 
     def test_call_with_zero_nh_and_cxr_flag_true(self):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.fractional_abundance_aurora_init()
         self.config["cxr_flag"] = True
         with pytest.raises(ValueError):
             self.operator(
                 Ne=self.ne,
                 Te=self.Te,
-                Nh=self.Nh * 0.0,
+                Nn=self.Nn * 0.0,
                 D_z=self.D_z,
                 V_z=self.V_z,
             )
 
     def test_call_with_non_zero_nh_and_cxr_flag_false(self):
-        pytest.importorskip("aurora", reason="Issues with Aurora installation")
+        pytest.importorskip(
+            "indica.operators.fractionalabundance_aurora",
+            reason="Issues with Aurora installation",
+        )
         self.fractional_abundance_aurora_init()
         self.config["cxr_flag"] = False
         fz_t = self.operator(
             Ne=self.ne,
             Te=self.Te,
-            Nh=self.Nh + 1e13,  # add a small non-zero value to ensure the operator runs
+            Nn=self.Nn + 1e13,  # add a small non-zero value to ensure the operator runs
             D_z=self.D_z,
             V_z=self.V_z,
         )
@@ -375,7 +387,7 @@ class TestPowerLoss:
         self.rhop = RHOP
         self.input_Ne = INPUT_NE
         self.input_Te = INPUT_TE
-        self.input_Nh = INPUT_NH
+        self.input_Nn = INPUT_NN
         self.input_tau = INPUT_TAU
 
     def test_interpolate_power(self):
@@ -387,18 +399,13 @@ class TestPowerLoss:
 
     def test_calc_power_loss(self):
         """Test calculate_power_loss() function in PowerLoss class."""
-        fract_abu = FractionalAbundance(
-            SCD,
-            ACD,
-            ccd=CCD,
-            full_run=True,
-        )
-        F_z_t = fract_abu(self.input_Te, self.input_Ne, self.input_Nh, self.input_tau)
+        fract_abu = FractionalAbundanceAdas(ELEMENT)
+        F_z_t = fract_abu(self.input_Te, self.input_Ne, self.input_Nn, self.input_tau)
 
         try:
             self.power_loss.interpolate_power(self.input_Ne, self.input_Te)
             cooling_factor = self.power_loss.calculate_power_loss(
-                self.input_Ne, F_z_t, self.input_Nh
+                self.input_Ne, F_z_t, self.input_Nn
             )
         except Exception as e:
             raise e
@@ -407,12 +414,7 @@ class TestPowerLoss:
 
     def test_calc_power_loss_no_optional(self):
         """Test calculate_power_loss() function in PowerLoss class."""
-        fract_abu = FractionalAbundance(
-            SCD,
-            ACD,
-            ccd=CCD,
-            full_run=True,
-        )
+        fract_abu = FractionalAbundanceAdas(ELEMENT)
         F_z_t = fract_abu(self.input_Te, self.input_Ne)
 
         try:
@@ -424,15 +426,11 @@ class TestPowerLoss:
         assert cooling_factor.shape == (Z + 1, self.power_loss.coord.size)
 
     def test_power_loss_full_run(self):
-        fract_abu = FractionalAbundance(
-            SCD,
-            ACD,
-            ccd=CCD,
-            full_run=True,
-        )
-        F_z_t = fract_abu(self.input_Te, self.input_Ne, self.input_Nh, self.input_tau)
+        fract_abu = FractionalAbundanceAdas(ELEMENT)
+        F_z_t = fract_abu(self.input_Te, self.input_Ne, self.input_Nn, self.input_tau)
+        print(F_z_t)
         try:
-            cooling_factor = self.power_loss(self.input_Ne, F_z_t, self.input_Nh)
+            cooling_factor = self.power_loss(self.input_Ne, F_z_t, self.input_Nn)
         except Exception as e:
             raise e
 

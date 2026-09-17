@@ -37,7 +37,7 @@ class SALWarning(UserWarning):
 
 
 class SALUtils(BaseIO):
-    def __init__(self, pulse: int, server: str = "https://sal.jet.uk"):
+    def __init__(self, pulse: int, server: str = "https://sal.jetdata.eu"):
         self.pulse = pulse
         self._reader_cache_id = f"ppf:{server.replace('-', '_')}:{pulse}"
         self._client = SALClient(server)

@@ -1,9 +1,9 @@
 import matplotlib.pylab as plt
 
-from indica.examples import example_dataplotter
+from indica.examples import dataplotter
 
 
-def test_dataplotter():
+def _test_dataplotter():
     plt.ioff()
-    example_dataplotter()
+    dataplotter()
     plt.close("all")

@@ -39,7 +39,7 @@ class JETReader(DataReader):
         tend: float,
         machine_conf: MachineConf = JETConf,
         reader_utils: BaseIO = SALUtils,
-        server: str = "https://sal.jet.uk",
+        server: str = "https://sal.jetdata.eu",
         verbose: bool = False,
         default_error: float = 0.05,
         *args,

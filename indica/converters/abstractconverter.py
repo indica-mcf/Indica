@@ -558,12 +558,12 @@ class CoordinateTransform(ABC):
                 xr.plot.contour(
                     rhop_equil,
                     levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99],
-                    linestyle="dotted",
+                    linestyle="solid",
                     alpha=0.8,
                 )
                 # rhop_equil.plot.contour(
                 #     levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99],
-                #     linestyle="dotted",
+                #     linestyle="solid",
                 #     alpha=0.8,
                 # )
 

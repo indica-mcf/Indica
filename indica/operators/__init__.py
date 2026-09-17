@@ -1,10 +1,12 @@
+from .abstract_fractionalabundance import FractionalAbundance
 from .abstract_nbioperator import NbiOperator
 from .adas_nbioperator import NbiADAS
-from .atomic_data import FractionalAbundance
-from .atomic_data import PowerLoss
+from .fractionalabundance_adas import FractionalAbundanceAdas
+from .powerloss_adas import PowerLoss
 
 __all__ = [
     "FractionalAbundance",
+    "FractionalAbundanceAdas",
     "PowerLoss",
     "NbiOperator",
     "NbiADAS",
@@ -14,5 +16,12 @@ try:
     from .fidasim_nbioperator import NbiFidasim
 
     __all__.append(NbiFidasim.__name__)
+except ImportError:
+    pass
+
+try:
+    from .fractionalabundance_aurora import FractionalAbundanceAurora
+
+    __all__.append(FractionalAbundanceAurora.__name__)
 except ImportError:
     pass

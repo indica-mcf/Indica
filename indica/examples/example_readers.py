@@ -4,12 +4,12 @@ import numpy as np
 from indica import Equilibrium
 from indica import Plasma
 from indica.configs.readers.adasconf import ADF11
+from indica.defaults.generate_defaults import default_atomic_data
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import HelikeSpectrometer
 from indica.models import PinholeCamera
 from indica.models import ThomsonScattering
-from indica.operators.atomic_data import default_atomic_data
 from indica.readers import ADASReader
 from indica.readers import ST40Reader
 from indica.readers.modelreader import ModelReader
@@ -29,7 +29,7 @@ MODELS = {
 }
 
 
-def example_model_reader(plot=False):
+def model_reader(plot=False):
     _, power_loss = default_atomic_data(PLASMA.elements)
 
     model_reader = ModelReader(
@@ -91,7 +91,7 @@ def example_model_reader(plot=False):
     return bckc, model_reader
 
 
-def example_adf11(
+def adf11(
     element: str = "h",
     file_type: str = None,
     **kwargs,
@@ -119,7 +119,7 @@ def example_adf11(
     return output
 
 
-def example_assign_modelling_to_plasma():
+def assign_modelling_to_plasma(plot: bool = False):
     # Read METIS modelled data
     reader = ST40Reader(
         40011890,
@@ -161,31 +161,32 @@ def example_assign_modelling_to_plasma():
 
     colors = CMAP(np.linspace(0.1, 0.75, np.size(Te.t), dtype=float))
 
-    plt.figure()
-    for i, t in enumerate(Ne.t):
-        label = f"{t:.3f} s"
-        if (i % 4) != 0:
-            continue
-        Ne.sel(t=t).plot(color=colors[i], label=label)
-    plt.legend()
-    plt.title("Electron density")
+    if plot:
+        plt.figure()
+        for i, t in enumerate(Ne.t):
+            label = f"{t:.3f} s"
+            if (i % 4) != 0:
+                continue
+            Ne.sel(t=t).plot(color=colors[i], label=label)
+        plt.legend()
+        plt.title("Electron density")
 
-    plt.figure()
-    for i, t in enumerate(Te.t):
-        label = f"{t:.3f} s"
-        if (i % 4) != 0:
-            continue
-        Te.sel(t=t).plot(color=colors[i], label=label)
-        Ti.sel(t=t).plot(color=colors[i], linestyle="dashed")
-    plt.title("Electron/Ion temperature")
+        plt.figure()
+        for i, t in enumerate(Te.t):
+            label = f"{t:.3f} s"
+            if (i % 4) != 0:
+                continue
+            Te.sel(t=t).plot(color=colors[i], label=label)
+            Ti.sel(t=t).plot(color=colors[i], linestyle="dashed")
+        plt.title("Electron/Ion temperature")
 
-    plt.figure()
-    for i, t in enumerate(Vtor.t):
-        label = f"{t:.3f} s"
-        if (i % 4) != 0:
-            continue
-        Vtor.sel(t=t).plot(color=colors[i], label=label)
-    plt.legend()
-    plt.title("Toroidal rotation")
+        plt.figure()
+        for i, t in enumerate(Vtor.t):
+            label = f"{t:.3f} s"
+            if (i % 4) != 0:
+                continue
+            Vtor.sel(t=t).plot(color=colors[i], label=label)
+        plt.legend()
+        plt.title("Toroidal rotation")
 
     return plasma
