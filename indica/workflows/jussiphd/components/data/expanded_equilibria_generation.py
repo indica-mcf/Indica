@@ -130,9 +130,12 @@ def build_equilibrium_contexts(
     instrument: str,
     equilibrium_specs: list[dict[str, Any]],
     n_timepoints_per_equilibrium: int,
+    base_transform: Any | None = None,
 ) -> list[dict[str, Any]]:
-    transforms = load_default_objects(machine, "geometry")
-    base_transform = transforms[instrument]
+    if base_transform is None:
+        transforms = load_default_objects(machine, "geometry")
+        base_transform = transforms[instrument]
+    base_transform = deepcopy(base_transform)
     base_transform.spot_shape = "square"
     base_transform.focal_length = -1000.0
     _normalise_transform_beamlets(base_transform)
@@ -201,6 +204,7 @@ def expand_brightness_with_equilibria(
     generate_new_data: bool,
     n_timepoints_per_equilibrium: int,
     equilibrium_specs: list[dict[str, Any]] | None = None,
+    base_transform: Any | None = None,
 ) -> dict[str, Any]:
     specs = list(equilibrium_specs) if equilibrium_specs is not None else list(DEFAULT_EQUILIBRIUM_SPECS)
     b_path, eps_out_path, meta_path, reuse = _prepare_output(
@@ -221,6 +225,7 @@ def expand_brightness_with_equilibria(
         instrument=instrument,
         equilibrium_specs=specs,
         n_timepoints_per_equilibrium=n_timepoints_per_equilibrium,
+        base_transform=base_transform,
     )
 
     b_rows: list[np.ndarray] = []

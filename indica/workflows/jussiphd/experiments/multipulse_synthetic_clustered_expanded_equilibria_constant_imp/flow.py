@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from prefect import flow, task
 
 from indica.defaults.load_defaults import load_default_objects
 from indica.workflows.jussiphd.components.data.cluster_anchor_generation import (
     generate_and_save_dataset_from_anchor_cluster_gaussians,
+)
+from indica.workflows.jussiphd.components.data.combined_transform import (
+    build_combined_los_transform,
+    save_combined_channel_map,
 )
 from indica.workflows.jussiphd.components.data.expanded_equilibria_generation import (
     expand_brightness_with_equilibria,
@@ -47,6 +51,28 @@ DEFAULT_NE_GAUSS_SUMMARY_CSV = str(
 )
 DEFAULT_TE_GAUSS_SUMMARY_CSV = str(
     DEFAULT_REAL_TENE_OUTPUTS / "cluster_info" / "te_anchors_cluster_gaussian_summary.csv"
+)
+DEFAULT_CLUSTER_XKNOTS: tuple[float, ...] = (
+    0.0,
+    0.125,
+    0.25,
+    0.375,
+    0.5,
+    0.625,
+    0.75,
+    0.8,
+    0.875,
+    0.925,
+    0.95,
+    0.975,
+    0.99,
+    1.0,
+    1.025,
+    1.035,
+    1.05,
+    1.075,
+    1.085,
+    1.1,
 )
 
 
@@ -167,6 +193,7 @@ def expand_clustered_eps_with_equilibria_task(
     meta_filename: str,
     generate_new_data: bool,
     n_timepoints_per_equilibrium: int,
+    base_transform: Any | None,
 ) -> dict[str, Any]:
     return expand_brightness_with_equilibria(
         eps_path=eps_path,
@@ -178,6 +205,20 @@ def expand_clustered_eps_with_equilibria_task(
         meta_filename=meta_filename,
         generate_new_data=generate_new_data,
         n_timepoints_per_equilibrium=n_timepoints_per_equilibrium,
+        base_transform=base_transform,
+    )
+
+
+@task(name="save_combined_los_channel_map")
+def save_combined_los_channel_map_task(
+    channel_map: list[dict[str, int | str]],
+    output_dir: str,
+    filename: str,
+) -> str:
+    return save_combined_channel_map(
+        channel_map=channel_map,
+        output_dir=output_dir,
+        filename=filename,
     )
 
 
@@ -185,6 +226,11 @@ def expand_clustered_eps_with_equilibria_task(
 def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_dataset(
     machine: str = "st40",
     instrument: str = "blom_xy1",
+    use_combined_instruments: bool = True,
+    combined_instruments: tuple[str, ...] = ("blom_xy1", "blom_rz1"),
+    combined_instrument_name: str = "blom_xy1_rz1_combined",
+    save_combined_map: bool = True,
+    combined_map_filename: str = "combined_los_channel_map.csv",
     tstart: float = 0.04,
     tend: float = 0.15,
     dt: float = 0.01,
@@ -192,9 +238,9 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
     real_equilibrium_pulse: int = 13622,
     real_equilibrium_verbose: bool = False,
     clustered_output_dir: str = DEFAULT_CLUSTERED_OUTPUT_DIR,
-    clustered_b_filename: str = "b_slices_multipulse_synthetic_clustered.csv",
-    clustered_eps_filename: str = "eps_slices_multipulse_synthetic_clustered.csv",
-    clustered_meta_filename: str = "sample_meta_multipulse_synthetic_clustered.csv",
+    clustered_b_filename: str = "b_slices_multipulse_synthetic_clustered_xy1rz1.csv",
+    clustered_eps_filename: str = "eps_slices_multipulse_synthetic_clustered_xy1rz1.csv",
+    clustered_meta_filename: str = "sample_meta_multipulse_synthetic_clustered_xy1rz1.csv",
     generate_new_clustered_data: bool = True,
     n_generations: int = 2500,
     use_all_timepoints: bool = False,
@@ -213,50 +259,8 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
     progress_every: int | None = 1,
     ne_gaussian_params_path: str = DEFAULT_NE_GAUSS_NPZ,
     te_gaussian_params_path: str = DEFAULT_TE_GAUSS_NPZ,
-    ne_xknots: list[float] = [
-        0.0,
-        0.125,
-        0.25,
-        0.375,
-        0.5,
-        0.625,
-        0.75,
-        0.8,
-        0.875,
-        0.925,
-        0.95,
-        0.975,
-        0.99,
-        1.0,
-        1.025,
-        1.035,
-        1.05,
-        1.075,
-        1.085,
-        1.1,
-    ],
-    te_xknots: list[float] = [
-        0.0,
-        0.125,
-        0.25,
-        0.375,
-        0.5,
-        0.625,
-        0.75,
-        0.8,
-        0.875,
-        0.925,
-        0.95,
-        0.975,
-        0.99,
-        1.0,
-        1.025,
-        1.035,
-        1.05,
-        1.075,
-        1.085,
-        1.1,
-    ],
+    ne_xknots: Sequence[float] = DEFAULT_CLUSTER_XKNOTS,
+    te_xknots: Sequence[float] = DEFAULT_CLUSTER_XKNOTS,
     copy_cluster_inputs: bool = True,
     cluster_input_subdir: str = "cluster_inputs",
     ne_assignment_csv: str = DEFAULT_NE_ASSIGN_CSV,
@@ -264,12 +268,15 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
     ne_gaussian_summary_csv: str = DEFAULT_NE_GAUSS_SUMMARY_CSV,
     te_gaussian_summary_csv: str = DEFAULT_TE_GAUSS_SUMMARY_CSV,
     expanded_output_dir: str = DEFAULT_EXPANDED_OUTPUT_DIR,
-    expanded_b_filename: str = "b_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
-    expanded_eps_filename: str = "eps_slices_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
-    expanded_meta_filename: str = "sample_meta_multipulse_synthetic_clustered_expanded_equilibria_constant_imp.csv",
+    expanded_b_filename: str = "b_slices_multipulse_synthetic_clustered_xy1rz1_expanded_equilibria_constant_imp.csv",
+    expanded_eps_filename: str = "eps_slices_multipulse_synthetic_clustered_xy1rz1_expanded_equilibria_constant_imp.csv",
+    expanded_meta_filename: str = "sample_meta_multipulse_synthetic_clustered_xy1rz1_expanded_equilibria_constant_imp.csv",
     generate_new_expanded_data: bool = True,
     n_timepoints_per_equilibrium: int = 6,
 ) -> dict[str, Any]:
+    ne_xknots_resolved = [float(x) for x in ne_xknots]
+    te_xknots_resolved = [float(x) for x in te_xknots]
+
     transforms = load_default_objects(machine, "geometry")
     if use_real_equilibrium:
         equilibrium = load_real_equilibrium_task(
@@ -281,64 +288,91 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
         )
     else:
         equilibrium = load_default_objects(machine, "equilibrium")
-    transform = transforms[instrument]
 
+    if use_combined_instruments:
+        transform, channel_map = build_combined_los_transform(
+            machine=machine,
+            instruments=list(combined_instruments),
+            combined_name=combined_instrument_name,
+        )
+        instrument_for_model = combined_instrument_name
+    else:
+        transform = transforms[instrument]
+        channel_map = []
+        instrument_for_model = instrument
+
+    combined_channel_map_path = None
+    if use_combined_instruments and save_combined_map:
+        combined_channel_map_path = save_combined_los_channel_map_task(
+            channel_map=channel_map,
+            output_dir=clustered_output_dir,
+            filename=combined_map_filename,
+        )
+
+    cluster_input_files = [
+        ne_gaussian_params_path,
+        te_gaussian_params_path,
+        ne_assignment_csv,
+        te_assignment_csv,
+        ne_gaussian_summary_csv,
+        te_gaussian_summary_csv,
+    ]
     copied_cluster_inputs = None
     if copy_cluster_inputs:
         copied_cluster_inputs = copy_cluster_inputs_task(
             output_dir=clustered_output_dir,
             subdir=cluster_input_subdir,
-            files_to_copy=[
-                ne_gaussian_params_path,
-                te_gaussian_params_path,
-                ne_assignment_csv,
-                te_assignment_csv,
-                ne_gaussian_summary_csv,
-                te_gaussian_summary_csv,
-            ],
+            files_to_copy=cluster_input_files,
         )
 
+    clustered_generation_kwargs: dict[str, Any] = {
+        "machine": machine,
+        "instrument": instrument_for_model,
+        "transform": transform,
+        "equilibrium": equilibrium,
+        "ne_gaussian_params_path": ne_gaussian_params_path,
+        "te_gaussian_params_path": te_gaussian_params_path,
+        "ne_xknots": ne_xknots_resolved,
+        "te_xknots": te_xknots_resolved,
+        "n_generations": n_generations,
+        "use_all_timepoints": use_all_timepoints,
+        "single_timepoint_mode": single_timepoint_mode,
+        "output_dir": clustered_output_dir,
+        "b_filename": clustered_b_filename,
+        "eps_filename": clustered_eps_filename,
+        "meta_filename": clustered_meta_filename,
+        "generate_new_data": generate_new_clustered_data,
+        "config_name": config_name,
+        "config_overrides": config_overrides,
+        "seed": seed,
+        "sample_weight_by_cluster_counts": sample_weight_by_cluster_counts,
+        "enforce_nonnegative_profiles": enforce_nonnegative_profiles,
+        "enforce_strictly_positive_profiles": enforce_strictly_positive_profiles,
+        "positive_profile_floor": positive_profile_floor,
+        "c_concentration": c_concentration,
+        "ar_concentration": ar_concentration,
+        "impurity_flat_zeff": impurity_flat_zeff,
+        "show_progress": show_progress,
+        "progress_every": progress_every,
+    }
     clustered_dataset = generate_clustered_constant_imp_dataset_task(
-        machine=machine,
-        instrument=instrument,
-        transform=transform,
-        equilibrium=equilibrium,
-        ne_gaussian_params_path=ne_gaussian_params_path,
-        te_gaussian_params_path=te_gaussian_params_path,
-        ne_xknots=ne_xknots,
-        te_xknots=te_xknots,
-        n_generations=n_generations,
-        use_all_timepoints=use_all_timepoints,
-        single_timepoint_mode=single_timepoint_mode,
-        output_dir=clustered_output_dir,
-        b_filename=clustered_b_filename,
-        eps_filename=clustered_eps_filename,
-        meta_filename=clustered_meta_filename,
-        generate_new_data=generate_new_clustered_data,
-        config_name=config_name,
-        config_overrides=config_overrides,
-        seed=seed,
-        sample_weight_by_cluster_counts=sample_weight_by_cluster_counts,
-        enforce_nonnegative_profiles=enforce_nonnegative_profiles,
-        enforce_strictly_positive_profiles=enforce_strictly_positive_profiles,
-        positive_profile_floor=positive_profile_floor,
-        c_concentration=c_concentration,
-        ar_concentration=ar_concentration,
-        impurity_flat_zeff=impurity_flat_zeff,
-        show_progress=show_progress,
-        progress_every=progress_every,
+        **clustered_generation_kwargs,
     )
 
+    expanded_generation_kwargs: dict[str, Any] = {
+        "eps_path": str(clustered_dataset["eps_path"]),
+        "output_dir": expanded_output_dir,
+        "machine": machine,
+        "instrument": instrument_for_model,
+        "b_filename": expanded_b_filename,
+        "eps_filename": expanded_eps_filename,
+        "meta_filename": expanded_meta_filename,
+        "generate_new_data": generate_new_expanded_data,
+        "n_timepoints_per_equilibrium": n_timepoints_per_equilibrium,
+        "base_transform": transform,
+    }
     expanded_dataset = expand_clustered_eps_with_equilibria_task(
-        eps_path=str(clustered_dataset["eps_path"]),
-        output_dir=expanded_output_dir,
-        machine=machine,
-        instrument=instrument,
-        b_filename=expanded_b_filename,
-        eps_filename=expanded_eps_filename,
-        meta_filename=expanded_meta_filename,
-        generate_new_data=generate_new_expanded_data,
-        n_timepoints_per_equilibrium=n_timepoints_per_equilibrium,
+        **expanded_generation_kwargs,
     )
 
     return {
@@ -347,6 +381,10 @@ def build_multipulse_synthetic_clustered_expanded_equilibria_constant_imp_datase
         "copied_cluster_inputs": copied_cluster_inputs,
         "clustered_output_dir": clustered_output_dir,
         "expanded_output_dir": expanded_output_dir,
+        "instrument_used": instrument_for_model,
+        "use_combined_instruments": bool(use_combined_instruments),
+        "combined_instruments": list(combined_instruments),
+        "combined_channel_map_path": combined_channel_map_path,
     }
 
 
