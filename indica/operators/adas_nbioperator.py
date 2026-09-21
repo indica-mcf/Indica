@@ -1,4 +1,7 @@
+from typing import Optional
+
 import numpy as np
+from numpy.typing import ArrayLike
 from scipy import constants
 import xarray as xr
 from xarray import DataArray
@@ -62,11 +65,6 @@ class NbiADAS(NbiOperator):
             self.power * (constants.e**-1.5) * np.sqrt(constants.m_p / 2)
         ) / (amu * (e_amu / current_fractions) ** 1.5)
 
-        z = DataArray(
-            [get_element_info(val)[0] for val in self.bms.keys()],
-            dims=("element",),
-            coords={"element": ("element", list(self.bms.keys()))},
-        )
         bms = xr.concat(
             [val.assign_coords({"element": key}) for key, val in self.bms.items()],
             dim="element",
@@ -78,13 +76,17 @@ class NbiADAS(NbiOperator):
             t=np.asarray(self.t),
         ).assign_coords({"element": bms.element})
         ni_mapped = self.transform.map_profile_to_los(self.Ni, np.asarray(self.t))
-        # conc_mapped = self.transform.map_profile_to_los(
-        #     self.Ni / self.Ne, np.asarray(self.t)
-        # )
+        meanz_mapped = self.transform.map_profile_to_los(
+            self.MeanZ, np.asarray(self.t)
+        ).assign_coords(element=self.MeanZ.element)
         self.vbeam = np.sqrt(2 * self.energy * constants.e / constants.m_u)
-        # self.stopping_cross_section = bms_mapped * z * conc_mapped / self.vbeam  # m^2
         self.zeta = np.exp(
-            -(bms_mapped * z * ni_mapped / self.vbeam).cumsum("los_position")
+            -(
+                bms_mapped
+                * meanz_mapped.sel(element=bms_mapped.element)
+                * ni_mapped
+                / self.vbeam
+            ).cumsum("los_position")
         )
 
     def run(self, **kwargs):
@@ -94,35 +96,67 @@ class NbiADAS(NbiOperator):
         result = {"neutral_density": self.neutral_density}
         return result
 
+    def __call__(
+        self,
+        Ti: DataArray,
+        Te: DataArray,
+        Ni: DataArray,
+        Ne: DataArray,
+        Nn: DataArray,
+        Vtor: DataArray,
+        Zeff: DataArray,
+        MeanZ: DataArray,
+        ImpurityCharge: int,
+        target_element: str,
+        t: float | ArrayLike,
+        file_name: Optional[str] = "",
+        pulse: int = 0,
+        machine: str = "tokamak",
+        prepare_kwargs: dict = {},
+        run_kwargs: dict = {},
+    ) -> dict:
+        """
+        Run NBI code for specified time-point (one only!)
 
-if __name__ == "__main__":
-    from indica import Plasma
-    from indica.configs.operators.nbi_configs import get_default_nbi_transform_config
-    from indica.converters.line_of_sight import LineOfSightTransform
-    from indica.defaults.load_defaults import load_default_objects
+        target_element - plasma main ion element symbol (e.g. "d" for deuterium)
+        file_name - first part of the file name to save the NBI model data to
+        """
+        if not hasattr(self, "transform"):
+            raise ValueError("transform is required (set it before calling)")
 
-    machine = "st40"
-    nbi_cfg = get_default_nbi_transform_config()
-    nbi_transform = LineOfSightTransform(**nbi_cfg)
+        if not hasattr(self.transform, "equilibrium"):
+            raise ValueError("transform is missing equilibrium data")
 
-    equilibrium = load_default_objects(machine, "equilibrium")
-    plasma: Plasma = load_default_objects(machine, "plasma")
-    plasma.set_equilibrium(equilibrium)
-    nbi_transform.set_equilibrium(equilibrium)
+        _element_info = get_element_info(target_element)
+        self.target_element_info = {
+            "Z": _element_info[0],
+            "A": _element_info[1],
+            "name": _element_info[2],
+            "symbol": _element_info[3],
+        }
 
-    nbi_op = NbiADAS(
-        name="hnbi",
-        energy=1.15e05 * 2.01410177784,  # eV
-        power=2.09e06,  # W
-        nbi_element="d",
-        current_fractions=(0.5, 0.35, 0.15),
-    )
-    nbi_op.set_transform(nbi_transform)
-    nbi_op.t = plasma.electron_density.t[0].values
-    nbi_op.Ne = plasma.electron_density.isel(t=0)
-    nbi_op.Ni = plasma.ion_density.sel(element=["h", "c"]).isel(t=0)
-    nbi_op.Te = plasma.electron_temperature.isel(t=0)
-    nbi_op.prepare()
-    nbi_op.run()
-    result = nbi_op.refactor_output()
-    nd = result["neutral_density"]
+        self.t = t
+        self.file_name = file_name
+        self.pulse = pulse
+        self.machine = machine
+
+        # self.Ti = Ti.interp(t=t)
+        self.Te = Te
+        self.Ni = Ni
+        self.Ne = Ne
+        # self.Nn = Nn.interp(t=t)
+        # self.Vtor = Vtor.interp(t=t)
+        self.Zeff = Zeff.sum("element")
+        self.MeanZ = MeanZ
+        self.impurity_charge = ImpurityCharge
+
+        """Prepare input data structure for NBI code"""
+        self.prepare(**prepare_kwargs)
+
+        """Run NBI code"""
+        self.run(**run_kwargs)
+
+        """Reorganise NBI code output to return Indica-native results"""
+        result = self.refactor_output()
+
+        return result
