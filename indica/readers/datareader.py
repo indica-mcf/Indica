@@ -102,14 +102,14 @@ class DataReader(ABC):
 
     def get_error(
         self,
-        shape: tuple[int | float, ...],
+        data: np.ndarray,
         uid: str,
         instrument: str,
         quantity: str,
         revision: RevisionLike,
         debug: bool = False,
-    ) -> tuple[np.array, list[np.array], str, str]:
-        return np.full(shape, self.default_error[0]), [], "", "default error"
+    ) -> tuple[np.ndarray, list[np.ndarray], str, str]:
+        return np.full_like(data, self.default_error[0]), [], "", "default error"
 
     def _read_database(
         self, uid: str, instrument: str, revision: RevisionLike, debug: bool = False
@@ -160,7 +160,7 @@ class DataReader(ABC):
                 results[_key_err + "_dimensions"],
                 results[_key_err + "_units"],
             ) = self.get_error(
-                results[_key].shape,
+                results[_key],
                 uid,
                 instrument,
                 _path,

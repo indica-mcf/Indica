@@ -51,13 +51,13 @@ class ST40Reader(DataReader):
 
     def get_error(
         self,
-        shape: tuple[int | float, ...],
+        data: np.ndarray,
         uid: str,
         instrument: str,
         quantity: str,
         revision: RevisionLike,
         debug: bool = False,
-    ) -> tuple[np.array, list[np.array], str, str]:
+    ) -> tuple[np.ndarray, list[np.ndarray], str, str]:
         try:
             return self.reader_utils.get_data(
                 uid=uid,
@@ -68,7 +68,7 @@ class ST40Reader(DataReader):
         except Exception as e:
             if debug:
                 print(f"get_error error: {quantity + '_err'} ({e})")
-            return np.full(shape, self.default_error[0]), [], "", f"{e}"
+            return np.full_like(data, self.default_error[0]), [], "", f"{e}"
 
     def _thomson_scattering(
         self,
