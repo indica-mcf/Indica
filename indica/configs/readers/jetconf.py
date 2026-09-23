@@ -26,6 +26,9 @@ class JETConf(MachineConf):
             "ks3h_bash": "spectrometer",
             "ks3v_basv": "spectrometer",
             **{
+                "ks5{}".format(val): "spectrometer" for val in ("a", "b", "c", "d", "e")
+            },
+            **{
                 "cx{}{}".format(val1, val2): "charge_exchange"
                 for val1 in ("s", "d", "f", "g", "h")
                 for val2 in ("m", "w", "x", "4", "6", "8")
