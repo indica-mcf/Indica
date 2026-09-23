@@ -11,6 +11,7 @@ from indica.converters import CoordinateTransform
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
 from indica.converters import TrivialTransform
+from indica.numpy_typing import RevisionLike
 from indica.readers.datareader import DataReader
 from indica.readers.mdsutils import MDSUtils
 
@@ -41,12 +42,33 @@ class ST40Reader(DataReader):
             tend,
             machine_conf=machine_conf,
             reader_utils=reader_utils,
+            default_error=default_error,
             server=server,
             verbose=verbose,
             **kwargs,
         )
-        self.default_error = (default_error,)
         self.reader_utils = self.reader_utils(pulse, server, tree)
+
+    def get_error(
+        self,
+        shape: tuple[int | float, ...],
+        uid: str,
+        instrument: str,
+        quantity: str,
+        revision: RevisionLike,
+        debug: bool = False,
+    ) -> tuple[np.array, list[np.array], str, str]:
+        try:
+            return self.reader_utils.get_data(
+                uid=uid,
+                instrument=instrument,
+                quantity=quantity + "_err",
+                revision=revision,
+            )
+        except Exception as e:
+            if debug:
+                print(f"get_error error: {quantity + '_err'} ({e})")
+            return np.full(shape, self.default_error[0]), [], "", f"{e}"
 
     def _thomson_scattering(
         self,

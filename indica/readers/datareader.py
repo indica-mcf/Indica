@@ -27,6 +27,7 @@ class DataReader(ABC):
         tend: float,
         machine_conf: MachineConf,
         reader_utils: BaseIO,
+        default_error: float = 0.0,
         **kwargs: Any,
     ):
         """
@@ -43,6 +44,7 @@ class DataReader(ABC):
         self.tstart = tstart
         self.tend = tend
         self.reader_utils = reader_utils
+        self.default_error = (default_error,)
         self.machine_conf = machine_conf()
         self.instrument_methods = self.machine_conf.INSTRUMENT_METHODS
         self.machine_dims = self.machine_conf.MACHINE_DIMS
@@ -98,6 +100,17 @@ class DataReader(ABC):
         )
         return data_arrays
 
+    def get_error(
+        self,
+        shape: tuple[int | float, ...],
+        uid: str,
+        instrument: str,
+        quantity: str,
+        revision: RevisionLike,
+        debug: bool = False,
+    ) -> tuple[np.array, list[np.array], str, str]:
+        return np.full(shape, self.default_error[0]), [], "", "default error"
+
     def _read_database(
         self, uid: str, instrument: str, revision: RevisionLike, debug: bool = False
     ) -> dict:
@@ -141,29 +154,19 @@ class DataReader(ABC):
             results[_key] = q_val
 
             # Read quantity error
-            try:
-                (
-                    q_err,
-                    q_err_dimensions,
-                    q_err_units,
-                    q_err_path,
-                ) = self.reader_utils.get_error(
-                    uid,
-                    instrument,
-                    _path,
-                    revision,
-                )
-            except Exception as e:
-                if debug:
-                    print(f"get_data error: {_path} ({e})")
-                q_err = np.full_like(results[_key], 0.0)
-                q_err_dimensions = []
-                q_err_units = ""
-                q_err_path = f"{e}"
-            results[_key_err] = q_err
-            results[_key_err + "_records"] = q_err_path
-            results[_key_err + "_dimensions"] = q_err_dimensions
-            results[_key_err + "_units"] = q_err_units
+            (
+                results[_key_err],
+                results[_key_err + "_records"],
+                results[_key_err + "_dimensions"],
+                results[_key_err + "_units"],
+            ) = self.get_error(
+                results[_key].shape,
+                uid,
+                instrument,
+                _path,
+                revision,
+                debug=debug,
+            )
 
         return results
 
