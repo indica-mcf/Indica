@@ -20,6 +20,11 @@ from indica.utilities import CACHE_DIR
 from indica.utilities import to_filename
 
 
+EXTERNAL_INSTRUMENTS = [
+    *["ks5{}".format(val) for val in ("a", "b", "c", "d", "e")],
+]
+
+
 class SALError(Exception):
     """An exception which occurs when trying to read PPF data which would
     not be caught by the lower-level SAL library. An example would be
@@ -152,6 +157,8 @@ class SALUtils(BaseIO):
         Get actual revision that's being read from database, converts relative revision
         (e.g. 0, latest) to absolute
         """
+        if instrument.lower() in EXTERNAL_INSTRUMENTS:
+            return revision, True
         if re.match(r"t[0-9]{3}", instrument.lower()) is not None:
             return revision, True
         info = self._client.list(

@@ -115,13 +115,18 @@ class JETReader(DataReader):
 
     def _interferometry(self, data: dict) -> Tuple[Dict[str, Any], CoordinateTransform]:
         data = _interferometer_polarimeter_coords(data)
-        data["t"] = data["LID3_dimensions"][0]
-        data["ne_int"] = np.array(
-            [
-                data.get("LID{}".format(i + 1), np.zeros_like(data["LID3"]))
-                for i in data["channel"]
-            ]
-        ).T
+        total_times = []
+        for i in data["channel"]:
+            total_times.extend(data.get(f"LID{i + 1}_dimensions", [[]])[0])
+        data["t"], unique_time_idx = np.unique(total_times, return_inverse=True)
+        data["ne_int"] = np.zeros((len(data["t"]), len(data["channel"]))) * np.nan
+        last_idx = 0
+        for i in data["channel"]:
+            if data.get("LID{}".format(i + 1)) is None:
+                continue
+            lid = data["LID{}".format(i + 1)]
+            data["ne_int"][unique_time_idx[last_idx : last_idx + len(lid)], i] = lid
+            last_idx = len(lid)
 
         transform = assign_lineofsight_transform(data)
         return data, transform
@@ -178,6 +183,7 @@ class JETReader(DataReader):
         data["t"] = data["R_dimensions"][0]
         data["channel"] = np.arange(len(data["R"]))
         if data.get("conc") is not None:
+            # Convert % conc to fractional conc
             data["conc"] /= 100
         if data.get("angf") is None:
             # Fall back to ANGF if AFCR isn't available
@@ -196,8 +202,6 @@ class JETReader(DataReader):
                 revision=data["revision"],
             )[0]
         data["vtor"] = data["angf"] * data["R"]
-        if data.get("conc") is not None:
-            data["conc"] /= 100
         transform = assign_transect_transform(data)
         return data, transform
 
@@ -284,6 +288,25 @@ class JETReader(DataReader):
             data["location"] = np.asarray([[(los[1] / 1000), 0, (los[2] / 1000)]])
             data["direction"] = (
                 np.asarray([[(los[4] / 1000), 0, (los[5] / 1000)]]) - data["location"]
+            )
+        elif "ks5" in instrument.lower():
+            # Calibration routines are in IDL. Read and calibrate, then extract data
+            idlb = _setup_idl(self.pulse)
+            idlb.put("spec", instrument.lower())
+            idlb.execute("o=agm_readspec(shot,spec=spec)")
+            idlb.execute("data=o.data")
+            idlb.execute("cg_calibrate_spectra,data=data,/cal_si,/wdeg,/relcal")
+            raw = idlb.get("o")["data"]
+            spec = idlb.get("data")
+            data["spectra_raw"] = raw["data"]
+            data["spectra"] = spec["data"]
+            data["t"] = spec["time"]
+            data["channel"] = spec["track"]
+            data["wavelength"] = spec["wave"]
+            tracks = spec["track_name"]
+            sav_file = _cxrs_los_savfile(pulse=self.pulse, spec=instrument.lower())
+            data["location"], data["direction"] = _cxrs_los_geometry(
+                sav_file=sav_file, tracks=tracks
             )
         elif instrument.lower().startswith("cx"):
             assert self.pulse >= 92671
