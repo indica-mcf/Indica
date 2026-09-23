@@ -288,7 +288,7 @@ def build_dataarrays(
             _error = format_dataarray(data[quantity + "_error"], datatype, coords)
             if "t" in _error.dims and tstart is not None and tend is not None:
                 _error = _error.sel(t=slice(tstart, tend))
-            _error = xr.where((_error >= 0) * (_error / _data < 1), _error, np.nan)
+            _error = xr.where((_error >= 0), _error, np.nan)
         _data = _data.assign_coords(error=(_data.dims, _error.data))
 
         # Check that times are unique
