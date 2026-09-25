@@ -42,14 +42,20 @@ def add_poisson_noise(
     else:
         raise TypeError("rng must be a numpy Generator, callable, or None.")
 
+    # Remove any deterministic background so only count-producing signal
+    # enters the Poisson process.
     signal = data - background
     positive_mask = (signal > 0).fillna(False)
+
+    # If there are no positive count amplitudes, there is nothing to sample;
+    # return the input unchanged.
     if not bool(positive_mask.any().item()):
         unchanged = data.copy()
         unchanged = unchanged.assign_attrs(data.attrs)
         unchanged.name = data.name
         return unchanged
 
+    # Validate background only where it impacts Poisson sampling.
     if isinstance(background, DataArray):
         invalid_background = (~np.isfinite(background)).fillna(False)
         if bool((invalid_background & positive_mask).any().item()):
@@ -57,9 +63,17 @@ def add_poisson_noise(
     else:
         if not np.isfinite(background):
             raise ValueError("background must be finite.")
+
+    # Interpret amplitude directly as counts: lambda = signal amplitude.
+    # Non-positive entries are forced to zero to avoid invalid Poisson rates.
     lam = xr.where(positive_mask, signal, 0.0)
+
+    # Draw integer count samples and map them back into signal space
+    # (identity mapping when amplitudes already represent counts).
     noisy_counts = xr.apply_ufunc(poisson_sampler, lam, keep_attrs=True)
     noisy_signal = xr.where(positive_mask, noisy_counts, signal)
+
+    # Restore the deterministic background after stochastic sampling.
     noisy = noisy_signal + background
 
     # Explicitly preserve data variable attrs/name.
@@ -110,6 +124,7 @@ def add_channelwise_sqrt_noise(
     else:
         raise TypeError("rng must be a numpy Generator, callable, or None.")
 
+    # Only positive signals contribute sqrt-scaled Gaussian noise.
     positive_mask = (data > 0).fillna(False)
     if not bool(positive_mask.any().item()):
         unchanged = data.copy()
@@ -117,6 +132,7 @@ def add_channelwise_sqrt_noise(
         unchanged.name = data.name
         return unchanged
 
+    # Build per-element sigma = noise_scale * sqrt(signal), then sample and add.
     safe_positive = xr.where(positive_mask, data, 0.0)
     sigma = noise_scale * np.sqrt(safe_positive)
     noise = xr.apply_ufunc(normal_sampler, sigma, keep_attrs=True)
