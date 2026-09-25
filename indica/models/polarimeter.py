@@ -59,7 +59,6 @@ class Polarimeter(AbstractDiagnostic):
         if noise_config is None:
             noise_config = {
                 "target_quantity": "dphi",
-                "typical_counts": 400,
                 "background": 0,
             }
         self.noise_model = noise_model

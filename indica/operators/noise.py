@@ -11,24 +11,18 @@ NormalSampler: TypeAlias = Callable[[DataArray], DataArray | np.ndarray]
 
 def add_poisson_noise(
     data: DataArray,
-    typical_counts: float = 100,
     background: float | DataArray = 0,
     rng: np.random.Generator | PoissonSampler | None = None,
 ) -> DataArray:
     """
-    Add signal-dependent Poisson noise to positive DataArray values.
+    Add Poisson noise to positive signal amplitudes interpreted as counts.
 
     Parameters
     ----------
     data : xarray.DataArray
         Clean signal. Noise is applied only where ``data > 0``.
-    typical_counts : float
-        Effective number of counts at the mean positive signal level after
-        background subtraction. This controls relative noise magnitude:
-        standard deviation is approximately ``1 / sqrt(typical_counts)``
-        at that level.
     background : float or xarray.DataArray, default 0
-        Background or offset level subtracted before count scaling.
+        Background or offset level subtracted before Poisson sampling.
         The same background is added back after sampling.
     rng : np.random.Generator or callable, optional
         Random source for Poisson sampling. If a callable is provided, it
@@ -38,9 +32,6 @@ def add_poisson_noise(
         raise TypeError(
             "add_poisson_noise requires xarray.DataArray input. " f"Got {type(data)!r}."
         )
-
-    if typical_counts <= 0:
-        raise ValueError("typical_counts must be positive.")
 
     if isinstance(rng, np.random.Generator):
         poisson_sampler: PoissonSampler = rng.poisson
@@ -66,41 +57,9 @@ def add_poisson_noise(
     else:
         if not np.isfinite(background):
             raise ValueError("background must be finite.")
-
-
-
-    signal_scale = float(signal.where(positive_mask).mean(skipna=True).item())
-    if not np.isfinite(signal_scale) or signal_scale <= 0:
-        unchanged = data.copy()
-        unchanged = unchanged.assign_attrs(data.attrs)
-        unchanged.name = data.name
-        return unchanged
-
-    #Here, typical mcounts is not the noise amplitude! It sets a counting scale.
-    #Basically, I get the signal scale from the previous step to be the mean of the positive signal.
-    #Then I pretend that an average signal corresponds to typical_counts counts, and scale the signal to that level.
-
-    #The lambda is then determined with the scale and the counts.
-    #For instance, with counts=1000 and signal=signal_scale,
-    # the poisson parameter becomes 1000, signal 2x large 2000, half gets 500.
-    #Typical counts: how many poisson counts correspond to a typical signal?
-
-    #Then we sample from the poisson distribution with that lambda, and scale it back to the signal space.
-
-    #A poisson distribution has exmectation of lambda and std of sqrt lambda.
-    #So with typical counts=1000, a mean signal becomes N=Poisson(lambda=1000)-> N=1000+- sqrt(1000)=1000+-31.6 counts, which is 3.16% noise.
-    #So the noise level is roughly 1/sqrt(typical_counts) at the mean signal level.
-
-    #Disagreement with Marco: I am saying I first apply noise to the actual signal, then add background.
-    # He seems to think that the background should also be part of the noise process, as it is physically relevant.
-
-    lam = xr.where(positive_mask, typical_counts * signal / signal_scale, 0.0)
+    lam = xr.where(positive_mask, signal, 0.0)
     noisy_counts = xr.apply_ufunc(poisson_sampler, lam, keep_attrs=True)
-    noisy_signal = xr.where(
-        positive_mask,
-        noisy_counts * signal_scale / typical_counts,
-        signal,
-    )
+    noisy_signal = xr.where(positive_mask, noisy_counts, signal)
     noisy = noisy_signal + background
 
     # Explicitly preserve data variable attrs/name.
