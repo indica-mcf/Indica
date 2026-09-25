@@ -19,3 +19,4 @@ indica/git_version
 *.prof
 *.lprof
 .ropeproject/
+.venv
