@@ -4,6 +4,7 @@ import matplotlib.pylab as plt
 import numpy as np
 
 from indica import Equilibrium
+from indica.defaults.generate_defaults import default_atomic_data
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import BremsstrahlungDiode
 from indica.models import ChargeExchangeSpectrometer
@@ -15,7 +16,6 @@ from indica.models import ThomsonScattering
 from indica.models.passive_spectrometer import format_pecs
 from indica.models.passive_spectrometer import PassiveSpectrometer
 from indica.models.passive_spectrometer import read_adf15s
-from indica.operators.atomic_data import default_atomic_data
 from indica.readers import SOLPSReader
 from indica.readers import ST40Reader
 
@@ -145,8 +145,8 @@ def example_equilibrium(
 
 
 def example_pinhole_camera_2d(
-    pulse: int = 11419,
-    time: float = 0.12,
+    pulse: int = 13565,
+    time: float = 0.16,
     machine: str = "st40",
     instrument: str = "blom_dv1",
 ):
@@ -165,30 +165,32 @@ def example_pinhole_camera_2d(
     transform = transforms[instrument]
     transform.set_equilibrium(equilibrium)
 
-    transform.beamlets = 5**2
-    transform.focal_length = 0.05
-    transform.spot_width = 0.005  # meter
+    n_beamlets = 10
+    transform.focal_length = 0.03
+    transform.spot_width = 0.008  # meter
     transform.spot_height = 0.005  # meter
-    transform.spot_shape = "round"
-    # transform.origin_z = np.full_like(transform.origin_z, 0.5)
-    transform.distribute_beamlets()
+    transform.spot_shape = "rectangular"
+    transform.beamlets_method = "adaptive"
+    transform.distribute_beamlets(n_beamlets, transform.beamlets_method)
     transform.set_dl(transform.dl)
 
     _, power_loss = default_atomic_data(data["nion"].element.values)
 
     model = PinholeCamera(name=instrument, power_loss=power_loss)
     model.set_transform(transform)
+    model.plasma = None
 
     _ = model(
         Te=data["te"],
         Ne=data["ne"],
+        Nh=data["ne"] * 0,
         Nion=data["nion"],
         fz=data["fz"],
         t=data["te"].t,
         sum_beamlets=False,
     )
 
-    model.plot()
+    model.plot(orientation=None)
 
     return model, data
 
@@ -230,7 +232,7 @@ def example_lyman_alpha_2d(
         t=data["te"].t,
     )
 
-    model.plot()
+    model.plot(orientation="Rz")
 
     return model, data
 

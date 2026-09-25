@@ -48,7 +48,7 @@ class ST40Reader(DataReader):
         self.default_error = (default_error,)
         self.reader_utils = self.reader_utils(pulse, server, tree)
 
-    def _get_thomson_scattering(
+    def _thomson_scattering(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -60,7 +60,7 @@ class ST40Reader(DataReader):
         transform = assign_transect_transform(database_results)
         return database_results, transform
 
-    def _get_profile_fits(
+    def _profile_fits(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -76,7 +76,7 @@ class ST40Reader(DataReader):
         transform = assign_trivial_transform()
         return database_results, transform
 
-    def _get_charge_exchange(
+    def _charge_exchange(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -90,7 +90,7 @@ class ST40Reader(DataReader):
         transform = assign_transect_transform(database_results)
         return database_results, transform
 
-    def _get_spectrometer(
+    def _spectrometer(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -123,7 +123,7 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_equilibrium(
+    def _equilibrium(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -134,17 +134,18 @@ class ST40Reader(DataReader):
             )
 
         # Re-shape psi matrix
-        database_results["psi"] = database_results["psi"].reshape(
-            (
-                len(database_results["t"]),
-                len(database_results["z"]),
-                len(database_results["R"]),
+        if "psi" in database_results:
+            database_results["psi"] = database_results["psi"].reshape(
+                (
+                    len(database_results["t"]),
+                    len(database_results["z"]),
+                    len(database_results["R"]),
+                )
             )
-        )
         transform = assign_trivial_transform()
         return database_results, transform
 
-    def _get_radiation(
+    def _radiation(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -152,14 +153,14 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_radiation_inversion(
+    def _radiation_inversion(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         transform = assign_trivial_transform()
         return database_results, transform
 
-    def _get_helike_spectroscopy(
+    def _helike_spectroscopy(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -167,7 +168,7 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_diode_filters(
+    def _diode_filters(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -182,7 +183,7 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_interferometry(
+    def _interferometry(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -195,14 +196,45 @@ class ST40Reader(DataReader):
         transform = assign_lineofsight_transform(database_results)
         return database_results, transform
 
-    def _get_zeff(
+    def _zeff(
         self,
         database_results: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         transform = assign_trivial_transform()
         return database_results, transform
 
-    def _get_astra(
+    def _nbi(
+        self,
+        database_results: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+
+        database_results["beam_energy_components"] = [1, 2, 3]
+
+        database_results["current_fraction"] = np.array(
+            [
+                database_results["current_fraction1"],
+                database_results["current_fraction2"],
+                database_results["current_fraction3"],
+            ]
+        ).T
+
+        database_results["power_fraction"] = np.array(
+            [
+                database_results["power_fraction1"],
+                database_results["power_fraction2"],
+                database_results["power_fraction3"],
+            ]
+        ).T
+
+        # TODO: Temporary fix, but must be sorted
+        database_results["focal_length"] = np.mean(
+            [database_results["focus_width"], database_results["focus_height"]]
+        )
+        transform = assign_lineofsight_transform(database_results)
+
+        return database_results, transform
+
+    def _astra(
         self,
         database_results: dict,
         **kwargs: Any,
@@ -239,7 +271,7 @@ class ST40Reader(DataReader):
 
         return database_results, transform
 
-    def _get_transp(
+    def _transp(
         self,
         database_results: dict,
         **kwargs: Any,
@@ -275,7 +307,7 @@ class ST40Reader(DataReader):
 
         return database_results, transform
 
-    def _get_metis(
+    def _metis(
         self,
         database_results: dict,
         **kwargs: Any,
@@ -321,6 +353,23 @@ def assign_lineofsight_transform(database_results: Dict):
         database_results["location"] = np.array([database_results["location"]])
         database_results["direction"] = np.array([database_results["direction"]])
 
+    kwargs = {
+        "machine_dimensions": database_results["machine_dims"],
+        "dl": database_results["dl"],
+        "passes": database_results["passes"],
+    }
+    _to_add = [
+        "spot_width",
+        "spot_height",
+        "spot_shape",
+        "div_h",
+        "div_v",
+        "focal_length",
+    ]
+    for k in _to_add:
+        if k in database_results:
+            kwargs[k] = database_results[k]
+
     transform = LineOfSightTransform(
         database_results["location"][:, 0],
         database_results["location"][:, 1],
@@ -328,9 +377,7 @@ def assign_lineofsight_transform(database_results: Dict):
         database_results["direction"][:, 0],
         database_results["direction"][:, 1],
         database_results["direction"][:, 2],
-        machine_dimensions=database_results["machine_dims"],
-        dl=database_results["dl"],
-        passes=database_results["passes"],
+        **kwargs,
     )
     return transform
 

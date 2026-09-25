@@ -32,7 +32,7 @@ class Polarimeter(AbstractDiagnostic):
         self,
         name: str,
         wavelength: Union[int, float],
-        instrument_method="get_polarimetry",
+        instrument_method="polarimetry",
         noise_model: str | None = "poisson",
         noise_config: dict | None = None,
     ):

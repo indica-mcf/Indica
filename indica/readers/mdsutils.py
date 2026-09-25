@@ -1,28 +1,12 @@
 from typing import List
 from typing import Tuple
 
-from MDSplus import Connection
-from MDSplus.mdsExceptions import TreeNNF
+import mdsthin
+from mdsthin import TreeNNF
 import numpy as np
 
 from indica import BaseIO
 from ..numpy_typing import RevisionLike
-
-
-class MDSError(Exception):
-    """An exception which occurs when trying to read MDS+ data which would
-    not be caught by the lower-level MDSplus library. An example would be
-    failing to find any valid channels for an instrument when each channel
-    is a separate DTYPE.
-
-    """
-
-
-class MDSWarning(UserWarning):
-    """A warning that occurs while trying to read MDS+ data. Typically
-    related to caching in some way.
-
-    """
 
 
 # this will be baseio class instead. what is defauly pulse?
@@ -35,15 +19,21 @@ class MDSUtils(BaseIO):
     ):
         self.tree: str = tree
         self.pulse: int = pulse
-        self.conn: Connection = Connection(server)
+        self.conn: mdsthin.Connection = mdsthin.Connection(server)
         self.conn.openTree(self.tree, self.pulse)
 
     def close(self) -> None:
-        del self.conn
+        self.conn.disconnect()
 
     @property
     def requires_authentication(self) -> bool:
         return False
+
+    def _read_mds_value(self, path: str):
+        value = self.conn.get(path)
+        if hasattr(value, "data"):
+            return value.data()
+        return value
 
     def get_signal(
         self, uid: str, instrument: str, quantity: str, revision: RevisionLike
@@ -51,10 +41,12 @@ class MDSUtils(BaseIO):
         """Gets the signal for the given INSTRUMENT, at the
         given revision."""
         path, path_check = self.get_mds_path(uid, instrument, quantity, revision)
+        _data = self._read_mds_value(path)
+
         if quantity.lower() == ":best_run":
-            data = str(self.conn.get(path))
+            data = str(_data)
         else:
-            data = np.array(self.conn.get(path))
+            data = np.array(_data)
 
         return data, path
 
@@ -74,7 +66,7 @@ class MDSUtils(BaseIO):
         for dim in range(ndims):
             path = f"dim_of({mds_path},{dim})"
             try:
-                _dimension = np.array(self.conn.get(path).data())
+                _dimension = np.array(self._read_mds_value(path))
             except Exception as e:
                 _dimension = None
                 print(f"No dimensions for {mds_path}: {e}")
@@ -91,7 +83,7 @@ class MDSUtils(BaseIO):
         and the number of dimensions"""
 
         path = f"units_of({mds_path})"
-        unit = self.conn.get(path).data()
+        unit = self._read_mds_value(path)
 
         return unit
 

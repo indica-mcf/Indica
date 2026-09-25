@@ -465,13 +465,19 @@ class CoordinateTransform(ABC):
         fig_name: str = "",
         markersize: float = None,
         marker: str = "o",
+        linestyle: str = "solid",
+        alpha: float = 0.5,
+        color: float = None,
     ):
         Rlim = self._machine_dims[0]
         zlim = self._machine_dims[1]
 
-        cols = cm.gnuplot2(
-            np.linspace(0.1, 0.75, np.size(np.array(self.x1)), dtype=float)
-        )
+        if color is None:
+            cols = cm.gnuplot2(
+                np.linspace(0.1, 0.75, np.size(np.array(self.x1)), dtype=float)
+            )
+        else:
+            cols = [color for i in range(len(self.x1))]
 
         if len(fig_path) == 0:
             fig_path = FIG_PATH
@@ -515,6 +521,8 @@ class CoordinateTransform(ABC):
                 trans_name,
                 colors=cols,
                 marker=marker,
+                linestyle=linestyle,
+                alpha=alpha,
             )
             plt.xlim(Rlim[0], Rlim[1])
             plt.ylim(Rlim[0], Rlim[1])
@@ -547,6 +555,7 @@ class CoordinateTransform(ABC):
                 color="k",
             )
             if hasattr(self, "equilibrium"):
+<<<<<<< HEAD
                 contour_kwargs = dict(
                     levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99],
                     linestyles="dotted",
@@ -557,6 +566,19 @@ class CoordinateTransform(ABC):
                     rhop_equil.plot.contour(**contour_kwargs)
                 else:
                     xr.plot.contour(rhop_equil, **contour_kwargs)
+=======
+                xr.plot.contour(
+                    rhop_equil,
+                    levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99],
+                    linestyle="solid",
+                    alpha=0.8,
+                )
+                # rhop_equil.plot.contour(
+                #     levels=[0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99],
+                #     linestyle="solid",
+                #     alpha=0.8,
+                # )
+>>>>>>> main
 
             plot_geometry(
                 self.R,
@@ -564,6 +586,8 @@ class CoordinateTransform(ABC):
                 trans_name,
                 colors=cols,
                 marker=marker,
+                linestyle=linestyle,
+                alpha=alpha,
             )
             plt.xlim(Rlim[0], Rlim[1])
             plt.ylim(zlim[0], zlim[1])
@@ -593,6 +617,8 @@ class CoordinateTransform(ABC):
                 trans_name,
                 colors=cols,
                 marker=marker,
+                linestyle=linestyle,
+                alpha=alpha,
             )
             plt.xlabel("Path along LOS")
             plt.ylabel("Rhop")
@@ -608,6 +634,8 @@ def plot_geometry(
     trans_name: str,
     colors: ArrayLike,
     marker: str = "o",
+    linestyle: str = "solid",
+    alpha: float = 0.5,
 ):
 
     if "LineOfSight" in trans_name:
@@ -626,7 +654,7 @@ def plot_geometry(
         if hasattr(abscissa, "beamlet"):
             x = x.sel(beamlet=beamlet)
             y = y.sel(beamlet=beamlet)
-        plt.plot(x, y, color=col, marker=marker, alpha=0.5)
+        plt.plot(x, y, color=col, marker=marker, linestyle=linestyle, alpha=alpha)
 
 
 def find_wall_intersections(

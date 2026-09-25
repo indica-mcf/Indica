@@ -18,9 +18,10 @@ class ThomsonScattering(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
-        instrument_method="get_thomson_scattering",
+        instrument_method="thomson_scattering",
         noise_model: str | None = "poisson",
         noise_config: dict | None = None,
+
     ):
         self.transform: TransectCoordinates
         self.name = name

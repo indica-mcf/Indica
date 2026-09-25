@@ -96,7 +96,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         name: str,
         pecs: dict,
         window: np.array,
-        instrument_method="get_spectrometer",
+        instrument_method="spectrometer",
         noise_model: str | None = "poisson",
         noise_config: dict | None = None,
     ):
@@ -123,12 +123,12 @@ class PassiveSpectrometer(AbstractDiagnostic):
         """Returns transition matrix used to convert
         PECs to emissivity"""
         # fmt: off
-        _Nimp = self.Nimp.sel(element=element, ).drop("element")
+        _Nimp = self.Nimp.sel(element=element, ).drop_vars("element")
         _Fz = self.Fz[element]
         transition_matrix = xr.concat([
             self.Ne * _Nimp * _Fz,
             self.Ne * _Nimp * _Fz,
-            self.Nh * _Nimp * _Fz,
+            self.Nn * _Nimp * _Fz,
         ], "type").assign_coords(
             type=["excit", "recom", "chexc", ])
         # fmt: on
@@ -219,7 +219,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         Ne: DataArray = None,
         Nimp: DataArray = None,
         Fz: dict = None,
-        Nh: DataArray = None,
+        Nn: DataArray = None,
         t: LabeledArray = None,
         noise_model: str | None = None,
         noise_config: dict | None = None,
@@ -234,7 +234,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         Ne - electron density (m**-3)
         Nimp - impurity density (m**-3)
         fractional_abundance - fractional abundance
-        Nh - neutral density (m**-3)
+        Nn - neutral density (m**-3)
         t - time (s)
 
         Returns
@@ -251,7 +251,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
             Ne = self.plasma.electron_density.sel(
                 t=t,
             )
-            Nh = self.plasma.neutral_density.sel(
+            Nn = self.plasma.neutral_density.sel(
                 t=t,
             )
             Fz = {}
@@ -265,7 +265,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
             if (
                 Ne is None
                 or Te is None
-                or Nh is None
+                or Nn is None
                 or Fz is None
                 or Ti is None
                 or Nimp is None
@@ -275,7 +275,7 @@ class PassiveSpectrometer(AbstractDiagnostic):
         self.t = t
         self.Te = Te
         self.Ne = Ne
-        self.Nh = Nh
+        self.Nn = Nn
         self.Fz = Fz
         self.Ti = Ti
         self.Nimp = Nimp
@@ -311,24 +311,6 @@ class PassiveSpectrometer(AbstractDiagnostic):
                     label=f"t={t:1.2f} s",
                 )
             plt.ylabel("Emissivity (photon/m^2/nm/s)")
-            plt.xlabel("Wavelength (nm)")
-            plt.legend()
-            set_axis_sci()
-
-            plt.figure()
-            for element, intensity in self.measured_intensity.items():
-                if "channel" in intensity.dims:
-                    intensity = intensity.sel(channel=int(np.median(channels)))
-                for i, t in enumerate(np.array(self.t, ndmin=1)):
-                    plt.plot(
-                        intensity.wavelength,
-                        intensity.sel(t=t),
-                        color=cols_time[i],
-                        label=f"t={t:1.2f} s",
-                        marker="^",
-                        linestyle="",
-                    )
-            plt.ylabel("Emissivity (photon/m^2/s)")
             plt.xlabel("Wavelength (nm)")
             plt.legend()
             set_axis_sci()

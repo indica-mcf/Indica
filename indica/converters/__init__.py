@@ -5,7 +5,7 @@ from .abstractconverter import CoordinateTransform
 from .line_of_sight import LineOfSightTransform
 from .spot_weightings import SpotWeightings
 from .time import bin_to_time_labels
-from .time import convert_in_time
+from .time import convert_in_time_dt
 from .transect import TransectCoordinates
 from .trivial import TrivialTransform
 
@@ -16,5 +16,5 @@ __all__ = [
     "TransectCoordinates",
     "TrivialTransform",
     "bin_to_time_labels",
-    "convert_in_time",
+    "convert_in_time_dt",
 ]

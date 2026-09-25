@@ -20,7 +20,7 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         self,
         name: str,
         element: str = "c",
-        instrument_method="get_charge_exchange",
+        instrument_method="charge_exchange",
         noise_model: str | None = "poisson",
         noise_config: dict | None = None,
     ):

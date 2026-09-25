@@ -246,8 +246,7 @@ def build_dataarrays(
     tstart: float = None,
     tend: float = None,
     transform=None,
-    include_error: bool = True,
-    verbose: bool = False,
+    debug: bool = False,
 ) -> Dict[str, DataArray]:
     """Organizes data in DataArray format with coordinates, long_name & units"""
     data_arrays: dict = {}
@@ -260,7 +259,7 @@ def build_dataarrays(
 
         # Build coordinate dictionary
         datatype, dims = available_quantities[quantity]
-        if verbose:
+        if debug:
             print(f"  {quantity} - {datatype}")
 
         coords: dict = {}
@@ -275,22 +274,22 @@ def build_dataarrays(
         try:
             _data = format_dataarray(data[quantity], datatype, coords)
         except Exception as e:
-            print(f"\n Error formatting {quantity} \n")
-            raise (e)
+            if debug:
+                print(f"\n Error formatting {quantity}:{e} \n")
+            continue
 
         if "t" in _data.dims and tstart is not None and tend is not None:
             _data = _data.sel(t=slice(tstart, tend))
             _data = _data.sortby([dim for dim in dims if dim != "t"])
 
         # Build error DataArray, filter negative values, assign as coordinate
-        if include_error and len(dims) != 0:
-            _error = xr.zeros_like(_data)
-            if quantity + "_error" in data:
-                _error = format_dataarray(data[quantity + "_error"], datatype, coords)
-                if "t" in _error.dims and tstart is not None and tend is not None:
-                    _error = _error.sel(t=slice(tstart, tend))
-                _error = xr.where((_error >= 0) * (_error / _data < 1), _error, np.nan)
-            _data = _data.assign_coords(error=(_data.dims, _error.data))
+        _error = xr.zeros_like(_data)
+        if len(dims) != 0 and f"{quantity}_error" in data:
+            _error = format_dataarray(data[quantity + "_error"], datatype, coords)
+            if "t" in _error.dims and tstart is not None and tend is not None:
+                _error = _error.sel(t=slice(tstart, tend))
+            _error = xr.where((_error >= 0) * (_error / _data < 1), _error, np.nan)
+        _data = _data.assign_coords(error=(_data.dims, _error.data))
 
         # Check that times are unique
         if "t" in _data:
@@ -634,3 +633,70 @@ def scale_dataarray(
         _dataarray.attrs["long_name"] = new_name
 
     return _dataarray
+
+
+def fill_nan_2d(field: np.ndarray) -> np.ndarray:
+    """Fill NaNs in a 2D field using 1D interpolation passes and a final fallback.
+
+    Note that this could also be done cols first->then rows!
+    1) Interpolate along rows to recover horizontal gaps.
+    2) Interpolate along columns to recover vertical gaps left after row pass.
+    3) If isolated NaNs still remain, replace them with a representative finite value.
+    """
+    arr = np.array(field, dtype=float, copy=True)
+    if arr.ndim != 2:
+        raise ValueError(f"Expected 2D array, got shape {arr.shape}")
+
+    if not np.isnan(arr).any():
+        # Fast path: return immediately when no cleaning is required.
+        return arr
+
+    # Pass 1 (row-wise): fill NaN runs using nearest valid samples in each row.
+    # If a row has only one valid point, broadcast it across that row.
+    x_row = np.arange(arr.shape[1], dtype=float)
+    for i in range(arr.shape[0]):
+        row = arr[i, :]
+        valid = np.isfinite(row)
+        if valid.sum() >= 2:
+            arr[i, :] = np.interp(x_row, x_row[valid], row[valid])
+        elif valid.sum() == 1:
+            arr[i, :] = row[valid][0]
+
+    # Pass 2 (column-wise): same idea, now along columns to catch values the
+    # row-wise pass could not infer (e.g., large vertical missing regions).
+    x_col = np.arange(arr.shape[0], dtype=float)
+    for j in range(arr.shape[1]):
+        col = arr[:, j]
+        valid = np.isfinite(col)
+        if valid.sum() >= 2:
+            arr[:, j] = np.interp(x_col, x_col[valid], col[valid])
+        elif valid.sum() == 1:
+            arr[:, j] = col[valid][0]
+
+    # Final fallback: if disconnected NaN islands remain after interpolation,
+    # fill with the mean of finite non-zero values; otherwise use mean(finite)
+    # or 0.0 if everything is invalid.
+    missing = np.isnan(arr)
+    if missing.any():
+        finite_nonzero = arr[np.isfinite(arr) & (arr != 0.0)]
+        if finite_nonzero.size > 0:
+            arr[missing] = float(np.mean(finite_nonzero))
+        else:
+            finite = arr[np.isfinite(arr)]
+            arr[missing] = float(np.mean(finite)) if finite.size > 0 else 0.0
+
+    return arr
+
+
+def convert_to_list(resdict):
+    """Recursively search nested dict for arrays and convert to list."""
+
+    for key, value in resdict.items():
+        if isinstance(value, dict):
+            convert_to_list(value)
+        elif isinstance(value, np.ndarray):
+            resdict[key] = value.tolist()
+
+
+def time_to_ms(time: float) -> int:
+    return int(round(float(time) * 1.0e3))

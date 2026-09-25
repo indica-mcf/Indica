@@ -10,7 +10,7 @@ class EquilibriumReconstruction(AbstractDiagnostic):
     def __init__(
         self,
         name: str,
-        instrument_method="get_equilibrium",
+        instrument_method="equilibrium",
         noise_model: str | None = "poisson",
         noise_config: dict | None = None,
     ):

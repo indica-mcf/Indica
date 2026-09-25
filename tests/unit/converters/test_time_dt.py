@@ -29,13 +29,13 @@ class Test_time:
 
     def test_identity(self):
         """Checks identity"""
-        dt = self.dt_data * 1.0
-
         tstart = self.data.t[0].values
         tend = self.data.t[-1].values
+        dt = self.dt_data * 1.0
+        overlap = 0.0
 
         try:
-            _data = convert_in_time_dt(tstart, tend, dt, self.data)
+            _data = convert_in_time_dt(tstart, tend, dt, overlap, self.data)
         except Exception as e:
             raise e
 
@@ -43,13 +43,13 @@ class Test_time:
 
     def test_identity_dt(self):
         """Checks identity for dt = dt_data"""
-        dt = self.dt_data * 1.0
-
         tstart = (self.data.t[0] + 5 * self.dt_data).values
         tend = (self.data.t[-1] - 10 * self.dt_data).values
+        dt = self.dt_data * 1.0
+        overlap = 0.0
 
         try:
-            _data = convert_in_time_dt(tstart, tend, dt, self.data)
+            _data = convert_in_time_dt(tstart, tend, dt, overlap, self.data)
         except Exception as e:
             raise e
 
@@ -91,13 +91,13 @@ class Test_time:
 
     def test_binning(self):
         """Checks binning works as expected and returned data is withing limits"""
-        dt = self.dt_data * 3.0
-
         tstart = (self.data.t[0] + 5 * self.dt_data).values
         tend = (self.data.t[-1] - 10 * self.dt_data).values
+        dt = self.dt_data * 3.0
+        overlap = 0.0
 
         try:
-            _data = convert_in_time_dt(tstart, tend, dt, self.data)
+            _data = convert_in_time_dt(tstart, tend, dt, overlap, self.data)
         except Exception as e:
             raise e
 
@@ -113,13 +113,13 @@ class Test_time:
 
     def test_interpolation(self):
         """Checks interpolation works as expected and returned data is withing limits"""
-        dt = self.dt_data / 3.0
-
         tstart = (self.data.t[0] + 5 * self.dt_data).values
         tend = (self.data.t[-1] - 10 * self.dt_data).values
+        dt = self.dt_data / 3.0
+        overlap = 0.0
 
         try:
-            _data = convert_in_time_dt(tstart, tend, dt, self.data)
+            _data = convert_in_time_dt(tstart, tend, dt, overlap, self.data)
         except Exception as e:
             raise e
 
@@ -135,24 +135,24 @@ class Test_time:
 
     def test_wrong_start_time(self):
         """Checks start time wrongly set"""
-        dt = self.dt_data
-
         tstart = (self.data.t[0] - 5 * self.dt_data).values
         tend = (self.data.t[-1] - 10 * self.dt_data).values
+        dt = self.dt_data / 3.0
+        overlap = 0.0
 
         try:
-            _ = convert_in_time_dt(tstart, tend, dt, self.data)
+            _ = convert_in_time_dt(tstart, tend, dt, overlap, self.data)
         except ValueError as e:
             assert e
 
     def test_wrong_end_time(self):
         """Checks end time wrongly set"""
-        dt = self.dt_data
-
         tstart = (self.data.t[0] + 5 * self.dt_data).values
         tend = (self.data.t[-1] + 10 * self.dt_data).values
+        dt = self.dt_data
+        overlap = 0.0
 
         try:
-            _ = convert_in_time_dt(tstart, tend, dt, self.data)
+            _ = convert_in_time_dt(tstart, tend, dt, overlap, self.data)
         except ValueError as e:
             assert e

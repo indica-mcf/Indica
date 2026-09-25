@@ -42,7 +42,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         line_labels=None,
         background=0,
         instrumental_broadening: float = 100,  # eV
-        instrument_method="get_helike_spectroscopy",
+        instrument_method="helike_spectroscopy",
         noise_model: str | None = "poisson",
         noise_config: dict | None = None,
     ):
@@ -107,7 +107,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.Ne: DataArray
         self.Nimp: DataArray
         self.Fz: dict
-        self.Nh: DataArray
+        self.Nn: DataArray
 
     def _get_atomic_data(self, window: DataArray):
         """
@@ -145,7 +145,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
             self.Ne * _Nimp * _Fz.sel(ion_charge=charge - 1, ),
             self.Ne * _Nimp * _Fz.sel(ion_charge=charge - 1, ),
             self.Ne * _Nimp * _Fz.sel(ion_charge=charge + 1, ),
-            self.Nh * _Nimp * _Fz.sel(ion_charge=charge + 1, ),
+            self.Nn * _Nimp * _Fz.sel(ion_charge=charge + 1, ),
         ], "type").assign_coords(
             type=["excit", "diel", "li_diel", "ise", "isi", "recom", "cxr", ])
         # fmt: on
@@ -370,7 +370,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         Ne: DataArray = None,
         Nimp: DataArray = None,
         Fz: dict = None,
-        Nh: DataArray = None,
+        Nn: DataArray = None,
         t: LabeledArray = None,
         moment_analysis: bool = False,
         background: float = None,
@@ -390,7 +390,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         Ne - electron density (m**-3)
         Nimp - impurity density (m**-3)
         Fz - fractional abundance
-        Nh - neutral density (m**-3)
+        Nn - neutral density (m**-3)
         t - time (s)
         moment_analysis - determine position of emission and
             expected Te and Ti based moment analysis
@@ -417,7 +417,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
             Ne = self.plasma.electron_density.sel(
                 t=t,
             )
-            Nh = self.plasma.neutral_density.sel(
+            Nn = self.plasma.neutral_density.sel(
                 t=t,
             )
             Fz = {}
@@ -431,7 +431,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
             if (
                 Ne is None
                 or Te is None
-                or Nh is None
+                or Nn is None
                 or Fz is None
                 or Ti is None
                 or Nimp is None
@@ -447,7 +447,7 @@ class HelikeSpectrometer(AbstractDiagnostic):
         self.t = t
         self.Te = Te
         self.Ne = Ne
-        self.Nh = Nh
+        self.Nn = Nn
         self.Fz = Fz
         self.Ti = Ti
         self.Nimp = Nimp
