@@ -21,12 +21,23 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         name: str,
         element: str = "c",
         instrument_method="charge_exchange",
+        noise_model: str | None = "poisson",
+        noise_config: dict | None = None,
     ):
         self.transform: TransectCoordinates
         self.name = name
         self.element = element
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
+        if noise_config is None:
+            noise_config = {
+                "target_quantity": "ti",
+                "background": 0,
+            }
+        self.noise_model = noise_model
+        self.noise_config = dict(noise_config)
+        self._call_noise_model = self.noise_model
+        self._call_noise_config = self.noise_config
 
     def _build_bckc_dictionary(self):
         self.bckc = {}
@@ -42,6 +53,11 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
             "conc": self.Conc_at_channels,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
+        if self._call_noise_model is not None:
+            self.apply_noise(
+                noise_model=self._call_noise_model,
+                noise_config=self._call_noise_config,
+            )
 
     def __call__(
         self,
@@ -50,7 +66,8 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         Conc: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
-        **kwargs,
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
         """
         Calculate diagnostic measured values
@@ -95,6 +112,12 @@ class ChargeExchangeSpectrometer(AbstractDiagnostic):
         self.Vtor_at_channels = Vtor_at_channels
         self.Conc_at_channels = Conc_at_channels
 
+        self._call_noise_model = (
+            self.noise_model if noise_model is None else noise_model
+        )
+        self._call_noise_config = (
+            self.noise_config if noise_config is None else noise_config
+        )
         self._build_bckc_dictionary()
 
         return self.bckc
