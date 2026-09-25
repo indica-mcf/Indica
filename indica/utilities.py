@@ -496,6 +496,7 @@ def save_figure(
     path_name: str = "",
     fig_name: str = "",
     orientation: str = "landscape",
+    bbox_inches="tight",
     dpi: int = 300,
     quality: int = 95,
     ext: str = "png",
@@ -509,7 +510,7 @@ def save_figure(
             _path_name = f"{_path_name}/"
         _file = f"{_path_name}{_fig_name}.{ext}"
 
-        kwargs = {"orientation": orientation, "dpi": dpi}
+        kwargs = {"orientation": orientation, "dpi": dpi, "bbox_inches":bbox_inches}
         if ext != "svg":
             kwargs["pil_kwargs"] = {"quality": quality}
 
@@ -547,11 +548,11 @@ def set_plot_rcparams(option: str = "profiles", rc_params: dict = None):
     if rc_params is None:
         plot_params: dict = {
             "profiles": {
-                "font.size": 16,
+                "font.size": 17,
                 "legend.fontsize": 14,
                 "lines.markersize": 6,
                 "lines.linewidth": 2,
-                "figure.figsize": (6.6, 5.6),
+                "figure.figsize": (7.5, 5),
             },
             "multi": {
                 "font.size": 12,

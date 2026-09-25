@@ -42,6 +42,7 @@ class DataPlotter:
         ttol: float = 0.005,
         nplot: int = 3,
         rc_params: dict = None,
+        fig_path:str=None,
     ):
         """
         pulse = Pulse number from which the data originated
@@ -51,6 +52,9 @@ class DataPlotter:
         ttol = tolerance for "nearest" timepoint selection
         nplot = number of time-points to be plotted
         """
+        if fig_path is None:
+            fig_path = FIG_PATH
+        self.fig_path = fig_path
 
         self.conf = MACHINE_CONFS[machine]()
 
@@ -86,7 +90,10 @@ class DataPlotter:
         use_label: bool = True,
         **kwargs,
     ):
-        _kwargs = pop_kwargs(kwargs, ["label", "color"])
+        label = None
+        if "label" in kwargs:
+            label = kwargs.pop("label")
+
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
 
@@ -95,14 +102,15 @@ class DataPlotter:
 
             x, y, err = select_x_y_err(data, t=_t, xdim=xdim)
 
-            label = None
-            if use_label:
+            if use_label and label is None:
                 label = f"{_t:.3f} s"
+            if "color" not in kwargs:
+                kwargs["color"] = self.colors[i]
 
             # Plot uncertainty band
-            plt.fill_between(x, y - err, y + err, color=self.colors[i], alpha=0.5)
+            plt.fill_between(x, y - err, y + err, alpha=0.5)
             # Plot data
-            y.plot(label=label, color=self.colors[i], **_kwargs)
+            y.plot(label=label, **kwargs)
 
     # Experimental profile data
     def _plot_profile_data(
@@ -112,9 +120,15 @@ class DataPlotter:
         use_label: bool = True,
         **kwargs,
     ):
-        _kwargs = pop_kwargs(kwargs, ["label", "color"])
-        if "linestyle" not in _kwargs:
-            _kwargs["linestyle"] = ""
+        if "label" in kwargs:
+            label = kwargs.pop("label")
+        if not use_label:
+            label = None
+
+        if "linestyle" not in kwargs:
+            kwargs["linestyle"] = ""
+        if "marker" not in kwargs:
+            kwargs["marker"] = "o"
 
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
@@ -128,12 +142,14 @@ class DataPlotter:
 
             x, y, err = select_x_y_err(data, _t, xdim=xdim)
 
-            label = None
-            if use_label:
+            if use_label and label is None:
                 label = f"{_t:.3f} s"
+                
+            if "color" not in kwargs:
+                kwargs["color"] = self.colors[i]
 
-            plt.errorbar(x, y, err, color=self.colors[i], **_kwargs)
-            y.plot(label=label, color=self.colors[i], **_kwargs)
+            plt.errorbar(x, y, err, **kwargs)
+            y.plot(label=label, **kwargs)
 
     # Time evolution
     def _plot_time_evolution(
@@ -229,7 +245,7 @@ class DataPlotter:
             _data, quantity, fig_name=fig_name, fig_obj=fig_obj, **kwargs
         )
         common_plot_calls(title, sci, ylog, xlim=xlim, ylim=ylim)
-        save_figure(FIG_PATH, fig_name, save_fig=save_fig)
+        save_figure(self.fig_path, fig_name, save_fig=save_fig)
 
     # Instrument specific methods
     def thomson_scattering(
@@ -258,7 +274,7 @@ class DataPlotter:
         fig_name: str = "",
         fig_obj: plt.figure = None,
         marker="o",
-        linestyle="",
+        linestyle="solid",
         **kwargs,
     ):
         xdim = "rhop"
@@ -282,7 +298,10 @@ class DataPlotter:
                 use_label=False,
                 **kwargs,
             )
-        self._plot_profile(y_fit, xdim=xdim, **kwargs)
+
+        if "ylim" not in kwargs:
+            kwargs["ylim"] = (0, np.max(y_fit)*1.1)
+        self._plot_profile(y_fit, xdim=xdim, linestyle=linestyle, **kwargs)
 
     def spectrometer(
         self,
