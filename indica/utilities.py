@@ -700,3 +700,30 @@ def convert_to_list(resdict):
 
 def time_to_ms(time: float) -> int:
     return int(round(float(time) * 1.0e3))
+
+
+def read_nested_dict(d: Dict[str, Any], address: List[str]) -> Any:
+    """
+    Get an item from a nested dictionary
+
+    Parameters
+    ----------
+    d
+        Nested dictionary
+    address
+        List of nested dictionary keys
+
+    Returns
+    -------
+    Any
+        Value read from the dictionary
+    """
+
+    # Sanitise list
+    if not isinstance(address, list):
+        address = [address]
+
+    value: Any = d
+    for key in address:
+        value = value[key]
+    return value

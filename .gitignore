@@ -6,6 +6,7 @@ venv*/
 .hypothesis/
 .coverage
 .envrc
+act/
 indica.egg-info/
 dist/
 htmlcov/

@@ -6,6 +6,9 @@ class MASTUConf(MachineConf):
         self.MACHINE_DIMS = ((0.1, 2.0), (-2.2, 2.2))
         self.INSTRUMENT_METHODS = {
             "magnetics_efit": "equilibrium",
+            "cel3": "cx_spectrometer",
+            "cel4b": "cx_spectrometer",
+            "cel4c": "cx_spectrometer",
         }
         self.QUANTITIES_PATH = {
             "equilibrium": {
@@ -24,5 +27,17 @@ class MASTUConf(MachineConf):
                 "rmji": "output/fluxFunctionsProfiles/rInboard",
                 "rmjo": "output/fluxFunctionsProfiles/rOutboard",
                 "psi": "output/profiles2D/psiNorm",
+            },
+            "cx_spectrometer": {
+                "t": "ss/time",
+                "channel": "ss/spectrometer_fibre",
+                "wavelength": "ss/wavelength",
+                "spectrometer_counts": "ss/counts",
+                "instrument_function": "ss/instrument_function",
+                "sensitivity": "ss/sensitivity",
+                "pvb_background": "ss/pvb/scaled_bg_counts",
+                "bnb_background": "ss/bnb/scaled_bg_counts",
+                "location": "ss/location",
+                "direction": "ss/direction",
             },
         }

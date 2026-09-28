@@ -53,8 +53,9 @@ class UDAUtils(BaseIO):
     def _mastu_names(self, instrument: str) -> str:
         """Look up three-letter MAST-U name from instrument name"""
         instrument_mapping = {
-            "cel3": "act",
-            "cel4b": "acu",
+            "cel3": "act/cel3",
+            "cel4b": "acu/cel4b",
+            "cel4c": "acu/cel4c",
             "magnetics_efit": "epm",
             "midplane_thomson": "ayc",
         }
@@ -231,9 +232,8 @@ class UDAUtils(BaseIO):
         revision: RevisionLike,
     ) -> Tuple[int, bool]:
         """If revision is "LATEST" replace with equivalent pass number"""
-        latest_pass = self._client.latest_source_pass(
-            self._mastu_names(instrument=instrument), self._pulse
-        )
+        checkname = self._mastu_names(instrument=instrument).split("/")[0]
+        latest_pass = self._client.latest_source_pass(checkname, self._pulse)
         if revision == "LATEST":
             revision = latest_pass
         is_best = revision == latest_pass

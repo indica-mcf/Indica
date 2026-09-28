@@ -187,6 +187,12 @@ class DataReader(ABC):
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         raise NotImplementedError
 
+    def _cx_spectrometer(
+        self,
+        data: dict,
+    ) -> Tuple[Dict[str, Any], CoordinateTransform]:
+        raise NotImplementedError
+
     def _spectrometer(
         self,
         data: dict,
