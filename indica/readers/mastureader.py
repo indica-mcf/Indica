@@ -98,6 +98,16 @@ class MASTUReader(DataReader):
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
 
+        """This function runs after database results have been retrieved from UDA
+        but before they are transformed into xarrays. The main functionality is to
+        look for any missing quantities in the act_calib repository, and then load
+        them as required.
+
+        The end goal is to have all of the required fields in the UDA archive so that
+        this code can read them directly.
+
+        """
+
         # Retreive vital info
         instrument = data["instrument"]
         revision = data["revision"]

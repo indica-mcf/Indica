@@ -42,26 +42,12 @@ class ACTCalib(BaseIO):
     Because it is temporary, some shortcuts have been taken.
 
     The class is only suitable to be used using the latest version of the ACT
-    code and the latest version of the calibratino repository
+    code and the latest version of the calibratino repository.
+
+    Any request for data that is not the most recent pass, or the most up-to-date
+    act_calib result will provoke an exception.
 
     """
-
-    # _loadcals = None
-    # _runact = None
-
-    # @property
-    # def loadcals(self):
-    #    if self._loadcals is None:
-    #        import act.loadcals as loadcals
-    #        self.__class__._loadcals = loadcals
-    #    return self._loadcals
-
-    # @property
-    # def runact(self):
-    #    if self._runact is None:
-    #        import act.runact as runact
-    #        self.__class__._runact = runact
-    #    return self._runact
 
     def __init__(self, pulse, kernel_halfpix=25):
         """Initialise class by pointing at correct repository"""
@@ -348,9 +334,4 @@ def clone_act_repository():
 
 
 if __name__ == "__main__":
-    # try:
-    #    from act.runact import set_up_runinfo, run_act
-    #    from act.loadcals import CalData
-    # except ModuleNotFoundError:
-    #    clone_act_repository()
     act_calib = ACTCalib
