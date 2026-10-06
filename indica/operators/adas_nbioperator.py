@@ -51,46 +51,54 @@ class NbiADAS(NbiOperator):
             }
         else:
             self.bms = bms
+        
 
-        current_fractions = xr.DataArray(
-            np.asarray(self.current_fractions),
-            dims=("fraction",),
-            coords={
-                "fraction": ("fraction", np.arange(1, len(self.current_fractions) + 1))
-            },
-        )
-        amu = float(self.nbi_element_info["A"])
-        e_amu = self.energy / amu
-        self.source_neutral_flux = (
-            self.power * (constants.e**-1.5) * np.sqrt(constants.m_p / 2)
-        ) / (amu * (e_amu / current_fractions) ** 1.5)
+    
+        # beam species mass in [amu]
+        amu = float(self.nbi_element_info["A"]) 
+       
+        # beam energy in [eV/amu]
+        e_amu = self.energy / amu #beam energy in [eV/amu]
+    
+        # beam velocity in [m/s] for each fraction
+        v_beam =  np.sqrt(2 * self.power_fractions_identifiers * e_amu * constants.e / constants.m_u)
 
-        bms = xr.concat(
-            [val.assign_coords({"element": key}) for key, val in self.bms.items()],
-            dim="element",
-        )
-        bms_mapped = self.transform.map_profile_to_los(
-            bms.interp(
-                target_temperature=self.Te, target_density=self.Ne, beam_energy=e_amu
-            ),
-            t=np.asarray(self.t),
-        ).assign_coords({"element": bms.element})
-        ni_mapped = self.transform.map_profile_to_los(self.Ni, np.asarray(self.t))
-        meanz_mapped = self.transform.map_profile_to_los(
-            self.MeanZ, np.asarray(self.t)
-        ).assign_coords(element=self.MeanZ.element)
-        self.vbeam = np.sqrt(2 * self.energy * constants.e / constants.m_u)
-        self.zeta = np.exp(
-            -(
-                bms_mapped
-                * meanz_mapped.sel(element=bms_mapped.element)
-                * ni_mapped
-                / self.vbeam
-            ).cumsum("los_position")
-        )
+        # map kinetic profiles to NBI path
+        te_mapped = self.transform.map_profile_to_los(self.Te, np.asarray(self.t)) # eV
+        ne_mapped = self.transform.map_profile_to_los(self.Ne, np.asarray(self.t)) # m-3
+        ni_mapped = self.transform.map_profile_to_los(self.Ni, np.asarray(self.t)) # for all impurities in one go?
+        ci_mapped = ni_mapped/ne_mapped # ion concentrations (need to check that only ions are present for which we have bms data)
+        zeff_mapped=xr.zeros_like(ne_mapped)
+        for element in self.Ni.element:
+            zeff_mapped += get_element_info(element)[0]^2 * ci_mapped.sel(element=element)
+      
+        # evaluate bms data on NBI path 
+        bms_mapped= np.zeros(self.transform.x1.size,len(self.power_fractions)) #(n_beamlength,n_fractions) #[m^3/s]
+        dl = self.transform.dl # [m] grid step 
+
+        # do attenuation calculation 
+        # the collision energy should be corrected with the toroidal rotation
+        for k_e in range(len(self.power_fractions)): #energy fractions
+            for element in self.Ni.element: #impurities including main ions
+                # evaluate atomic data for each ion 
+                z_element=get_element_info(element)[0]
+                
+                ne_equiv=ne_mapped * zeff_mapped/float(z_element) # [m^3]
+                        
+                # The reader returns bms data in m^3/s      
+                bms_mapped[:,k_e] += bms[element].interp(target_temperature=te_mapped, target_density=ne_equiv, beam_energy=e_amu/float(k_e)) #[m^3/s]
+              
+                normalization += z_element * ci_mapped.sel(element=element)
+              
+             bms_mapped[:,k_e] = bms_mapped[:,k_e] / normalization
+             self.zeta[:,k_e] = np.exp( -( bms_mapped[:,k_e] /v_beam[k_e] * ne_mapped).cumsum("los_position") *dl ) 
+             # source rate is particles/s
+             self.source_neutral_rate[k_e]= self.power * self.power_fractions[k_e] / (self.energy * constants.e * self.power_fractions_identfiers[k_e]) # particles/s
+
+
 
     def run(self, **kwargs):
-        self.neutral_density = self.source_neutral_flux * self.zeta
+        #self.neutral_density = self.source_neutral_rate * self.zeta #not a density
 
     def refactor_output(self):
         result = {"neutral_density": self.neutral_density}
@@ -100,18 +108,10 @@ class NbiADAS(NbiOperator):
         self,
         Ti: DataArray,
         Te: DataArray,
-        Ni: DataArray,
         Ne: DataArray,
-        Nn: DataArray,
+        Ni: DataArray, # contains arrays of impurity concentrations 
         Vtor: DataArray,
-        Zeff: DataArray,
-        MeanZ: DataArray,
-        ImpurityCharge: int,
-        target_element: str,
         t: float | ArrayLike,
-        file_name: Optional[str] = "",
-        pulse: int = 0,
-        machine: str = "tokamak",
         prepare_kwargs: dict = {},
         run_kwargs: dict = {},
     ) -> dict:

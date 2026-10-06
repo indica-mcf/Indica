@@ -11,6 +11,8 @@ from indica.converters import LineOfSightTransform
 from indica.numpy_typing import ArrayLike
 from indica.utilities import get_element_info
 
+import scipy as sp
+import numpy as np
 
 class NbiOperator(ABC):
     """Abstract class to run NBI modelling codes e.g. Fidasim, Nubeam"""
@@ -21,11 +23,13 @@ class NbiOperator(ABC):
     def __init__(
         self,
         name: str,
-        energy: float,
-        power: float,
+        energy: float, # eV
+        power: float, # W
         nbi_element: str,
         current_fractions: Tuple[float, float, float],
-    ):
+        power_fractions: Tuple[float,...],  # fractions fo the power, typically 3 but variable
+    power_fractions_identifiers: Tuple[float,...] # e.g. [1,1/2,1/3] 
+   ):
         """
         General parameters of any NBI object
 
@@ -33,7 +37,8 @@ class NbiOperator(ABC):
         element - NBI injected element symbol (e.g. "d" for deuterium)
         energy - NBI energy in eV
         power - NBI power in W
-        current_fractions - NBI fractions for 1st, 2nd, and 3rd energy
+        current_fractions - NBI fractions for 1st, 2nd, and 3rd energy (need defigin)
+    power_fraction - NBI fractions of the total power of the neutralised beam
         """
         self.name = name
         _element_info = get_element_info(nbi_element)
@@ -46,6 +51,8 @@ class NbiOperator(ABC):
         self.energy = energy
         self.power = power
         self.current_fractions = current_fractions
+        self.power_fractions = power_fractions
+        self.power_fractions_identifiers = power_fractions_identifiers
 
     def set_transform(self, transform: CoordinateTransform):
         """
