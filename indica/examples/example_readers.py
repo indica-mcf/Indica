@@ -6,6 +6,7 @@ from indica import Plasma
 from indica.configs.readers.adasconf import ADF11
 from indica.defaults.generate_defaults import default_atomic_data
 from indica.defaults.load_defaults import load_default_objects
+from indica.examples import plasma
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import HelikeSpectrometer
 from indica.models import PinholeCamera
@@ -18,7 +19,7 @@ from indica.utilities import set_plot_colors
 
 
 CMAP, COLORS = set_plot_colors()
-PLASMA = load_default_objects("st40", "plasma")
+PLASMA = plasma(machine="st40")
 TRANSFORMS = load_default_objects("st40", "geometry")
 EQUILIBRIUM = load_default_objects("st40", "equilibrium")
 MODELS = {
