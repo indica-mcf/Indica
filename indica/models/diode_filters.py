@@ -37,6 +37,8 @@ class BremsstrahlungDiode(AbstractDiagnostic):
         calibration: float = 1,
         instrument_method="diode_filters",
         channel_mask: slice = None,
+        noise_model: str | None = "poisson",
+        noise_config: dict | None = None,
     ):
         """
         Filtered diode diagnostic measuring Bremsstrahlung
@@ -69,6 +71,15 @@ class BremsstrahlungDiode(AbstractDiagnostic):
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
         self.channel_mask = channel_mask
+        if noise_config is None:
+            noise_config = {
+                "target_quantity": "brightness",
+                "background": 0,
+            }
+        self.noise_model = noise_model
+        self.noise_config = dict(noise_config)
+        self._call_noise_model = self.noise_model
+        self._call_noise_config = self.noise_config
 
         wavelength = np.linspace(
             self.filter_wavelength - self.filter_fwhm * 2,
@@ -153,6 +164,11 @@ class BremsstrahlungDiode(AbstractDiagnostic):
             "brightness": self.los_integral,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
+        if self._call_noise_model is not None:
+            self.apply_noise(
+                noise_model=self._call_noise_model,
+                noise_config=self._call_noise_config,
+            )
 
     def __call__(
         self,
@@ -161,7 +177,8 @@ class BremsstrahlungDiode(AbstractDiagnostic):
         Zeff: DataArray = None,
         t: LabeledArray = None,
         calc_rho: bool = False,
-        **kwargs,
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
         """
         Calculate Bremsstrahlung emission and model measurement
@@ -215,6 +232,12 @@ class BremsstrahlungDiode(AbstractDiagnostic):
 
         self.los_integral = los_integral
 
+        self._call_noise_model = (
+            self.noise_model if noise_model is None else noise_model
+        )
+        self._call_noise_config = (
+            self.noise_config if noise_config is None else noise_config
+        )
         self._build_bckc_dictionary()
         return self.bckc
 

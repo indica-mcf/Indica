@@ -33,6 +33,8 @@ class Polarimeter(AbstractDiagnostic):
         name: str,
         wavelength: Union[int, float],
         instrument_method="polarimetry",
+        noise_model: str | None = "poisson",
+        noise_config: dict | None = None,
     ):
         """Instantiate polarimeter diagnostic model
 
@@ -54,6 +56,15 @@ class Polarimeter(AbstractDiagnostic):
         self.wavelength = float(wavelength)
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
+        if noise_config is None:
+            noise_config = {
+                "target_quantity": "dphi",
+                "background": 0,
+            }
+        self.noise_model = noise_model
+        self.noise_config = dict(noise_config)
+        self._call_noise_model = self.noise_model
+        self._call_noise_config = self.noise_config
 
     def _build_bckc_dictionary(self):
         bckc = {
@@ -64,6 +75,11 @@ class Polarimeter(AbstractDiagnostic):
             "dphi": self.los_integral_dphi,
         }
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
+        if self._call_noise_model is not None:
+            self.apply_noise(
+                noise_model=self._call_noise_model,
+                noise_config=self._call_noise_config,
+            )
 
     def __call__(
         self,
@@ -74,7 +90,8 @@ class Polarimeter(AbstractDiagnostic):
         t: LabeledArray | None = None,
         calc_rho: bool = False,
         full_Rz: bool = False,
-        **kwargs,
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
         """Calculate diagnostic measured values
 
@@ -183,6 +200,12 @@ class Polarimeter(AbstractDiagnostic):
         los_integral_dphi.name = "Faraday Rotation Integrated (rad)"
         self.los_integral_dphi = los_integral_dphi
 
+        self._call_noise_model = (
+            self.noise_model if noise_model is None else noise_model
+        )
+        self._call_noise_config = (
+            self.noise_config if noise_config is None else noise_config
+        )
         self._build_bckc_dictionary()
         return self.bckc
 
