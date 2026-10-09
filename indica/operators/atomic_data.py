@@ -464,10 +464,10 @@ class FractionalAbundanceAurora(Operator):
     ):
         return self.asim.run_aurora(D_z, V_z, plot=plot, **kwargs)
 
-    def plot_fractional_abundance(
+    def plot(
         self,
     ):
-        assert self.F_z_t, "call the operator first to calculate F_z_t before plotting."
+        assert hasattr(self, "F_z_t"), "call the operator first to calculate F_z_t before plotting."
         aurora.plot_tools.slider_plot(
             self.F_z_t.rhop,
             self.F_z_t.t,
