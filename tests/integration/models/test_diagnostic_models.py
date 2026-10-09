@@ -2,6 +2,7 @@ from typing import Callable
 
 import numpy as np
 
+from indica.defaults.generate_defaults import default_atomic_data
 from indica.defaults.load_defaults import load_default_objects
 from indica.models import ChargeExchangeSpectrometer
 from indica.models import EquilibriumReconstruction
@@ -12,7 +13,6 @@ from indica.models import ThomsonScattering
 from indica.models.passive_spectrometer import format_pecs
 from indica.models.passive_spectrometer import PassiveSpectrometer
 from indica.models.passive_spectrometer import read_adf15s
-from indica.operators.atomic_data import default_atomic_data
 
 
 class TestModels:

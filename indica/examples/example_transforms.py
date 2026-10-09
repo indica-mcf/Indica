@@ -1,40 +1,12 @@
 from matplotlib import pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
-import xarray as xr
 
 from indica.converters import LineOfSightTransform
 from indica.converters import TransectCoordinates
-from indica.defaults.load_defaults import load_default_objects
 
 
-def convert_Rz_to_rhop_theta(machine: str = "st40"):
-    equilibrium = load_default_objects(machine, "equilibrium")
-
-    # Coordinates to convert
-    # R & z common coord "channel" tells DataArray to return 1D array
-    _R = np.array([0.7, 0.6, 0.5, 0.4, 0.3])
-    _z = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
-    R = xr.DataArray(_R, coords={"channel": np.arange(len(_R))})
-    z = xr.DataArray(_z, coords={"channel": np.arange(len(_z))})
-
-    # Convert (R, z) to (rhop, theta) at time = t
-    t = 0.05
-    rhop_mid, theta, t = equilibrium.flux_coords(R, z, t=t)
-
-    # Shift one channel in z and see what happens
-    _z[3] += 0.3
-    z = xr.DataArray(_z, coords={"channel": np.arange(len(_z))})
-    rhop_shift, theta_shift, t = equilibrium.flux_coords(R, z, t=t)
-
-    plt.figure()
-    rhop_mid.plot(marker="o", label="Nominal")
-    rhop_shift.plot(marker="x", label="Chan. 2 with z += 0.3")
-    plt.ylabel("R (m)")
-    plt.legend()
-
-
-def line_of_sight_example(make_plot=True):
+def line_of_sight(plot: bool = False):
     # Dummy line-of-sight
     machine_dims = ((0.15, 0.85), (-0.75, 0.75))
     origin_x = np.array([1.0, 1.0, 1.0], dtype=float)
@@ -52,7 +24,6 @@ def line_of_sight_example(make_plot=True):
     spot_shape = "round"
     beamlets_method = "adaptive"
     n_beamlets = 25
-    plot_beamlets = True
 
     los_transform = LineOfSightTransform(
         origin_x,
@@ -71,10 +42,10 @@ def line_of_sight_example(make_plot=True):
         focal_length=focal_length,
         machine_dimensions=machine_dims,
         passes=1,
-        plot_beamlets=plot_beamlets,
+        plot_beamlets=plot,
     )
 
-    if make_plot:
+    if plot:
         # Plotting...
         cols = cm.gnuplot2(np.linspace(0.3, 0.75, len(los_transform.x1), dtype=float))
 
@@ -125,7 +96,7 @@ def line_of_sight_example(make_plot=True):
     return los_transform
 
 
-def cxrs_transform_example(nchannels: int):
+def cxrs_transform(nchannels: int = 3):
     x_positions = np.linspace(0.2, 0.8, nchannels)
     y_positions = np.linspace(0.0, 0.0, nchannels)
     z_positions = np.linspace(0.0, 0.0, nchannels)
@@ -140,7 +111,7 @@ def cxrs_transform_example(nchannels: int):
     return transect_transform
 
 
-def helike_transform_example(nchannels):
+def helike_transform(nchannels: int = 3):
     los_end = np.full((nchannels, 3), 0.0)
     los_end[:, 0] = 0.17
     los_end[:, 1] = 0.0
@@ -164,7 +135,7 @@ def helike_transform_example(nchannels):
     return los_transform
 
 
-def interferometer_transform_example(nchannels):
+def interferometer_transform(nchannels: int = 3):
     los_start = np.array([[0.8, 0, 0]]) * np.ones((nchannels, 3))
     los_start[:, 2] = np.linspace(0, -0.2, nchannels)
     los_end = np.array([[0.17, 0, 0]]) * np.ones((nchannels, 3))
@@ -185,7 +156,7 @@ def interferometer_transform_example(nchannels):
     return los_transform
 
 
-def ts_transform_example(nchannels):
+def ts_transform(nchannels: int = 3):
     x_positions = np.linspace(0.2, 0.8, nchannels)
     y_positions = np.linspace(0.0, 0.0, nchannels)
     z_positions = np.linspace(0.0, 0.0, nchannels)

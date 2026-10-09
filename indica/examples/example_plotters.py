@@ -1,12 +1,12 @@
 import matplotlib.pylab as plt
 
-from indica.examples.example_readers import example_model_reader
+from indica.examples.example_readers import model_reader
 from indica.plotters import DataPlotter
 from indica.readers import SOLPSReader
 
 
-def example_dataplotter():
-    BCKC, MODEL_READER = example_model_reader(plot=False)
+def dataplotter():
+    BCKC, MODEL_READER = model_reader(plot=False)
 
     plasma = MODEL_READER.plasma
     plotter = DataPlotter(0, plasma.t)
@@ -19,7 +19,7 @@ def example_dataplotter():
     plotter.plot(plasma, "plasma", "zeff", ylog=False, sci=False)
 
 
-def example_plot_solps():
+def plot_solps():
     solps = SOLPSReader(13565, 0.16)
     processed = {}
     processed["solps"] = solps.get()
@@ -33,5 +33,5 @@ def example_plot_solps():
 
 if __name__ == "__main__":
     plt.ioff()
-    _ = example_dataplotter()
+    _ = dataplotter()
     plt.show()

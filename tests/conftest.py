@@ -1,7 +1,3 @@
-"""Set up some pre-determined settings for Hypothesis.
-
-"""
-
 import sys
 from unittest import mock
 
