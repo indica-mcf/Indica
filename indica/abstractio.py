@@ -1,5 +1,4 @@
-"""Base class for IO objects.
-"""
+"""Base class for IO objects."""
 
 from abc import ABC
 from abc import abstractmethod
@@ -53,9 +52,9 @@ class BaseIO(ABC):
             True if authentication is needed, otherwise false.
         """
         raise NotImplementedError(
-            "{} does not implement a "
-            "'requires_authentication' "
-            "property.".format(self.__class__.__name__)
+            "{} does not implement a 'requires_authentication' property.".format(
+                self.__class__.__name__
+            )
         )
 
     @abstractmethod

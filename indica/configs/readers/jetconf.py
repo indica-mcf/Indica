@@ -91,6 +91,12 @@ class JETConf(MachineConf):
                 "zeff_avrg": "zfbr",
             },
         }
+        self.ERROR_QUANTITIES_PATH: dict[str, list[str | tuple[str, str]]] = {
+            "flux": ["dflx"],
+            "zefh": [("zhlo", "zhhi")],
+            "zefv": [("zvlo", "zvhi")],
+            "angf": [("aflo", "afhi")],
+        }
         self._BREMSSTRAHLUNG_LOS = {
             "ks3": "edg7",
         }
