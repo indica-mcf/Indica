@@ -510,7 +510,7 @@ def save_figure(
             _path_name = f"{_path_name}/"
         _file = f"{_path_name}{_fig_name}.{ext}"
 
-        kwargs = {"orientation": orientation, "dpi": dpi, "bbox_inches":bbox_inches}
+        kwargs = {"orientation": orientation, "dpi": dpi, "bbox_inches": bbox_inches}
         if ext != "svg":
             kwargs["pil_kwargs"] = {"quality": quality}
 
@@ -567,7 +567,7 @@ def set_plot_rcparams(option: str = "profiles", rc_params: dict = None):
                 "legend.fontsize": 8,
                 "lines.markersize": 6,
                 "lines.linewidth": 2,
-                "font.weight": 600,
+                "figure.figsize": (7.5, 5),
             },
         }
 
