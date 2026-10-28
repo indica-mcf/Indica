@@ -12,6 +12,7 @@ import xarray as xr
 from xarray import apply_ufunc
 from xarray import DataArray
 
+from indica.utilities import assign_datatype
 from indica.utilities import check_time_present
 from .numpy_typing import FloatOrDataArray
 from .numpy_typing import LabeledArray
@@ -175,12 +176,13 @@ class Equilibrium:
         )
 
         b_R = -(np.float64(1.0) / _R) * dpsi_dz  # type: ignore
-        b_R.name = "Radial magnetic field"
         b_R = b_R.T
+        assign_datatype(b_R, "radial_magnetic_field")
 
         b_z = (np.float64(1.0) / _R) * dpsi_dR  # type: ignore
-        b_z.name = "Vertical Magnetic Field (T)"
         b_z = b_z.T
+        assign_datatype(b_z, "vertical_magnetic_field")
+
         _rhop = xr.where(_rhop > np.float64(0.0), _rhop, np.float64(-1.0) * _rhop)
 
         # Calculate Bt on magnetic axis,
@@ -191,7 +193,7 @@ class Equilibrium:
         b_T_rmag = f / _rmag
         _b_T = b_T_rmag * _rmag / self.rhop.R
         b_T = _b_T.expand_dims(dim={"z": self.rhop.z}).interp(R=_R, z=_z)
-        b_T.name = "Toroidal Magnetic Field (T)"
+        assign_datatype(b_T, "toroidal_magnetic_field")
 
         return b_R, b_z, b_T, t
 
