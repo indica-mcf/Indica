@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TextIO
 
 import numpy as np
-import pytest
+
 from indica.readers import ADASReader
 
 
@@ -18,18 +18,17 @@ class MockReader(ADASReader):
 class TestADF12:
     reader = MockReader()
 
-    @pytest.mark.skip("write_adf12 doesn't seem to write oldstyle at the moment")
     def test_read_oldstyle(self):
         self.reader.test_file = Path(__file__).parent / "test_adf12_oldstyle.dat"
         data = self.reader.get_adf12("", "", "")
         ref = np.load(Path(__file__).parent / "test_adf12_oldstyle.npz")
-        assert np.all(np.isclose(data.to_numpy(), ref["data"], rtol=1e-5))
+        assert np.all(np.isclose(data.to_numpy() / ref["data"], 1.0))
 
     def test_read_newstyle(self):
         self.reader.test_file = Path(__file__).parent / "test_adf12_newstyle.dat"
         data = self.reader.get_adf12("", "", "")
         ref = np.load(Path(__file__).parent / "test_adf12_newstyle.npz")
-        assert np.all(np.isclose(data.to_numpy(), ref["data"], rtol=1e-5))
+        assert np.all(np.isclose(data.to_numpy() / ref["data"], 1.0))
 
 
 class Testadf15:
@@ -209,4 +208,4 @@ class TestADF21ADF22:
             year="",
         )
         ref = np.load(Path(__file__).parent / "test_adf21.npz")
-        assert np.all(np.isclose(data.to_numpy(), ref["data"], rtol=1e-5))
+        assert np.all(np.isclose(data.to_numpy() / ref["data"], 1.0))

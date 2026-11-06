@@ -138,25 +138,56 @@ class ADASReader(BaseIO):
         beam: str = "h",
     ) -> Dataset:
         """Fetch ADF12 data"""
+
+        def convert_float(_line: str) -> list[float]:
+            """Split line and convert float values from str -> float, including if using
+            D for scientific notation.
+
+            """
+            outp = []
+            for val in _line.split():
+                _val = val.replace("D", "E")
+                try:
+                    outp.append(float(_val))
+                except ValueError:
+                    continue
+            return outp
+
         filename = pathname2url(
             f"qef{year}][{beam}/qef{year}][{beam}_{element}{charge}.dat"
         )
+        # Expecting ADF12s to always be in the same parameter order
         parmspec = [
-            dict(name="ENER", nlines=24 // 6, datatype="beam_energy"),
-            dict(name="TIEV", nlines=12 // 6, datatype="ion_temperature"),
-            dict(name="DENSI", nlines=24 // 6, datatype="electron_density"),
-            dict(name="ZEFF", nlines=12 // 6, datatype="effective_charge"),
-            dict(name="BMAG", nlines=12 // 6, datatype="total_magnetic_field"),
+            dict(name="ENER", datatype="beam_energy"),
+            dict(name="TIEV", datatype="ion_temperature"),
+            dict(name="DENSI", datatype="electron_density"),
+            dict(name="ZEFF", datatype="effective_charge"),
+            dict(name="BMAG", datatype="total_magnetic_field"),
         ]
-        qef, idx = [], []
+        qef, isel, transition = [], [], []
         with self._get_file("adf12", filename) as f:
             nsel = int(f.readline().strip())
-            header = ""
-            for i in range(1, nsel + 1):
+            for _ in range(1, nsel + 1):
                 header = f.readline()
-                if (_idx := re.search(r"(?:ISEL|isel)=\s*(.*)", header)) is None:
-                    raise UserWarning(f"Failed to find ISEL in {header}")
-                idx.append(int(_idx.group(1)))
+                # Extract ISEL from block header
+                while (_isel := re.search(r"(?:ISEL|isel)=\s*(.*)", header)) is None:
+                    header = f.readline()
+                    if header == "":
+                        raise UserWarning(f"EOF reached, still inside loop {nsel=}")
+                isel.append(int(_isel.group(1)))
+                # Try and extract transition to save as extra information
+                if (
+                    _transition := re.search(
+                        r"((?:N|n)=\s*[0-9]+\s*-\s*[0-9]+)",
+                        header,
+                    )
+                ) is not None:
+                    transition.append(
+                        str(_transition.group(0)).replace(" ", "").upper()
+                    )
+                else:
+                    transition.append("N=?-?")
+                # Reference QEFF at reference parameters, convert cm^3 -> m^3
                 qefref = float(f.readline().split()[0].replace("D", "E")) * 10**-6
                 parmref = [
                     float(val.replace("D", "E")) for val in f.readline().split()[:-1]
@@ -164,32 +195,50 @@ class ADASReader(BaseIO):
                 nparmsc = [int(val) for val in f.readline().split()[:-1]]
                 _qef = DataArray(qefref, name="QEFF")
                 for pspec, pref, nparm in zip(parmspec, parmref, nparmsc):
-                    name = pspec["name"]
+                    name = str(pspec["name"])
                     dim = []
-                    for i in range(pspec["nlines"]):
+                    # ADF12s have maximum 6 values per line, either padded with 0 (old
+                    # style) or blank (new style)
+                    nlines = int(nparm // 6)
+                    if nparm % 6:
+                        nlines += 1
+                    # Read dimension array first
+                    for i in range(nlines):
                         line = f.readline()
                         if i == 0:
-                            assert name in line
-                        dim.extend(
-                            [float(val.replace("D", "E")) for val in line.split()[:6]]
-                        )
+                            # Skip through all padding lines (old style)
+                            while np.all(np.asarray(convert_float(line)) == 0.0):
+                                line = f.readline()
+                            assert name in line  # Check we're in the right place
+                        dim.extend(convert_float(line))
                     dim = np.asarray(dim[:nparm])
                     if pspec["datatype"] == "electron_density":
-                        dim *= 10.0**6
+                        dim *= 10.0**6  # cm^-3 -> m^-3
                     quant = []
-                    for i in range(pspec["nlines"]):
+                    # Read quantity associated with dimension
+                    for i in range(nlines):
                         line = f.readline()
                         if i == 0:
-                            assert f"Q{name}" in line
-                        quant.extend(
-                            [float(val.replace("D", "E")) for val in line.split()[:6]]
-                        )
-                    quant = np.asarray(quant[:nparm]) * 10.0**-6
+                            # Skip through all padding lines (old style)
+                            while np.all(np.asarray(convert_float(line)) == 0.0):
+                                line = f.readline()
+                            assert f"Q{name}" in line  # Check we're in the right place
+                        quant.extend(convert_float(line))
+                    quant = np.asarray(quant[:nparm]) * 10.0**-6  # cm^3 -> m^3
+
+                    # Add a new dimension to `_qef`, where all values are at reference
+                    # qeff. Multiply by 1D array of quant / reference to set all values
+                    # on that dimension to quant and adjust other off-reference values
+                    # by this amount.
                     _qef = _qef.expand_dims({pspec["datatype"]: dim}, axis=-1).copy()
                     _qef *= quant / qefref
-                    assign_datatype(_qef[pspec["datatype"]], pspec["datatype"])
+                    assign_datatype(_qef[pspec["datatype"]], str(pspec["datatype"]))
                 qef.append(_qef)
-        qef = concat(qef, dim="idx").assign_coords({"idx": idx}).copy()
+        qef = (
+            concat(qef, dim="isel")
+            .assign_coords({"isel": ("isel", isel), "transition": ("isel", transition)})
+            .copy()
+        )
         assign_datatype(qef, "qef")
         return qef
 

@@ -5,7 +5,7 @@ repos:
     - id: zimports
       name: "Reorganise Import Statements"
 -   repo: https://github.com/psf/black
-    rev: 22.1.0
+    rev: 26.10.1
     hooks:
     - id: black
       additional_dependencies: ['click==8.0.4']
@@ -20,7 +20,7 @@ repos:
       name: "Fix Mixed Line Ending"
     - id: no-commit-to-branch
 -   repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
+    rev: 7.5.0
     hooks:
     - id: flake8
       additional_dependencies:
