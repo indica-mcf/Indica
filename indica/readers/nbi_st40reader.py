@@ -19,9 +19,7 @@ equilibrium = Equilibrium(efit_data)
 # ---------------------------------------------------------------------
 # 2. Load ST40 plasma profiles
 # ---------------------------------------------------------------------
-# These are placeholders. In a real script, you would replace
-# these with the actual ST40 diagnostics for your shot and time.
-#
+
 # Typical pattern:
 # - use Thomson scattering for Ne and Te
 # - use charge exchange or profile fits for Ti
@@ -41,15 +39,13 @@ equilibrium = Equilibrium(efit_data)
 # ti = ti.assign_coords(rhop=...).swap_dims(...).interp(rhop=rhop)...
 # ni = ni.assign_coords(rhop=...).swap_dims(...).interp(rhop=rhop)...
 
-# For a minimal template, assume we already have profile DataArrays
-# with rhop as the radial coordinate.
+
 # Example placeholders:
 # ne = ...
 # te = ...
 # ti = ...
 # ni = ...
 
-# If you do not have impurity profiles, you can still construct a Plasma
 # object and fill only the main profiles as needed.
 
 plasma = Plasma(
@@ -69,7 +65,6 @@ plasma = Plasma(
 # ---------------------------------------------------------------------
 # 3. Define the ST40 NBI line-of-sight
 # ---------------------------------------------------------------------
-# This must come from the actual ST40 NBI geometry for the relevant beam.
 # Replace with real beam origin/direction from your ST40 data.
 dist_centre = 3.0  # m, placeholder
 ang_beamline = -20.0  # degrees, placeholder
@@ -98,7 +93,6 @@ tr.set_equilibrium(equilibrium)
 # ---------------------------------------------------------------------
 # 4. Read NBI power and energy data
 # ---------------------------------------------------------------------
-# In a real ST40 script, this would come from the NBI instrument
 # in the ST40 tree. The ST40 reader already supports an "_nbi" method
 # in indica/readers/st40reader.py, so this is the intended route.
 #
@@ -130,8 +124,7 @@ pini.set_transform(tr)
 # ---------------------------------------------------------------------
 # 6. Run the model
 # ---------------------------------------------------------------------
-# The exact plasma arrays are placeholders. In a real run, these are the
-# actual ST40 electron density, temperature, ion temperature, impurity density.
+# The exact plasma arrays are placeholders.
 results = pini(
     Ti=plasma.ion_temperature,
     Te=plasma.electron_temperature,
