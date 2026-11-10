@@ -1,20 +1,14 @@
-import matplotlib.cm as cm
-import matplotlib.pylab as plt
 import numpy as np
 import xarray as xr
 from xarray import DataArray
 
-from indica.available_quantities import READER_QUANTITIES
 from indica.configs.readers.adasconf import ADF15
-from indica.converters import LineOfSightTransform
-from indica.models.abstract_diagnostic import AbstractDiagnostic
+from indica.models.spectrometer import Spectrometer
 from indica.numpy_typing import LabeledArray
 import indica.physics as ph
 from indica.readers import ADASReader
 from indica.utilities import build_dataarrays
 from indica.utilities import get_element_info
-from indica.utilities import set_axis_sci
-from indica.utilities import set_plot_rcparams
 
 
 def read_adf15s(
@@ -86,7 +80,7 @@ def format_pecs(
     return formatted_pecs
 
 
-class PassiveSpectrometer(AbstractDiagnostic):
+class PassiveSpectrometer(Spectrometer):
     """
     Methods to model passive spectrometer measurements
     """
@@ -99,13 +93,9 @@ class PassiveSpectrometer(AbstractDiagnostic):
         instrument_method="spectrometer",
     ):
 
-        self.transform: LineOfSightTransform
-        self.name = name
+        super().init(name, window, instrument_method=instrument_method)
         self.pecs = pecs
-        self.instrument_method = instrument_method
-        self.quantities = READER_QUANTITIES[self.instrument_method]
         self.window = xr.DataArray(window, {"window": window})
-
         self.intensity: dict[str, xr.DataArray] = None
 
     def _transition_matrix(self, element: str = "ar") -> xr.DataArray:
@@ -267,29 +257,3 @@ class PassiveSpectrometer(AbstractDiagnostic):
         self.make_spectra()
         self._build_bckc_dictionary()
         return self.bckc
-
-    def plot(self):
-        set_plot_rcparams("profiles")
-
-        self.transform.plot(np.mean(self.t))
-
-        plt.figure()
-        channels = self.transform.x1
-        cols_time = cm.gnuplot2(np.linspace(0.1, 0.75, len(self.t), dtype=float))
-        if "spectra" in self.bckc.keys():
-            spectra = self.bckc["spectra"]
-            if "channel" in spectra.dims:
-                spectra = spectra.sel(channel=int(np.median(channels)))
-            for i, t in enumerate(np.array(self.t, ndmin=1)):
-                plt.plot(
-                    spectra.wavelength,
-                    spectra.sel(t=t),
-                    color=cols_time[i],
-                    label=f"t={t:1.2f} s",
-                )
-            plt.ylabel("Emissivity (photon/m^2/nm/s)")
-            plt.xlabel("Wavelength (nm)")
-            plt.legend()
-            set_axis_sci()
-
-        plt.show(block=True)
