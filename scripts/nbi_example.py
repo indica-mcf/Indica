@@ -19,8 +19,6 @@ ne = data["ppts"]["ne_rhop"]
 plasma = Plasma(0.02, 0.15, 0.01, machine="st40", impurities=("c",))
 plasma.electron_density.loc[:] = ne.interp(rhop=plasma.rhop, t=plasma.t)
 plasma.electron_temperature.loc[:] = te.interp(rhop=plasma.rhop, t=plasma.t)
-# plasma.ion_temperature.loc[:] = ti.interp(rhop=plasma.rhop)
-# plasma.impurity_density.loc[:] = ni.interp(rhop=plasma.rhop)
 plasma.fract_abu = {
     elem: FractionalAbundanceAdas(elem, full_run=True) for elem in plasma.elements
 }
