@@ -29,9 +29,17 @@ class EQDSKReader:
         xpsin = (psirz - gf.psi_axis) / (gf.psi_boundary - gf.psi_axis)
         _rmj = DataArray(
             R, coords={"xpsin": xpsin.interp(z=gf.zmagx).data}, dims=("xpsin",)
-        ).drop_duplicates("xpsin", keep=False)
-        rmjo = _rmj.where((_rmj >= gf.rmaxis), drop=True).interp(xpsin=psin)
-        rmji = _rmj.where((_rmj < gf.rmaxis), drop=True).interp(xpsin=psin)
+        )
+        rmjo = (
+            _rmj.where((_rmj >= gf.rmaxis), drop=True)
+            .drop_duplicates("xpsin", keep="first")
+            .interp(xpsin=psin)
+        )
+        rmji = (
+            _rmj.where((_rmj < gf.rmaxis), drop=True)
+            .drop_duplicates("xpsin", keep="last")
+            .interp(xpsin=psin)
+        )
         fpol = DataArray(gf.fpol, coords={"xpsin": psin}, dims=("xpsin",))
         qpsi = gf.qpsi
         ftor = xr.zeros_like(fpol)

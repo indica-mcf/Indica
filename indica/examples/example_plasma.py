@@ -13,6 +13,7 @@ def plasma(
     machine="st40",
     main_ion="h",
     impurities: Tuple[str, ...] = ("c", "ar", "he"),
+    load_atomic_data: bool = True,
     **kwargs,
 ):
     plasma = Plasma(
@@ -83,4 +84,7 @@ def plasma(
     plasma.convection_coefficient[
         :,
     ] = V_coeff
+
+    if load_atomic_data:
+        plasma.build_atomic_data()
     return plasma
