@@ -11,6 +11,7 @@ from indica.converters import LineOfSightTransform
 from indica.utilities import get_element_info
 
 
+
 class NbiOperator(ABC):
     """Abstract class to run NBI modelling codes e.g. Fidasim, Nubeam"""
 
@@ -23,7 +24,8 @@ class NbiOperator(ABC):
         energy: float,
         power: float,
         nbi_element: str,
-        current_fractions: Tuple[float, float, float],
+        power_fractions: Tuple[float, float, float],
+        power_fractions_identifiers: Tuple[float, float, float],
     ):
         """
         General parameters of any NBI object
@@ -44,7 +46,8 @@ class NbiOperator(ABC):
         }
         self.energy = energy
         self.power = power
-        self.current_fractions = current_fractions
+        self.power_fractions = power_fractions
+        self.power_fractions_identifiers = power_fractions_identifiers
 
     def set_transform(self, transform: CoordinateTransform):
         """
