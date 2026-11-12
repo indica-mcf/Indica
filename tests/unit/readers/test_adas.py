@@ -1,8 +1,34 @@
-"""Unit tests for the functions in routines.py
-"""
+"""Unit tests for the functions in routines.py"""
+
+from pathlib import Path
+from typing import TextIO
+
 import numpy as np
 
 from indica.readers import ADASReader
+
+
+class MockReader(ADASReader):
+    test_file: Path
+
+    def _get_file(self, *args, **kwargs) -> TextIO:
+        return self.test_file.open("r")
+
+
+class TestADF12:
+    reader = MockReader()
+
+    def test_read_oldstyle(self):
+        self.reader.test_file = Path(__file__).parent / "test_adf12_oldstyle.dat"
+        data = self.reader.get_adf12("", "", "")
+        ref = np.load(Path(__file__).parent / "test_adf12_oldstyle.npz")
+        assert np.all(np.isclose(data.to_numpy() / ref["data"], 1.0))
+
+    def test_read_newstyle(self):
+        self.reader.test_file = Path(__file__).parent / "test_adf12_newstyle.dat"
+        data = self.reader.get_adf12("", "", "")
+        ref = np.load(Path(__file__).parent / "test_adf12_newstyle.npz")
+        assert np.all(np.isclose(data.to_numpy() / ref["data"], 1.0))
 
 
 class Testadf15:
@@ -166,3 +192,20 @@ class Testadf15_transport(Testadf15):
     charge = "16"
     file_type = "llu"
     year = "transport"
+
+
+class TestADF21ADF22:
+    reader = MockReader()
+
+    def test_read(self):
+        self.reader.test_file = Path(__file__).parent / "test_adf21.dat"
+        data = self.reader._get_adf21_adf22(
+            dataclass="",
+            beam="",
+            element="",
+            charge="",
+            quantity="bms",
+            year="",
+        )
+        ref = np.load(Path(__file__).parent / "test_adf21.npz")
+        assert np.all(np.isclose(data.to_numpy() / ref["data"], 1.0))
