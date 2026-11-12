@@ -1,138 +1,73 @@
-import numpy as np
+from indica.defaults.load_defaults import load_default_objects
+from indica.operators.adas_nbioperator import NbiADAS
 
+import numpy as np
 from indica import Equilibrium, Plasma
 from indica.converters import LineOfSightTransform
-from indica.operators import NbiADAS
-from indica.readers import ST40Reader
+from indica.operators import FractionalAbundanceAdas
+from indica.readers import ST40Reader, SALUtils
+from indica.utilities import build_dataarrays
 
-# ---------------------------------------------------------------------
-# 1. Read ST40 shot and equilibria
-# ---------------------------------------------------------------------
-pulse = 12345
-t = 0.05  # s
-reader = ST40Reader(pulse, t - 0.02, t + 0.02)
-
-# ST40 'efit' is used in the examples
-efit_data = reader.get("", "efit", 0)
-equilibrium = Equilibrium(efit_data)
-
-# ---------------------------------------------------------------------
-# 2. Load ST40 plasma profiles
-# ---------------------------------------------------------------------
-
-# Typical pattern:
-# - use Thomson scattering for Ne and Te
-# - use charge exchange or profile fits for Ti
-# - use impurity density data if available
-#
-# The exact data source depends on the ST40 tree and what was saved.
-#
-# Example pattern (same idea as the JET script):
-# ne = ...
-# te = ...
-# ti = ...
-# ni = ...
-#
-# Then convert to a uniform rhop grid:
-# ne = ne.assign_coords(rhop=...).swap_dims(...).interp(rhop=rhop)...
-# te = te.assign_coords(rhop=...).swap_dims(...).interp(rhop=rhop)...
-# ti = ti.assign_coords(rhop=...).swap_dims(...).interp(rhop=rhop)...
-# ni = ni.assign_coords(rhop=...).swap_dims(...).interp(rhop=rhop)...
+reader = ST40Reader(11089, 0.02, 0.15)
+data = reader(["efit", "ppts"])
+equil = Equilibrium(data["efit"])
 
 
-# Example placeholders:
-# ne = ...
-# te = ...
-# ti = ...
-# ni = ...
+te = data["ppts"]["te_rhop"]
+ne = data["ppts"]["ne_rhop"]
 
-# object and fill only the main profiles as needed.
+plasma = Plasma(0.02, 0.15, 0.01, machine="st40", impurities=("c",))
+plasma.electron_density.loc[:] = ne.interp(rhop=plasma.rhop, t=plasma.t)
+plasma.electron_temperature.loc[:] = te.interp(rhop=plasma.rhop, t=plasma.t)
+plasma.fract_abu = {
+    elem: FractionalAbundanceAdas(elem, full_run=True) for elem in plasma.elements
+}
 
-plasma = Plasma(
-    tstart=t,
-    tend=t + 1e-3,
-    dt=1e-3,
-    machine="st40",
-    impurities=("ne",),  # replace if needed
-)
+default_transforms = load_default_objects("st40", "geometry")
 
-# Example only: these lines are placeholders and should be replaced.
-# plasma.electron_density.loc[:] = ne.interp(rhop=plasma.rhop)
-# plasma.electron_temperature.loc[:] = te.interp(rhop=plasma.rhop)
-# plasma.ion_temperature.loc[:] = ti.interp(rhop=plasma.rhop)
-# plasma.impurity_density.loc[:] = ni.interp(rhop=plasma.rhop)
+nbi = default_transforms["xrcs"]
+nbi.set_equilibrium(equil)
 
-# ---------------------------------------------------------------------
-# 3. Define the ST40 NBI line-of-sight
-# ---------------------------------------------------------------------
-# Replace with real beam origin/direction from your ST40 data.
-dist_centre = 3.0  # m, placeholder
-ang_beamline = -20.0  # degrees, placeholder
 
-origin = np.asarray([dist_centre, 0.0, 0.0])
-direction = np.asarray(
-    [
-        -np.cos(np.deg2rad(ang_beamline)),
-        np.sin(np.deg2rad(ang_beamline)),
-        0.0,
-    ],
-)
-direction /= np.linalg.norm(direction)
-
-tr = LineOfSightTransform(
-    np.asarray([origin[0]]),
-    np.asarray([origin[1]]),
-    np.asarray([origin[2]]),
-    np.asarray([direction[0]]),
-    np.asarray([direction[1]]),
-    np.asarray([direction[2]]),
-    name="ST40_NBI",
-)
-tr.set_equilibrium(equilibrium)
-
-# ---------------------------------------------------------------------
-# 4. Read NBI power and energy data
-# ---------------------------------------------------------------------
-# in the ST40 tree. The ST40 reader already supports an "_nbi" method
-# in indica/readers/st40reader.py, so this is the intended route.
-#
-# You would normally get:
-# - beam energy
-# - beam power
-# - power fractions / current fractions
-# from the ST40 NBI diagnostic in your database.
-#
 # Example placeholders only:
-beam_energy = 50e3  # eV
-beam_power = 1.0e6  # W
-power_fractions = (0.5, 0.3, 0.2)
-power_fractions_identifiers = (1.0, 0.5, 1.0 / 3.0)
+beam_energy = 52e3  # eV
+beam_power = 0.5e6  # W
+power_fractions = (0.5, 0.35, 0.15)
+power_fractions_identifiers = np.array((1.0, 1/2.0, 1/3.0),)
 
-# ---------------------------------------------------------------------
-# 5. Construct the NBI attenuation model
-# ---------------------------------------------------------------------
-pini = NbiADAS(
-    name=tr.name,
+
+beam_model = NbiADAS(
+    name=nbi.name,
     energy=beam_energy,
     power=beam_power,
-    nbi_element="d",  # change to "h" if your ST40 beam is hydrogen
+    nbi_element="d",
     power_fractions=power_fractions,
     power_fractions_identifiers=power_fractions_identifiers,
 )
-pini.set_transform(tr)
+beam_model.set_transform(nbi)
 
-# ---------------------------------------------------------------------
-# 6. Run the model
-# ---------------------------------------------------------------------
-# The exact plasma arrays are placeholders.
-results = pini(
+plasma.impurity_density += 2e18
+plasma.toroidal_rotation += 1000
+plasma.ion_temperature += 1000
+results = beam_model(
     Ti=plasma.ion_temperature,
     Te=plasma.electron_temperature,
     Ne=plasma.electron_density,
     Ni=plasma.ion_density,
     Vtor=plasma.toroidal_rotation,
-    t=t,
+    t=0.05,
 )
+zeta = results["zeta"]  # Currently only result is ZETA factor
 
-zeta = results["zeta"]
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
+
+plt.plot(zeta.los_position.values, zeta[0, 0, 0, :].values, label=f"power fraction: {power_fractions_identifiers[0]}", marker="o")
+plt.plot(zeta.los_position.values, zeta[1, 0, 0, :].values, label=f"power fraction: {power_fractions_identifiers[1]}", marker="x")
+plt.plot(zeta.los_position.values, zeta[2, 0, 0, :].values, label=f"power fraction: {power_fractions_identifiers[2]}", linestyle="-.")
+plt.legend()
+plt.show(block=True)
+
 print(zeta)
+
