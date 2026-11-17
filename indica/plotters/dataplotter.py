@@ -42,6 +42,7 @@ class DataPlotter:
         ttol: float = 0.005,
         nplot: int = 3,
         rc_params: dict = None,
+        fig_path: str = None,
     ):
         """
         pulse = Pulse number from which the data originated
@@ -51,6 +52,9 @@ class DataPlotter:
         ttol = tolerance for "nearest" timepoint selection
         nplot = number of time-points to be plotted
         """
+        if fig_path is None:
+            fig_path = FIG_PATH
+        self.fig_path = fig_path
 
         self.conf = MACHINE_CONFS[machine]()
 
@@ -86,7 +90,10 @@ class DataPlotter:
         use_label: bool = True,
         **kwargs,
     ):
-        _kwargs = pop_kwargs(kwargs, ["label", "color"])
+        label = None
+        if "label" in kwargs:
+            label = kwargs.pop("label")
+
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
 
@@ -95,14 +102,21 @@ class DataPlotter:
 
             x, y, err = select_x_y_err(data, t=_t, xdim=xdim)
 
-            label = None
+            _label = None
             if use_label:
-                label = f"{_t:.3f} s"
+                _label = label
+                if label is None:
+                    _label = f"{_t:.3f} s"
+
+            if "color" not in kwargs:
+                color = self.colors[i]
+            else:
+                color = kwargs.pop("color")
 
             # Plot uncertainty band
-            plt.fill_between(x, y - err, y + err, color=self.colors[i], alpha=0.5)
+            plt.fill_between(x, y - err, y + err, color=color, alpha=0.5)
             # Plot data
-            y.plot(label=label, color=self.colors[i], **_kwargs)
+            y.plot(label=_label, color=color, **kwargs)
 
     # Experimental profile data
     def _plot_profile_data(
@@ -112,9 +126,14 @@ class DataPlotter:
         use_label: bool = True,
         **kwargs,
     ):
-        _kwargs = pop_kwargs(kwargs, ["label", "color"])
-        if "linestyle" not in _kwargs:
-            _kwargs["linestyle"] = ""
+        label = None
+        if "label" in kwargs:
+            label = kwargs.pop("label")
+
+        if "linestyle" not in kwargs:
+            kwargs["linestyle"] = ""
+        if "marker" not in kwargs:
+            kwargs["marker"] = "o"
 
         for i, t in enumerate(self.times):
             _t = self.within_tolerance(data, t)
@@ -128,12 +147,19 @@ class DataPlotter:
 
             x, y, err = select_x_y_err(data, _t, xdim=xdim)
 
-            label = None
+            _label = None
             if use_label:
-                label = f"{_t:.3f} s"
+                _label = label
+                if label is None:
+                    _label = f"{_t:.3f} s"
 
-            plt.errorbar(x, y, err, color=self.colors[i], **_kwargs)
-            y.plot(label=label, color=self.colors[i], **_kwargs)
+            if "color" not in kwargs:
+                color = self.colors[i]
+            else:
+                color = kwargs.pop("color")
+
+            plt.errorbar(x, y, err, color=color, **kwargs)
+            y.plot(label=_label, color=color, **kwargs)
 
     # Time evolution
     def _plot_time_evolution(
@@ -149,10 +175,14 @@ class DataPlotter:
         if "linestyle" not in _kwargs:
             _kwargs["linestyle"] = ""
 
+        color = None
+        if "color" in _kwargs:
+            color = _kwargs.pop("color")
+
         x, y, err = select_x_y_err(data, xdim=xdim)
 
-        y.plot(label=label, **_kwargs)
-        plt.fill_between(y.t, y - err, y + err, alpha=0.5)
+        y.plot(label=label, color=color, **_kwargs)
+        plt.fill_between(y.t, y - err, y + err, color=color, alpha=0.5)
         plt.xlim(self.tstart, self.tend)
         plt.legend()
 
@@ -229,7 +259,7 @@ class DataPlotter:
             _data, quantity, fig_name=fig_name, fig_obj=fig_obj, **kwargs
         )
         common_plot_calls(title, sci, ylog, xlim=xlim, ylim=ylim)
-        save_figure(FIG_PATH, fig_name, save_fig=save_fig)
+        save_figure(self.fig_path, fig_name, save_fig=save_fig)
 
     # Instrument specific methods
     def thomson_scattering(
@@ -258,13 +288,15 @@ class DataPlotter:
         fig_name: str = "",
         fig_obj: plt.figure = None,
         marker="o",
-        linestyle="",
+        linestyle_data="",
+        linestyle="solid",
         **kwargs,
     ):
         xdim = "rhop"
-        y_fit = data[quantity]  # xr.where(data[quantity] > 0, data[quantity], np.nan)
+        y_fit = data[quantity]
         try:
-            _y_exp = xr.where(
+            _y_exp = deepcopy(data[quantity.replace(f"_{xdim}", "_data")])
+            _y_exp.data = xr.where(
                 y_fit.mean(xdim) > 0,
                 data[quantity.replace(f"_{xdim}", "_data")],
                 np.nan,
@@ -274,15 +306,21 @@ class DataPlotter:
             y_exp = None
 
         if y_exp is not None:
+            _kwargs = deepcopy(kwargs)
+            if "use_label" in _kwargs:
+                _kwargs.pop("use_label")
             self._plot_profile_data(
                 y_exp,
                 xdim=xdim,
                 marker=marker,
-                linestyle=linestyle,
+                linestyle=linestyle_data,
                 use_label=False,
-                **kwargs,
+                **_kwargs,
             )
-        self._plot_profile(y_fit, xdim=xdim, **kwargs)
+
+        if "ylim" not in kwargs:
+            kwargs["ylim"] = (0, np.max(y_fit) * 1.1)
+        self._plot_profile(y_fit, xdim=xdim, linestyle=linestyle, **kwargs)
 
     def spectrometer(
         self,
@@ -322,7 +360,8 @@ class DataPlotter:
         **kwargs,
     ):
         xdim = "rhop"
-        y = xr.where(data[quantity] > 0, data[quantity], np.nan)
+        y = data[quantity]
+        y.data = xr.where(data[quantity] > 0, data[quantity], np.nan).data
         if quantity == "emission_rhop":
             self._plot_profile(y, xdim=xdim, **kwargs)
         elif quantity == "prad":
@@ -448,7 +487,8 @@ class DataPlotter:
                     self._plot_profile(y, xdim=xdim, use_label=use_label, **kwargs)
                     use_label = False
             else:
-                y = xr.where(_y > 0, _y, np.nan)
+                y = deepcopy(_y)
+                y.data = xr.where(_y > 0, _y, np.nan).data
                 self._plot_profile(y, xdim=xdim, **kwargs)
         else:
             # 1D integral values (e.g. Prad)
@@ -516,7 +556,7 @@ class DataPlotter:
 
     def within_tolerance(self, y, t):
         try:
-            _t = y.t.sel(t=t, method="nearest", tolerance=self.ttol)
+            _t = y.t.sel(t=t, method="nearest", tolerance=self.ttol).data
             return _t
         except Exception as e:
             print(f"Skipping t={t:.3f} - beyond tolerance. \n --> error: {e}")
