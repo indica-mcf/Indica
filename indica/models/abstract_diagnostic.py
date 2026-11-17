@@ -3,6 +3,7 @@ from abc import abstractmethod
 
 from indica import Plasma
 from indica.converters import CoordinateTransform
+from indica.operators.noise import get_noise_model
 
 
 class AbstractDiagnostic(ABC):
@@ -53,3 +54,34 @@ class AbstractDiagnostic(ABC):
             "{} does not implement a "
             "'__call__' method.".format(self.__class__.__name__)
         )
+
+    def apply_noise(self, noise_model: str, noise_config: dict | None = None):
+        """
+        Apply noise to the back-calculated values.
+        The noise is applied to the quantity specified by
+        'target_quantity' in noise_config.
+        Noise models operate on DataArray values in self.bckc.
+        Preserves the original data in a new key with suffix
+          '_clean', e.g. 'brightness_clean' for 'brightness'.
+        """
+        if noise_config is None:
+            noise_config = {}
+
+        noise_operator = get_noise_model(noise_model)
+        config = dict(noise_config)
+        target_quantity = config.pop("target_quantity", None)
+
+        if target_quantity is None:
+            raise ValueError(
+                "noise_config must include 'target_quantity', e.g. "
+                "noise_config={'target_quantity': 'brightness', ...}."
+            )
+        if target_quantity not in self.bckc:
+            raise KeyError(
+                f"'{target_quantity}' not found in model output keys: "
+                f"{list(self.bckc.keys())}"
+            )
+
+        clean = self.bckc[target_quantity]
+        self.bckc[f"{target_quantity}_clean"] = clean
+        self.bckc[target_quantity] = noise_operator(clean, **config)

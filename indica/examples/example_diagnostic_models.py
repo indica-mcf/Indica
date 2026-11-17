@@ -37,6 +37,8 @@ def run_example_diagnostic_model(
 
     bckc = model(
         sum_beamlets=False,
+        noise_model="poisson",
+        noise_config={"target_quantity": "ne"},
     )
 
     if plot and hasattr(model, "plot"):
@@ -236,4 +238,4 @@ def example_lyman_alpha_2d(
 
 
 if __name__ == "__main__":
-    example_passive_spectroscopy(plot=True)
+    plasma, model, bck = example_bolometer(plot=True)

@@ -25,12 +25,23 @@ class PinholeCamera(AbstractDiagnostic):
         name: str,
         power_loss: dict[str, PowerLoss],
         instrument_method: str = "radiation",
+        noise_model: str | None = "poisson",
+        noise_config: dict | None = None,
     ):
         self.transform: LineOfSightTransform
         self.name = name
         self.instrument_method = instrument_method
         self.quantities = READER_QUANTITIES[self.instrument_method]
         self.power_loss = power_loss
+        if noise_config is None:
+            noise_config = {
+                "target_quantity": "brightness",
+                "background": 0,
+            }
+        self.noise_model = noise_model
+        self.noise_config = dict(noise_config)
+        self._call_noise_model = self.noise_model
+        self._call_noise_config = self.noise_config
 
         self.t: DataArray
         self.Te: DataArray
@@ -52,6 +63,11 @@ class PinholeCamera(AbstractDiagnostic):
             bckc["beamlet"] = self.los_integral.beamlet
 
         self.bckc = build_dataarrays(bckc, self.quantities, transform=self.transform)
+        if self._call_noise_model is not None:
+            self.apply_noise(
+                noise_model=self._call_noise_model,
+                noise_config=self._call_noise_config,
+            )
 
     def __call__(
         self,
@@ -63,7 +79,8 @@ class PinholeCamera(AbstractDiagnostic):
         t: LabeledArray = None,
         calc_rho=False,
         sum_beamlets: bool = True,
-        **kwargs,
+        noise_model: str | None = None,
+        noise_config: dict | None = None,
     ):
         """
         Calculate diagnostic measured values
@@ -146,6 +163,12 @@ class PinholeCamera(AbstractDiagnostic):
             sum_beamlets=sum_beamlets,
         )
 
+        self._call_noise_model = (
+            self.noise_model if noise_model is None else noise_model
+        )
+        self._call_noise_config = (
+            self.noise_config if noise_config is None else noise_config
+        )
         self._build_bckc_dictionary()
 
         return self.bckc
