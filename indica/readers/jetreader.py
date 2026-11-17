@@ -41,7 +41,7 @@ class JETReader(DataReader):
         reader_utils: BaseIO = SALUtils,
         server: str = "https://sal.jetdata.eu",
         verbose: bool = False,
-        default_error: float = 0.05,
+        default_error: float = 0.0,
         *args,
         **kwargs,
     ):
@@ -56,7 +56,63 @@ class JETReader(DataReader):
             default_error=default_error,
             **kwargs,
         )
-        self.reader_utils = self.reader_utils(pulse, server)
+        self.machine_conf: JETConf
+        self.reader_utils: SALUtils = self.reader_utils(pulse, server)
+
+    def get_error(
+        self,
+        data: np.ndarray,
+        uid: str,
+        instrument: str,
+        quantity: str,
+        revision: RevisionLike,
+        debug: bool = False,
+    ) -> tuple[np.ndarray, list[np.ndarray], str, str]:
+        possible_errors = self.machine_conf.ERROR_QUANTITIES_PATH.get(quantity, []) + [
+            "d" + quantity.lower(),
+            "d" + quantity[:3].lower(),
+            (quantity[:2].lower() + "lo", quantity[:2].lower() + "hi"),
+            (quantity.lower() + "lo", quantity.lower() + "hi"),
+        ]
+        for quant in possible_errors:
+            if isinstance(quant, str):
+                # If single error quantity exists it's error as a difference from data,
+                # return it
+                try:
+                    return self.reader_utils.get_data(
+                        uid=uid,
+                        instrument=instrument,
+                        quantity=quant,
+                        revision=revision,
+                    )
+                except Exception as e:
+                    if debug:
+                        print(f"get_error error: {quant} ({e})")
+                    continue
+            if isinstance(quant, tuple):
+                # Fetch upper and lower errors, return average of the difference from
+                # the data
+                try:
+                    elo = self.reader_utils.get_data(
+                        uid=uid,
+                        instrument=instrument,
+                        quantity=quant[0],
+                        revision=revision,
+                    )[0]
+                    ehi, meta = self.reader_utils.get_data(
+                        uid=uid,
+                        instrument=instrument,
+                        quantity=quant[1],
+                        revision=revision,
+                    )[0]
+                    dlo = np.abs(data - elo)
+                    dhi = np.abs(ehi - data)
+                    return (dlo + dhi) / 2, *meta
+                except Exception as e:
+                    if debug:
+                        print(f"get_error error: {quant} ({e})")
+                    continue
+        return np.full_like(data, self.default_error[0]), [], "", ""
 
     def _equilibrium(
         self,
@@ -185,9 +241,17 @@ class JETReader(DataReader):
         if data.get("conc") is not None:
             # Convert % conc to fractional conc
             data["conc"] /= 100
+            data["conc_error"] /= 100
         if data.get("angf") is None:
             # Fall back to ANGF if AFCR isn't available
             data["angf"] = self.reader_utils.get_data(
+                data["uid"],
+                data["instrument"],
+                quantity="angf",
+                revision=data["revision"],
+            )[0]
+            data["angf_error"] = self.get_error(
+                data["angf"],
                 data["uid"],
                 data["instrument"],
                 quantity="angf",
@@ -201,7 +265,15 @@ class JETReader(DataReader):
                 quantity="zfeq",
                 revision=data["revision"],
             )[0]
+            data["zeff_avrg_error"] = self.get_error(
+                data["zeff_avrg"],
+                data["uid"],
+                data["instrument"],
+                quantity="zfeq",
+                revision=data["revision"],
+            )[0]
         data["vtor"] = data["angf"] * data["R"]
+        data["vtor_error"] = data["angf_error"] * data["R"]
         transform = assign_transect_transform(data)
         return data, transform
 
