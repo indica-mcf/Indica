@@ -17,12 +17,18 @@ from indica.utilities import build_dataarrays
 
 
 class EmissionType:
-    """Base class for defining ways to represent emission"""
+    """Class to track/enforce units and dimensions of emission"""
 
-    def __init__(self, dims: List, units: str):
+    def __init__(
+        self,
+        dims: List,
+        local_emission_units: str,
+        line_integrated_emission_units: str,
+    ):
         self.dims = []
         self.set_dim_names(*dims)
-        self.units = units
+        self.local_emission_units = local_emission_units
+        self.line_integrated_emission_units = line_integrated_emission_units
 
     def set_dim_names(self, *args):
         for dim in args:
@@ -31,19 +37,28 @@ class EmissionType:
                 self.dims = list(set(self.dims))
 
 
-class WavelengthResolvedEmission(EmissionType):
-    def __init__(self):
-        super().__init__(["wavelength", "channel"], "W.m-3.nm-1")
-
-
 class LocalEmissionModel(ABC):
     """Base class for calculating emission from specific process at a particular
     point in the plasma
     """
 
-    name: str = ""
+    def __init__(self, name: str):
+        self._name = name
+
     plasma: Plasma
-    emission_type: EmissionType
+
+    @property
+    def name(self) -> str:
+        return "local_" + self._name
+
+    @property
+    @abstractmethod
+    def emission_type(self) -> EmissionType:
+        pass
+
+    @property
+    def units(self):
+        return self.emission_type.local_emission_units
 
     def set_plasma(self, plasma: Plasma):
         """Assign plasma class"""
@@ -70,12 +85,22 @@ class LoSEmission:
 
     def __init__(
         self,
-        name: str,
+        local_emission_model: LocalEmissionModel,
+        transform: LineOfSightTransform,
+        integration_method: str,
     ):
-        self.name = name
+        self.set_local_emission_model(local_emission_model)
+        self.set_transform(transform, integration_method)
+
         plasma: Plasma
-        transform: LineOfSightTransform
-        local_emission_model: LocalEmissionModel
+
+    @property
+    def name(self) -> str:
+        return "los_" + self.local_emission_model._name
+
+    @property
+    def units(self):
+        return self.emission_type.line_integrated_emission_units
 
     def set_plasma(self, plasma: Plasma):
         """
@@ -106,7 +131,6 @@ class LoSEmission:
         if hasattr(self, "plasma"):
             local_emission_model.set_plasma(self.plasma)
 
-        # Add emission model
         self.local_emission_model = local_emission_model
 
     def __call__(
@@ -167,6 +191,21 @@ class BeamSpectrometer(AbstractDiagnostic):
         for k, v in self._data.items():
             setattr(self, k, v)
 
+    def set_transform(
+        self,
+        transform: CoordinateTransform,
+        integration_methods: Dict[str, str] = {},
+    ):
+        self.transform = transform
+        for k, v in self.los_emission_models.items():
+            if k in integration_methods.keys():
+                v.set_transform(transform, integration_methods[k])
+            else:
+                raise KeyError(
+                    "An integration method must be supplied for each line of sight "
+                    + f"emission model, including {k}"
+                )
+
     def set_plasma(self, plasma: Plasma):
         """Assign plasma class to all emission models"""
         self.plasma = plasma
@@ -179,6 +218,11 @@ class BeamSpectrometer(AbstractDiagnostic):
         integration_method: str = "integrate_on_los",
     ):
         """Assign an emission model"""
+
+        if not hasattr(self, "transform"):
+            raise AttributeError(
+                "Please set a transform before assigning los emission models"
+            )
 
         if not hasattr(self, "emission_type"):
             self.emission_type = local_emission_model.emission_type
@@ -193,10 +237,12 @@ class BeamSpectrometer(AbstractDiagnostic):
             raise TypeError(message)
 
         # Set up los emission model
-        los_emission_model = LoSEmission("LoS_" + local_emission_model.name)
-        los_emission_model.set_local_emission_model(local_emission_model)
+        los_emission_model = LoSEmission(
+            local_emission_model,
+            self.transform,
+            integration_method,
+        )
         los_emission_model.set_plasma(self.plasma)
-        los_emission_model.set_transform(self.transform, integration_method)
 
         # Add emission model to spectrometer
         self.los_emission_models.update({los_emission_model.name: los_emission_model})

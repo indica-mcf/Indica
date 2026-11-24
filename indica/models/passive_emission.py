@@ -4,6 +4,7 @@ from xarray import DataArray
 
 from indica import physics as ph
 from indica.configs.readers.adasconf import ADF15
+from indica.models.beam_spectrometer import EmissionType
 from indica.models.beam_spectrometer import LocalEmissionModel
 from indica.numpy_typing import LabeledArray
 from indica.readers import ADASReader
@@ -85,15 +86,26 @@ class PassiveEmission(LocalEmissionModel):
 
     def __init__(
         self,
-        name: str,
         pecs: dict,
         wavelength: np.array,
     ):
 
-        self.name = name
+        # Define the units and dimensions of the emission
+        self._emission_type = EmissionType(
+            ["wavelength", "channel"],
+            "W.m-3.sr-1.nm-1",
+            "W.m-2.sr-1.nm-1",
+        )
+        super().__init__("passive_emission")
+
+        # Initialise the other params
         self.pecs = pecs
         self.wavelength = xr.DataArray(wavelength, {"wavelength": wavelength})
         self.intensity: dict[str, xr.DataArray] = None
+
+    @property
+    def emission_type(self):
+        return self._emission_type
 
     def _transition_matrix(self, element: str = "ar") -> xr.DataArray:
         """Returns transition matrix used to convert
