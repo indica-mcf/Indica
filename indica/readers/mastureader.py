@@ -122,7 +122,7 @@ class MASTUReader(DataReader):
             data["kernel_index"] = np.array(range((2 * KERNEL_HALFPIX) + 1))
 
         # Deduce which (if any) quantities are missing from database results
-        quantities = READER_QUANTITIES["spectrometer"]
+        quantities = READER_QUANTITIES["beam_spectrometer"]
         absent_quantities = [x for x in quantities if x not in data.keys()]
 
         # Wrap up if nothing is missing
@@ -144,7 +144,7 @@ class MASTUReader(DataReader):
         act_calib = ACTCalib(self.pulse, kernel_halfpix=KERNEL_HALFPIX)
         for aq in absent_quantities:
             try:
-                data_path = self.machine_conf.QUANTITIES_PATH["spectrometer"][aq]
+                data_path = self.machine_conf.QUANTITIES_PATH["beam_spectrometer"][aq]
             except KeyError:
                 continue
             try:

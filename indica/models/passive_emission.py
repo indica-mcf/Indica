@@ -4,7 +4,7 @@ from xarray import DataArray
 
 from indica import physics as ph
 from indica.configs.readers.adasconf import ADF15
-from indica.models.spectrometer import LocalEmissionModel
+from indica.models.beam_spectrometer import LocalEmissionModel
 from indica.numpy_typing import LabeledArray
 from indica.readers import ADASReader
 from indica.utilities import get_element_info
@@ -130,8 +130,8 @@ class PassiveEmission(LocalEmissionModel):
 
             _emission = ph.doppler_broaden(
                 self.wavelength,
-                self.intensity,
-                self.intensity.wavelength,
+                self.intensity[element],
+                self.intensity[element].wavelength,
                 e_info[1],  # atomic mass
                 self.Ti,  # + self.instrumental_broadening,
             )

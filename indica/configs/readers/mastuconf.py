@@ -6,9 +6,9 @@ class MASTUConf(MachineConf):
         self.MACHINE_DIMS = ((0.1, 2.0), (-2.2, 2.2))
         self.INSTRUMENT_METHODS = {
             "magnetics_efit": "equilibrium",
-            "cel3": "spectrometer",
-            "cel4b": "spectrometer",
-            "cel4c": "spectrometer",
+            "cel3": "beam_spectrometer",
+            "cel4b": "beam_spectrometer",
+            "cel4c": "beam_spectrometer",
         }
         self.QUANTITIES_PATH = {
             "equilibrium": {
