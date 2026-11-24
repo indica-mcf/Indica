@@ -19,15 +19,21 @@ from indica.utilities import build_dataarrays
 class EmissionType:
     """Base class for defining ways to represent emission"""
 
-    def __init__(self, coords: List):
-        self.coords = coords
+    def __init__(self, dims: List, units: str):
+        self.dims = []
+        self.set_dim_names(*dims)
+        self.units = units
 
-    name: str = ""
+    def set_dim_names(self, *args):
+        for dim in args:
+            if dim not in self.dims:
+                self.dims.append(dim)
+                self.dims = list(set(self.dims))
 
-    def set_coord_names(self, *args):
-        for coord in args:
-            if coord not in self.coords:
-                self.coords = list(set(self.coords.append(coord)))
+
+class WavelengthResolvedEmission(EmissionType):
+    def __init__(self):
+        super().__init__(["wavelength", "channel"], "W.m-3.nm-1")
 
 
 class LocalEmissionModel(ABC):

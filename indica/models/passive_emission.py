@@ -80,7 +80,8 @@ def format_pecs(
 
 
 class PassiveEmission(LocalEmissionModel):
-    """Define a local passive emission model using only flux surface quantity inputs"""
+    """Define a local passive emission model using only flux surface
+    quantity inputs"""
 
     def __init__(
         self,
