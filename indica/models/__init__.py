@@ -1,3 +1,4 @@
+from indica.models.beam_spectrometer import BeamSpectrometer
 from indica.models.charge_exchange_spectrometer import ChargeExchangeSpectrometer
 from indica.models.diode_filters import BremsstrahlungDiode
 from indica.models.equilibrium_reconstruction import EquilibriumReconstruction
@@ -11,7 +12,8 @@ from indica.models.thomson_scattering import ThomsonScattering
 MODELS_METHODS = {
     "interferometry": Interferometer,
     "charge_exchange": ChargeExchangeSpectrometer,
-    "spectrometer": PassiveSpectrometer,
+    "passive_spectrometer": PassiveSpectrometer,
+    "beam_spectrometer": BeamSpectrometer,
     "radiation": PinholeCamera,
     "thomson_scattering": ThomsonScattering,
     "helike_spectroscopy": HelikeSpectrometer,
@@ -21,6 +23,7 @@ MODELS_METHODS = {
 __all__ = [
     "PinholeCamera",
     "PassiveSpectrometer",
+    "BeamSpectrometer",
     "ChargeExchangeSpectrometer",
     "BremsstrahlungDiode",
     "EquilibriumReconstruction",

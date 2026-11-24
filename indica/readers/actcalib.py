@@ -209,7 +209,7 @@ class ACTCalib(BaseIO):
                 row = vm.spectrometerdata[spectrometer].config.query(qs).iloc[0]
                 channel_direction = [None] * 3
                 for index, dim in enumerate(dimlist):
-                    channel_direction[index] = row[f"VslScr{dim}"]
+                    channel_direction[index] = float(row[f"VslScr{dim}"])
                 direction.append(channel_direction)
             view_data.update({"Direction": direction})
 

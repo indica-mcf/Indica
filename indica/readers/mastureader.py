@@ -17,6 +17,7 @@ from indica.available_quantities import READER_QUANTITIES
 from indica.configs.readers.machineconf import MachineConf
 from indica.configs.readers.mastuconf import MASTUConf
 from indica.converters import CoordinateTransform
+from indica.converters import LineOfSightTransform
 from indica.numpy_typing import RevisionLike
 from indica.readers.actcalib import ACTCalib
 from indica.readers.actcalib import ACTCalibError
@@ -93,7 +94,7 @@ class MASTUReader(DataReader):
         transform = assign_trivial_transform()
         return data, transform
 
-    def _cx_spectrometer(
+    def _beam_spectrometer(
         self,
         data: dict,
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
@@ -112,9 +113,6 @@ class MASTUReader(DataReader):
         instrument = data["instrument"]
         revision = data["revision"]
 
-        # Assign transform
-        transform = assign_trivial_transform()
-
         # Assign pixel number
         if "wavelength" in data.keys():
             data["index"] = np.array(range(np.shape(data["wavelength"])[1]))
@@ -124,17 +122,31 @@ class MASTUReader(DataReader):
             data["kernel_index"] = np.array(range((2 * KERNEL_HALFPIX) + 1))
 
         # Deduce which (if any) quantities are missing from database results
-        quantities = READER_QUANTITIES["cx_spectrometer"]
+        quantities = READER_QUANTITIES["spectrometer"]
         absent_quantities = [x for x in quantities if x not in data.keys()]
 
         # Wrap up if nothing is missing
         if len(absent_quantities) == 0:
+
+            transform = LineOfSightTransform(
+                [data["location"][0]] * len(data["channel"]),
+                [data["location"][1]] * len(data["channel"]),
+                [data["location"][2]] * len(data["channel"]),
+                data["direction"][0],
+                data["direction"][1],
+                data["direction"][2],
+                machine_dimensions=data["machine_dims"],
+            )
+
             return data, transform
 
         # Look in act_calib for missing items
         act_calib = ACTCalib(self.pulse, kernel_halfpix=KERNEL_HALFPIX)
         for aq in absent_quantities:
-            data_path = self.machine_conf.QUANTITIES_PATH["cx_spectrometer"][aq]
+            try:
+                data_path = self.machine_conf.QUANTITIES_PATH["spectrometer"][aq]
+            except KeyError:
+                continue
             try:
                 data[aq] = act_calib.get_vm_data(
                     construct_act_calib_path(data_path),
@@ -145,6 +157,17 @@ class MASTUReader(DataReader):
             except ACTCalibError as e:
                 e.add_note(f"Occured while reading {aq} ({data_path}) for {instrument}")
                 raise
+
+        # Assign transform
+        transform = LineOfSightTransform(
+            [data["location"][0]] * len(data["channel"]),
+            [data["location"][1]] * len(data["channel"]),
+            [data["location"][2]] * len(data["channel"]),
+            data["direction"][0],
+            data["direction"][1],
+            data["direction"][2],
+            machine_dimensions=data["machine_dims"],
+        )
 
         return data, transform
 

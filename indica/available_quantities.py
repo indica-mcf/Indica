@@ -40,7 +40,7 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
         "spectra_raw": ("spectra_raw", ["t", "channel", "wavelength"]),
         "spectra": ("spectra", ["t", "channel", "wavelength"]),
     },
-    "cx_spectrometer": {
+    "beam_spectrometer": {
         "t": ("t", []),
         "channel": ("channel", []),
         "location": ("location", []),
@@ -52,10 +52,9 @@ READER_QUANTITIES: Dict[str, Dict[str, Tuple[str, list]]] = {
             "spectrometer_instrument_function",
             ["channel", "kernel_index"],
         ),
-        "pvb_background": ("spectra_raw", ["t", "channel", "index"]),
-        "bnb_background": ("spectra_raw", ["t", "channel", "index"]),
-        "spectrometer_counts": ("spectra_raw", ["t", "channel", "index"]),
-        "sensitivity": ("radiance_sensitivity", ["channel", "index"]),
+        "spectra_raw": ("spectra_raw", ["t", "channel", "index"]),
+        "spectra": ("spectra", ["t", "channel", "wavelength"]),
+        "sensitivity": ("brightness_sensitivity", ["channel", "index"]),
     },
     "charge_exchange": {
         "t": ("t", ["t"]),
