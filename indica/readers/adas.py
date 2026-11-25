@@ -12,7 +12,9 @@ from urllib.request import pathname2url
 from urllib.request import urlretrieve
 
 import numpy as np
+from xarray import concat
 from xarray import DataArray
+from xarray import Dataset
 
 from indica import BaseIO
 from indica.utilities import assign_datatype
@@ -127,6 +129,118 @@ class ADASReader(BaseIO):
         )
         assign_datatype(_adf11, quantity)
         return _adf11
+
+    def get_adf12(
+        self,
+        element: str,
+        charge: str,
+        year: str,
+        beam: str = "h",
+    ) -> Dataset:
+        """Fetch ADF12 data"""
+
+        def convert_float(_line: str) -> list[float]:
+            """Split line and convert float values from str -> float, including if using
+            D for scientific notation.
+
+            """
+            outp = []
+            for val in _line.split():
+                _val = val.replace("D", "E")
+                try:
+                    outp.append(float(_val))
+                except ValueError:
+                    continue
+            return outp
+
+        filename = pathname2url(
+            f"qef{year}][{beam}/qef{year}][{beam}_{element}{charge}.dat"
+        )
+        # Expecting ADF12s to always be in the same parameter order
+        parmspec = [
+            dict(name="ENER", datatype="beam_energy"),
+            dict(name="TIEV", datatype="ion_temperature"),
+            dict(name="DENSI", datatype="electron_density"),
+            dict(name="ZEFF", datatype="effective_charge"),
+            dict(name="BMAG", datatype="total_magnetic_field"),
+        ]
+        qef, isel, transition = [], [], []
+        with self._get_file("adf12", filename) as f:
+            nsel = int(f.readline().strip())
+            for _ in range(1, nsel + 1):
+                header = f.readline()
+                # Extract ISEL from block header
+                while (_isel := re.search(r"(?:ISEL|isel)=\s*(.*)", header)) is None:
+                    header = f.readline()
+                    if header == "":
+                        raise UserWarning(f"EOF reached, still inside loop {nsel=}")
+                isel.append(int(_isel.group(1)))
+                # Try and extract transition to save as extra information
+                if (
+                    _transition := re.search(
+                        r"((?:N|n)=\s*[0-9]+\s*-\s*[0-9]+)",
+                        header,
+                    )
+                ) is not None:
+                    transition.append(
+                        str(_transition.group(0)).replace(" ", "").upper()
+                    )
+                else:
+                    transition.append("N=?-?")
+                # Reference QEFF at reference parameters, convert cm^3 -> m^3
+                qefref = float(f.readline().split()[0].replace("D", "E")) * 10**-6
+                parmref = [
+                    float(val.replace("D", "E")) for val in f.readline().split()[:-1]
+                ]
+                nparmsc = [int(val) for val in f.readline().split()[:-1]]
+                _qef = DataArray(qefref, name="QEFF")
+                for pspec, pref, nparm in zip(parmspec, parmref, nparmsc):
+                    name = str(pspec["name"])
+                    dim = []
+                    # ADF12s have maximum 6 values per line, either padded with 0 (old
+                    # style) or blank (new style)
+                    nlines = int(nparm // 6)
+                    if nparm % 6:
+                        nlines += 1
+                    # Read dimension array first
+                    for i in range(nlines):
+                        line = f.readline()
+                        if i == 0:
+                            # Skip through all padding lines (old style)
+                            while np.all(np.asarray(convert_float(line)) == 0.0):
+                                line = f.readline()
+                            assert name in line  # Check we're in the right place
+                        dim.extend(convert_float(line))
+                    dim = np.asarray(dim[:nparm])
+                    if pspec["datatype"] == "electron_density":
+                        dim *= 10.0**6  # cm^-3 -> m^-3
+                    quant = []
+                    # Read quantity associated with dimension
+                    for i in range(nlines):
+                        line = f.readline()
+                        if i == 0:
+                            # Skip through all padding lines (old style)
+                            while np.all(np.asarray(convert_float(line)) == 0.0):
+                                line = f.readline()
+                            assert f"Q{name}" in line  # Check we're in the right place
+                        quant.extend(convert_float(line))
+                    quant = np.asarray(quant[:nparm]) * 10.0**-6  # cm^3 -> m^3
+
+                    # Add a new dimension to `_qef`, where all values are at reference
+                    # qeff. Multiply by 1D array of quant / reference to set all values
+                    # on that dimension to quant and adjust other off-reference values
+                    # by this amount.
+                    _qef = _qef.expand_dims({pspec["datatype"]: dim}, axis=-1).copy()
+                    _qef *= quant / qefref
+                    assign_datatype(_qef[pspec["datatype"]], str(pspec["datatype"]))
+                qef.append(_qef)
+        qef = (
+            concat(qef, dim="isel")
+            .assign_coords({"isel": ("isel", isel), "transition": ("isel", transition)})
+            .copy()
+        )
+        assign_datatype(qef, "qef")
+        return qef
 
     def get_adf15(
         self,
@@ -372,7 +486,9 @@ class ADASReader(BaseIO):
             f.readline()  # Separator
             line = f.readline().split()
             neb, ndt = int(line[0]), int(line[1])
-            tref = float(re.match(r"/TREF=(.*)", line[2]).group(1))
+            if (tref := re.match(r"/TREF=(.*)", line[2])) is None:
+                raise UserWarning(f"Failed to find TREF in {line[2]}")
+            tref = float(tref.group(1))
             f.readline()  # Separator
             eb = []
             for _ in range(math.ceil(neb / 8)):
@@ -401,23 +517,26 @@ class ADASReader(BaseIO):
             f.readline()  # Separator
             line = f.readline().split()
             ntt = int(line[0])
-            eref = float(re.match(r"/EREF=(.*)", line[1]).group(1))
-            dref = float(re.match(r"/NREF=(.*)", line[2]).group(1)) * 10**6
+            if (eref := re.match(r"/EREF=(.*)", line[1])) is None:
+                raise UserWarning(f"Failed to find EREF in {line[1]}")
+            eref = float(eref.group(1))
+            if (dref := re.match(r"/NREF=(.*)", line[2])) is None:
+                raise UserWarning(f"Failed to find DREF in {line[2]}")
+            dref = float(dref.group(1)) * 10.0**6
             f.readline()  # Separator
             tt = []
             for _ in range(math.ceil(ntt / 8)):
                 tt.extend(f.readline().split())
             tt = np.asarray(tt, dtype=float)
-            sv = sv.expand_dims({"target_temperature": tt}).copy()
+            sv = sv.expand_dims({"target_temperature": tt}, axis=-1).copy()
             f.readline()  # Separator
             svt = []
             for _ in range(math.ceil(ntt / 8)):
                 svt.extend(f.readline().split())
             svt = np.asarray(svt, dtype=float) * 10**-6
-            for i, t in enumerate(tt):
-                sv.loc[t, :, :] *= svt[i] / sv.sel(
-                    beam_energy=eref, target_density=dref, target_temperature=tref
-                )
+            sv *= svt / float(
+                sv.sel(beam_energy=eref, target_density=dref, target_temperature=tref)
+            )
 
         assign_datatype(sv.target_temperature, "target_temperature")
         assign_datatype(sv.target_density, "target_density")
