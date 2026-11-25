@@ -2,7 +2,7 @@ import platform
 
 computer_name = platform.node()
 IP_ADDRESS = ""
-PORT = "8000"
+PORT = "####"
 
 if computer_name == "COMPUTER_NAME":
     mdsplus_credentials = {"url": f"tcp://{IP_ADDRESS}:{PORT}"}

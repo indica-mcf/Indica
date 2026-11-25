@@ -26,6 +26,8 @@ repos:
       additional_dependencies:
       - flake8-import-order
       name: "Check Code Style Using flake8"
+      files: \.py$
+      args: ['--max-line-length=120', '--extend-ignore=E401,E402,I,F841']
 
 
 #TODO: fix this

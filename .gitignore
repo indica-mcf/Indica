@@ -2,8 +2,7 @@ doc/_build
 *~
 *.pyc
 *.ipynb
-venv/
-.hypothesis/
+.venv/
 .coverage
 indica.egg-info/
 dist/

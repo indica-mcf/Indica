@@ -1,4 +1,3 @@
-
 from .sql_database import SQLDatabase
 
 __all__ = [

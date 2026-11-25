@@ -1,7 +1,11 @@
+"""Filter configuration for rejecting nonphysical values before processing."""
+
 import numpy as np
 
 
 class filter_conf:
+    """Container for data-quality filters applied during processing."""
+
     def __init__(self):
         self.filter_values = {
             "cxff_pi": {"ti": (0, np.inf), "vtor": (0, np.inf)},

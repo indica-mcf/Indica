@@ -3,7 +3,7 @@ SQL_USERNAME = ""
 PASSWORD = ""
 HOST = ""
 DATABASE_NAME = ""
-PORT = "13306"
+PORT = "#####"
 
 sql_credentials = {
     f"{DATABASE_KEY}": {
