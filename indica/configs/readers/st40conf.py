@@ -59,7 +59,7 @@ class ST40Conf(MachineConf):
                 "R_geo": ".geo_axis.r", # rgeo
                 "z_geo": ".geo_axis.z", # zgem
                 "Ip": ".global:ip", # ipla
-                "w_mhd": ".global.energy_mhd", # wp
+                "W_mhd": ".global.energy_mhd", # wp
                 "data_q": ".data_q.score_1d",
                 "psi_norm": ".profiles_1d.psi_norm.psi_norm", # xpsin
                 "R": ".profiles_2d.r_z.r",
