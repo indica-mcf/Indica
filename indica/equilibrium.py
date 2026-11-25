@@ -72,9 +72,10 @@ class Equilibrium:
                 )
 
         # Calculate volume and area if ajac and vjac are given
-        if hasattr(self, "vjac") and hasattr(self, "ajac"):
-            dpsin = self.xpsin[1] - self.xpsin[0]
+        dpsin = self.xpsin[1] - self.xpsin[0]
+        if not (hasattr(self, "volume")) and hasattr(self, "vjac"):
             self.volume = (self.vjac * dpsin).cumsum("rhop")
+        if not (hasattr(self, "area")) and hasattr(self, "ajac"):
             self.area = (self.ajac * dpsin).cumsum("rhop")
 
         # Calculate upper and lower boundaries
