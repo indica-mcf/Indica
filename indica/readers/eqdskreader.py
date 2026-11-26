@@ -27,38 +27,38 @@ class EQDSKReader:
         psin = np.linspace(0, 1, gf.nx)
         psirz = DataArray(data=gf.psirz, coords={"R": R, "z": z}, dims=("R", "z"))
         xpsin = (psirz - gf.psi_axis) / (gf.psi_boundary - gf.psi_axis)
-        _rmj = DataArray(
-            R, coords={"xpsin": xpsin.interp(z=gf.zmagx).data}, dims=("xpsin",)
+        r_psin = DataArray(
+            R, coords={"psin": xpsin.interp(z=gf.zmagx).data}, dims=("psin",)
         )
-        rmjo = (
-            _rmj.where((_rmj >= gf.rmaxis), drop=True)
-            .drop_duplicates("xpsin", keep="first")
-            .interp(xpsin=psin)
+        r_inboard = (
+            r_psin.where((r_psin >= gf.rmaxis), drop=True)
+            .drop_duplicates("psin", keep="first")
+            .interp(psin=psin)
         )
-        rmji = (
-            _rmj.where((_rmj < gf.rmaxis), drop=True)
-            .drop_duplicates("xpsin", keep="last")
-            .interp(xpsin=psin)
+        r_outboard = (
+            r_psin.where((r_psin < gf.rmaxis), drop=True)
+            .drop_duplicates("psin", keep="last")
+            .interp(psin=psin)
         )
-        fpol = DataArray(gf.fpol, coords={"xpsin": psin}, dims=("xpsin",))
+        fpol = DataArray(gf.fpol, coords={"psin": psin}, dims=("psin",))
         qpsi = gf.qpsi
-        ftor = xr.zeros_like(fpol)
+        phi = xr.zeros_like(fpol)
         for i, df in enumerate(np.diff(fpol)):
-            ftor[i + 1] = ftor[i] + (0.5 * (qpsi[i] + qpsi[i + 1]) * df)
+            phi[i + 1] = phi[i] + (0.5 * (qpsi[i] + qpsi[i + 1]) * df)
         return {
             "R": psirz.R,
             "z": psirz.z,
             "t": DataArray([t]),
-            "rmjo": rmjo.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
-            "rmji": rmji.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
-            "f": fpol.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "R_inboard": r_inboard.interp(psin=psin).expand_dims({"t": [t]}),
+            "R_outboard": r_outboard.interp(psin=psin).expand_dims({"t": [t]}),
+            "f": fpol.interp(psin=psin).expand_dims({"t": [t]}),
             "psi": psirz.T.expand_dims({"t": [t]}),
-            "xpsin": DataArray(psin, coords={"xpsin": psin}),
+            "psi_norm": DataArray(psin, coords={"psin": psin}),
             "psi_boundary": DataArray(gf.psi_boundary),
             "psi_axis": DataArray(gf.psi_axis),
-            "ftor": ftor.interp(xpsin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
-            "rbnd": DataArray(gf.rbdry, dims=("index",)).expand_dims({"t": [t]}),
-            "zbnd": DataArray(gf.zbdry, dims=("index",)).expand_dims({"t": [t]}),
-            "rmag": DataArray(gf.rmagx).expand_dims({"t": [t]}),
-            "zmag": DataArray(gf.zmagx).expand_dims({"t": [t]}),
+            "phi": phi.interp(psin=np.linspace(0, 1, gf.nx)).expand_dims({"t": [t]}),
+            "R_boundary": DataArray(gf.rbdry, dims=("index",)).expand_dims({"t": [t]}),
+            "z_boundary": DataArray(gf.zbdry, dims=("index",)).expand_dims({"t": [t]}),
+            "R_mag": DataArray(gf.rmagx).expand_dims({"t": [t]}),
+            "z_mag": DataArray(gf.zmagx).expand_dims({"t": [t]}),
         }
