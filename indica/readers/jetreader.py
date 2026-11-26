@@ -64,7 +64,7 @@ class JETReader(DataReader):
     ) -> Tuple[Dict[str, Any], CoordinateTransform]:
         data["t"] = data["rbnd_dimensions"][0]
         data["index"] = data["rbnd_dimensions"][1]
-        data["xpsin"] = data["f_dimensions"][1]
+        data["psi_norm"] = data["f_dimensions"][1]
         uid = data["uid"]
         instrument = data["instrument"]
         revision = data["revision"]

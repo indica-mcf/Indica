@@ -50,54 +50,32 @@ class ST40Conf(MachineConf):
             "solps": "solps",
         }
         self.QUANTITIES_PATH = {
-            "equilibrium": {  # EFIT
+            "equilibrium": {  # GSFIT & new equilibrium structure
                 "t": ":time",
-                "xpsin": ".profiles.psi_norm:xpsn",
-                "R": ".psi2d:rgrid",
-                "z": ".psi2d:zgrid",
-                "f": ".profiles.psi_norm:f",
-                "psi_axis": ".global:faxs",
-                "psi_boundary": ".global:fbnd",
-                "ftor": ".profiles.psi_norm:ftor",
-                "rmji": ".profiles.psi_norm:rmji",
-                "rmjo": ".profiles.psi_norm:rmjo",
-                "psi": ".psi2d:psi",
-                "vjac": ".profiles.psi_norm:vjac",
-                "ajac": ".profiles.psi_norm:ajac",
-                "rmag": ".global:rmag",
-                "rgeo": ".global:rgeo",
-                "rbnd": ".p_boundary:rbnd",
-                "zmag": ".global:zmag",
-                "zbnd": ".p_boundary:zbnd",
-                "ipla": ".constraints.ip:cvalue",
-                "wp": ".virial:wp",
-                "df": ".constraints.df:cvalue",
+                "psi_axis": ".global:psi_mag_axis",
+                "psi_boundary": ".boundary.psi",
+                "R_mag": ".global.mag_axis.r", # rmag
+                "z_mag": ".global.mag_axis.z", # zmag
+                "R_geo": ".geo_axis.r", # rgeo
+                "z_geo": ".geo_axis.z", # zgem
+                "Ip": ".global:ip", # ipla
+                "W_mhd": ".global.energy_mhd", # wp
                 "data_q": ".data_q.score_1d",
+                "psi_norm": ".profiles_1d.psi_norm.psi_norm", # xpsin
+                "R": ".profiles_2d.r_z.r",
+                "z": ".profiles_2d.r_z.z",
+                "f": ".profiles_1d.psi_norm.f",
+                "phi": ".profiles_1d.psi_norm.phi", # ftor
+                "R_inboard": ".profiles_1d.psi_norm.r_inboard", # rmji
+                "R_outboard": ".profiles_1d.psi_norm.r_outboard", # rmjo
+                "psi": ".profiles_2d.r_z.psi",
+                "volume": ".profiles_1d.psi_norm.vol",
+                "area": ".profiles_1d.psi_norm.area",
+                "dvol_dpsi_n": ".profiles_1d.psi_norm.dvol_dpsi_n", # vjac
+                "darea_dpsi_n": ".profiles_1d.psi_norm.darea_dpsi_n", # ajac
+                "R_boundary": ".boundary.outline.r", # rbnd
+                "z_boundary": ".boundary.outline.z", #zbnd
             },
-            # "equilibrium": { # GSFIT
-            #     "t": ":time",
-            #     "xpsin": ".profiles.rho:psi_n",
-            #     "R": ".two_d:rgrid",
-            #     "z": ".two_d:zgrid",
-            #     "f": ".profiles.rho:f",
-            #     "psi_axis": ".global:psi_a",
-            #     "psi_boundary": ".global:psi_b",
-            #     "ftor": ".profiles.rho:flux_tor",
-            #     "rmji": ".profiles.rho:rmji",
-            #     "rmjo": ".profiles.rho:rmjo",
-            #     "psi": ".two_d:psi",
-            #     "volume": ".profiles.rho:vol",
-            #     "area": ".profiles.rho:area",
-            #     "rmag": ".global:rmag",
-            #     "rgeo": ".global:rgeo",
-            #     "zmag": ".global:zmag",
-            #     "rbnd": ".p_boundary:rbnd",
-            #     "zbnd": ".p_boundary:zbnd",
-            #     "ipla": ".global:ip",
-            #     "wp": ".global:wmhd",
-            #     "df": ".constraints.df:cvalue",
-            #     "data_q": ".data_q.score_1d",
-            # },
             "helike_spectroscopy": {
                 "t": ":time",
                 "wavelength": ":wavelen",
